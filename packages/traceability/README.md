@@ -6,7 +6,7 @@ Framework-agnostic **spec ↔ impl ↔ feature** traceability engine for BDD beh
 tests. It detects drift deterministically (no AI) using SHA-256 hashes of your
 spec sections, implementation files, and `.feature` files.
 
-Part of [**bdd-kit**](https://github.com/Pound79/bdd-kit). Dependency-free, pure Node.
+Part of [**bdd-kit**](https://github.com/Pound79/bdd-kit). Minimal dependencies (only `yaml`), pure Node.
 
 ## Install
 

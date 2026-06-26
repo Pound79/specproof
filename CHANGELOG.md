@@ -34,7 +34,7 @@ Initial public release.
 
 ### Added
 
-- `@pound79/bdd-traceability` — framework-agnostic, dependency-free spec ↔ impl
+- `@pound79/bdd-traceability` — framework-agnostic, minimal-dependency spec ↔ impl
   ↔ feature traceability engine with SHA-256 drift detection, scenario census
   (`stats`), and configurable heading levels and tags.
 - `@pound79/bdd-kit` — `bdd-kit init` scaffolder for Playwright (web) and

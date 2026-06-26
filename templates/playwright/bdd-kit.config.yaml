@@ -51,6 +51,7 @@ layout:
   stepFileSuffix: ".steps.ts"             # [optional] naming convention for step files
   stepFileExt: ".ts"                      # [required] step file language extension
   pagesDir: "packages/e2e/src/pages"      # [required] Page Object Model directory
+  textConstants: "packages/e2e/src/config/text.ts"  # [required] UI string constants file
   manifest: "packages/e2e/traceability.yaml"  # [required] traceability manifest path
   specDir: "docs"                         # [required] design rationale docs root
   implGlobs:                              # [required] implementation files tracked by traceability

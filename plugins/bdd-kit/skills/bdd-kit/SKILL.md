@@ -39,7 +39,7 @@ description: >
    - **無い** → `bdd-setup` ムーブメントを駆動して導入する: `npx -y @pound79/bdd-kit detect --json`
      で adapter を検出（曖昧なら「ブラウザで操作する Web アプリですか？」と 1 問だけ確認）→
      `npx -y @pound79/bdd-kit init --adapter <adapter> --dir <dir>` で scaffold →
-     config をリポ実態に合わせて調整（baseUrl / language / layout / projects / environments）。
+     config をリポの実態に合わせて調整（baseUrl / language / layout / projects / environments）。
      **重い副作用（npm install 等）は実行せず案内のみ**。
 
 ## 1. モード検出（brownfield / greenfield）

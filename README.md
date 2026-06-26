@@ -19,7 +19,7 @@ by a single `bdd-kit.config.yaml` in the consumer repo.
    `plugins/bdd-kit/skills/` (bootstrap / new-feature / sync / implement).
    Framework-agnostic and config-driven.
 2. **Traceability engine** — `@pound79/bdd-traceability`
-   (`packages/traceability/`): a dependency-free, pure-Node tool that detects
+   (`packages/traceability/`): a minimal-dependency, pure-Node tool that detects
    drift via SHA-256 file hashes of spec / impl / feature.
 3. **Scaffold templates** — `templates/playwright/` (web) and
    `templates/flutter/` (bdd_widget_test + Patrol), unpacked by the

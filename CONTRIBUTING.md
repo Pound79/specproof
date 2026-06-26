@@ -14,7 +14,7 @@ npm run build     # build publishable packages
 
 This is an npm-workspaces monorepo:
 
-- `packages/traceability/` — `@pound79/bdd-traceability`, the dependency-free
+- `packages/traceability/` — `@pound79/bdd-traceability`, the minimal-dependency
   drift-detection engine.
 - `cli/` — `@pound79/bdd-kit`, the `bdd-kit init` scaffolder.
 - `plugins/bdd-kit/` — the Claude Code plugin (skills).
@@ -25,7 +25,7 @@ This is an npm-workspaces monorepo:
 
 1. Fork the repo and create a branch (`feat/...`, `fix/...`, `docs/...`).
 2. Write tests first where it makes sense — the project ships with a substantial
-   test suite (191 tests) and aims to keep coverage high.
+   test suite and aims to keep coverage high.
 3. Make sure `npm run typecheck`, `npm test`, and `npm run build` all pass.
 4. Open a pull request that links any related issue and describes the change.
 
