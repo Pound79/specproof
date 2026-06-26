@@ -1,0 +1,9 @@
+# Default owner for everything in the repo.
+* @Pound79
+
+# Release-sensitive files — always require owner review.
+/.github/workflows/ @Pound79
+/package.json @Pound79
+/cli/package.json @Pound79
+/packages/traceability/package.json @Pound79
+/LICENSE @Pound79

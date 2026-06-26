@@ -1,0 +1,85 @@
+# bdd-kit.config.yaml (flutter adapter — flutter_gherkin + Japanese Gherkin)
+# Place at the repo root. bdd-* skills read this to resolve {{config:...}}.
+# Verified working on Flutter 3.44.1 / Dart 3.12.1 (sample-flutter-app dogfood).
+adapter: flutter
+bddRunner: flutter_gherkin
+bddGenTool: build_runner
+language: ja
+
+commands:
+  # generate the *.g.dart from .feature files (parses Japanese at build time)
+  generate: "cd bdd_tests && dart run build_runner build --delete-conflicting-outputs"
+  typecheck: "cd bdd_tests && flutter analyze"
+  lint: "cd bdd_tests && dart format --set-exit-if-changed . && flutter analyze"
+  # headless run on macOS desktop; switch -d to an emulator/simulator/device id as needed.
+  smoke: "cd bdd_tests && flutter test integration_test/gherkin_suite_test.dart -d macos"
+  install: "cd bdd_tests && flutter pub get"
+  # traceability engine is the framework-agnostic Node CLI (check / update / list
+  # / stats); it hashes the .feature text so it works for Dart repos too (run via
+  # npx, or install it and call the bin directly).
+  traceabilityCheck: "npx -y -p @pound79/bdd-traceability bdd-traceability-check"
+  traceabilityUpdate: "npx -y -p @pound79/bdd-traceability bdd-traceability-update"
+  traceabilityList: "npx -y -p @pound79/bdd-traceability bdd-traceability-list"
+  traceabilityStats: "npx -y -p @pound79/bdd-traceability bdd-traceability-stats"
+
+layout:
+  e2eRoot: "bdd_tests"
+  featuresDir: "bdd_tests/integration_test/features"
+  stepsDir: "bdd_tests/integration_test/steps"
+  stepFileSuffix: "_steps.dart"
+  stepFileExt: ".dart"
+  pagesDir: "bdd_tests/integration_test/app" # page-object equivalents / screen wrappers
+  textConstants: "lib/l10n/app_ja.arb" # i18n source for UI-string assertions (app-specific)
+  manifest: "traceability.yaml"
+  specDir: "docs"
+  implGlobs:
+    - "lib/**/*.dart"
+
+# Flutter-only capabilities (read when adapter: flutter).
+flutter:
+  gherkinParser: flutter_gherkin # | flutter_gherkin handles ja; do NOT use bdd_widget_test for ja
+  testEntry: "bdd_tests/integration_test/gherkin_suite_test.dart"
+  device: "macos" # headless desktop target; or an iOS/Android device/emulator id
+  buildRunnerPin: ">=2.4.0 <2.5.0"
+  # build.yaml MUST list these sources or build_runner silently generates nothing:
+  buildYamlSources: ["lib/**", "integration_test/**.dart", "pubspec.*", "$package$"]
+  # traceability hashes the .feature SOURCE, never the generated *.g.dart / *_test.dart.
+  traceabilityHashSource: feature
+  # featureDefaultLanguage must be set in BOTH @GherkinTestSuite(...) (build time)
+  # and FlutterTestConfiguration(...) (runtime).
+
+tags:
+  slow: "@slow"
+  generate: "@generate"
+  admin: "@admin"
+  user: "@user"
+
+# ---------------------------------------------------------------------------
+# environments: execution environment profiles (required — at least 1 entry)
+#
+# Each entry defines auth provider, dotenv file, and excluded tags for an
+# execution environment. Set BDD_KIT_ENV=<name> to select the active profile.
+# When unset, the entry with `default: true` is used.
+#
+# NOTE (Flutter): Dart runtime cannot read process.env directly, so
+# dotenvFile switching is handled by CI scripts (--dart-define=ENV=dev etc.).
+# The environments block here serves as a declaration for skills to reference
+# when generating and implementing scenarios.
+#
+# See docs/config-schema.md "environments" for the full field reference.
+# ---------------------------------------------------------------------------
+environments:
+  - name: local
+    default: true
+    # TODO: set auth provider for local development
+    # auth:
+    #   provider: mock
+    #   description: "Mock auth for local development. No real IdP calls."
+
+  # TODO: uncomment and configure additional environments as needed
+  # - name: dev
+  #   dotenvFile: ".env.dev"
+  #   auth:
+  #     provider: google
+  #     description: "Firebase Auth (Google) — dev project."
+  #   excludeTags: []

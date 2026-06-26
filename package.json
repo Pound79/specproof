@@ -1,0 +1,26 @@
+{
+  "name": "bdd-kit",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Framework-agnostic BDD behavior-test generation kit: traceability engine + Claude Code plugin skills + per-framework scaffolds (playwright web, Flutter bdd_widget_test + Patrol).",
+  "type": "module",
+  "license": "MIT",
+  "author": "Pound79",
+  "homepage": "https://github.com/Pound79/bdd-kit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Pound79/bdd-kit.git"
+  },
+  "workspaces": [
+    "packages/*",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

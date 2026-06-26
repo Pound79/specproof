@@ -1,0 +1,32 @@
+name: bdd_tests
+description: "BDD behavior tests (flutter_gherkin, Japanese Gherkin). Scaffolded by bdd-kit."
+publish_to: "none"
+version: 0.1.0
+
+# Match this to your app's environment.sdk when you path-depend on the app below.
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # To drive YOUR app's real screens/widgets, path-depend on it (and uncomment the
+  # uuid override below — gherkin pins uuid ^3 while app plugins such as geolocator
+  # require uuid >=4):
+  # <your_app_package_name>:
+  #   path: ..
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  # flutter_gherkin v3 is pinned: rc.17 is the last published release and is the
+  # only Flutter BDD runner that supports the full Japanese Cucumber dialect
+  # (via dart_gherkin). build_runner is pinned to 2.4.x because flutter_gherkin's
+  # transitive deps force that range.
+  flutter_gherkin: 3.0.0-rc.17
+  build_runner: ">=2.4.0 <2.5.0"
+# Uncomment when path-depending on an app that pulls uuid >=4 (e.g. via geolocator):
+# dependency_overrides:
+#   uuid: ">=4.0.0 <5.0.0"

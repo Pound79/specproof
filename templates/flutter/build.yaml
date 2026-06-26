@@ -1,0 +1,11 @@
+# build_runner config for flutter_gherkin code generation.
+# IMPORTANT: integration_test/**.dart MUST be in `sources`, otherwise the
+# @GherkinTestSuite annotation is never discovered and build_runner silently
+# produces zero outputs.
+targets:
+  $default:
+    sources:
+      - lib/**
+      - integration_test/**.dart
+      - pubspec.*
+      - $package$

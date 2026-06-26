@@ -1,0 +1,41 @@
+{
+  "name": "@pound79/bdd-kit",
+  "version": "0.1.0",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Scaffolder CLI for bdd-kit: `bdd-kit init` drops a config-driven BDD test scaffold into your repo.",
+  "license": "MIT",
+  "author": "Pound79",
+  "homepage": "https://github.com/Pound79/bdd-kit/tree/main/cli",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Pound79/bdd-kit.git",
+    "directory": "cli"
+  },
+  "bin": {
+    "bdd-kit": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "node -e \"require('node:fs').cpSync('../templates','templates',{recursive:true})\"",
+    "postpack": "node -e \"require('node:fs').rmSync('templates',{recursive:true,force:true})\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}

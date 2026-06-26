@@ -1,0 +1,28 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+*.orig
+.DS_Store
+coverage/
+
+# Editor / tooling
+.vscode/
+.idea/
+*.swp
+
+# Agent / assistant local state
+.serena/
+.claude/
+
+# Secrets — never commit (templates/**/.env.example is the tracked template)
+.env
+.env.local
+.env.*.local
+
+# Local-only drafts (personal notes, slides, etc.) — never committed
+*.local.md
+
+# Transient copy created by cli's prepack (templates are bundled into the
+# published tarball, then removed by postpack).
+cli/templates/

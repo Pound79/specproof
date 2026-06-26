@@ -1,0 +1,20 @@
+{
+  "name": "bdd-kit",
+  "description": "Config-driven BDD behavior-test generation skills. Single entry: the /bdd-kit orchestrator detects framework + mode and drives the internal movements (bootstrap / new-feature / implement / sync). Drift detection is the AI-free bdd-traceability CLI. Driven by a per-repo bdd-kit.config.yaml.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Pound79",
+    "url": "https://github.com/Pound79"
+  },
+  "homepage": "https://github.com/Pound79/bdd-kit",
+  "keywords": [
+    "bdd",
+    "gherkin",
+    "playwright",
+    "flutter",
+    "patrol",
+    "traceability",
+    "e2e",
+    "tdd"
+  ]
+}

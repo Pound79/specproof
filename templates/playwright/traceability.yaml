@@ -1,0 +1,40 @@
+# traceability.yaml
+# ---------------------------------------------------------------------------
+# Spec <-> Implementation <-> Feature traceability manifest.
+#
+# Managed by the bdd-sync skill and the bdd-traceability-check CLI. Do not edit the "links" array
+# by hand unless you know what you are doing — hash mismatches will be flagged
+# as drift and cause the drift check to fail.
+#
+# Schema (each entry in "links"; all paths are relative to the repo root):
+#   id:       kebab-case link id (unique across the manifest)
+#   label:    human-readable description of the linked behavior
+#   spec:     list of { path, heading, hash, headingLevel? } — design-doc sections.
+#             "heading" is the heading line text (without the leading "#"+space);
+#             optional "headingLevel" (default 2) targets a deeper heading (3 = ###).
+#   impl:     list of { path, hash } — implementation files
+#   features: list of { path, hash } — .feature files
+#
+# Every hash is the SHA-256 recorded at the last sync. A new ref may use the
+# placeholder "PENDING"; bdd-traceability-update overwrites it with the real
+# digest. Hashes are managed by the bdd-sync skill and the
+# @pound79/bdd-traceability CLI (bdd-traceability-update / bdd-traceability-check),
+# not by npm scripts.
+#
+# Example:
+#   links:
+#     - id: login
+#       label: "User login"
+#       spec:
+#         - path: docs/auth.md
+#           heading: "1. Login"
+#           hash: PENDING
+#       impl:
+#         - path: src/pages/LoginPage.ts
+#           hash: PENDING
+#       features:
+#         - path: features/login.feature
+#           hash: PENDING
+# ---------------------------------------------------------------------------
+version: 1
+links: []

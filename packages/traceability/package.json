@@ -1,0 +1,63 @@
+{
+  "name": "@pound79/bdd-traceability",
+  "version": "0.1.0",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Framework-agnostic spec<->impl<->feature traceability manifest and SHA-256 drift detection for BDD behavior tests.",
+  "license": "MIT",
+  "author": "Pound79",
+  "keywords": [
+    "bdd",
+    "traceability",
+    "drift",
+    "gherkin",
+    "e2e"
+  ],
+  "homepage": "https://github.com/Pound79/bdd-kit/tree/main/packages/traceability",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Pound79/bdd-kit.git",
+    "directory": "packages/traceability"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "bdd-traceability-check": "./dist/cli-check.js",
+    "bdd-traceability-update": "./dist/cli-update.js",
+    "bdd-traceability-list": "./dist/cli-list.js",
+    "bdd-traceability-stats": "./dist/cli-stats.js"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check": "tsx src/cli-check.ts",
+    "update": "tsx src/cli-update.ts",
+    "list": "tsx src/cli-list.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
