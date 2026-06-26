@@ -41,6 +41,7 @@ The package also exposes a typed library surface:
 ```ts
 import {
   checkDrift,
+  updateManifestHashes,
   loadManifest,
   buildStats,
   discoverConfig,

@@ -44,16 +44,34 @@ See [`CONTEXT.md`](./CONTEXT.md) for the full glossary.
 
 ## Quick start (Claude Code plugin)
 
+Install the plugin, then run `/bdd-kit`. There is **no manual setup step** — the
+orchestrator detects your framework and mode, **scaffolds the config and the e2e
+package itself**, tailors `bdd-kit.config.yaml` to your repo, and drives the BDD
+flow, stopping at every human gate.
+
 ```text
-# 1. Register the marketplace (from GitHub)
 /plugin marketplace add Pound79/bdd-kit
-# 2. Install the plugin
 /plugin install bdd-kit@bdd-kit
-# 3. Drop a bdd-kit.config.yaml at your repo root
-#    (see templates/playwright/ for a worked example)
-# 4. Run the single entry-point skill
 /bdd-kit
 ```
+
+> `/bdd-kit` is the single entry-point: it detects the adapter and mode,
+> scaffolds, tailors the config, and drives the BDD flow. Individual movements
+> (`/bdd-bootstrap` / `/bdd-new-feature` / `/bdd-implement` / `/bdd-sync`) can
+> also be invoked standalone. For read-only drift detection without AI, use the
+> CLI: `npx -y -p @pound79/bdd-traceability bdd-traceability-check`.
+
+## Scaffold without the plugin (optional)
+
+If you are not using the Claude Code plugin, scaffold directly with the CLI
+(`/bdd-kit` runs this for you, so you only need it for standalone / CI use):
+
+```bash
+npx @pound79/bdd-kit init --adapter playwright   # or: flutter | auto
+```
+
+After scaffolding, edit `bdd-kit.config.yaml` at your repo root to match your
+project layout — the CLI prints detailed next steps on completion.
 
 ## Traceability CLI (usable independently of the plugin)
 

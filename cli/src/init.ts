@@ -159,30 +159,26 @@ export async function runInit(opts: InitOptions): Promise<void> {
     );
     for (const s of skipped) console.log(`  = ${s}`);
   }
-  const pluginStep =
-    "Claude Code plugin: /plugin marketplace add Pound79/bdd-kit then /plugin install bdd-kit@bdd-kit";
-  console.log("\nNext steps:");
-  console.log("  1. Edit bdd-kit.config.yaml at the repo root.");
-  if (adapter === "flutter") {
-    console.log(
-      `  2. cd ${e2eLabel} && flutter create --platforms=macos --project-name ${path.basename(e2eDir)} .`,
-    );
-    console.log(
-      "  3. flutter pub get && dart run build_runner build --delete-conflicting-outputs",
-    );
-    console.log(
-      "  4. flutter test integration_test/gherkin_suite_test.dart -d macos",
-    );
-    console.log(`  5. ${pluginStep}`);
-    console.log(
-      "\n  See bdd_tests/README.md for the verified Japanese-Gherkin recipe and gotchas.",
-    );
-  } else {
-    console.log(
-      `  2. cd ${e2eLabel} && npm install && npm run install:browsers`,
-    );
-    console.log("  3. cp .env.example .env and fill in credentials.");
-    console.log("  4. npm run test:smoke");
-    console.log(`  5. ${pluginStep}`);
-  }
+  console.log(`
+Next steps (recommended) — let the Claude Code plugin drive the flow:
+  1. /plugin marketplace add Pound79/bdd-kit
+  2. /plugin install bdd-kit@bdd-kit
+  3. Run /bdd-kit — it detects your framework + mode and walks you through
+     editing bdd-kit.config.yaml, reviewing the scaffold, and the BDD flow.`);
+
+  const manualSteps =
+    adapter === "flutter"
+      ? `  a. Edit bdd-kit.config.yaml at the repo root.
+  b. cd ${e2eLabel} && flutter create --platforms=macos --project-name ${path.basename(e2eDir)} .
+  c. flutter pub get && dart run build_runner build --delete-conflicting-outputs
+  d. flutter test integration_test/gherkin_suite_test.dart -d macos
+
+  See ${e2eLabel}/README.md for the verified Japanese-Gherkin recipe and gotchas.`
+      : `  a. Edit bdd-kit.config.yaml at the repo root.
+  b. cd ${e2eLabel} && npm install && npm run install:browsers
+  c. cp .env.example .env and fill in credentials.
+  d. npm run test:smoke`;
+  console.log(`
+Prefer to set things up by hand? Manual steps:
+${manualSteps}`);
 }

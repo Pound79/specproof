@@ -8,6 +8,10 @@ config-driven BDD behavior-test scaffold into your repository, wired to a single
 
 ## Usage
 
+> **Recommended**: if you use [Claude Code](https://www.anthropic.com/claude-code),
+> install the [bdd-kit plugin](https://github.com/Pound79/bdd-kit) and run
+> `/bdd-kit` — it calls this CLI internally and drives the full BDD flow for you.
+
 No install required — run it with `npx`:
 
 ```bash
@@ -56,3 +60,4 @@ methodology, the Claude Code plugin, and the traceability engine
 ## License
 
 [MIT](./LICENSE) © Pound79
+
