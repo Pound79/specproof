@@ -5,7 +5,7 @@
     "url": "https://github.com/Pound79"
   },
   "metadata": {
-    "description": "BDD behavior-test generation flow as reusable, config-driven Claude Code skills.",
+    "description": "BDD behavior-test generation flow as reusable, config-driven skills (SKILL.md open standard).",
     "version": "0.1.2"
   },
   "plugins": [

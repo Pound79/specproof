@@ -8,8 +8,10 @@ config-driven BDD behavior-test scaffold into your repository, wired to a single
 
 ## Usage
 
-> **Recommended**: if you use [Claude Code](https://www.anthropic.com/claude-code),
-> install the [bdd-kit plugin](https://github.com/Pound79/bdd-kit) and run
+> **Recommended**: if you use an AI coding agent
+> ([Claude Code](https://www.anthropic.com/claude-code),
+> [Codex](https://openai.com/index/introducing-codex/), etc.),
+> install the [bdd-kit skills](https://github.com/Pound79/bdd-kit) and run
 > `/bdd-kit` — it calls this CLI internally and drives the full BDD flow for you.
 
 No install required — run it with `npx`:
@@ -36,6 +38,7 @@ Requires Node.js **>= 24**.
 |---|---|
 | `init` | Scaffold a BDD test package into the repo. |
 | `detect` | Detect the framework and suggest an adapter (read-only). |
+| `setup-agent` | Install bdd-kit skills for a specific AI coding agent. |
 
 ### `init` options
 
@@ -44,6 +47,7 @@ Requires Node.js **>= 24**.
 | `--adapter <playwright\|flutter\|auto>` | Test framework adapter. **Required.** |
 | `--dir <e2e-dir>` | Target directory for the e2e package. |
 | `--force` | Overwrite existing files instead of skipping them. |
+| `--agent <claude\|codex>` | Tailor next-steps output to a specific agent. Omit for both. |
 
 ### `detect` options
 
@@ -51,10 +55,23 @@ Requires Node.js **>= 24**.
 |---|---|
 | `--json` | Output the detection result as JSON. |
 
+### `setup-agent` usage
+
+```bash
+# Install skills for Codex (creates .agents/skills/)
+npx @pound79/bdd-kit setup-agent codex
+
+# Show Claude Code install instructions
+npx @pound79/bdd-kit setup-agent claude
+
+# Overwrite existing skill files
+npx @pound79/bdd-kit setup-agent codex --force
+```
+
 ## Documentation
 
 See the [bdd-kit repository](https://github.com/Pound79/bdd-kit) for the
-methodology, the Claude Code plugin, and the traceability engine
+methodology, the agent skills, and the traceability engine
 ([`@pound79/bdd-traceability`](https://www.npmjs.com/package/@pound79/bdd-traceability)).
 
 ## License

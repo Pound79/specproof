@@ -4,26 +4,33 @@
 
 [![CI](https://github.com/Pound79/bdd-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Pound79/bdd-kit/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE) [![npm](https://img.shields.io/npm/v/@pound79/bdd-traceability.svg)](https://www.npmjs.com/package/@pound79/bdd-traceability) ![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen)
 
-**Claude Code で `/bdd-kit` を実行するだけ。本番品質の E2E テストが手に入る。**
+**AI コーディングエージェントで `/bdd-kit` を実行するだけ。本番品質の E2E テストが手に入る。**
 
 [English](./README.md) | 日本語
 
 </div>
 
-bdd-kit は **E2E 振る舞いテストを自動構築する Claude Code plugin** です。
+bdd-kit は **E2E 振る舞いテストを自動構築する AI コーディングエージェント skill セット** です。
 Web（Playwright）でも Flutter でも、スラッシュコマンド 1 つでフレームワーク検出から
 scaffold、config 調整、Gherkin feature の作成、ステップ実装まで一気通貫で駆動します。
 判断が要るポイントでは必ず止まるので、主導権は常にあなたにあります。
 
 ## 30 秒で始める
 
+**Claude Code:**
 ```text
 /plugin marketplace add Pound79/bdd-kit
 /plugin install bdd-kit@bdd-kit
 /bdd-kit
 ```
 
-以上です。config を書く必要も、scaffold を実行する必要も、フラグを覚える必要もありません。
+**Codex:**
+```text
+npx @pound79/bdd-kit setup-agent codex
+# エージェントに「bdd-kit スキルを実行して」と依頼
+```
+
+config を書く必要も、scaffold を実行する必要も、フラグを覚える必要もありません。
 
 ## `/bdd-kit` がやってくれること
 
@@ -95,9 +102,9 @@ npm i -D @pound79/bdd-traceability
 npx bdd-traceability-check --json
 ```
 
-## CLI scaffold（plugin なしで使う場合）
+## CLI scaffold（エージェント skill なしで使う場合）
 
-Claude Code を使わない場合は CLI で直接 scaffold できます:
+AI コーディングエージェントを使わない場合は CLI で直接 scaffold できます:
 
 ```bash
 npx @pound79/bdd-kit init --adapter playwright   # または flutter | auto
@@ -110,7 +117,7 @@ npx @pound79/bdd-kit init --adapter playwright   # または flutter | auto
 
 bdd-kit は関心事を 3 層に分離しています:
 
-1. **方法論（Claude Code plugin）** -- BDD フローを駆動する `bdd-*` スキル群。
+1. **方法論（エージェント skill）** -- BDD フローを駆動する `bdd-*` スキル群。
    フレームワーク非依存で、固有値はすべて `bdd-kit.config.yaml` から読み取る。
 2. **トレーサビリティ・エンジン** --
    [`@pound79/bdd-traceability`](https://www.npmjs.com/package/@pound79/bdd-traceability):
@@ -132,7 +139,9 @@ bdd-kit は関心事を 3 層に分離しています:
 
 ## 前提
 
-- [Claude Code](https://www.anthropic.com/claude-code)（plugin フローを使う場合）。
+- [SKILL.md](https://github.com/openai/skills) 標準対応の AI コーディングエージェント:
+  [Claude Code](https://www.anthropic.com/claude-code)、
+  [Codex](https://openai.com/index/introducing-codex/) 等。
 - Node.js **>= 24**（`.nvmrc` 参照）。
 - spec はリポ内 markdown の `##` 見出しに置く。外部ツール（Notion / Confluence）のみに
   ある spec は drift 追跡できない。

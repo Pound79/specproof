@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runInit } from "../init.js";
+import { runInit, buildNextSteps } from "../init.js";
 
 describe("runInit", () => {
   let originalCwd: string;
@@ -30,5 +30,25 @@ describe("runInit", () => {
     await expect(
       runInit({ adapter: "playwright", dir: path.join(root, "outside") }),
     ).rejects.toThrow(/--dir must stay within the current repo/);
+  });
+});
+
+describe("buildNextSteps", () => {
+  it("shows only Claude Code steps for 'claude'", () => {
+    const output = buildNextSteps("claude");
+    expect(output).toContain("/plugin marketplace add Pound79/bdd-kit");
+    expect(output).not.toContain("npx @pound79/bdd-kit setup-agent codex");
+  });
+
+  it("shows only Codex steps for 'codex'", () => {
+    const output = buildNextSteps("codex");
+    expect(output).toContain("npx @pound79/bdd-kit setup-agent codex");
+    expect(output).not.toContain("/plugin marketplace add");
+  });
+
+  it("shows both agent steps for 'all'", () => {
+    const output = buildNextSteps("all");
+    expect(output).toContain("/plugin marketplace add Pound79/bdd-kit");
+    expect(output).toContain("npx @pound79/bdd-kit setup-agent codex");
   });
 });

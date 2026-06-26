@@ -17,7 +17,7 @@ This is an npm-workspaces monorepo:
 - `packages/traceability/` — `@pound79/bdd-traceability`, the minimal-dependency
   drift-detection engine.
 - `cli/` — `@pound79/bdd-kit`, the `bdd-kit init` scaffolder.
-- `plugins/bdd-kit/` — the Claude Code plugin (skills).
+- `plugins/bdd-kit/` — the agent skills (Claude Code plugin / Codex / SKILL.md standard).
 - `templates/` — per-framework scaffolds (playwright / flutter).
 - `docs/` — methodology, ADRs, config schema, and the adapter contract.
 
