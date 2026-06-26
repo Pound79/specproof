@@ -60,4 +60,3 @@ methodology, the Claude Code plugin, and the traceability engine
 ## License
 
 [MIT](./LICENSE) © Pound79
-
