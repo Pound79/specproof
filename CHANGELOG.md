@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-06-28
+
+### Added
+
+- OpenAI Codex support: bdd-kit is now multi-agent. The existing SKILL.md files
+  work with any agent that supports the SKILL.md open standard (Claude Code,
+  Codex, Gemini CLI, Cursor, etc.).
+- `bdd-kit setup-agent <codex|claude>` subcommand to install skills for a
+  specific AI coding agent. `setup-agent codex` copies skills to
+  `.agents/skills/` for Codex discovery.
+- `bdd-kit init --agent <claude|codex>` flag to tailor the "Next steps" output
+  to a specific agent.
+- `AGENTS.md` at the repo root — project instructions for Codex (equivalent to
+  CLAUDE.md for Claude Code).
+- `.agents/skills/` directory with full skill copies for Codex skill discovery.
+
+### Changed
+
+- SKILL.md files are now agent-neutral: Claude Code-specific tool references
+  (`AskUserQuestion`) replaced with generic wording.
+- `bdd-setup` skill install instructions now cover Claude Code, Codex, and
+  manual copy.
+- README, README_ja, cli README, CONTRIBUTING, and package.json descriptions
+  updated from "Claude Code plugin" to "AI coding agent skills (SKILL.md
+  standard)".
+- npm tarball now includes `skills/` so `setup-agent codex` works from the
+  published package.
+
 ## [0.1.2] - 2026-06-26
 
 ### Changed
@@ -46,7 +74,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/bdd-kit/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/Pound79/bdd-kit/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/Pound79/bdd-kit/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Pound79/bdd-kit/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Pound79/bdd-kit/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Pound79/bdd-kit/releases/tag/v0.1.0

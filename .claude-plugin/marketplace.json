@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "BDD behavior-test generation flow as reusable, config-driven skills (SKILL.md open standard).",
-    "version": "0.1.2"
+    "version": "0.1.3"
   },
   "plugins": [
     {
