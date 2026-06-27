@@ -4,13 +4,13 @@
 
 [![CI](https://github.com/Pound79/bdd-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Pound79/bdd-kit/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE) [![npm](https://img.shields.io/npm/v/@pound79/bdd-traceability.svg)](https://www.npmjs.com/package/@pound79/bdd-traceability) ![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen)
 
-**Run `/bdd-kit` in Claude Code. Get production-grade E2E tests.**
+**Run `/bdd-kit` in your AI coding agent. Get production-grade E2E tests.**
 
 English | [日本語](./README_ja.md)
 
 </div>
 
-bdd-kit is a Claude Code plugin that **builds E2E behavior tests for you**.
+bdd-kit is a set of AI coding agent skills that **builds E2E behavior tests for you**.
 Point it at any web (Playwright) or Flutter repository, and a single slash
 command drives the entire flow: framework detection, scaffold, config, Gherkin
 feature authoring, and step implementation -- stopping at every human gate so
@@ -18,13 +18,20 @@ you stay in control.
 
 ## Get started in 30 seconds
 
+**Claude Code:**
 ```text
 /plugin marketplace add Pound79/bdd-kit
 /plugin install bdd-kit@bdd-kit
 /bdd-kit
 ```
 
-That's it. No config file to write, no scaffold to run, no flags to remember.
+**Codex:**
+```text
+npx @pound79/bdd-kit setup-agent codex
+# then ask the agent: "run the bdd-kit skill"
+```
+
+No config file to write, no scaffold to run, no flags to remember.
 
 ## What `/bdd-kit` does for you
 
@@ -96,9 +103,9 @@ npm i -D @pound79/bdd-traceability
 npx bdd-traceability-check --json
 ```
 
-## CLI scaffold (without the plugin)
+## CLI scaffold (without the agent skills)
 
-If you're not using Claude Code, scaffold directly:
+If you're not using an AI coding agent, scaffold directly:
 
 ```bash
 npx @pound79/bdd-kit init --adapter playwright   # or: flutter | auto
@@ -111,7 +118,7 @@ repo root to match your project layout.
 
 bdd-kit separates concerns into three layers:
 
-1. **Methodology (Claude Code plugin)** -- the `bdd-*` skills that drive the
+1. **Methodology (agent skills)** -- the `bdd-*` skills that drive the
    BDD flow. Framework-agnostic; all framework-specific values come from
    `bdd-kit.config.yaml`.
 2. **Traceability engine** --
@@ -135,7 +142,9 @@ See [`CONTEXT.md`](./CONTEXT.md) for the full glossary.
 
 ## Prerequisites
 
-- [Claude Code](https://www.anthropic.com/claude-code) (for the plugin flow).
+- An AI coding agent that supports the [SKILL.md](https://github.com/openai/skills)
+  standard: [Claude Code](https://www.anthropic.com/claude-code),
+  [Codex](https://openai.com/index/introducing-codex/), or others.
 - Node.js **>= 24** (see `.nvmrc`).
 - Specs live as in-repo markdown `##` headings. External tools (Notion,
   Confluence) are not supported for drift tracking.

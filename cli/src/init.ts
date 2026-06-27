@@ -9,10 +9,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectSnapshot, detectAdapter } from "./detect.js";
 
+export type AgentType = "claude" | "codex" | "all";
+
 export interface InitOptions {
   adapter?: string;
   dir?: string;
   force?: boolean;
+  agent?: AgentType;
 }
 
 const SUPPORTED = ["playwright", "flutter", "auto"];
@@ -95,6 +98,27 @@ async function resolveAutoAdapter(
   );
 }
 
+const CLAUDE_NEXT_STEPS = `
+Next steps (recommended) — let the Claude Code plugin drive the flow:
+  1. /plugin marketplace add Pound79/bdd-kit
+  2. /plugin install bdd-kit@bdd-kit
+  3. Run /bdd-kit — it detects your framework + mode and walks you through
+     editing bdd-kit.config.yaml, reviewing the scaffold, and the BDD flow.`;
+
+const CODEX_NEXT_STEPS = `
+Next steps (recommended) — let the Codex skills drive the flow:
+  1. npx @pound79/bdd-kit setup-agent codex
+  2. Ask the agent: "run the bdd-kit skill"`;
+
+export const buildNextSteps = (agent: AgentType): string => {
+  if (agent === "claude") return CLAUDE_NEXT_STEPS;
+  if (agent === "codex") return CODEX_NEXT_STEPS;
+  return `${CLAUDE_NEXT_STEPS}
+
+  — or, if you use Codex —
+${CODEX_NEXT_STEPS}`;
+};
+
 export async function runInit(opts: InitOptions): Promise<void> {
   let { adapter } = opts;
   if (!adapter) {
@@ -159,12 +183,9 @@ export async function runInit(opts: InitOptions): Promise<void> {
     );
     for (const s of skipped) console.log(`  = ${s}`);
   }
-  console.log(`
-Next steps (recommended) — let the Claude Code plugin drive the flow:
-  1. /plugin marketplace add Pound79/bdd-kit
-  2. /plugin install bdd-kit@bdd-kit
-  3. Run /bdd-kit — it detects your framework + mode and walks you through
-     editing bdd-kit.config.yaml, reviewing the scaffold, and the BDD flow.`);
+  const agentType = opts.agent ?? "all";
+  const nextSteps = buildNextSteps(agentType);
+  console.log(nextSteps);
 
   const manualSteps =
     adapter === "flutter"

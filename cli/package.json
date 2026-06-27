@@ -19,7 +19,8 @@
   },
   "files": [
     "dist",
-    "templates"
+    "templates",
+    "skills"
   ],
   "engines": {
     "node": ">=24"
@@ -30,8 +31,8 @@
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepack": "node -e \"require('node:fs').cpSync('../templates','templates',{recursive:true})\"",
-    "postpack": "node -e \"require('node:fs').rmSync('templates',{recursive:true,force:true})\""
+    "prepack": "node -e \"const fs=require('node:fs');fs.cpSync('../templates','templates',{recursive:true});fs.cpSync('../plugins/bdd-kit/skills','skills',{recursive:true})\"",
+    "postpack": "node -e \"const fs=require('node:fs');fs.rmSync('templates',{recursive:true,force:true});fs.rmSync('skills',{recursive:true,force:true})\""
   },
   "devDependencies": {
     "@types/node": "^24.13.1",
