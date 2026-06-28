@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { TraceabilityManifest } from "./manifest.js";
 
 export interface RegisteredDomain {
@@ -58,7 +59,7 @@ export const buildDomainList = (
   pageFileNames: string[],
   options: BuildDomainListOptions = {},
 ): DomainList => {
-  const pagesDir = options.pagesDir ?? "";
+  const pagesDir = (options.pagesDir ?? "").replaceAll("\\", "/");
   const candidateSuffix = options.candidateSuffix ?? "Page.tsx";
 
   const registered: RegisteredDomain[] = manifest.links.map((link) => ({
@@ -73,11 +74,11 @@ export const buildDomainList = (
 
   const candidates: DomainCandidate[] = pageFileNames
     .filter((name) => name.endsWith(candidateSuffix))
-    .map((name) => (pagesDir ? `${pagesDir}/${name}` : name))
+    .map((name) => (pagesDir ? path.posix.join(pagesDir, name) : name))
     .filter((page) => !referencedImpl.has(page))
     .map((page) => {
-      const base = page
-        .slice(page.lastIndexOf("/") + 1)
+      const base = path.posix
+        .basename(page)
         .replace(/\.[^./]+$/, "");
       return { suggestedDomain: toDomainName(base), page };
     })

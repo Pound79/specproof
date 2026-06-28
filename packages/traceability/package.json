@@ -39,7 +39,7 @@
     "bdd-traceability-stats": "./dist/cli-stats.js"
   },
   "scripts": {
-    "build": "tsc --project tsconfig.build.json",
+    "build": "tsc --project tsconfig.build.json && node -e \"const fs=require('node:fs');['dist/cli-check.js','dist/cli-update.js','dist/cli-list.js','dist/cli-stats.js'].forEach((f)=>fs.chmodSync(f, 0o755));\"",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
