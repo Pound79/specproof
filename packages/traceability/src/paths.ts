@@ -9,6 +9,15 @@ const ROOT_MARKERS = [
   "traceability.yaml",
 ];
 
+// MSYS / Git Bash returns paths like /c/Users/... — convert to C:/Users/...
+// before handing to path.resolve, which would otherwise interpret /c as a
+// directory off the current drive root on Windows.
+export const normalizeMsysPath = (p: string): string => {
+  if (process.platform !== "win32") return p;
+  const m = /^\/([a-zA-Z])(\/.*)?$/.exec(p);
+  return m ? `${m[1].toUpperCase()}:${m[2] ?? "/"}` : p;
+};
+
 /**
  * Resolves the repo root by walking up from `startDir` (default
  * `process.cwd()`) looking for a bdd-kit config or a traceability manifest,
@@ -43,7 +52,7 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
       timeout: 5000,
     }).trim();
     if (top) {
-      return top;
+      return path.resolve(normalizeMsysPath(top));
     }
   } catch {
     // fall through to the explicit error below

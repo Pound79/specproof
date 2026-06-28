@@ -75,6 +75,20 @@ describe("buildDomainList", () => {
     ]);
   });
 
+  it("normalises backslash pagesDir to forward slashes for manifest matching", () => {
+    const { candidates } = buildDomainList(
+      manifest,
+      ["CompareDebugPage.tsx"],
+      { pagesDir: "src\\pages" },
+    );
+    expect(candidates).toEqual([
+      {
+        suggestedDomain: "compare-debug",
+        page: "src/pages/CompareDebugPage.tsx",
+      },
+    ]);
+  });
+
   it("honours a non-default candidateSuffix", () => {
     const { candidates } = buildDomainList(
       manifest,

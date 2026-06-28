@@ -197,7 +197,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
   See ${e2eLabel}/README.md for the verified Japanese-Gherkin recipe and gotchas.`
       : `  a. Edit bdd-kit.config.yaml at the repo root.
   b. cd ${e2eLabel} && npm install && npm run install:browsers
-  c. cp .env.example .env and fill in credentials.
+  c. Copy .env.example to .env and fill in credentials.
   d. npm run test:smoke`;
   console.log(`
 Prefer to set things up by hand? Manual steps:

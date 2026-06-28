@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { resolveRepoRoot, resolveDefaultManifestPath } from '../paths.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resolveRepoRoot, resolveDefaultManifestPath, normalizeMsysPath } from '../paths.js';
 
 describe('resolveRepoRoot', () => {
   let root: string;
@@ -86,6 +86,47 @@ describe('resolveRepoRoot', () => {
     expect(() => resolveRepoRoot(root)).toThrow(
       /Could not resolve a repo root/,
     );
+  });
+});
+
+describe('normalizeMsysPath', () => {
+  describe('on win32', () => {
+    beforeEach(() => {
+      vi.stubGlobal('process', { ...process, platform: 'win32' });
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('converts MSYS /c/Users/... to C:/Users/...', () => {
+      expect(normalizeMsysPath('/c/Users/foo/repo')).toBe('C:/Users/foo/repo');
+    });
+
+    it('converts uppercase drive letter', () => {
+      expect(normalizeMsysPath('/D/projects/app')).toBe('D:/projects/app');
+    });
+
+    it('handles bare drive root /c', () => {
+      expect(normalizeMsysPath('/c')).toBe('C:/');
+    });
+
+    it('passes through multi-char first segment paths unchanged', () => {
+      expect(normalizeMsysPath('/home/user/repo')).toBe('/home/user/repo');
+    });
+
+    it('passes through Windows-native paths unchanged', () => {
+      expect(normalizeMsysPath('C:\\Users\\foo')).toBe('C:\\Users\\foo');
+    });
+
+    it('passes through relative paths unchanged', () => {
+      expect(normalizeMsysPath('src/main')).toBe('src/main');
+    });
+  });
+
+  describe('on non-Windows', () => {
+    it('does not convert single-char root paths on macOS/Linux', () => {
+      expect(normalizeMsysPath('/c/Users/foo')).toBe('/c/Users/foo');
+    });
   });
 });
 
