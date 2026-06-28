@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-06-28
+
+### Fixed
+
+- `resolveRepoRoot` now correctly handles MSYS / Git Bash paths
+  (`/c/Users/...`) on Windows by converting to native format (`C:/Users/...`)
+  before `path.resolve()`. Guarded by `process.platform === "win32"` to avoid
+  false positives on Unix systems.
+- `buildDomainList` now normalises backslash `pagesDir` (`src\pages`) to
+  forward slashes so manifest path matching works on Windows.
+- Manifest-relative path operations in `list.ts` use `path.posix.join` /
+  `path.posix.basename` to make the POSIX convention explicit.
+- Build scripts use Node.js `fs.chmodSync` instead of shell `chmod` for
+  cross-platform compatibility.
+- Printed "Next steps" instructions use platform-neutral wording instead of
+  Unix-only `cp` command.
+- Added `.gitignore` rules for Flutter scaffold generated files (`.dart_tool/`,
+  `.flutter-plugins*`, `pubspec.lock`).
+
 ## [0.1.3] - 2026-06-28
 
 ### Added
@@ -74,7 +93,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/bdd-kit/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/Pound79/bdd-kit/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/Pound79/bdd-kit/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/Pound79/bdd-kit/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Pound79/bdd-kit/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Pound79/bdd-kit/compare/v0.1.0...v0.1.1
