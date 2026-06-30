@@ -1,5 +1,7 @@
 version: 2
 updates:
+  # Root npm workspace — the single root package-lock.json covers
+  # `cli` and `packages/*`, so this one entry keeps the whole workspace current.
   - package-ecosystem: npm
     directory: "/"
     schedule:
@@ -7,10 +9,42 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore
+    groups:
+      # Batch all minor/patch bumps into one PR to cut review noise.
+      # Major bumps stay as individual PRs so breaking changes get human review.
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
+  # Scaffold template shipped into user projects. It lives outside the
+  # workspace and has no lockfile, so Dependabot bumps the package.json
+  # ranges directly. Keeps generated projects on recent deps.
+  - package-ecosystem: npm
+    directory: "/templates/playwright"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    groups:
+      template-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions used by CI / release workflows.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
     commit-message:
       prefix: ci
+    groups:
+      github-actions:
+        patterns:
+          - "*"
