@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-06-30
+
+### Fixed
+
+- bdd-kit orchestrator no longer treats a non-JS backend (PHP/Laravel, Go,
+  Python, etc.) as a reason a repository is "unsupported". Adapter selection
+  follows the observable surface (browser UI → Playwright, Flutter app →
+  Flutter), not the server language; the orchestrator entry point now carries
+  the same backend-agnostic guard `bdd-setup` documents, and `detect` flags
+  `composer.json` / `artisan` as a web-backend signal that raises a Playwright
+  candidate. (#6)
+- Corrected `detect` failure guidance: `ENOVERSIONS` is now diagnosed as an npm
+  `min-release-age` cooldown (versions newer than the cooldown window are
+  filtered out) rather than a private/scoped-registry problem, with the in-place
+  `npx -y --min-release-age=0 @pound79/bdd-kit ...` override documented. The
+  public-registry override is kept as a separate branch for genuine `E404`
+  cases. (#6)
+
+### Changed
+
+- Updated the bundled Playwright template dependencies: `playwright-bdd`
+  8.5.1 → 9.2.0 (#10), `typescript` 5.9.3 → 6.0.3 (#8), and `@types/node`
+  22.20.0 → 26.0.1 (#11).
+
 ## [0.1.4] - 2026-06-28
 
 ### Fixed
@@ -93,7 +117,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/bdd-kit/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/Pound79/bdd-kit/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/Pound79/bdd-kit/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/Pound79/bdd-kit/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/Pound79/bdd-kit/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Pound79/bdd-kit/compare/v0.1.1...v0.1.2
