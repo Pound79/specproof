@@ -39,6 +39,12 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`.
 
+## Releasing
+
+Maintainers cut releases with `npm run release -- <version>` (e.g.
+`npm run release -- 0.1.5`). See [`RELEASING.md`](./RELEASING.md) for the full
+process and how npm publishing is wired up.
+
 ## Design docs
 
 Substantive changes to behavior or architecture should reference (and, when

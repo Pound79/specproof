@@ -13,7 +13,11 @@ coverage/
 
 # Agent / assistant local state
 .serena/
-.claude/
+# Ignore personal Claude Code config, but track shared project skills.
+# (`!.claude/` first re-includes the dir even when a global gitignore excludes it.)
+!.claude/
+.claude/*
+!.claude/skills/
 
 # Secrets — never commit (templates/**/.env.example is the tracked template)
 .env
