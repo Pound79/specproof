@@ -41,6 +41,29 @@ description: >
      `npx -y @pound79/bdd-kit init --adapter <adapter> --dir <dir>` で scaffold →
      config をリポの実態に合わせて調整（baseUrl / language / layout / projects / environments）。
      **重い副作用（npm install 等）は実行せず案内のみ**。
+     - **detect が落ちても推測着手しない**（出力を見ずに adapter を断定するのは禁止）。エラー別に対処:
+       - **`ENOVERSIONS`（No versions available）** → registry 問題ではなく **`min-release-age` cooldown**
+         をまず疑う。npm の「公開後 N 日未満のバージョンは入れない」サプライチェーン設定（`~/.npmrc` /
+         repo `.npmrc` の `min-release-age=`）が効くと、cooldown 窓より新しいバージョンしか無いパッケージは
+         全除外され ENOVERSIONS になる。確認は `npm config ls -l | grep -E '^(min-release-age|before) ='`
+         （npm の版で出る側が違う: 新しめは `min-release-age=<日数>`、古い版は派生した `before=<日付>`。
+         どちらかが cooldown を示せば原因）。回避は (a) cooldown が明けるのを待つ /
+         (b) `npx -y --min-release-age=0 @pound79/bdd-kit detect --json`（**npm option は package 名より前**。
+         後ろに置くと bdd-kit に渡り `Unknown command` になる）/ (c) `.npmrc` の `min-release-age` を一時
+         コメントアウト。※ `min-release-age` は `envExport:false`＝**env では設定不可**。
+       - **`E404` / 真の private・scoped registry** → public registry を `env` プレフィックスで明示して再実行
+         （`@`/`:` を含む変数名はインライン代入で弾かれるため `env` 経由が必須。env 形式は project `.npmrc`
+         より優先。`npx ... --registry=` は CLI が食う）:
+         `env 'npm_config_registry=https://registry.npmjs.org/' 'npm_config_@pound79:registry=https://registry.npmjs.org/' npx -y @pound79/bdd-kit detect --json`
+
+> **前提: adapter はバックエンド実装言語に依存しない。** E2E が操作するのは UI 層（ブラウザ画面 or
+> モバイル画面）であり、サーバ側が PHP/Laravel/Go/Python/Ruby/Java/何でも**関係ない**。
+> **ブラウザで操作できる Web アプリ → playwright**、**Flutter アプリ → flutter**。detect は
+> `composer.json` / `artisan` 等を検知すると `web backend:` シグナルとして **playwright 候補を
+> medium に積む**（`cli/src/detect.ts`）＝バックエンドの言語は「未対応」の理由にならない。
+> 「PHP/Laravel だから adapter と噛み合わない」と言ってはならない。ブラウザ UI を持たない**純 API**
+> を黒箱したい場合のみ playwright の `request` fixture で可能だが**テンプレート既定（ブラウザ POM）の
+> 外**でカスタムが要る、と正確に伝える（「不可」ではない）。
 
 ## 1. モード検出（brownfield / greenfield）
 
