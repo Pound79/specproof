@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Bumped the Claude Code plugin manifests
+  (`.claude-plugin/marketplace.json`, `plugins/bdd-kit/.claude-plugin/plugin.json`)
+  to match the published npm version. They were stranded at `0.1.4` while npm was
+  already `0.1.5`, so `/plugin install` reported the plugin was "already at the
+  latest version" even though the code was current.
+
+### Changed
+
+- Release automation now bumps the two plugin manifests in lockstep with the npm
+  workspaces (`scripts/release.sh`), and a new `npm run check:versions`
+  (`scripts/check-versions.mjs`) asserts all four version sources agree. It runs
+  on every PR (CI), in the release script, and as a pre-publish gate in the
+  Release workflow, so plugin/npm version drift can neither merge nor publish.
+
 ## [0.1.5] - 2026-06-30
 
 ### Fixed
