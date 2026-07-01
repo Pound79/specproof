@@ -5,8 +5,19 @@ This repo publishes two npm packages from an npm-workspaces monorepo:
 - `@pound79/bdd-kit` — `cli/`
 - `@pound79/bdd-traceability` — `packages/traceability/`
 
-They are released in lockstep (same version) and published by
-[`.github/workflows/release.yml`](.github/workflows/release.yml).
+It also ships a **Claude Code plugin** whose version lives in two manifests
+outside the npm workspaces:
+
+- `.claude-plugin/marketplace.json` (`metadata.version`)
+- `plugins/bdd-kit/.claude-plugin/plugin.json` (`version`)
+
+All four version sources are released in lockstep (same version). The npm
+packages are published by
+[`.github/workflows/release.yml`](.github/workflows/release.yml); the plugin is
+served straight from the repo, so its manifests must be bumped too or the
+plugin stays pinned to the old version even though the code is current. CI runs
+`npm run check:versions` on every PR, and the Release workflow runs it again as
+a pre-publish gate, so a drifted version can neither merge nor publish.
 
 ## TL;DR
 
@@ -17,8 +28,9 @@ npm run release -- 0.1.5      # or: scripts/release.sh 0.1.5
 ```
 
 The script runs typecheck/build/test, bumps every workspace `package.json` +
-`package-lock.json`, stamps the CHANGELOG (heading + compare links), commits
-`chore: release v0.1.5`, then pushes `main` and the `v0.1.5` tag together in one
+`package-lock.json` **and both plugin manifests**, stamps the CHANGELOG (heading
++ compare links), asserts all version sources agree (`check-versions.mjs`),
+commits `chore: release v0.1.5`, then pushes `main` and the `v0.1.5` tag together in one
 `git push --atomic`. Pushing the tag triggers the Release workflow, which
 publishes both packages to npm with provenance. (Fallible work runs before any
 file is changed, and the version bump / stamp is snapshotted and rolled back if
@@ -36,6 +48,14 @@ never leaves a half-bumped tree.)
 - `npm version --workspaces` updates `package-lock.json` too. A bumped
   `package.json` with a stale lockfile makes the workflow's `npm ci` fail. The
   script verifies the lockfile was updated and refuses to continue otherwise.
+- **The plugin is a separate channel.** `npm version --workspaces` only touches
+  npm workspaces, so it cannot bump `.claude-plugin/marketplace.json` or
+  `plugins/bdd-kit/.claude-plugin/plugin.json`. `scripts/release.sh` bumps those
+  explicitly. Claude Code reads the plugin's "latest version" from these
+  manifests (not from npm), so if they lag, `/plugin install` reports the repo is
+  already at the old version even after new code lands. `check-versions.mjs`
+  (run in CI, by the release script, and as a pre-publish gate in the Release
+  workflow) is the guard that keeps them in sync.
 
 ## Script options
 

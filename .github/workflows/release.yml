@@ -18,6 +18,11 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
+      # Publish gate: never ship when the npm packages and the Claude Code plugin
+      # manifests disagree on version. scripts/release.sh keeps them in lockstep,
+      # but a manual/out-of-script `v*` tag push reaches this workflow directly —
+      # this check stops it from publishing a drifted state (the bug #13 fixes).
+      - run: npm run check:versions
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

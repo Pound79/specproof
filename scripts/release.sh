@@ -13,9 +13,14 @@
 #   1. sync main; validate the CHANGELOG "[Unreleased]" section has notes
 #   2. install deps + run typecheck/build/test  (before any mutation)
 #   3. bump every workspace package + the lockfile to <version>   (npm version)
-#   4. stamp the CHANGELOG: [Unreleased] -> [<version>] - <date>, update compare links
-#   5. commit "chore: release v<version>"
-#   6. create the tag, then push main + tag atomically  -> triggers npm publish
+#   4. bump the two Claude Code plugin manifests to <version>
+#      (.claude-plugin/marketplace.json + plugins/bdd-kit/.claude-plugin/plugin.json)
+#      -- npm version --workspaces cannot reach these, so they are bumped here;
+#      forgetting this is what once stranded the plugin at 0.1.4 while npm was 0.1.5
+#   5. stamp the CHANGELOG: [Unreleased] -> [<version>] - <date>, update compare links
+#   6. assert every version source agrees (scripts/check-versions.mjs)
+#   7. commit "chore: release v<version>"
+#   8. create the tag, then push main + tag atomically  -> triggers npm publish
 #
 # Usage:
 #   scripts/release.sh <version> [options]
@@ -124,7 +129,9 @@ if [ "$DRY_RUN" = true ]; then
   [ "$SKIP_CHECKS" = true ] && echo "  - skip local checks" || echo "  - npm ci (if node_modules missing) + npm run typecheck && npm run build && npm test"
   echo "  - snapshot release files (rolled back automatically if the bump fails)"
   echo "  - npm version $VERSION --workspaces --no-git-tag-version   (bumps cli + packages/* + lockfile)"
+  echo "  - bump plugin manifests to $VERSION (.claude-plugin/marketplace.json + plugins/bdd-kit/.claude-plugin/plugin.json)"
   echo "  - stamp CHANGELOG [Unreleased] -> [$VERSION] - $RELEASE_DATE (+ update compare links)"
+  echo "  - node scripts/check-versions.mjs   (assert all version sources agree)"
   echo "  - git commit -m \"chore: release $TAG\""
   echo "  - git tag -a $TAG -m \"$TAG\""
   echo "  - git push --atomic origin main $TAG   (triggers npm publish)"
@@ -160,8 +167,16 @@ fi
 # all-or-nothing, snapshot every file the release touches and restore them on
 # any failure / interrupt / abort that happens before the commit is made — so a
 # failed bump never leaves package.json ahead of the lockfile / CHANGELOG.
-# Globs mirror the "workspaces" field of the root package.json.
-RELEASE_FILES=(package-lock.json CHANGELOG.md cli/package.json)
+# Globs mirror the "workspaces" field of the root package.json. The two
+# .claude-plugin manifests are NOT npm workspaces (npm version can't touch them)
+# but are bumped below in lockstep, so they belong in the snapshot set too.
+RELEASE_FILES=(
+  package-lock.json
+  CHANGELOG.md
+  cli/package.json
+  .claude-plugin/marketplace.json
+  plugins/bdd-kit/.claude-plugin/plugin.json
+)
 for p in packages/*/package.json; do
   [ -e "$p" ] && RELEASE_FILES+=("$p")
 done
@@ -202,6 +217,30 @@ if git diff --name-only | grep -q '^package-lock\.json$'; then
 else
   die "package-lock.json was not updated by 'npm version' — refusing to release a lockfile that 'npm ci' will reject"
 fi
+
+# --- mutate: bump the Claude Code plugin manifests ---------------------------
+# The plugin's version is read from these manifests, NOT from npm. They live
+# outside the npm "workspaces", so `npm version --workspaces` above left them
+# untouched. Bump them here so the plugin ships the same version as the npm
+# packages (otherwise the plugin stays pinned to the old version even though the
+# code is current — the bug this whole section exists to prevent).
+
+echo "==> Bumping plugin manifests to $VERSION"
+node - "$VERSION" <<'NODE'
+const fs = require("node:fs");
+const [version] = process.argv.slice(2);
+// [file, accessor] — accessor knows where the version lives in each manifest.
+const targets = [
+  [".claude-plugin/marketplace.json", (j) => { j.metadata.version = version; }],
+  ["plugins/bdd-kit/.claude-plugin/plugin.json", (j) => { j.version = version; }],
+];
+for (const [file, set] of targets) {
+  const json = JSON.parse(fs.readFileSync(file, "utf8"));
+  set(json);
+  fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
+  console.log(`    ${file}: version -> ${version}`);
+}
+NODE
 
 # --- mutate: stamp the CHANGELOG ---------------------------------------------
 
@@ -254,11 +293,19 @@ fs.writeFileSync(file, out);
 console.log(`    CHANGELOG.md: stamped [${version}] - ${date}`);
 NODE
 
+# --- assert: every version source now agrees ---------------------------------
+# Belt-and-suspenders: if the bump logic above ever regresses (a renamed
+# manifest, a bad accessor), fail here BEFORE committing/tagging. On failure the
+# EXIT trap rolls the release files back, so nothing is left half-bumped.
+
+echo "==> Verifying all version sources agree on $VERSION"
+node scripts/check-versions.mjs
+
 # --- review + confirm --------------------------------------------------------
 
 echo ""
 echo "==> Changes to be committed:"
-git --no-pager diff --stat -- cli/package.json packages/traceability/package.json package-lock.json CHANGELOG.md
+git --no-pager diff --stat -- "${RELEASE_FILES[@]}"
 echo ""
 
 if [ "$ASSUME_YES" != true ]; then
@@ -276,7 +323,7 @@ fi
 # hard to re-run). --atomic = all refs succeed or none do.
 
 echo "==> Committing release"
-git add cli/package.json packages/traceability/package.json package-lock.json CHANGELOG.md
+git add -- "${RELEASE_FILES[@]}"
 git commit -m "chore: release $TAG"
 # Past this point the bump is captured in a commit; a later tag/push failure must
 # NOT roll the files back (they belong to the commit now — just re-run the push).
