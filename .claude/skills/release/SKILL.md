@@ -5,8 +5,9 @@ description: >
   (@pound79/bdd-kit = cli, @pound79/bdd-traceability = packages/traceability).
   bdd-kit の新バージョンを切る / publish するときに使う。トリガ例: "リリースして",
   "v0.1.5 を出して", "バージョンを上げて publish", "cut a release", "bump and tag".
-  Drives scripts/release.sh, which bumps every workspace version + the lockfile,
-  stamps the CHANGELOG, commits, tags vX.Y.Z, and pushes — the tag fires
+  Drives scripts/release.sh, which bumps every workspace version + the lockfile
+  + the two Claude Code plugin manifests, stamps the CHANGELOG, verifies all
+  version sources agree, commits, tags vX.Y.Z, and pushes — the tag fires
   .github/workflows/release.yml, which publishes to npm with provenance.
 ---
 
@@ -23,6 +24,13 @@ bdd-kit の npm パッケージをリリースする。**機械的処理は `scr
   タグだけ打つと、workflow は「既出」で全 skip し **何も publish されず無言で成功する**。
 - `npm version --workspaces` は `package.json` だけでなく **`package-lock.json` も更新**する。怠ると
   workflow 冒頭の `npm ci` が不整合で落ちる。`scripts/release.sh` はこの更新を検証する。
+- **Claude Code プラグインは別チャネル**。プラグインの version は npm ではなく
+  `.claude-plugin/marketplace.json`（`metadata.version`）と
+  `plugins/bdd-kit/.claude-plugin/plugin.json`（`version`）から読まれる。これらは npm workspace の外なので
+  `npm version --workspaces` では**絶対に更新されない** → `scripts/release.sh` が明示的に bump する。
+  ここを怠ると、コードは新しいのにプラグインだけ旧バージョンに据え置かれる（`/plugin install` が「既に最新」と誤報告する）。
+  4つの version 源（cli / traceability / marketplace / plugin）が一致するかは `npm run check:versions` が検証し、
+  CI（`ci.yml`）で毎 PR 走るほか、Release workflow（`release.yml`）でも publish 前ゲートとして走る（ドリフト時は publish されない）。
 - publish は `id-token: write` + `--provenance` で行われるため supply-chain 来歴が付く。
   **必ずこの workflow 経由でリリースする**（ローカルからの手動 `npm publish` は使わない）。
 
@@ -59,9 +67,11 @@ scripts/release.sh <version>        # 例: scripts/release.sh 0.1.5
 1. 前提チェック（main 上 / CHANGELOG 以外 clean / タグ未存在）+ CHANGELOG `[Unreleased]` が空でないか検証
 2. `npm ci`（node_modules が無い時のみ）+ `npm run typecheck && npm run build && npm test`（`--skip-checks` で省略可）
 3. `npm version <version> --workspaces --no-git-tag-version`（package.json 群 + lockfile）
-4. CHANGELOG を stamp（`[Unreleased]` → `[<version>] - <date>`、compare link も更新）
-5. 差分を表示し **push 前に確認プロンプト**（`--yes` で省略可）
-6. `chore: release v<version>` を commit → `v<version>` タグ作成 →
+4. プラグインマニフェスト2つ（`.claude-plugin/marketplace.json` + `plugins/bdd-kit/.claude-plugin/plugin.json`）を `<version>` に bump
+5. CHANGELOG を stamp（`[Unreleased]` → `[<version>] - <date>`、compare link も更新）
+6. `node scripts/check-versions.mjs` で全 version 源の一致をアサート（不一致なら rollback して中断）
+7. 差分を表示し **push 前に確認プロンプト**（`--yes` で省略可）
+8. `chore: release v<version>` を commit → `v<version>` タグ作成 →
    `git push --atomic origin main <tag>` で **main とタグを一括 push**（タグ push で publish 発火）
 
 便利オプション:
@@ -80,6 +90,10 @@ gh release create v<version> --generate-notes # 任意: GitHub Release ノート
 
 ## トラブルシュート
 
+- **npm は新しいのにプラグインだけ旧バージョンのまま**（`/plugin install` が「既に最新」と言う）→
+  プラグインマニフェスト2つの version bump 漏れ。`npm run check:versions` で不一致を確認し、
+  `.claude-plugin/marketplace.json` と `plugins/bdd-kit/.claude-plugin/plugin.json` を揃える。
+  正攻法は次の patch を `scripts/release.sh` で切ること（4源を lockstep で bump する）。
 - **何も publish されない / workflow が skip した** → `package.json` の version を上げ忘れ、または
   既に publish 済みのバージョンでタグを打った。`npm view <pkg> version` で確認し、version を上げ直して
   新しいタグを切る。
