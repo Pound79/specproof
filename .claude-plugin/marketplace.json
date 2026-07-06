@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Keeps AI-written E2E tests honest: generation is AI, drift detection is deterministic (SHA-256, AI-free), judgment is human. Config-driven skills on the SKILL.md open standard.",
-    "version": "0.1.6"
+    "version": "0.2.0"
   },
   "plugins": [
     {
