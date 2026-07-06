@@ -1,0 +1,223 @@
+# specproof.config.yaml
+# ---------------------------------------------------------------------------
+# Per-repo configuration for specproof (playwright adapter).
+# Drop this file at your REPOSITORY ROOT (the directory that contains your
+# e2e package / monorepo packages).  specproof reads it at runtime by walking
+# up from process.cwd().
+#
+# Labels: [required] must be set  /  [optional] safe to omit or leave blank
+# Full schema reference: docs/config-schema.md
+# ---------------------------------------------------------------------------
+
+# [required] Adapter type. Tells specproof which framework-specific logic to
+# activate. Supported values: playwright | flutter
+adapter: playwright
+
+# [required] BDD framework identifier (used in logs and generated comments).
+bddRunner: playwright-bdd
+
+# [required] Glue-code generation tool name (used in error messages).
+bddGenTool: bddgen
+
+# [required] Gherkin locale (Cucumber i18n code).
+# Must match the "# language: <code>" header in your .feature files.
+# Common values: "en" (English), "ja" (Japanese)
+language: en
+
+# ---------------------------------------------------------------------------
+# commands: shell commands specproof invokes (run from the repo root)
+# ---------------------------------------------------------------------------
+commands:
+  # `specproof init` scaffolds this package at packages/e2e (repo root has no
+  # workspaces wiring), so every command must `cd` into it explicitly rather
+  # than relying on `npm run` resolving scripts from the repo root.
+  generate: "cd packages/e2e && npm run bddgen"         # [required] generate glue code from .feature files
+  typecheck: "cd packages/e2e && npm run typecheck"     # [required] TypeScript type check
+  lint: "cd packages/e2e && npm run lint"               # [required] lint + format
+  smoke: "cd packages/e2e && npm run test:smoke"        # [required] fast subset — excludes @slow, used in CI
+  # [optional] traceability engine (framework-agnostic Node CLI): check / update /
+  # list / stats. Works for any repo because it hashes file/section text. After
+  # installing @pound79/specproof-traceability you can drop `-y -p` and call the
+  # bin directly (e.g. `npx specproof-check`).
+  traceabilityCheck: "npx -y -p @pound79/specproof-traceability specproof-check"
+  traceabilityUpdate: "npx -y -p @pound79/specproof-traceability specproof-update"
+  traceabilityList: "npx -y -p @pound79/specproof-traceability specproof-list"
+  traceabilityStats: "npx -y -p @pound79/specproof-traceability specproof-stats"
+
+# ---------------------------------------------------------------------------
+# layout: file/directory locations (relative to repo root)
+# ---------------------------------------------------------------------------
+layout:
+  e2eRoot: "packages/e2e"                  # [required] root of the e2e package
+  featuresDir: "packages/e2e/features"     # [required] .feature files directory
+  stepsDir: "packages/e2e/steps"          # [required] step definitions directory
+  stepFileSuffix: ".steps.ts"             # [optional] naming convention for step files
+  stepFileExt: ".ts"                      # [required] step file language extension
+  pagesDir: "packages/e2e/src/pages"      # [required] Page Object Model directory
+  # [optional] specproof-list candidate-detection suffix. The engine
+  # default ("Page.tsx", a React-app convention) does NOT match this scaffold's
+  # own Page Objects (LoginPage.ts, ExamplePage.ts — plain .ts), so set it
+  # explicitly to keep untracked-page detection working. Follow this suffix
+  # when naming new page objects; see docs/config-schema.md.
+  candidateSuffix: "Page.ts"
+  textConstants: "packages/e2e/src/config/text.ts"  # [required] UI string constants file
+  manifest: "packages/e2e/traceability.yaml"  # [required] traceability manifest path
+  specDir: "docs"                         # [required] design rationale docs root
+  implGlobs:                              # [required] implementation files tracked by traceability
+    # TODO: replace these globs with paths that match your application's source
+    # Also used by `specproof-check` to flag implementation files with no
+    # linked spec/feature ("unregistered-impl"). Advisory by default (does
+    # not fail CI); set strictUnregisteredImpl: true above to harden it.
+    - "src/**/*.ts"
+    - "src/**/*.tsx"
+  scratchDir: "/tmp/specproof-draft"      # [optional] temporary output for bootstrap drafts
+  e2eReadme: "packages/e2e/README.md"     # [optional] E2E package README; specproof-* skills link here
+
+# ---------------------------------------------------------------------------
+# fixtures: page-object fixture name -> source file (used by code-generation)
+# ---------------------------------------------------------------------------
+fixtures:
+  loginPage: "packages/e2e/src/pages/LoginPage.ts"
+  examplePage: "packages/e2e/src/pages/ExamplePage.ts"
+  # TODO: add additional page object fixtures here as your app grows
+
+# ---------------------------------------------------------------------------
+# tags: canonical Gherkin tag definitions
+# ---------------------------------------------------------------------------
+tags:
+  slow: "@slow"          # [required] slow scenarios (e.g. real network calls); excluded from smoke
+  generate: "@generate"  # [required] heavy generation flows; always pair with @slow
+  admin: "@admin"        # [required] admin-role scenarios (authed-admin project)
+  user: "@user"          # [required] regular-user-role scenarios
+  fixme: "@fixme"        # [optional] known breakage or hard-to-automate; kept in feature
+  skip: "@skip"          # [optional] intentionally excluded; add a comment with the reason
+
+# ---------------------------------------------------------------------------
+# projects: runner profiles (one per auth state)
+# Playwright runner maps each entry to a defineBddProject() call.
+# ---------------------------------------------------------------------------
+projects:
+  - name: "authed"
+    # Runs all scenarios NOT tagged @admin
+    tags: "not @admin"
+    # storageState path written by the auth setup; relative to the e2e package root
+    storageState: "playwright/.auth/user.json"
+    # When true, the "setup" project runs auth.setup.ts before this project
+    setup: true
+    # ENV VAR NAMES (not values) used to read credentials at runtime
+    credentialsEnv:
+      username: "E2E_USERNAME"
+      password: "E2E_PASSWORD"
+      newPassword: "E2E_NEW_PASSWORD"   # optional — only needed for first-login flows
+    features:
+      - "features/example.feature"
+      # TODO: add your .feature files here
+
+  - name: "authed-admin"
+    tags: "@admin"
+    # Skip this project entirely when E2E_ADMIN_USERNAME is not set
+    conditional: "env.adminUsername"
+    storageState: "playwright/.auth/admin.json"
+    setup: true
+    credentialsEnv:
+      username: "E2E_ADMIN_USERNAME"
+      password: "E2E_ADMIN_PASSWORD"
+      newPassword: "E2E_ADMIN_NEW_PASSWORD"
+    features:
+      - "features/example.feature"
+      # TODO: add your .feature files here
+
+  - name: "guest"
+    # Unauthenticated — tests the login/auth flow itself
+    tags: ""
+    storageState: ""   # empty string = no stored auth state (clean browser context)
+    setup: false
+    features:
+      - "features/example.feature"
+      # TODO: add auth/login .feature files here
+
+# ---------------------------------------------------------------------------
+# env: logical names of environment variables (not their values)
+# The runner reads process.env[<value>] at runtime.
+# ---------------------------------------------------------------------------
+env:
+  baseUrl: "E2E_BASE_URL"              # [required] application URL
+  username: "E2E_USERNAME"             # [optional] regular user — used for conditional checks
+  adminUsername: "E2E_ADMIN_USERNAME"  # [optional] admin user — controls authed-admin project
+
+# ---------------------------------------------------------------------------
+# agents: review agents specproof-implement invokes (anti-gaming layer 2). [optional]
+# STRONGLY RECOMMENDED: uncomment the block below if your agent environment
+# has review subagents (Claude Code ships code-reviewer / security-reviewer
+# usable as-is). When omitted, specproof-implement falls back to reviewing its
+# own diff inline — the layer is never skipped, but a self-review by the same
+# context that wrote the code is strictly weaker than an independent
+# adversarial review, and the handoff report will flag it as such.
+# ---------------------------------------------------------------------------
+# agents:
+#   codeReviewer: code-reviewer
+#   securityReviewer: security-reviewer
+
+# ---------------------------------------------------------------------------
+# implement: specproof-implement edit scope. [optional]
+# blastRadiusGlobs limits which files specproof-implement may touch. If omitted, it
+# defaults conservatively to the target domain's files under layout.implGlobs.
+# ---------------------------------------------------------------------------
+# implement:
+#   blastRadiusGlobs:
+#     - "src/pages/**"
+#     - "src/components/**"
+
+# ---------------------------------------------------------------------------
+# runner: Playwright-specific runner options
+# ---------------------------------------------------------------------------
+runner:
+  # Playwright device descriptor (see https://playwright.dev/docs/emulation)
+  device: "Desktop Chrome"
+
+  # localStorage key used to force the app language before scripts run.
+  # Leave empty ("") if your app does not use localStorage for locale.
+  # TODO: set to your app's locale key, e.g. "appLanguage"
+  # i18nLocaleStorageKey: ""
+
+  # Shell command Playwright uses to start the dev server when
+  # E2E_START_WEB_SERVER=true. Leave commented unless you use this feature.
+  # TODO: set to your dev-server start command, e.g. "npm run dev"
+  # webServerCommand: ""
+
+  # Path to a global teardown module (relative to the e2e package root).
+  # Leave commented to use the no-op stub included in this scaffold.
+  # globalTeardown: "src/setup/global-teardown.ts"
+
+  # Directory where auth storage state files are written.
+  # Default: "playwright/.auth"
+  authDir: "playwright/.auth"
+
+# ---------------------------------------------------------------------------
+# environments: execution environment profiles (required — at least 1 entry)
+#
+# Each entry defines auth provider, dotenv file, and excluded tags for an
+# execution environment. Set SPECPROOF_ENV=<name> to select the active profile
+# (the legacy BDD_KIT_ENV is still read as a fallback — see docs/config-schema.md).
+# When unset, the entry with `default: true` is used.
+#
+# Auth provider (auth.provider / auth.description) is defined here only —
+# there is no top-level `auth` block.
+#
+# See docs/config-schema.md "environments" for the full field reference.
+# ---------------------------------------------------------------------------
+environments:
+  - name: local
+    default: true
+    # TODO: set auth provider for local development (mock, email-password, etc.)
+    # auth:
+    #   provider: mock
+    #   description: "Mock auth for local development. No real IdP calls."
+
+  # TODO: uncomment and configure additional environments as needed
+  # - name: dev
+  #   dotenvFile: ".env.dev"
+  #   auth:
+  #     provider: google
+  #     description: "Firebase Auth (Google) — dev project."
+  #   excludeTags: []

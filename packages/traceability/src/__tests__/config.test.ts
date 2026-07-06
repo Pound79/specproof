@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -53,14 +53,14 @@ describe("discoverConfig", () => {
     expect(config.manifestPath).toBe(path.join(root, "traceability.yaml"));
   });
 
-  it("prefers bdd-kit.config.yaml layout.manifest over the default", async () => {
+  it("prefers specproof.config.yaml layout.manifest over the default", async () => {
     const root = await makeTmp();
     await writeFile(
       path.join(root, "traceability.yaml"),
       "version: 1\nlinks: []\n",
     );
     await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
+      path.join(root, "specproof.config.yaml"),
       "layout:\n  manifest: packages/e2e/traceability.yaml\n  pagesDir: packages/web/pages\n  candidateSuffix: Page.tsx\n  featuresDir: packages/e2e/features\n",
     );
     const config = discoverConfig({ startDir: root });
@@ -93,7 +93,7 @@ describe("discoverConfig", () => {
   it("lets a --pages-dir override win over the config file", async () => {
     const root = await makeTmp();
     await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
+      path.join(root, "specproof.config.yaml"),
       "layout:\n  pagesDir: from-config\n",
     );
     const config = discoverConfig({ root, pagesDir: "from-cli" });
@@ -103,7 +103,7 @@ describe("discoverConfig", () => {
   it("lets a --candidate-suffix override win over the config file", async () => {
     const root = await makeTmp();
     await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
+      path.join(root, "specproof.config.yaml"),
       "layout:\n  candidateSuffix: Page.tsx\n",
     );
     const config = discoverConfig({ root, candidateSuffix: "_page.dart" });
@@ -113,7 +113,7 @@ describe("discoverConfig", () => {
   it("defaults fixmeTag / skipTag to @fixme / @skip when tags are omitted", async () => {
     const root = await makeTmp();
     await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
+      path.join(root, "specproof.config.yaml"),
       "layout:\n  manifest: traceability.yaml\n",
     );
     const config = discoverConfig({ root });
@@ -121,10 +121,10 @@ describe("discoverConfig", () => {
     expect(config.skipTag).toBe("@skip");
   });
 
-  it("reads tags.fixme / tags.skip from bdd-kit.config.yaml", async () => {
+  it("reads tags.fixme / tags.skip from specproof.config.yaml", async () => {
     const root = await makeTmp();
     await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
+      path.join(root, "specproof.config.yaml"),
       "tags:\n  fixme: '@todo'\n  skip: '@manual'\n",
     );
     const config = discoverConfig({ root });
@@ -135,7 +135,7 @@ describe("discoverConfig", () => {
   it("normalizes a tag missing the leading @ (else it never matches a scanned tag)", async () => {
     const root = await makeTmp();
     await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
+      path.join(root, "specproof.config.yaml"),
       "tags:\n  fixme: todo\n  skip: manual\n",
     );
     const config = discoverConfig({ root });
@@ -146,12 +146,142 @@ describe("discoverConfig", () => {
   it("throws when tags.fixme and tags.skip resolve to the same value", async () => {
     const root = await makeTmp();
     await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
+      path.join(root, "specproof.config.yaml"),
       // "@todo" vs "todo" collide after normalization — the guard must catch it.
       "tags:\n  fixme: '@todo'\n  skip: todo\n",
     );
     expect(() => discoverConfig({ root })).toThrow(
       /tags\.fixme and tags\.skip must differ/,
     );
+  });
+
+  it("leaves implGlobs undefined when layout.implGlobs is omitted", async () => {
+    const root = await makeTmp();
+    const config = discoverConfig({ root });
+    expect(config.implGlobs).toBeUndefined();
+  });
+
+  it("reads layout.implGlobs as a string array", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "specproof.config.yaml"),
+      "layout:\n  implGlobs:\n    - src/**/*.ts\n    - lib/**/*.js\n",
+    );
+    const config = discoverConfig({ root });
+    expect(config.implGlobs).toEqual(["src/**/*.ts", "lib/**/*.js"]);
+  });
+
+  it("ignores layout.implGlobs when it is not an array of strings", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "specproof.config.yaml"),
+      "layout:\n  implGlobs: not-an-array\n",
+    );
+    const config = discoverConfig({ root });
+    expect(config.implGlobs).toBeUndefined();
+  });
+
+  it("defaults strictUnregisteredImpl to false when omitted", async () => {
+    const root = await makeTmp();
+    const config = discoverConfig({ root });
+    expect(config.strictUnregisteredImpl).toBe(false);
+  });
+
+  it("reads strictUnregisteredImpl: true from the config file", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "specproof.config.yaml"),
+      "strictUnregisteredImpl: true\n",
+    );
+    const config = discoverConfig({ root });
+    expect(config.strictUnregisteredImpl).toBe(true);
+  });
+
+  it("falls back to false when strictUnregisteredImpl is not a boolean", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "specproof.config.yaml"),
+      "strictUnregisteredImpl: yes\n",
+    );
+    const config = discoverConfig({ root });
+    expect(config.strictUnregisteredImpl).toBe(false);
+  });
+
+  it("defaults strictUnregisteredSpecHeadings to false when omitted", async () => {
+    const root = await makeTmp();
+    const config = discoverConfig({ root });
+    expect(config.strictUnregisteredSpecHeadings).toBe(false);
+  });
+
+  it("reads strictUnregisteredSpecHeadings: true from the config file", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "specproof.config.yaml"),
+      "strictUnregisteredSpecHeadings: true\n",
+    );
+    const config = discoverConfig({ root });
+    expect(config.strictUnregisteredSpecHeadings).toBe(true);
+  });
+
+  it("falls back to false when strictUnregisteredSpecHeadings is not a boolean", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "specproof.config.yaml"),
+      "strictUnregisteredSpecHeadings: yes\n",
+    );
+    const config = discoverConfig({ root });
+    expect(config.strictUnregisteredSpecHeadings).toBe(false);
+  });
+});
+
+// Back-compat (RENAME-DESIGN §3-1): the pre-rename bdd-kit.config.yaml /
+// .yml is still discovered — with a stderr deprecation warning — so repos
+// that have not migrated yet are not silently broken.
+describe("discoverConfig legacy bdd-kit.config.yaml fallback", () => {
+  it("falls back to bdd-kit.config.yaml when specproof.config.yaml is absent", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "bdd-kit.config.yaml"),
+      "layout:\n  manifest: packages/e2e/traceability.yaml\n",
+    );
+    const config = discoverConfig({ root });
+    expect(config.manifestPath).toBe(
+      path.join(root, "packages/e2e/traceability.yaml"),
+    );
+  });
+
+  it("prefers specproof.config.yaml over a legacy bdd-kit.config.yaml in the same dir", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "bdd-kit.config.yaml"),
+      "layout:\n  pagesDir: legacy-pages\n",
+    );
+    await writeFile(
+      path.join(root, "specproof.config.yaml"),
+      "layout:\n  pagesDir: new-pages\n",
+    );
+    const config = discoverConfig({ root });
+    expect(config.pagesDir).toBe("new-pages");
+  });
+
+  it("writes a deprecation warning to stderr when falling back to bdd-kit.config.yaml", async () => {
+    const root = await makeTmp();
+    await writeFile(
+      path.join(root, "bdd-kit.config.yaml"),
+      "layout:\n  pagesDir: from-config\n",
+    );
+    const writeSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    try {
+      discoverConfig({ root });
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "bdd-kit.config.yaml is deprecated; rename it to specproof.config.yaml",
+        ),
+      );
+    } finally {
+      writeSpy.mockRestore();
+    }
   });
 });

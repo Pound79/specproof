@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING**: Project renamed from `bdd-kit` to `specproof` (see
+  [`docs/adr/0000-rename-note.md`](./docs/adr/0000-rename-note.md)). Package,
+  binary, config, and skill names all move to the new prefix:
+  - npm: `@pound79/bdd-kit` → `@pound79/specproof`, `@pound79/bdd-traceability`
+    → `@pound79/specproof-traceability`.
+  - bins: `bdd-traceability-check` → `specproof-check`,
+    `bdd-traceability-update` → `specproof-update`,
+    `bdd-traceability-list` → `specproof-list`,
+    `bdd-traceability-stats` → `specproof-stats`.
+  - Claude Code plugin: marketplace/plugin id `bdd-kit` → `specproof`
+    (`/plugin marketplace add Pound79/specproof` then
+    `/plugin install specproof@specproof`).
+  - Skills: single entry point `/bdd-kit` → `/specproof`; internal movements
+    `bdd-setup` → `specproof-setup`, `bdd-bootstrap` → `specproof-bootstrap`,
+    `bdd-new-feature` → `specproof-new-feature`, `bdd-implement` →
+    `specproof-implement`, `bdd-sync` → `specproof-sync`.
+  - Config file: `bdd-kit.config.yaml` → `specproof.config.yaml`.
+  - Draft marker: `# bdd-kit: draft` → `# specproof: draft`.
+  - Env var: `BDD_KIT_ENV` → `SPECPROOF_ENV`.
+
+  **Migration** — old and new names interoperate, so there is no forced flag
+  day:
+  - Config discovery prefers `specproof.config.yaml` and falls back to
+    `bdd-kit.config.yaml` with a one-line stderr deprecation warning
+    (`bdd-kit.config.yaml is deprecated; rename it to specproof.config.yaml`);
+    rename the file at your convenience.
+  - The draft-marker detector recognizes both `# specproof: draft` and the
+    legacy `# bdd-kit: draft`; only the new marker is ever generated going
+    forward.
+  - `SPECPROOF_ENV` takes priority; `BDD_KIT_ENV` is still read as a fallback
+    where it applied before.
+  - The old packages (`@pound79/bdd-kit`, `@pound79/bdd-traceability`) are
+    `npm deprecate`d pointing at their replacements and keep working for
+    existing installs. Upgrade at your own pace by installing the new package
+    names and switching to the new bin names — no aliases are provided for the
+    old bins.
+- **BREAKING**: file content is now normalized before hashing, heading
+  parsing, and draft-marker detection — a leading UTF-8 BOM is stripped and
+  `\r\n` is normalized to `\n`. A manifest whose blessed hashes were computed
+  against CRLF or BOM-prefixed content will show those refs as drifted on the
+  next `specproof-check`. Migration: run `specproof-check`, review the
+  reported diffs (they should be no-op content changes), then
+  `specproof-update` to re-bless.
+
+### Added
+
+- `specproof-check` (formerly `bdd-traceability-check`) now detects four
+  additional kinds of structural drift, surfaced as `warnings[]` entries and
+  shown but not failing unless `--strict` is passed:
+  - `unregistered-feature` — a `.feature` file under `featuresDir` that no
+    link's `features[]` registers.
+  - `unregistered-spec-heading` — a heading in an already-referenced spec file
+    that no link's `spec[]` registers (file-limited: only markdown files with
+    at least one registered spec ref are scanned). Does **not** escalate under
+    `--strict` unless the new `strictUnregisteredSpecHeadings: true` config
+    flag is also set — even file-limited, a real spec doc can mix several
+    domains' headings with intentionally-unlinked sections (revision history,
+    glossary) in one file.
+  - `unregistered-impl` — a file matching the new `layout.implGlobs` config
+    (self-implemented `*`/`**` glob matcher, no new dependency) that no link's
+    `impl[]` registers. Opt-in: skipped entirely when `implGlobs` is unset.
+    Does **not** escalate under `--strict` unless the new
+    `strictUnregisteredImpl: true` config flag is also set.
+  - `duplicate-heading` — a registered heading appears more than once in its
+    spec file, making the section hash ambiguous.
+- `specproof-check --json`'s `warnings[]` entries now include
+  `failsUnderStrict: boolean` — the effective per-warning verdict (does this
+  warning's `kind` fail under `--strict`, given the resolved
+  `strictUnregisteredImpl` / `strictUnregisteredSpecHeadings` config),
+  independent of whether the current run actually passed `--strict`. Non-JSON
+  output labels each warning line to match: `[warning]` vs `[advisory]`.
+  `checkDrift`/`DriftWarning` stay config-agnostic; the field is attached at
+  the CLI output layer only. The Playwright/Flutter `specproof-drift-check.yml`
+  workflow templates now split the PR comment accordingly — hard warnings are
+  listed under "Warnings (fail under `--strict`)"; advisory warnings collapse
+  into a `<details>` block so a large `unregistered-impl` count no longer
+  visually equates to a blocking failure.
+- `DriftReport.bothSidesChanged`: a list of link ids where both a spec ref and
+  an impl ref drifted in the same `check` run — the case `specproof-sync` must
+  never auto-resolve, now machine-checkable instead of requiring its own
+  grouping logic.
+- `specproof-update --dry-run` (formerly `bdd-traceability-update
+  --dry-run`): previews the hash changes a bless would make (`<linkId> <side>
+  <path>: <old 8 chars> -> <new 8 chars>`) without writing the manifest.
+  `update`'s return value now also includes the list of changed refs for
+  programmatic callers.
+
 ## [0.1.6] - 2026-07-01
 
 ### Fixed
@@ -127,7 +216,7 @@ Initial public release.
   ↔ feature traceability engine with SHA-256 drift detection, scenario census
   (`stats`), and configurable heading levels and tags.
 - `@pound79/bdd-kit` — `bdd-kit init` scaffolder for Playwright (web) and
-  Flutter (`bdd_widget_test` + Patrol) adapters.
+  Flutter (`flutter_gherkin`) adapters.
 - Claude Code plugin with `bdd-*` skills (bootstrap / new-feature / sync /
   implement) driven by a single `bdd-kit.config.yaml`.
 - Documentation: methodology, adapter contract, config schema, and ADRs
@@ -135,11 +224,11 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/bdd-kit/compare/v0.1.6...HEAD
-[0.1.6]: https://github.com/Pound79/bdd-kit/compare/v0.1.5...v0.1.6
-[0.1.5]: https://github.com/Pound79/bdd-kit/compare/v0.1.4...v0.1.5
-[0.1.4]: https://github.com/Pound79/bdd-kit/compare/v0.1.3...v0.1.4
-[0.1.3]: https://github.com/Pound79/bdd-kit/compare/v0.1.2...v0.1.3
-[0.1.2]: https://github.com/Pound79/bdd-kit/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/Pound79/bdd-kit/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/Pound79/bdd-kit/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/Pound79/specproof/compare/v0.1.5...v0.1.6
+[0.1.5]: https://github.com/Pound79/specproof/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/Pound79/specproof/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/Pound79/specproof/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/Pound79/specproof/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/Pound79/specproof/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/Pound79/specproof/releases/tag/v0.1.0

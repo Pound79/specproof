@@ -2,8 +2,12 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-// Files that mark a directory as the repo root, in precedence order.
+// Files that mark a directory as the repo root, in precedence order. The
+// legacy bdd-kit.config.yaml / .yml names are still recognized (back-compat
+// after the specproof rename) but sort after the current names.
 const ROOT_MARKERS = [
+  "specproof.config.yaml",
+  "specproof.config.yml",
   "bdd-kit.config.yaml",
   "bdd-kit.config.yml",
   "traceability.yaml",
@@ -20,9 +24,9 @@ export const normalizeMsysPath = (p: string): string => {
 
 /**
  * Resolves the repo root by walking up from `startDir` (default
- * `process.cwd()`) looking for a bdd-kit config or a traceability manifest,
- * then falling back to `git rev-parse --show-toplevel`. Throws when neither
- * strategy resolves.
+ * `process.cwd()`) looking for a specproof config (or the deprecated
+ * bdd-kit.config.yaml) or a traceability manifest, then falling back to
+ * `git rev-parse --show-toplevel`. Throws when neither strategy resolves.
  *
  * Unlike the original monorepo implementation this does NOT resolve relative to
  * the module location: the package is published and installed under an

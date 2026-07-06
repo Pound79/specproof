@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from "@playwright/test";
-import type { BddKitConfig } from "./bdd-kit-config";
+import type { SpecproofConfig } from "./specproof-config";
 
 /**
  * Pins the app's i18n localStorage key to cfg.language before any app
@@ -15,7 +15,7 @@ import type { BddKitConfig } from "./bdd-kit-config";
  */
 export async function forceAppLanguage(
   target: Page | BrowserContext,
-  cfg: BddKitConfig,
+  cfg: SpecproofConfig,
 ): Promise<void> {
   const key = cfg.runner?.i18nLocaleStorageKey;
   if (!key) {

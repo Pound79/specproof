@@ -26,20 +26,20 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - name: Publish @pound79/bdd-traceability
+      - name: Publish @pound79/specproof-traceability
         run: |
           PKG_VERSION=$(node -p "require('./packages/traceability/package.json').version")
-          if npm view @pound79/bdd-traceability@"$PKG_VERSION" version 2>/dev/null; then
-            echo "::notice::@pound79/bdd-traceability@$PKG_VERSION already published — skipping"
+          if npm view @pound79/specproof-traceability@"$PKG_VERSION" version 2>/dev/null; then
+            echo "::notice::@pound79/specproof-traceability@$PKG_VERSION already published — skipping"
           else
             npm publish --workspace packages/traceability --provenance
           fi
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
-      - name: Publish @pound79/bdd-kit
+      - name: Publish @pound79/specproof
         run: |
           PKG_VERSION=$(node -p "require('./cli/package.json').version")
-          if npm view @pound79/bdd-kit@"$PKG_VERSION" version 2>/dev/null; then
-            echo "::notice::@pound79/bdd-kit@$PKG_VERSION already published — skipping"
+          if npm view @pound79/specproof@"$PKG_VERSION" version 2>/dev/null; then
+            echo "::notice::@pound79/specproof@$PKG_VERSION already published — skipping"
           else
             npm publish --workspace cli --provenance
           fi

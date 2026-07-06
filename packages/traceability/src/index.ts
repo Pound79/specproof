@@ -1,4 +1,4 @@
-// Public library surface for @pound79/bdd-traceability.
+// Public library surface for @pound79/specproof-traceability.
 // CLI entrypoints (cli-check / cli-update / cli-list) are exposed via package
 // `bin`, not re-exported here.
 
@@ -40,7 +40,7 @@ export {
   discoverConfig,
   DEFAULT_FIXME_TAG,
   DEFAULT_SKIP_TAG,
-  type BddTraceabilityConfig,
+  type TraceabilityConfig,
   type DiscoverConfigOverrides,
 } from "./config.js";
 
@@ -53,7 +53,12 @@ export {
   type DriftWarning,
 } from "./check.js";
 
-export { updateManifestHashes, type UpdateOptions } from "./update.js";
+export {
+  updateManifestHashes,
+  type UpdateChange,
+  type UpdateOptions,
+  type UpdateResult,
+} from "./update.js";
 
 export {
   buildDomainList,

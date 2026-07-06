@@ -47,3 +47,69 @@ jobs:
 
       - name: Test
         run: npm test
+
+  # Regression guard for REVIEW 2026-07-06 finding C4: a version of the
+  # playwright template's specproof.config.yaml had `commands` that only ran
+  # correctly from inside packages/e2e, not from the consumer repo root where
+  # specproof actually invokes them. Nothing in CI scaffolded a fresh repo and
+  # exercised those commands end-to-end, so the bug shipped unnoticed. This
+  # job closes that gap for the playwright adapter (flutter is excluded here
+  # because it needs a macOS runner, which is significantly more expensive).
+  scaffold-e2e:
+    name: scaffold verification (playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node.js (from .nvmrc)
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build cli
+        run: npm run build --workspace cli
+
+      # Scaffold into an empty directory standing in for a bare consumer
+      # repo — specproof init is normally run inside someone else's project,
+      # never against specproof's own repo.
+      - name: Scaffold into a bare consumer repo
+        run: |
+          mkdir -p "$RUNNER_TEMP/scaffold-consumer"
+          cd "$RUNNER_TEMP/scaffold-consumer"
+          git init -q
+          cat > package.json <<'EOF'
+          {
+            "devDependencies": {
+              "@playwright/test": "^1.60.0"
+            }
+          }
+          EOF
+          node "$GITHUB_WORKSPACE/cli/dist/index.js" init --adapter playwright
+
+      - name: Verify expected scaffold files exist
+        run: |
+          test -f "$RUNNER_TEMP/scaffold-consumer/specproof.config.yaml"
+          test -f "$RUNNER_TEMP/scaffold-consumer/.github/workflows/specproof-drift-check.yml"
+
+      - name: Install scaffolded e2e package dependencies
+        working-directory: ${{ runner.temp }}/scaffold-consumer/packages/e2e
+        run: npm install
+
+      # These two steps run the literal command strings from the scaffolded
+      # specproof.config.yaml (`commands.generate` / `commands.typecheck`) from
+      # the consumer repo root, exactly as specproof's runner does — that's the
+      # path C4 broke. commands.smoke is intentionally not exercised: it
+      # needs a real browser (playwright install) and a running application,
+      # neither of which exist in this synthetic consumer repo.
+      - name: Run commands.generate from the consumer repo root
+        working-directory: ${{ runner.temp }}/scaffold-consumer
+        run: cd packages/e2e && npm run bddgen
+
+      - name: Run commands.typecheck from the consumer repo root
+        working-directory: ${{ runner.temp }}/scaffold-consumer
+        run: cd packages/e2e && npm run typecheck

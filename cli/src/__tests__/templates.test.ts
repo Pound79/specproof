@@ -10,19 +10,19 @@ const read = (relPath: string): string =>
   readFileSync(path.join(repoRoot, relPath), "utf8");
 
 const TEMPLATE_CONFIGS = [
-  "templates/playwright/bdd-kit.config.yaml",
-  "templates/flutter/bdd-kit.config.yaml",
+  "templates/playwright/specproof.config.yaml",
+  "templates/flutter/specproof.config.yaml",
 ];
 
 // The traceability engine exposes four bins; templates wire all four so the
 // drift / bless / list / stats workflow works out of the box.
 const EXPECTED_COMMANDS: Record<string, string> = {
-  traceabilityCheck: "npx -y -p @pound79/bdd-traceability bdd-traceability-check",
+  traceabilityCheck: "npx -y -p @pound79/specproof-traceability specproof-check",
   traceabilityUpdate:
-    "npx -y -p @pound79/bdd-traceability bdd-traceability-update",
-  traceabilityList: "npx -y -p @pound79/bdd-traceability bdd-traceability-list",
+    "npx -y -p @pound79/specproof-traceability specproof-update",
+  traceabilityList: "npx -y -p @pound79/specproof-traceability specproof-list",
   traceabilityStats:
-    "npx -y -p @pound79/bdd-traceability bdd-traceability-stats",
+    "npx -y -p @pound79/specproof-traceability specproof-stats",
 };
 
 describe("template traceability commands", () => {
@@ -36,14 +36,14 @@ describe("template traceability commands", () => {
   }
 });
 
-// `@pound79/bdd-traceability` exposes multiple bins, so invoking it via npx
-// without `-p` cannot resolve a binary and fails at runtime. The `-p` flag (or
-// a direct bin name after install) is required. Guard against the bare form
-// regressing into any scaffold or skill doc.
+// `@pound79/specproof-traceability` exposes multiple bins, so invoking it via
+// npx without `-p` cannot resolve a binary and fails at runtime. The `-p` flag
+// (or a direct bin name after install) is required. Guard against the bare
+// form regressing into any scaffold or skill doc.
 //
 // Built from parts so this guard file itself does not contain the literal bare
 // form, keeping repo-wide greps for the bad form clean.
-const BARE_NPX_FORM = ["npx", "-y", "@pound79/bdd-traceability"].join(" ");
+const BARE_NPX_FORM = ["npx", "-y", "@pound79/specproof-traceability"].join(" ");
 const SCAN_DIRS = ["templates", "plugins", "docs"];
 const SCAN_FILES = ["README.md"];
 const TEXT_EXTENSIONS = new Set([".md", ".yaml", ".yml"]);

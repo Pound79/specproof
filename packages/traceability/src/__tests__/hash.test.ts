@@ -5,11 +5,13 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   DRAFT_MARKER,
+  LEGACY_DRAFT_MARKER,
   FILE_MISSING,
   SECTION_MISSING,
   computeFileHash,
   computeHeadingSectionHash,
   hasDraftMarker,
+  listHeadings,
 } from '../hash.js';
 
 const sha256 = (content: string): string =>
@@ -54,6 +56,20 @@ describe('hasDraftMarker', () => {
   it('detects the marker despite surrounding whitespace and CRLF endings', async () => {
     const file = path.join(dir, 'whitespace.feature');
     await writeFile(file, `機能: 例\r\n  ${DRAFT_MARKER}  \r\n`, 'utf8');
+
+    expect(await hasDraftMarker(file)).toBe(true);
+  });
+
+  // Back-compat (RENAME-DESIGN §3-2): drafts written before the bdd-kit ->
+  // specproof rename still carry the old marker and must still be flagged as
+  // unreviewed; only generation (specproof-bootstrap) switched to the new one.
+  it('also detects the legacy bdd-kit draft marker', async () => {
+    const file = path.join(dir, 'legacy-draft.feature');
+    await writeFile(
+      file,
+      `# language: ja\n${LEGACY_DRAFT_MARKER}\n機能: 例\n`,
+      'utf8',
+    );
 
     expect(await hasDraftMarker(file)).toBe(true);
   });
@@ -384,5 +400,96 @@ describe('computeHeadingSectionHash', () => {
     const hash = await computeHeadingSectionHash(docPath, '1. First section');
 
     expect(hash).toBe(expected);
+  });
+});
+
+describe('CRLF / BOM normalization', () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(path.join(tmpdir(), 'traceability-normalize-'));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('hashes a CRLF file identically to its LF equivalent', async () => {
+    const content = ['export const a = 1;', 'export const b = 2;', ''].join(
+      '\n'
+    );
+    const lfPath = path.join(dir, 'lf.ts');
+    const crlfPath = path.join(dir, 'crlf.ts');
+    await writeFile(lfPath, content, 'utf8');
+    await writeFile(crlfPath, content.replace(/\n/g, '\r\n'), 'utf8');
+
+    const lfHash = await computeFileHash(lfPath);
+    const crlfHash = await computeFileHash(crlfPath);
+
+    expect(crlfHash).toBe(lfHash);
+    expect(crlfHash).toBe(sha256(content));
+  });
+
+  it('finds a heading behind a leading UTF-8 BOM instead of SECTION_MISSING', async () => {
+    const body = ['## 1. First section', '', 'first body', ''].join('\n');
+    const filePath = path.join(dir, 'bom.md');
+    await writeFile(filePath, `﻿${body}`, 'utf8');
+
+    const hash = await computeHeadingSectionHash(filePath, '1. First section');
+
+    expect(hash).not.toBe(SECTION_MISSING);
+    expect(hash).toBe(sha256(body));
+  });
+});
+
+describe('listHeadings', () => {
+  it('lists every heading at the given level in document order', () => {
+    const md = [
+      '# Title',
+      '',
+      '## 1. First section',
+      '',
+      'body',
+      '',
+      '## 2. Second section',
+      '',
+      'body',
+      '',
+    ].join('\n');
+
+    expect(listHeadings(md, 2)).toEqual([
+      { line: 3, text: '1. First section' },
+      { line: 7, text: '2. Second section' },
+    ]);
+  });
+
+  it('skips headings that only appear inside a fenced code block', () => {
+    const md = [
+      '## 1. Real section',
+      '',
+      '```md',
+      '## Not a real heading',
+      '```',
+      '',
+      '## 2. Also real',
+      '',
+    ].join('\n');
+
+    expect(listHeadings(md, 2)).toEqual([
+      { line: 1, text: '1. Real section' },
+      { line: 7, text: '2. Also real' },
+    ]);
+  });
+
+  it('returns an empty array when the level has no matches', () => {
+    expect(listHeadings('# Title\n\nbody\n', 2)).toEqual([]);
+  });
+
+  it('rejects an out-of-range or non-integer level with a clear error', () => {
+    for (const bad of [0, 7, -1, 2.5, Number.NaN]) {
+      expect(() => listHeadings('# Title\n', bad)).toThrow(
+        /level must be an integer in 1-6/
+      );
+    }
   });
 });

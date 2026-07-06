@@ -1,4 +1,4 @@
-# Contributing to bdd-kit
+# Contributing to specproof
 
 Thanks for your interest in contributing! This document covers the essentials.
 
@@ -14,10 +14,10 @@ npm run build     # build publishable packages
 
 This is an npm-workspaces monorepo:
 
-- `packages/traceability/` — `@pound79/bdd-traceability`, the minimal-dependency
+- `packages/traceability/` — `@pound79/specproof-traceability`, the minimal-dependency
   drift-detection engine.
-- `cli/` — `@pound79/bdd-kit`, the `bdd-kit init` scaffolder.
-- `plugins/bdd-kit/` — the agent skills (Claude Code plugin / Codex / SKILL.md standard).
+- `cli/` — `@pound79/specproof`, the `specproof init` scaffolder.
+- `plugins/specproof/` — the agent skills (Claude Code plugin / Codex / SKILL.md standard).
 - `templates/` — per-framework scaffolds (playwright / flutter).
 - `docs/` — methodology, ADRs, config schema, and the adapter contract.
 

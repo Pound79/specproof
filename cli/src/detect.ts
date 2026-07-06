@@ -86,6 +86,16 @@ const hasWorkspaces = (workspaces?: Workspaces): boolean => {
   return Array.isArray(workspaces?.packages) && workspaces.packages.length > 0;
 };
 
+const PNPM_WORKSPACE_FILE = "pnpm-workspace.yaml";
+
+const hasPnpmWorkspace = (rootFiles: string[]): boolean =>
+  rootFiles.includes(PNPM_WORKSPACE_FILE);
+
+const withMonorepoSignal = (
+  signals: string[],
+  isPnpmWorkspace: boolean,
+): string[] => (isPnpmWorkspace ? [...signals, PNPM_WORKSPACE_FILE] : signals);
+
 const backendSignals = (rootFiles: string[]): string[] =>
   WEB_BACKEND_MARKERS.filter((m) => rootFiles.includes(m.file)).map(
     (m) => `web backend: ${m.label}`,
@@ -204,10 +214,13 @@ export function detectAdapter(snapshot: RepoSnapshot): DetectResult {
   const candidates: AdapterCandidate[] = [];
   const hints: ConfigHints = { monorepo: false, environments: [] };
   const backendMatches = backendSignals(snapshot.rootFiles);
+  const isPnpmWorkspace = hasPnpmWorkspace(snapshot.rootFiles);
 
-  if (snapshot.packageJson) {
-    hints.monorepo = hasWorkspaces(snapshot.packageJson.workspaces);
-  }
+  hints.monorepo =
+    isPnpmWorkspace ||
+    (snapshot.packageJson
+      ? hasWorkspaces(snapshot.packageJson.workspaces)
+      : false);
 
   if (snapshot.pubspecYaml?.hasFlutterSdk) {
     candidates.push({
@@ -228,21 +241,30 @@ export function detectAdapter(snapshot: RepoSnapshot): DetectResult {
         adapter: "playwright",
         confidence: "high",
         dir: hints.monorepo ? "packages/e2e" : "e2e",
-        signals: pwMatches.map((d) => `dep: ${d}`),
+        signals: withMonorepoSignal(
+          pwMatches.map((d) => `dep: ${d}`),
+          isPnpmWorkspace,
+        ),
       });
     } else if (fwMatches.length > 0) {
       candidates.push({
         adapter: "playwright",
         confidence: "medium",
         dir: hints.monorepo ? "packages/e2e" : "e2e",
-        signals: fwMatches.map((d) => `web framework: ${d}`),
+        signals: withMonorepoSignal(
+          fwMatches.map((d) => `web framework: ${d}`),
+          isPnpmWorkspace,
+        ),
       });
     } else {
       candidates.push({
         adapter: "playwright",
         confidence: "low",
         dir: hints.monorepo ? "packages/e2e" : "e2e",
-        signals: ["package.json present (no web framework detected)"],
+        signals: withMonorepoSignal(
+          ["package.json present (no web framework detected)"],
+          isPnpmWorkspace,
+        ),
       });
     }
   }

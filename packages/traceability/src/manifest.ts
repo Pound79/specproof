@@ -119,6 +119,6 @@ export const saveManifest = async (
   const header =
     "# Traceability manifest linking spec sections, implementation files, and\n" +
     "# BDD feature files. Hashes are sha256; refresh them with:\n" +
-    "#   bdd-traceability-update\n";
+    "#   specproof-update\n";
   await writeFile(manifestPath, header + stringify(manifest), "utf8");
 };

@@ -244,4 +244,70 @@ describe('updateManifestHashes', () => {
       await computeFileHash(path.join(root, 'src/history.ts')),
     );
   });
+
+  it('returns an empty changes array when nothing drifted', async () => {
+    const updated = await updateManifestHashes(manifestPath, root);
+
+    expect(updated.changes).toEqual([]);
+  });
+
+  it('returns the old and new hash for every ref that changed', async () => {
+    const original = await buildManifest(root);
+    const originalHash = original.links[0].impl[0].hash;
+    await writeFile(
+      path.join(root, 'src/login.ts'),
+      'export const login = 99;\n',
+      'utf8',
+    );
+
+    const updated = await updateManifestHashes(manifestPath, root);
+
+    const expectedHash = await computeFileHash(
+      path.join(root, 'src/login.ts'),
+    );
+    expect(updated.changes).toEqual([
+      {
+        linkId: 'login',
+        side: 'impl',
+        path: 'src/login.ts',
+        oldHash: originalHash,
+        newHash: expectedHash,
+      },
+    ]);
+  });
+
+  it('dry run computes changes without writing the manifest to disk', async () => {
+    const original = await buildManifest(root);
+    await writeFile(
+      path.join(root, 'src/login.ts'),
+      'export const login = 99;\n',
+      'utf8',
+    );
+
+    const updated = await updateManifestHashes(manifestPath, root, {
+      dryRun: true,
+    });
+
+    expect(updated.changes).toHaveLength(1);
+    expect(updated.changes[0]).toMatchObject({
+      linkId: 'login',
+      side: 'impl',
+      path: 'src/login.ts',
+    });
+
+    const onDisk = await loadManifest(manifestPath);
+    expect(onDisk.links[0].impl[0].hash).toBe(original.links[0].impl[0].hash);
+  });
+
+  it('dry run still throws on a missing file instead of blessing it', async () => {
+    const original = await buildManifest(root);
+    await rm(path.join(root, 'src/login.ts'));
+
+    await expect(
+      updateManifestHashes(manifestPath, root, { dryRun: true }),
+    ).rejects.toThrow(/src\/login\.ts/);
+
+    const onDisk = await loadManifest(manifestPath);
+    expect(onDisk.links[0].impl[0].hash).toBe(original.links[0].impl[0].hash);
+  });
 });

@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to bdd-kit! -->
+<!-- Thanks for contributing to specproof! -->
 
 ## Summary
 

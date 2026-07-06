@@ -4,7 +4,7 @@
 
 **採用: `flutter_gherkin` 3.0.0-rc.17（日本語 Gherkin 完全対応）。bdd_widget_test は不採用。**
 sample-flutter-app（Flutter 3.44.1 / Dart 3.12.1）で日本語シナリオ（`# language: ja`・機能/シナリオ/前提/もし/ならば）が
-build_runner 生成 → `flutter test` で **green** を実証。実装は `templates/flutter/` + `bdd-kit init --adapter flutter`。
+build_runner 生成 → `flutter test` で **green** を実証。実装は `templates/flutter/` + `specproof init --adapter flutter`。
 実機検証で確定した必須レシピ（落とし穴）は `templates/flutter/README.md` の規約表を参照:
 別 `bdd_tests/` パッケージ / `flutter create --platforms=macos .` で実行先用意 / `Future<void> main() async` + 生成 runner を
 直接 `await`（rc.17 の `executeTestSuite` は fire-and-forget で `group()` エラー） / `build.yaml` の sources に

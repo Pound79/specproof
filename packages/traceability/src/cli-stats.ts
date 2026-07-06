@@ -4,7 +4,7 @@ import path from "node:path";
 import { parseScenarios } from "./feature-scan.js";
 import { readFileOrNull } from "./hash.js";
 import { loadManifest } from "./manifest.js";
-import { discoverConfig, type BddTraceabilityConfig } from "./config.js";
+import { discoverConfig, type TraceabilityConfig } from "./config.js";
 import { resolveWithinRoot } from "./resolve.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
 import { buildStats, formatStats, type FeatureScenarios } from "./stats.js";
@@ -12,7 +12,7 @@ import { buildStats, formatStats, type FeatureScenarios } from "./stats.js";
 // Repo-relative feature paths to census: every *.feature under featuresDir when
 // configured, otherwise the manifest-registered features.
 const collectFeaturePaths = async (
-  config: BddTraceabilityConfig,
+  config: TraceabilityConfig,
 ): Promise<string[]> => {
   const featuresDir = config.featuresDir;
   if (featuresDir) {

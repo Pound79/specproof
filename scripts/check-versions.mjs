@@ -8,7 +8,7 @@
 //   npm packages       cli/package.json, packages/traceability/package.json
 //                      (bumped by `npm version --workspaces` in release.sh)
 //   Claude Code plugin .claude-plugin/marketplace.json (metadata.version)
-//                      plugins/bdd-kit/.claude-plugin/plugin.json (version)
+//                      plugins/specproof/.claude-plugin/plugin.json (version)
 //                      (bumped explicitly by release.sh)
 //
 // `npm version --workspaces` only touches npm workspaces, so the plugin
@@ -33,12 +33,12 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 // version out of the parsed JSON.
 const SOURCES = [
   {
-    label: "npm @pound79/bdd-kit",
+    label: "npm @pound79/specproof",
     file: "cli/package.json",
     get: (json) => json.version,
   },
   {
-    label: "npm @pound79/bdd-traceability",
+    label: "npm @pound79/specproof-traceability",
     file: "packages/traceability/package.json",
     get: (json) => json.version,
   },
@@ -49,7 +49,7 @@ const SOURCES = [
   },
   {
     label: "plugin manifest",
-    file: "plugins/bdd-kit/.claude-plugin/plugin.json",
+    file: "plugins/specproof/.claude-plugin/plugin.json",
     get: (json) => json.version,
   },
 ];

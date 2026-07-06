@@ -1,0 +1,178 @@
+# BDD drift check (flutter adapter)
+# ---------------------------------------------------------------------------
+# Runs @pound79/specproof-traceability on every PR and posts/updates a sticky
+# comment listing any drifted spec<->impl<->feature links, then fails the job
+# so drift can't merge silently. This is the CI half of specproof's "generation
+# = AI, detection = deterministic CLI" split (see docs/adr/0004): without it,
+# `--strict` only protects repos that remember to run it by hand.
+#
+# The traceability engine is a framework-agnostic Node CLI — it hashes the
+# .feature/spec/impl text itself, so this works the same way for a Dart repo
+# as it does for a TypeScript one. No Flutter toolchain is needed to run it.
+#
+# No `paths:` filter on purpose. specproof-check hashes only the refs
+# recorded in traceability.yaml and finishes in a few seconds regardless of
+# repo size, so scoping the trigger by path risks the exact failure mode this
+# check exists to catch — a link edited/added outside the filtered globs
+# silently skipping review.
+# ---------------------------------------------------------------------------
+name: BDD drift check
+
+# `pull_request` (not `pull_request_target`) on purpose: this job checks out
+# and processes untrusted PR code, and pull_request_target would hand that
+# code a write-capable token. The trade-off — fork PRs get a read-only token
+# and skip the comment step — is handled below via annotations + job failure.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write # to upsert the drift-report comment
+
+jobs:
+  drift-check:
+    name: specproof-check --strict
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # --strict escalates structural warnings (unreviewed draft markers,
+      # missing @fixme/@skip reason comments, empty links) to failures, not
+      # just hash drift. --json is captured to drift-report.json for the
+      # comment step below; --github-annotations writes "::warning
+      # file=...::" lines to this step's own log (stderr), independent of the
+      # JSON on stdout, so GitHub also surfaces each drifted ref inline on the
+      # PR's "Files changed" tab even if the comment step is skipped.
+      #
+      # continue-on-error + `id: check` defer the pass/fail decision to the
+      # dedicated step at the end, so the PR comment still gets posted/updated
+      # even when the check fails.
+      - name: Run specproof-check
+        id: check
+        continue-on-error: true
+        run: |
+          npx -y -p @pound79/specproof-traceability specproof-check \
+            --strict --json --github-annotations > drift-report.json
+
+      # Fork PRs run with a read-only GITHUB_TOKEN regardless of the
+      # `permissions:` block above, so posting a comment would fail with a
+      # 403. Skip the comment there; the annotations from the previous step
+      # and the job failure below still surface the result on the PR.
+      - name: Comment on PR
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- specproof-drift-check -->';
+
+            let report;
+            try {
+              report = JSON.parse(fs.readFileSync('drift-report.json', 'utf8'));
+            } catch (error) {
+              core.warning(`specproof-drift-check: could not read drift-report.json: ${error.message}`);
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            const isClean = report.clean && report.warnings.length === 0;
+
+            if (isClean) {
+              // Nothing drifted and no prior comment to clear — stay silent
+              // rather than adding a "clean" comment to every PR.
+              if (!existing) return;
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body: `${marker}\n### BDD drift check: clean\n\nNo drift or warnings detected on the latest push.`,
+              });
+              return;
+            }
+
+            const linkIds = [...new Set(report.entries.map((e) => e.linkId))];
+            const driftSection = linkIds
+              .map((linkId) => {
+                const rows = report.entries
+                  .filter((e) => e.linkId === linkId)
+                  .map((e) => {
+                    const location = e.heading ? `${e.path} § ${e.heading}` : e.path;
+                    return `  - \`${e.side}\` ${location} — **${e.status}**`;
+                  })
+                  .join('\n');
+                return `- **${linkId}**\n${rows}`;
+              })
+              .join('\n');
+
+            // failsUnderStrict reflects each warning's kind (unregistered-impl
+            // / unregistered-spec-heading are advisory unless the repo opts
+            // in via strictUnregisteredImpl / strictUnregisteredSpecHeadings
+            // — see docs/config-schema.md). Treat a missing field (older
+            // specproof-check) as hard so unknown warning kinds never get
+            // silently buried in the collapsed section.
+            const hardWarnings = report.warnings.filter((w) => w.failsUnderStrict !== false);
+            const advisoryWarnings = report.warnings.filter((w) => w.failsUnderStrict === false);
+
+            const hardWarningSection =
+              hardWarnings.length === 0
+                ? ''
+                : `\n\n**Warnings (fail under \`--strict\`):**\n${hardWarnings
+                    .map((w) => `- ${w.message}`)
+                    .join('\n')}`;
+
+            const advisoryWarningSection =
+              advisoryWarnings.length === 0
+                ? ''
+                : `\n\n<details><summary>Advisory warnings (do not fail the check) — ${advisoryWarnings.length}</summary>\n\n${advisoryWarnings
+                    .map((w) => `- ${w.message}`)
+                    .join('\n')}\n\n</details>`;
+
+            const warningSection = hardWarningSection + advisoryWarningSection;
+
+            const driftSummary =
+              linkIds.length === 0
+                ? hardWarnings.length > 0
+                  ? '**No hash drift** — failing on `--strict` warning(s) only.'
+                  : '**No hash drift** — advisory warning(s) only (does not fail the check).'
+                : `**${report.driftCount} drifted reference(s) across ${report.driftLinkCount} link(s):**\n\n${driftSection}`;
+
+            // Advisory-only runs exit 0 — the comment must not claim drift
+            // was detected, and sync/update remediation would be misleading.
+            const advisoryOnly = linkIds.length === 0 && hardWarnings.length === 0;
+            const title = advisoryOnly
+              ? 'BDD drift check: advisory warnings'
+              : 'BDD drift check: drift detected';
+            const remediation = advisoryOnly
+              ? 'Advisory warnings are informational and do not fail the check. ' +
+                'To enforce them, opt in via `strictUnregisteredImpl` / ' +
+                '`strictUnregisteredSpecHeadings` in `specproof.config.yaml`.'
+              : 'Run `/specproof-sync <link-id>` to bring the feature back in sync, then push again. ' +
+                'If the change is already reflected, run `specproof-update` locally and commit the refreshed `traceability.yaml`.';
+
+            const body =
+              `${marker}\n### ${title}\n\n${driftSummary}${warningSection}\n\n${remediation}`;
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Fail if drift or strict warnings were found
+        if: steps.check.outcome == 'failure'
+        run: exit 1

@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea or improvement for bdd-kit
+about: Suggest an idea or improvement for specproof
 title: "feat: "
 labels: enhancement
 ---

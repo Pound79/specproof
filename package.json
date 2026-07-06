@@ -1,15 +1,15 @@
 {
-  "name": "bdd-kit",
+  "name": "specproof",
   "private": true,
   "version": "0.0.0",
-  "description": "Framework-agnostic BDD behavior-test generation kit: traceability engine + AI agent skills (SKILL.md standard) + per-framework scaffolds (playwright web, Flutter bdd_widget_test + Patrol).",
+  "description": "Framework-agnostic AI-development quality governance kit: a traceability engine + AI agent skills (SKILL.md standard) + per-framework BDD scaffolds (playwright web, Flutter flutter_gherkin + Patrol).",
   "type": "module",
   "license": "MIT",
   "author": "Pound79",
-  "homepage": "https://github.com/Pound79/bdd-kit",
+  "homepage": "https://github.com/Pound79/specproof",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Pound79/bdd-kit.git"
+    "url": "https://github.com/Pound79/specproof.git"
   },
   "workspaces": [
     "packages/*",

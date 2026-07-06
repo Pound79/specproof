@@ -2,7 +2,7 @@ import { test as base, createBdd } from "playwright-bdd";
 import { LoginPage } from "../pages/LoginPage";
 import { ExamplePage } from "../pages/ExamplePage";
 import { forceAppLanguage } from "../config/locale";
-import { loadBddKitConfig } from "../config/bdd-kit-config";
+import { loadSpecproofConfig } from "../config/specproof-config";
 
 /**
  * Fixtures exposed to step definitions as Playwright BDD fixtures.
@@ -25,10 +25,10 @@ export const test = base.extend<Fixtures>({
   // assertions deterministic regardless of the browser's system locale.
   //
   // The language value and the localStorage key name are both read from
-  // bdd-kit.config.yaml (cfg.language and cfg.runner.i18nLocaleStorageKey).
+  // specproof.config.yaml (cfg.language and cfg.runner.i18nLocaleStorageKey).
   // If i18nLocaleStorageKey is empty/unset this is a no-op.
   context: async ({ context }, use) => {
-    const cfg = loadBddKitConfig();
+    const cfg = loadSpecproofConfig();
     await forceAppLanguage(context, cfg);
     await use(context);
   },

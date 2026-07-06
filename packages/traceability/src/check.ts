@@ -17,6 +17,8 @@ import {
 } from './manifest.js';
 import { resolveWithinRoot } from './resolve.js';
 import { DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG } from './config.js';
+import { auditUnregisteredImpl } from './impl-audit.js';
+import { auditSpecHeadings } from './spec-audit.js';
 
 export type DriftSide = 'spec' | 'impl' | 'feature';
 
@@ -31,10 +33,18 @@ export interface DriftEntry {
 }
 
 export interface DriftWarning {
-  // Present for a warning tied to a manifest link (empty-link, or a draft marker
-  // on a registered feature). Absent for an unregistered featuresDir file.
+  // Present for a warning tied to a manifest link (empty-link, a draft marker
+  // on a registered feature, or duplicate-heading). Absent for an
+  // unregistered file/heading, which has no link to attach to.
   linkId?: string;
-  kind: 'empty-link' | 'unreviewed-draft' | 'missing-skip-reason';
+  kind:
+    | 'empty-link'
+    | 'unreviewed-draft'
+    | 'missing-skip-reason'
+    | 'unregistered-feature'
+    | 'unregistered-spec-heading'
+    | 'unregistered-impl'
+    | 'duplicate-heading';
   // The offending file path (the feature, for unreviewed-draft). Absent for
   // empty-link, where the link itself — not a file — is the subject.
   path?: string;
@@ -52,6 +62,11 @@ export interface DriftReport {
   // Non-drift structural advisories (e.g. a link that tracks nothing). Always
   // surfaced; escalated to a failing exit code under `--strict`.
   warnings: DriftWarning[];
+  // linkIds where both a spec ref and an impl ref drifted in the same run —
+  // the situation specproof-sync must never auto-resolve (H3): it cannot tell
+  // which side is authoritative, so it must stop and ask a human. Always
+  // present (empty when there is no such link).
+  bothSidesChanged: string[];
 }
 
 const isSentinel = (hash: string): boolean =>
@@ -136,7 +151,7 @@ const unreviewedDraftWarning = (
   featurePath: string,
   linkId?: string
 ): DriftWarning => {
-  const message = `feature "${featurePath}" still carries the bdd-kit draft marker ("${DRAFT_MARKER}") — review and remove it before implementing (unreviewed bootstrap draft)`;
+  const message = `feature "${featurePath}" still carries the specproof draft marker ("${DRAFT_MARKER}") — review and remove it before implementing (unreviewed bootstrap draft)`;
   return linkId === undefined
     ? { kind: 'unreviewed-draft', path: featurePath, message }
     : { linkId, kind: 'unreviewed-draft', path: featurePath, message };
@@ -160,6 +175,14 @@ const missingSkipReasonWarning = (
     : { linkId, kind: 'missing-skip-reason', path: featurePath, message };
 };
 
+// A-1: a *.feature file physically present under featuresDir that no link's
+// features[] registers. No linkId — there is no link to attach the warning to.
+const unregisteredFeatureWarning = (relPath: string): DriftWarning => ({
+  kind: 'unregistered-feature',
+  path: relPath,
+  message: `feature file is not registered in the traceability manifest: ${relPath}`,
+});
+
 // A feature file to lint, with its manifest link id when it is registered.
 interface FeatureTarget {
   relPath: string;
@@ -168,8 +191,8 @@ interface FeatureTarget {
 
 // The full set of feature files to lint: every manifest-registered feature plus
 // every *.feature physically under featuresDir (so an unregistered draft copied
-// in is still caught — the ADR 0004 / bdd-bootstrap promise). Deduped by repo-
-// relative path; the registered entry (which carries a linkId) wins.
+// in is still caught — the ADR 0004 / specproof-bootstrap promise). Deduped by
+// repo-relative path; the registered entry (which carries a linkId) wins.
 const collectFeatureTargets = async (
   manifest: TraceabilityManifest,
   repoRoot: string,
@@ -245,6 +268,10 @@ export interface CheckDriftOptions {
    *  first match names the warning). Defaults to ["@fixme", "@skip"]; pass the
    *  repo's `tags.fixme` / `tags.skip` to honour a custom tag taxonomy. */
   reasonRequiredTags?: string[];
+  /** Glob patterns (self-implemented matcher; `*` and `**` only) identifying
+   *  implementation files that should be registered in some link's impl[].
+   *  When unset, unregistered-impl auditing is skipped entirely (opt-in). */
+  implGlobs?: string[];
 }
 
 export const checkDrift = async (
@@ -269,16 +296,41 @@ export const checkDrift = async (
   const featureWarningGroups = await Promise.all(
     targets.map((target) => lintFeature(target, repoRoot, reasonRequiredTags))
   );
+  const unregisteredFeatureWarnings = targets
+    .filter((target) => target.linkId === undefined)
+    .map((target) => unregisteredFeatureWarning(target.relPath));
+
+  const specHeadingWarnings = await auditSpecHeadings(manifest, repoRoot);
+  const implWarnings = await auditUnregisteredImpl(
+    manifest,
+    repoRoot,
+    options.implGlobs
+  );
 
   const warnings = [
     ...manifest.links.filter(isEmptyLink).map(emptyLinkWarning),
     ...featureWarningGroups.flat(),
+    ...unregisteredFeatureWarnings,
+    ...specHeadingWarnings,
+    ...implWarnings,
   ];
+
+  const linkIdsWithSpecChange = new Set(
+    entries.filter((entry) => entry.side === 'spec').map((entry) => entry.linkId)
+  );
+  const linkIdsWithImplChange = new Set(
+    entries.filter((entry) => entry.side === 'impl').map((entry) => entry.linkId)
+  );
+  const bothSidesChanged = [...linkIdsWithSpecChange].filter((linkId) =>
+    linkIdsWithImplChange.has(linkId)
+  );
+
   return {
     clean: entries.length === 0,
     driftCount: entries.length,
     driftLinkCount,
     entries,
     warnings,
+    bothSidesChanged,
   };
 };
