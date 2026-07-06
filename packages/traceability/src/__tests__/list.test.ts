@@ -109,7 +109,7 @@ describe("formatDomainList", () => {
   it("shows the (none) line and no bootstrap hint when there are no candidates", () => {
     const out = formatDomainList({ registered, candidates: [] });
     expect(out).toContain(
-      "Registered domains (1) — targets for bdd-sync and bdd-bootstrap:",
+      "Registered domains (1) — targets for specproof-sync and specproof-bootstrap:",
     );
     expect(out).toContain("  history  生成履歴の閲覧  (features: 1)");
     expect(out).toContain(
@@ -137,14 +137,16 @@ describe("formatDomainList", () => {
     // extra space before the two-space column separator.
     expect(out).toContain(`  company-data   ${PAGES_DIR}/CompanyDataPage.tsx`);
     expect(out).toContain(`  compare-debug  ${PAGES_DIR}/CompareDebugPage.tsx`);
-    expect(out).toContain("Bootstrap one with: bdd-bootstrap <domain>");
+    expect(out).toContain(
+      "Bootstrap one with: specproof-bootstrap <domain> (suggested-domain shown above; rename if a cleaner id fits).",
+    );
   });
 
   it("renders the zero-domain header when the manifest is empty", () => {
     const empty: DomainList = { registered: [], candidates: [] };
     const out = formatDomainList(empty);
     expect(out).toContain(
-      "Registered domains (0) — targets for bdd-sync and bdd-bootstrap:",
+      "Registered domains (0) — targets for specproof-sync and specproof-bootstrap:",
     );
     expect(out).toContain("  (none)");
   });

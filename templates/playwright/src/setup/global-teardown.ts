@@ -4,7 +4,7 @@
  * This file is a no-op stub. Replace or extend it with app-specific cleanup
  * logic for your project (see the commented example below).
  *
- * Register it in bdd-kit.config.yaml:
+ * Register it in specproof.config.yaml:
  *   runner:
  *     globalTeardown: "src/setup/global-teardown.ts"
  *

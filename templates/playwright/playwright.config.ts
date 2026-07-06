@@ -1,17 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 import { defineBddProject } from "playwright-bdd";
 import {
-  loadBddKitConfig,
+  loadSpecproofConfig,
   isConditionMet,
   resolveActiveEnvironment,
-} from "./src/config/bdd-kit-config";
+} from "./src/config/specproof-config";
 import { loadDotenv, resolveBaseUrl, shouldStartWebServer } from "./src/config/env";
 
 // ---------------------------------------------------------------------------
 // Load config → resolve environment → load dotenv
 // ---------------------------------------------------------------------------
 
-const cfg = loadBddKitConfig();
+const cfg = loadSpecproofConfig();
 const activeEnv = resolveActiveEnvironment(cfg);
 loadDotenv(activeEnv);
 
@@ -100,7 +100,7 @@ const appProjects = cfg.projects.flatMap((p) => {
 // ---------------------------------------------------------------------------
 // Derive locale/timezone from the config language for Playwright's context.
 // These control the browser Accept-Language header and JS Date behaviour.
-// Adapt these mappings when adding more languages to your bdd-kit.config.yaml.
+// Adapt these mappings when adding more languages to your specproof.config.yaml.
 // ---------------------------------------------------------------------------
 
 const LANGUAGE_TO_LOCALE: Record<string, string> = {

@@ -1,9 +1,9 @@
 ---
 name: release
 description: >
-  Release / publish a new version of the bdd-kit npm packages
-  (@pound79/bdd-kit = cli, @pound79/bdd-traceability = packages/traceability).
-  bdd-kit の新バージョンを切る / publish するときに使う。トリガ例: "リリースして",
+  Release / publish a new version of the specproof npm packages
+  (@pound79/specproof = cli, @pound79/specproof-traceability = packages/traceability).
+  specproof の新バージョンを切る / publish するときに使う。トリガ例: "リリースして",
   "v0.1.5 を出して", "バージョンを上げて publish", "cut a release", "bump and tag".
   Drives scripts/release.sh, which bumps every workspace version + the lockfile
   + the two Claude Code plugin manifests, stamps the CHANGELOG, verifies all
@@ -11,9 +11,9 @@ description: >
   .github/workflows/release.yml, which publishes to npm with provenance.
 ---
 
-# Release bdd-kit
+# Release specproof
 
-bdd-kit の npm パッケージをリリースする。**機械的処理は `scripts/release.sh` が担う**ので、
+specproof の npm パッケージをリリースする。**機械的処理は `scripts/release.sh` が担う**ので、
 このスキルは判断が要る部分 — バージョン選定・CHANGELOG 執筆・最終確認 — を担当する。
 
 ## 必ず理解しておく前提
@@ -26,7 +26,7 @@ bdd-kit の npm パッケージをリリースする。**機械的処理は `scr
   workflow 冒頭の `npm ci` が不整合で落ちる。`scripts/release.sh` はこの更新を検証する。
 - **Claude Code プラグインは別チャネル**。プラグインの version は npm ではなく
   `.claude-plugin/marketplace.json`（`metadata.version`）と
-  `plugins/bdd-kit/.claude-plugin/plugin.json`（`version`）から読まれる。これらは npm workspace の外なので
+  `plugins/specproof/.claude-plugin/plugin.json`（`version`）から読まれる。これらは npm workspace の外なので
   `npm version --workspaces` では**絶対に更新されない** → `scripts/release.sh` が明示的に bump する。
   ここを怠ると、コードは新しいのにプラグインだけ旧バージョンに据え置かれる（`/plugin install` が「既に最新」と誤報告する）。
   4つの version 源（cli / traceability / marketplace / plugin）が一致するかは `npm run check:versions` が検証し、
@@ -38,7 +38,7 @@ bdd-kit の npm パッケージをリリースする。**機械的処理は `scr
 
 ### 1. バージョンを決める
 - 直近タグ: `git tag --sort=-v:refname | head -1`
-- npm の現状: `npm view @pound79/bdd-kit version`
+- npm の現状: `npm view @pound79/specproof version`
 - 変更内容から semver を判断（破壊的変更 = major / 機能追加 = minor / 修正のみ = patch）。
 - 両パッケージは lockstep（同一バージョン）で運用している。`npm version --workspaces` が両方を揃える。
 
@@ -67,7 +67,7 @@ scripts/release.sh <version>        # 例: scripts/release.sh 0.1.5
 1. 前提チェック（main 上 / CHANGELOG 以外 clean / タグ未存在）+ CHANGELOG `[Unreleased]` が空でないか検証
 2. `npm ci`（node_modules が無い時のみ）+ `npm run typecheck && npm run build && npm test`（`--skip-checks` で省略可）
 3. `npm version <version> --workspaces --no-git-tag-version`（package.json 群 + lockfile）
-4. プラグインマニフェスト2つ（`.claude-plugin/marketplace.json` + `plugins/bdd-kit/.claude-plugin/plugin.json`）を `<version>` に bump
+4. プラグインマニフェスト2つ（`.claude-plugin/marketplace.json` + `plugins/specproof/.claude-plugin/plugin.json`）を `<version>` に bump
 5. CHANGELOG を stamp（`[Unreleased]` → `[<version>] - <date>`、compare link も更新）
 6. `node scripts/check-versions.mjs` で全 version 源の一致をアサート（不一致なら rollback して中断）
 7. 差分を表示し **push 前に確認プロンプト**（`--yes` で省略可）
@@ -83,8 +83,8 @@ scripts/release.sh <version>        # 例: scripts/release.sh 0.1.5
 ### 5. リリース後の検証
 ```bash
 gh run watch                                  # Release workflow を監視
-npm view @pound79/bdd-kit version             # <version> になっていれば成功
-npm view @pound79/bdd-traceability version
+npm view @pound79/specproof version             # <version> になっていれば成功
+npm view @pound79/specproof-traceability version
 gh release create v<version> --generate-notes # 任意: GitHub Release ノート
 ```
 
@@ -92,7 +92,7 @@ gh release create v<version> --generate-notes # 任意: GitHub Release ノート
 
 - **npm は新しいのにプラグインだけ旧バージョンのまま**（`/plugin install` が「既に最新」と言う）→
   プラグインマニフェスト2つの version bump 漏れ。`npm run check:versions` で不一致を確認し、
-  `.claude-plugin/marketplace.json` と `plugins/bdd-kit/.claude-plugin/plugin.json` を揃える。
+  `.claude-plugin/marketplace.json` と `plugins/specproof/.claude-plugin/plugin.json` を揃える。
   正攻法は次の patch を `scripts/release.sh` で切ること（4源を lockstep で bump する）。
 - **何も publish されない / workflow が skip した** → `package.json` の version を上げ忘れ、または
   既に publish 済みのバージョンでタグを打った。`npm view <pkg> version` で確認し、version を上げ直して
@@ -102,7 +102,7 @@ gh release create v<version> --generate-notes # 任意: GitHub Release ノート
 - **`git push` が SSH で失敗する制限環境** → HTTPS にフォールバック（token を config に残さない）:
   ```bash
   git -c credential.helper='!gh auth git-credential' \
-    push --atomic https://github.com/Pound79/bdd-kit.git HEAD:main v<version>
+    push --atomic https://github.com/Pound79/specproof.git HEAD:main v<version>
   ```
 - **間違ったタグを push してしまった（publish 前に気づいた）** →
   `git push --delete origin v<version>` でリモートタグを削除（既に publish 済みなら npm の unpublish は

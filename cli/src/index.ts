@@ -10,17 +10,17 @@ const command = argv[0];
 
 const VALID_AGENT_FLAGS = ["claude", "codex"] as const;
 
-const usage = `bdd-kit — BDD behavior-test kit scaffolder
+const usage = `specproof — BDD behavior-test kit scaffolder
 
 Usage:
-  bdd-kit init --adapter <playwright|flutter|auto> [--dir <e2e-dir>] [--force] [--agent <claude|codex>]
-  bdd-kit detect [--json]
-  bdd-kit setup-agent <codex|claude> [--force]
+  specproof init --adapter <playwright|flutter|auto> [--dir <e2e-dir>] [--force] [--agent <claude|codex>]
+  specproof detect [--json]
+  specproof setup-agent <codex|claude> [--force]
 
 Commands:
   init          Scaffold a BDD test package into the repo.
   detect        Detect the framework and suggest an adapter (read-only).
-  setup-agent   Install bdd-kit skills for a specific AI coding agent.
+  setup-agent   Install specproof skills for a specific AI coding agent.
 
 Options (init):
   --adapter   Test framework adapter (playwright | flutter | auto). Required.
@@ -87,7 +87,7 @@ const main = async (): Promise<void> => {
 
 main().catch((error: unknown) => {
   console.error(
-    "bdd-kit failed:",
+    "specproof failed:",
     error instanceof Error ? error.message : error,
   );
   process.exitCode = 1;

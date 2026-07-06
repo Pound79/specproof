@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Release the bdd-kit npm packages.
+# Release the specproof npm packages.
 #
 # The Release workflow (.github/workflows/release.yml) fires on a `v*` tag push
 # and publishes whatever version is in each package.json (skipping versions that
@@ -14,7 +14,7 @@
 #   2. install deps + run typecheck/build/test  (before any mutation)
 #   3. bump every workspace package + the lockfile to <version>   (npm version)
 #   4. bump the two Claude Code plugin manifests to <version>
-#      (.claude-plugin/marketplace.json + plugins/bdd-kit/.claude-plugin/plugin.json)
+#      (.claude-plugin/marketplace.json + plugins/specproof/.claude-plugin/plugin.json)
 #      -- npm version --workspaces cannot reach these, so they are bumped here;
 #      forgetting this is what once stranded the plugin at 0.1.4 while npm was 0.1.5
 #   5. stamp the CHANGELOG: [Unreleased] -> [<version>] - <date>, update compare links
@@ -129,7 +129,7 @@ if [ "$DRY_RUN" = true ]; then
   [ "$SKIP_CHECKS" = true ] && echo "  - skip local checks" || echo "  - npm ci (if node_modules missing) + npm run typecheck && npm run build && npm test"
   echo "  - snapshot release files (rolled back automatically if the bump fails)"
   echo "  - npm version $VERSION --workspaces --no-git-tag-version   (bumps cli + packages/* + lockfile)"
-  echo "  - bump plugin manifests to $VERSION (.claude-plugin/marketplace.json + plugins/bdd-kit/.claude-plugin/plugin.json)"
+  echo "  - bump plugin manifests to $VERSION (.claude-plugin/marketplace.json + plugins/specproof/.claude-plugin/plugin.json)"
   echo "  - stamp CHANGELOG [Unreleased] -> [$VERSION] - $RELEASE_DATE (+ update compare links)"
   echo "  - node scripts/check-versions.mjs   (assert all version sources agree)"
   echo "  - git commit -m \"chore: release $TAG\""
@@ -175,7 +175,7 @@ RELEASE_FILES=(
   CHANGELOG.md
   cli/package.json
   .claude-plugin/marketplace.json
-  plugins/bdd-kit/.claude-plugin/plugin.json
+  plugins/specproof/.claude-plugin/plugin.json
 )
 for p in packages/*/package.json; do
   [ -e "$p" ] && RELEASE_FILES+=("$p")
@@ -232,7 +232,7 @@ const [version] = process.argv.slice(2);
 // [file, accessor] — accessor knows where the version lives in each manifest.
 const targets = [
   [".claude-plugin/marketplace.json", (j) => { j.metadata.version = version; }],
-  ["plugins/bdd-kit/.claude-plugin/plugin.json", (j) => { j.version = version; }],
+  ["plugins/specproof/.claude-plugin/plugin.json", (j) => { j.version = version; }],
 ];
 for (const [file, set] of targets) {
   const json = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -336,12 +336,12 @@ echo "==> Pushing main + $TAG atomically (this starts the Release workflow)"
 # In a normal terminal the SSH remote works. In a restricted/sandboxed shell
 # where SSH is blocked, push over HTTPS instead, e.g.:
 #   git -c credential.helper='!gh auth git-credential' \
-#     push --atomic https://github.com/Pound79/bdd-kit.git HEAD:main "$TAG"
+#     push --atomic https://github.com/Pound79/specproof.git HEAD:main "$TAG"
 git push --atomic origin main "$TAG"
 
 echo ""
 echo "==> Done. Verify the release:"
 echo "    gh run watch                                  # watch the Release workflow"
-echo "    npm view @pound79/bdd-kit version             # expect $VERSION"
-echo "    npm view @pound79/bdd-traceability version    # expect $VERSION"
+echo "    npm view @pound79/specproof version             # expect $VERSION"
+echo "    npm view @pound79/specproof-traceability version    # expect $VERSION"
 echo "    gh release create $TAG --generate-notes       # optional GitHub Release"

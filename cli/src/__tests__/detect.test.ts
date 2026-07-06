@@ -305,6 +305,35 @@ describe("detectAdapter", () => {
       expect(result.hints.monorepo).toBe(false);
     });
 
+    it("sets monorepo true when pnpm-workspace.yaml is present", () => {
+      const snapshot: RepoSnapshot = {
+        rootFiles: ["package.json", "pnpm-workspace.yaml"],
+        packageJson: {
+          dependencies: { react: "^18.0.0" },
+        },
+      };
+      const result = detectAdapter(snapshot);
+      expect(result.hints.monorepo).toBe(true);
+      expect(result.candidates[0]).toMatchObject({
+        adapter: "playwright",
+        confidence: "medium",
+        dir: "packages/e2e",
+      });
+      expect(result.candidates[0].signals).toContain("pnpm-workspace.yaml");
+    });
+
+    it("sets monorepo true from pnpm-workspace.yaml even without package.json workspaces field", () => {
+      const snapshot: RepoSnapshot = {
+        rootFiles: ["package.json", "pnpm-workspace.yaml"],
+        packageJson: {
+          devDependencies: { "@playwright/test": "^1.60.0" },
+        },
+      };
+      const result = detectAdapter(snapshot);
+      expect(result.hints.monorepo).toBe(true);
+      expect(result.candidates[0].signals).toContain("pnpm-workspace.yaml");
+    });
+
     it("ignores malformed workspaces instead of crashing", () => {
       const snapshot = {
         rootFiles: ["package.json"],

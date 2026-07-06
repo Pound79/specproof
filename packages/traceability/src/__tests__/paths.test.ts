@@ -15,7 +15,33 @@ describe('resolveRepoRoot', () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it('finds a directory containing bdd-kit.config.yaml', async () => {
+  it('finds a directory containing specproof.config.yaml', async () => {
+    await writeFile(
+      path.join(root, 'specproof.config.yaml'),
+      'version: 1\n',
+      'utf8',
+    );
+
+    const result = resolveRepoRoot(root);
+
+    expect(result).toBe(root);
+  });
+
+  it('finds a directory containing specproof.config.yml', async () => {
+    await writeFile(
+      path.join(root, 'specproof.config.yml'),
+      'version: 1\n',
+      'utf8',
+    );
+
+    const result = resolveRepoRoot(root);
+
+    expect(result).toBe(root);
+  });
+
+  // Back-compat (RENAME-DESIGN §3-1): pre-rename config names are still
+  // recognized as repo-root markers.
+  it('finds a directory containing the legacy bdd-kit.config.yaml', async () => {
     await writeFile(
       path.join(root, 'bdd-kit.config.yaml'),
       'version: 1\n',
@@ -27,7 +53,7 @@ describe('resolveRepoRoot', () => {
     expect(result).toBe(root);
   });
 
-  it('finds a directory containing bdd-kit.config.yml', async () => {
+  it('finds a directory containing the legacy bdd-kit.config.yml', async () => {
     await writeFile(
       path.join(root, 'bdd-kit.config.yml'),
       'version: 1\n',
@@ -53,7 +79,7 @@ describe('resolveRepoRoot', () => {
 
   it('walks up to a parent directory containing a marker', async () => {
     await writeFile(
-      path.join(root, 'bdd-kit.config.yaml'),
+      path.join(root, 'specproof.config.yaml'),
       'version: 1\n',
       'utf8',
     );
@@ -65,7 +91,24 @@ describe('resolveRepoRoot', () => {
     expect(result).toBe(root);
   });
 
-  it('prefers bdd-kit.config.yaml over traceability.yaml in the same dir', async () => {
+  it('prefers specproof.config.yaml over a legacy bdd-kit.config.yaml in the same dir', async () => {
+    await writeFile(
+      path.join(root, 'specproof.config.yaml'),
+      'version: 1\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(root, 'bdd-kit.config.yaml'),
+      'version: 1\n',
+      'utf8',
+    );
+
+    const result = resolveRepoRoot(root);
+
+    expect(result).toBe(root);
+  });
+
+  it('prefers a legacy bdd-kit.config.yaml over traceability.yaml in the same dir', async () => {
     await writeFile(
       path.join(root, 'bdd-kit.config.yaml'),
       'version: 1\n',

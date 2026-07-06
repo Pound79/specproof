@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # Spec <-> Implementation <-> Feature traceability manifest.
 #
-# Managed by the bdd-sync skill and the bdd-traceability-check CLI. Do not edit the "links" array
+# Managed by the specproof-sync skill and the specproof-check CLI. Do not edit the "links" array
 # by hand unless you know what you are doing — hash mismatches will be flagged
 # as drift and cause the drift check to fail.
 #
@@ -16,9 +16,9 @@
 #   features: list of { path, hash } — .feature files
 #
 # Every hash is the SHA-256 recorded at the last sync. A new ref may use the
-# placeholder "PENDING"; bdd-traceability-update overwrites it with the real
-# digest. Hashes are managed by the bdd-sync skill and the
-# @pound79/bdd-traceability CLI (bdd-traceability-update / bdd-traceability-check),
+# placeholder "PENDING"; specproof-update overwrites it with the real
+# digest. Hashes are managed by the specproof-sync skill and the
+# @pound79/specproof-traceability CLI (specproof-update / specproof-check),
 # not by npm scripts.
 #
 # Example:

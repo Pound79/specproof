@@ -1,4 +1,4 @@
-# bdd-kit Flutter adapter (flutter_gherkin + 日本語 Gherkin)
+# specproof Flutter adapter (flutter_gherkin + 日本語 Gherkin)
 
 `flutter_gherkin` ベースの BDD 振る舞いテスト足場。**日本語 Gherkin（`# language: ja`・機能/シナリオ/前提/もし/ならば/かつ）がキーワードも step テキストも通る**唯一の実用構成。Flutter 3.44.1 / Dart 3.12.1 で green 実証済み。
 
@@ -7,11 +7,11 @@
 ## 前提
 
 - Flutter 3.44+ / Dart 3.12+
-- **Node.js 24+** — traceability CLI（`npx -y -p @pound79/bdd-traceability bdd-traceability-check` 等）を使うため。
-  Flutter 専業のリポでも traceability コマンドは Node 製なので Node が必要（`bdd-kit.config.yaml`
+- **Node.js 24+** — traceability CLI（`npx -y -p @pound79/specproof-traceability specproof-check` 等）を使うため。
+  Flutter 専業のリポでも traceability コマンドは Node 製なので Node が必要（`specproof.config.yaml`
   の `commands.traceabilityCheck` / `traceabilityUpdate` / `traceabilityList` を参照）。
 
-## セットアップ（`bdd-kit init --adapter flutter` 後）
+## セットアップ（`specproof init --adapter flutter` 後）
 
 1. **別パッケージ構成**: この足場は `bdd_tests/`（アプリ本体とは別 pubspec）。アプリ本体に直接入れると依存衝突（gherkin の uuid^3 ↔ geolocator 等の uuid>=4、mockito 由来の analyzer/source_gen）。
 
@@ -57,3 +57,33 @@ bdd_tests/
 ```
 
 実アプリの画面をテストするときは `counter_app.dart` を消し、`appMainFunction` でアプリの `main()` を起動して `features/`・`steps/` を書く。
+
+## BDD 方法論の参照ポイント
+
+specproof-* skill は `{{config:layout.e2eReadme}}` としてこのファイルを参照する。詳細は
+`docs/methodology.md` を参照（ここは要約 + リンク、複製ではない）。
+
+### 変更起点別フロー
+
+- spec-first: `/specproof-new-feature` または `/specproof-sync` で feature + stub step を作成 → `/specproof-implement` で緑化 → bless
+- feature-first: 人が `.feature` を直接編集 → `/specproof-implement` で緑化 → bless
+- impl-first: `/specproof-bootstrap`（**一度きり**。次項参照）
+
+### bootstrap は一度きり・実装変更後の追従経路
+
+`/specproof-bootstrap` は既存実装からドメインの feature を**一度だけ**起こす。既存 feature の
+再生成には使わない（実装のコピーになり、壊れたら赤くなるというテストの役目を失う）。
+実装変更を feature に追従させるときは `specproof-check`（drift 検知）→
+`/specproof-sync`（差分反映・既存シナリオは消さない）→ `specproof-update`（bless）の順で行う。
+
+### 仕様の置き場所 と 「テストが難しい ≠ 観測不能」
+
+振る舞いは「自動化の難易度」ではなく「ユーザーが観測可能か」で仕分ける: 観測可能なら
+`.feature` に残す（自動化が難しければ `@fixme`/`@skip` + 理由コメント）。観測不能
+（ステータスコード契約・内部定数・非機能要件など）だけを rationale doc へ回す。
+「テストが難しい」だけを理由に rationale へ逃がさない。
+
+### なぜ層ドキュメント（rationale doc）の規約
+
+rationale doc は**人間が書く。自動生成しない。** 実装からの自動抽出は行番号の写しや
+根拠の捏造になり、specproof が防ごうとしている仕様書の腐敗を再生産する。

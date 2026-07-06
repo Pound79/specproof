@@ -2,8 +2,8 @@
 
 ## Supported versions
 
-bdd-kit is pre-1.0. Security fixes are applied to the latest released version
-of each package (`@pound79/bdd-traceability`, `@pound79/bdd-kit`).
+specproof is pre-1.0. Security fixes are applied to the latest released version
+of each package (`@pound79/specproof-traceability`, `@pound79/specproof`).
 
 ## Reporting a vulnerability
 
@@ -27,4 +27,4 @@ Please include:
   and details are published after users have had a reasonable window to upgrade
   (target: within **90 days** of the initial report).
 
-Thank you for helping keep bdd-kit and its users safe.
+Thank you for helping keep specproof and its users safe.

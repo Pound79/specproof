@@ -1,5 +1,5 @@
 {
-  "name": "@pound79/bdd-traceability",
+  "name": "@pound79/specproof-traceability",
   "version": "0.1.6",
   "type": "module",
   "publishConfig": {
@@ -15,10 +15,10 @@
     "gherkin",
     "e2e"
   ],
-  "homepage": "https://github.com/Pound79/bdd-kit/tree/main/packages/traceability",
+  "homepage": "https://github.com/Pound79/specproof/tree/main/packages/traceability",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Pound79/bdd-kit.git",
+    "url": "git+https://github.com/Pound79/specproof.git",
     "directory": "packages/traceability"
   },
   "main": "./dist/index.js",
@@ -33,10 +33,10 @@
     "dist"
   ],
   "bin": {
-    "bdd-traceability-check": "dist/cli-check.js",
-    "bdd-traceability-update": "dist/cli-update.js",
-    "bdd-traceability-list": "dist/cli-list.js",
-    "bdd-traceability-stats": "dist/cli-stats.js"
+    "specproof-check": "dist/cli-check.js",
+    "specproof-update": "dist/cli-update.js",
+    "specproof-list": "dist/cli-list.js",
+    "specproof-stats": "dist/cli-stats.js"
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json && node -e \"const fs=require('node:fs');['dist/cli-check.js','dist/cli-update.js','dist/cli-list.js','dist/cli-stats.js'].forEach((f)=>fs.chmodSync(f, 0o755));\"",

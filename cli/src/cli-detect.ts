@@ -19,7 +19,7 @@ export async function runDetect(opts: DetectOptions): Promise<void> {
       "No framework detected. No pubspec.yaml (Flutter) or package.json found.",
     );
     console.log(
-      "Run: bdd-kit init --adapter <playwright|flutter> to scaffold manually.",
+      "Run: specproof init --adapter <playwright|flutter> to scaffold manually.",
     );
     return;
   }
@@ -47,12 +47,12 @@ export async function runDetect(opts: DetectOptions): Promise<void> {
   const high = result.candidates.filter((c) => c.confidence === "high");
   if (high.length === 1) {
     console.log(
-      `\nRecommendation: bdd-kit init --adapter ${high[0].adapter} --dir ${high[0].dir}`,
+      `\nRecommendation: specproof init --adapter ${high[0].adapter} --dir ${high[0].dir}`,
     );
   } else {
     console.log(
       "\nAmbiguous detection. Specify an adapter explicitly:",
     );
-    console.log("  bdd-kit init --adapter <playwright|flutter>");
+    console.log("  specproof init --adapter <playwright|flutter>");
   }
 }

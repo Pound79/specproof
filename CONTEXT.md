@@ -1,4 +1,4 @@
-# bdd-kit
+# specproof
 
 spec ↔ impl ↔ feature のトレーサビリティ駆動 BDD フローを、framework 非依存の 3 層
 （方法論 skill / traceability エンジン / 足場テンプレート）に分離した振る舞いテスト生成キット。
@@ -24,13 +24,14 @@ _Avoid_: 生成済み feature, 自動 feature
 
 **Blessed feature**:
 人間がドラフトを査読し意図（境界値・エラー経路・ロール分岐・rationale リンク）を刻印して
-featuresDir に移した feature。bdd-implement が緑化を目指す、実装から独立した RED 基準。
+featuresDir に移した feature。specproof-implement が緑化を目指す、実装から独立した RED 基準。
 _Avoid_: 確定 feature, 本番 feature
 
-**Draft marker（`# bdd-kit: draft`）**:
+**Draft marker（`# specproof: draft`）**:
 bootstrap がドラフトに埋める Gherkin コメント行。featuresDir に残存＝未査読ドラフトの昇格を意味する。
 人間が査読・刻印して移す際に削除する（＝レビュー完了の明示）。`traceability-check --strict` が
-`unreviewed-draft` として失敗させ、bdd-implement は着手を拒否する（同語反復ファイアウォール）。
+`unreviewed-draft` として失敗させ、specproof-implement は着手を拒否する（同語反復ファイアウォール）。
+レガシーな `# bdd-kit: draft` マーカーも後方互換のため引き続き検出される。
 _Avoid_: TODO コメント
 
 **Drift**:
@@ -49,7 +50,7 @@ _Avoid_: 仕様書（spec と紛らわしい）
 
 ## 導入モード
 
-bdd-kit が対応すべき 2 つのユースケース。入口 skill と「完了」の意味が異なる。
+specproof が対応すべき 2 つのユースケース。入口 skill と「完了」の意味が異なる。
 
 **Brownfield 導入（catch-up）**:
 既に稼働中のプロダクトへ後付けで E2E を導入する経路。入口は bootstrap（impl→feature ドラフト）

@@ -14,21 +14,44 @@ const SUPPORTED_AGENTS: readonly SupportedAgent[] = ["codex", "claude"];
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 /**
+ * Pick the skills root between the bundled copy and the monorepo checkout
+ * candidates (checked in preference order), preferring the first existing
+ * monorepo candidate whenever any monorepo candidate exists.
+ *
+ * `bundled` (<pkg>/skills) is a build artifact: cli/package.json's
+ * `prepack` script copies `plugins/specproof/skills` there before `npm pack`
+ * and `postpack` removes it afterward. If a pack run is interrupted, that
+ * copy can be left behind stale on disk. In a real published/installed
+ * package none of the monorepo candidates exist, so this only changes
+ * behavior inside a monorepo checkout — where the monorepo source is
+ * always the authoritative, current one (same rationale as
+ * init.ts's pickTemplatesRoot).
+ */
+export const pickPluginSkillsRoot = (
+  bundled: string,
+  monorepoCandidates: readonly string[],
+): string | undefined => {
+  const monorepoMatch = monorepoCandidates.find((dir) => existsSync(dir));
+  if (monorepoMatch) return monorepoMatch;
+  return existsSync(bundled) ? bundled : undefined;
+};
+
+/**
  * Locate the skills source. Three layouts are supported:
  *   1. bundled inside the published package: <pkg>/skills   (cli/dist -> cli/skills)
- *   2. monorepo / git checkout:              <kitRoot>/plugins/bdd-kit/skills
- *   3. monorepo from src:                    <cli>/plugins/bdd-kit/skills (rare)
+ *   2. monorepo / git checkout:              <kitRoot>/plugins/specproof/skills
+ *   3. monorepo from src:                    <cli>/plugins/specproof/skills (rare)
  */
 const resolvePluginSkillsRoot = (): string => {
-  const candidates = [
-    path.resolve(here, "../skills"),
-    path.resolve(here, "../../plugins/bdd-kit/skills"),
-    path.resolve(here, "../plugins/bdd-kit/skills"),
+  const bundled = path.resolve(here, "../skills");
+  const monorepoCandidates = [
+    path.resolve(here, "../../plugins/specproof/skills"),
+    path.resolve(here, "../plugins/specproof/skills"),
   ];
-  const found = candidates.find((dir) => existsSync(dir));
+  const found = pickPluginSkillsRoot(bundled, monorepoCandidates);
   if (!found) {
     throw new Error(
-      `Could not locate the skills directory (looked in: ${candidates.join(", ")}).`,
+      `Could not locate the skills directory (looked in: ${[bundled, ...monorepoCandidates].join(", ")}).`,
     );
   }
   return found;
@@ -67,7 +90,7 @@ const setupCodex = (repoRoot: string, force: boolean): string[] => {
     }
   }
 
-  console.log(`bdd-kit setup-agent codex — skills installed to .agents/skills/`);
+  console.log(`specproof setup-agent codex — skills installed to .agents/skills/`);
   for (const w of written) console.log(`  + ${w}`);
   if (skipped.length > 0) {
     console.log(
@@ -77,17 +100,17 @@ const setupCodex = (repoRoot: string, force: boolean): string[] => {
   }
   console.log(`
 Next steps:
-  Ask the agent: "run the bdd-kit skill"
+  Ask the agent: "run the specproof skill"
   The skill will detect your framework and drive the BDD flow.`);
   return written;
 };
 
 const setupClaude = (): void => {
-  console.log(`bdd-kit setup-agent claude — install the plugin in Claude Code:
+  console.log(`specproof setup-agent claude — install the plugin in Claude Code:
 
-  /plugin marketplace add Pound79/bdd-kit
-  /plugin install bdd-kit@bdd-kit
-  /bdd-kit`);
+  /plugin marketplace add Pound79/specproof
+  /plugin install specproof@specproof
+  /specproof`);
 };
 
 export interface SetupAgentOptions {
@@ -99,12 +122,12 @@ export function runSetupAgent(opts: SetupAgentOptions): void {
   const { agent } = opts;
   if (!agent) {
     throw new Error(
-      `Usage: bdd-kit setup-agent <${SUPPORTED_AGENTS.join("|")}> [--force]`,
+      `Usage: specproof setup-agent <${SUPPORTED_AGENTS.join("|")}> [--force]`,
     );
   }
   if (!SUPPORTED_AGENTS.includes(agent as SupportedAgent)) {
     throw new Error(
-      `Unknown agent "${agent}". Supported: ${SUPPORTED_AGENTS.join(", ")}\nUsage: bdd-kit setup-agent <${SUPPORTED_AGENTS.join("|")}> [--force]`,
+      `Unknown agent "${agent}". Supported: ${SUPPORTED_AGENTS.join(", ")}\nUsage: specproof setup-agent <${SUPPORTED_AGENTS.join("|")}> [--force]`,
     );
   }
 

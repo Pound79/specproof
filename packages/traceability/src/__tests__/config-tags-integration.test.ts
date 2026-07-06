@@ -22,7 +22,7 @@ const makeRenamedTaxonomyRepo = async (): Promise<string> => {
   created.push(root);
   await mkdir(path.join(root, 'features'), { recursive: true });
   await writeFile(
-    path.join(root, 'bdd-kit.config.yaml'),
+    path.join(root, 'specproof.config.yaml'),
     [
       'tags:',
       "  fixme: '@todo'",

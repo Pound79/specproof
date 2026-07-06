@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a problem with bdd-kit
+about: Report a problem with specproof
 title: "bug: "
 labels: bug
 ---
@@ -25,7 +25,7 @@ labels: bug
 
 ## Environment
 
-- bdd-kit / package version:
+- specproof / package version:
 - Node.js version:
 - OS:
 - Adapter (playwright / flutter):

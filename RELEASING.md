@@ -2,14 +2,14 @@
 
 This repo publishes two npm packages from an npm-workspaces monorepo:
 
-- `@pound79/bdd-kit` — `cli/`
-- `@pound79/bdd-traceability` — `packages/traceability/`
+- `@pound79/specproof` — `cli/`
+- `@pound79/specproof-traceability` — `packages/traceability/`
 
 It also ships a **Claude Code plugin** whose version lives in two manifests
 outside the npm workspaces:
 
 - `.claude-plugin/marketplace.json` (`metadata.version`)
-- `plugins/bdd-kit/.claude-plugin/plugin.json` (`version`)
+- `plugins/specproof/.claude-plugin/plugin.json` (`version`)
 
 All four version sources are released in lockstep (same version). The npm
 packages are published by
@@ -50,7 +50,7 @@ never leaves a half-bumped tree.)
   script verifies the lockfile was updated and refuses to continue otherwise.
 - **The plugin is a separate channel.** `npm version --workspaces` only touches
   npm workspaces, so it cannot bump `.claude-plugin/marketplace.json` or
-  `plugins/bdd-kit/.claude-plugin/plugin.json`. `scripts/release.sh` bumps those
+  `plugins/specproof/.claude-plugin/plugin.json`. `scripts/release.sh` bumps those
   explicitly. Claude Code reads the plugin's "latest version" from these
   manifests (not from npm), so if they lag, `/plugin install` reports the repo is
   already at the old version even after new code lands. `check-versions.mjs`
@@ -77,8 +77,8 @@ except for `CHANGELOG.md`, and the target tag does not already exist.
 
 ```bash
 gh run watch                                  # watch the Release workflow
-npm view @pound79/bdd-kit version             # expect the new version
-npm view @pound79/bdd-traceability version
+npm view @pound79/specproof version             # expect the new version
+npm view @pound79/specproof-traceability version
 gh release create v0.1.5 --generate-notes     # optional GitHub Release notes
 ```
 
@@ -92,5 +92,5 @@ gh release create v0.1.5 --generate-notes     # optional GitHub Release notes
   persisting a token:
   ```bash
   git -c credential.helper='!gh auth git-credential' \
-    push --atomic https://github.com/Pound79/bdd-kit.git HEAD:main v0.1.5
+    push --atomic https://github.com/Pound79/specproof.git HEAD:main v0.1.5
   ```

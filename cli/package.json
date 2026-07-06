@@ -1,21 +1,21 @@
 {
-  "name": "@pound79/bdd-kit",
+  "name": "@pound79/specproof",
   "version": "0.1.6",
   "type": "module",
   "publishConfig": {
     "access": "public"
   },
-  "description": "Scaffolder CLI for bdd-kit: `bdd-kit init` drops a config-driven BDD test scaffold into your repo.",
+  "description": "Scaffolder CLI for specproof — keeps AI-written E2E tests honest. `specproof init` drops a config-driven behavior-test scaffold (Playwright / Flutter) plus a PR drift-check workflow into your repo.",
   "license": "MIT",
   "author": "Pound79",
-  "homepage": "https://github.com/Pound79/bdd-kit/tree/main/cli",
+  "homepage": "https://github.com/Pound79/specproof/tree/main/cli",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Pound79/bdd-kit.git",
+    "url": "git+https://github.com/Pound79/specproof.git",
     "directory": "cli"
   },
   "bin": {
-    "bdd-kit": "dist/index.js"
+    "specproof": "dist/index.js"
   },
   "files": [
     "dist",
@@ -31,7 +31,7 @@
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepack": "node -e \"const fs=require('node:fs');fs.cpSync('../templates','templates',{recursive:true});fs.cpSync('../plugins/bdd-kit/skills','skills',{recursive:true})\"",
+    "prepack": "node scripts/prepack.mjs",
     "postpack": "node -e \"const fs=require('node:fs');fs.rmSync('templates',{recursive:true,force:true});fs.rmSync('skills',{recursive:true,force:true})\""
   },
   "devDependencies": {

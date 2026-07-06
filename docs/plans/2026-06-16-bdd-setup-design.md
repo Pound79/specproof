@@ -3,18 +3,18 @@
 ## Problem
 
 Users must manually determine the correct adapter (`playwright` | `flutter`) and
-run `bdd-kit init --adapter <choice>`. When a bdd-* skill fires without
-`bdd-kit.config.yaml` it stops and asks the user to run the CLI manually.
+run `specproof init --adapter <choice>`. When a specproof-* skill fires without
+`specproof.config.yaml` it stops and asks the user to run the CLI manually.
 There is no entry point that reads the repo and drives the entire setup flow.
 
 ## Solution
 
 Two-layer addition:
 
-1. **CLI**: deterministic detection logic (`bdd-kit detect` + `init --adapter auto`)
+1. **CLI**: deterministic detection logic (`specproof detect` + `init --adapter auto`)
    tested with vitest.
 2. **Plugin skill**: `bdd-setup` — natural-language entry point that calls the CLI,
-   confirms with the user, and tailors `bdd-kit.config.yaml` to the repo.
+   confirms with the user, and tailors `specproof.config.yaml` to the repo.
 
 ## CLI changes
 
@@ -68,7 +68,7 @@ Detection rules (strongest first):
 `collectSnapshot(root: string): Promise<RepoSnapshot>` reads the filesystem
 and feeds the pure function.
 
-### `bdd-kit detect` command
+### `specproof detect` command
 
 - Runs `collectSnapshot(cwd)` then `detectAdapter(snapshot)`.
 - `--json`: print `DetectResult` to stdout.
@@ -97,32 +97,32 @@ Tests the pure `detectAdapter()` with snapshot fixtures:
 ```yaml
 name: bdd-setup
 description: >
-  Set up / introduce bdd-kit into the current repository. Detects the
+  Set up / introduce specproof into the current repository. Detects the
   framework (Flutter / Playwright web), scaffolds config and templates,
-  then tailors bdd-kit.config.yaml to the repo.
+  then tailors specproof.config.yaml to the repo.
 ```
 
 ### Steps
 
-0. Pre-check: if `bdd-kit.config.yaml` already exists, switch to
-   verification mode (suggest bdd-drift / bdd-traceability-check).
-1. Run `npx -y @pound79/bdd-kit detect --json` and parse result.
+0. Pre-check: if `specproof.config.yaml` already exists, switch to
+   verification mode (suggest bdd-drift / specproof-check).
+1. Run `npx -y @pound79/specproof detect --json` and parse result.
 2. Confirmation gate: single high -> confirm and proceed; multiple/low/none ->
    ask the user (never guess).
-3. Run `npx -y @pound79/bdd-kit init --adapter <confirmed> --dir <confirmed>`.
-4. Tailor `bdd-kit.config.yaml` to repo reality:
+3. Run `npx -y @pound79/specproof init --adapter <confirmed> --dir <confirmed>`.
+4. Tailor `specproof.config.yaml` to repo reality:
    - `baseUrl` from dev script detection
    - `language` (ja/en from locale files or README language)
    - `projects` (auth role detection from env examples)
    - `layout.*` paths adjusted to actual directory structure
    - flutter: `device` target
 5. Print next steps (install, build, test) without executing them.
-6. Suggest next skill (`/bdd-bootstrap` for existing domains,
-   `/bdd-new-feature` for new).
+6. Suggest next skill (`/specproof-bootstrap` for existing domains,
+   `/specproof-new-feature` for new).
 
 ### Safety
 
-- Never overwrite existing `bdd-kit.config.yaml` without explicit consent.
+- Never overwrite existing `specproof.config.yaml` without explicit consent.
 - Always confirm adapter choice when ambiguous.
 - Do not auto-execute heavy side-effect commands (npm install, flutter create).
 

@@ -8,7 +8,8 @@ export interface RegisteredDomain {
 }
 
 export interface DomainCandidate {
-  /** Suggested kebab-case `<domain>` argument for the bdd-bootstrap skill. */
+  /** Suggested kebab-case `<domain>` argument for the specproof-bootstrap
+   *  skill. */
   suggestedDomain: string;
   /** Repo-relative path of the page that has no traceability link yet. */
   page: string;
@@ -23,7 +24,7 @@ export interface BuildDomainListOptions {
   /**
    * Repo-relative directory the page file names live under. When set, each
    * candidate path is rendered as `${pagesDir}/${name}`; when empty the bare
-   * file name is used. The CLI supplies this from bdd-kit.config.yaml
+   * file name is used. The CLI supplies this from specproof.config.yaml
    * (`layout.pagesDir`).
    */
   pagesDir?: string;
@@ -99,7 +100,7 @@ export const formatDomainList = ({
 }: DomainList): string => {
   const idWidth = Math.max(0, ...registered.map((domain) => domain.id.length));
   const lines = [
-    `Registered domains (${registered.length}) — targets for bdd-sync and bdd-bootstrap:`,
+    `Registered domains (${registered.length}) — targets for specproof-sync and specproof-bootstrap:`,
     ...registered.map(
       (domain) =>
         `  ${domain.id.padEnd(idWidth)}  ${domain.label}  (features: ${domain.featureCount})`,
@@ -124,7 +125,7 @@ export const formatDomainList = ({
   }
   lines.push(
     "",
-    "Bootstrap one with: bdd-bootstrap <domain> " +
+    "Bootstrap one with: specproof-bootstrap <domain> " +
       "(suggested-domain shown above; rename if a cleaner id fits).",
   );
   return lines.join("\n");

@@ -3,11 +3,14 @@ import { checkDrift } from "./check.js";
 import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
 import {
+  attachFailsUnderStrict,
   describeEntry,
   describeWarning,
   isCheckFailure,
+  selectWarningsForDisplay,
   toGithubAnnotation,
   toGithubWarningAnnotation,
+  warningFailsUnderStrict,
 } from "./cli-check-format.js";
 
 const main = async (): Promise<void> => {
@@ -16,20 +19,37 @@ const main = async (): Promise<void> => {
   const report = await checkDrift(config.manifestPath, config.repoRoot, {
     featuresDir: config.featuresDir,
     reasonRequiredTags: [config.fixmeTag, config.skipTag],
+    implGlobs: config.implGlobs,
   });
   const strict = flags.has("--strict");
+  const strictOptions = {
+    strictUnregisteredImpl: config.strictUnregisteredImpl,
+    strictUnregisteredSpecHeadings: config.strictUnregisteredSpecHeadings,
+  };
+  const { shown: shownWarnings, hiddenCount } = selectWarningsForDisplay(
+    report.warnings,
+  );
 
   if (flags.has("--github-annotations")) {
     for (const entry of report.entries) {
       console.error(toGithubAnnotation(entry));
     }
-    for (const warning of report.warnings) {
+    for (const warning of shownWarnings) {
       console.error(toGithubWarningAnnotation(warning));
     }
   }
 
   if (flags.has("--json")) {
-    console.log(JSON.stringify(report, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          ...report,
+          warnings: attachFailsUnderStrict(report.warnings, strictOptions),
+        },
+        null,
+        2,
+      ),
+    );
   } else if (report.clean) {
     console.log("Traceability check: clean (no drift detected).");
   } else {
@@ -45,23 +65,43 @@ const main = async (): Promise<void> => {
       }
     }
     console.log(
-      "\nNext: review the changes, sync features if needed, then run: bdd-traceability-update",
+      "\nNext: review the changes, sync features if needed, then run: specproof-update",
     );
   }
 
-  if (!flags.has("--json") && report.warnings.length > 0) {
+  if (!flags.has("--json") && report.bothSidesChanged.length > 0) {
     console.log("");
-    for (const warning of report.warnings) {
-      console.log(describeWarning(warning));
-    }
-    if (!strict) {
+    for (const linkId of report.bothSidesChanged) {
       console.log(
-        "(run bdd-traceability-check --strict to treat the above warning(s) as errors)",
+        `!! link "${linkId}": BOTH spec and impl changed — specproof-sync must stop and ask which side is authoritative`,
       );
     }
   }
 
-  process.exitCode = isCheckFailure(report, strict) ? 1 : 0;
+  if (!flags.has("--json") && shownWarnings.length > 0) {
+    console.log("");
+    for (const warning of shownWarnings) {
+      console.log(
+        describeWarning(
+          warning,
+          warningFailsUnderStrict(warning.kind, strictOptions),
+        ),
+      );
+    }
+    const hasHardWarning = shownWarnings.some((warning) =>
+      warningFailsUnderStrict(warning.kind, strictOptions),
+    );
+    if (hiddenCount > 0) {
+      console.log(`...and ${hiddenCount} more`);
+    }
+    if (!strict && hasHardWarning) {
+      console.log(
+        "(run specproof-check --strict to treat the [warning] item(s) above as errors; [advisory] item(s) require an explicit opt-in — see docs/config-schema.md)",
+      );
+    }
+  }
+
+  process.exitCode = isCheckFailure(report, strict, strictOptions) ? 1 : 0;
 };
 
 runCli("traceability check", main);

@@ -1,0 +1,110 @@
+# specproof.config.yaml (flutter adapter — flutter_gherkin + Japanese Gherkin)
+# Place at the repo root. specproof-* skills read this to resolve {{config:...}}.
+# Verified working on Flutter 3.44.1 / Dart 3.12.1 (sample-flutter-app dogfood).
+adapter: flutter
+bddRunner: flutter_gherkin
+bddGenTool: build_runner
+language: ja
+
+commands:
+  # generate the *.g.dart from .feature files (parses Japanese at build time)
+  generate: "cd bdd_tests && dart run build_runner build --delete-conflicting-outputs"
+  typecheck: "cd bdd_tests && flutter analyze"
+  lint: "cd bdd_tests && dart format --set-exit-if-changed . && flutter analyze"
+  # headless run on macOS desktop; switch -d to an emulator/simulator/device id as needed.
+  smoke: "cd bdd_tests && flutter test integration_test/gherkin_suite_test.dart -d macos"
+  install: "cd bdd_tests && flutter pub get"
+  # traceability engine is the framework-agnostic Node CLI (check / update / list
+  # / stats); it hashes the .feature text so it works for Dart repos too (run via
+  # npx, or install it and call the bin directly).
+  traceabilityCheck: "npx -y -p @pound79/specproof-traceability specproof-check"
+  traceabilityUpdate: "npx -y -p @pound79/specproof-traceability specproof-update"
+  traceabilityList: "npx -y -p @pound79/specproof-traceability specproof-list"
+  traceabilityStats: "npx -y -p @pound79/specproof-traceability specproof-stats"
+
+layout:
+  e2eRoot: "bdd_tests"
+  featuresDir: "bdd_tests/integration_test/features"
+  stepsDir: "bdd_tests/integration_test/steps"
+  stepFileSuffix: "_steps.dart"
+  stepFileExt: ".dart"
+  pagesDir: "bdd_tests/integration_test/app" # page-object equivalents / screen wrappers
+  # specproof-list candidate-detection suffix. list.ts defaults to
+  # "Page.tsx" (a React/Playwright convention) which never matches Dart files,
+  # so untracked-page detection under pagesDir silently reports zero candidates
+  # unless overridden here. Follow this suffix when naming new screen wrappers.
+  candidateSuffix: "_page.dart"
+  textConstants: "lib/l10n/app_ja.arb" # i18n source for UI-string assertions (app-specific)
+  manifest: "traceability.yaml"
+  specDir: "docs"
+  # Also used by `specproof-check` to flag implementation files with no
+  # linked spec/feature ("unregistered-impl"). Advisory by default (does
+  # not fail CI); set strictUnregisteredImpl: true (top-level) to harden it.
+  implGlobs:
+    - "lib/**/*.dart"
+  e2eReadme: "bdd_tests/README.md" # E2E package README; specproof-* skills link here
+
+# Flutter-only capabilities (read when adapter: flutter).
+flutter:
+  gherkinParser: flutter_gherkin # | flutter_gherkin handles ja; do NOT use bdd_widget_test for ja
+  testEntry: "bdd_tests/integration_test/gherkin_suite_test.dart"
+  device: "macos" # headless desktop target; or an iOS/Android device/emulator id
+  buildRunnerPin: ">=2.4.0 <2.5.0"
+  # build.yaml MUST list these sources or build_runner silently generates nothing:
+  buildYamlSources: ["lib/**", "integration_test/**.dart", "pubspec.*", "$package$"]
+  # traceability hashes the .feature SOURCE, never the generated *.g.dart / *_test.dart.
+  traceabilityHashSource: feature
+  # featureDefaultLanguage must be set in BOTH @GherkinTestSuite(...) (build time)
+  # and FlutterTestConfiguration(...) (runtime).
+
+tags:
+  slow: "@slow"
+  generate: "@generate"
+  admin: "@admin"
+  user: "@user"
+  fixme: "@fixme" # bucket-B TODO: to automate later; done gate requires zero
+  skip: "@skip"   # bucket-B: intentionally not automated; reason comment required
+
+# ---------------------------------------------------------------------------
+# agents: review agents specproof-implement invokes (anti-gaming layer 2). [optional]
+# STRONGLY RECOMMENDED: uncomment the block below if your agent environment
+# has review subagents (Claude Code ships code-reviewer / security-reviewer
+# usable as-is). When omitted, specproof-implement falls back to reviewing its
+# own diff inline — the layer is never skipped, but a self-review by the same
+# context that wrote the code is strictly weaker than an independent
+# adversarial review, and the handoff report will flag it as such.
+# ---------------------------------------------------------------------------
+# agents:
+#   codeReviewer: code-reviewer
+#   securityReviewer: security-reviewer
+
+# ---------------------------------------------------------------------------
+# environments: execution environment profiles (required — at least 1 entry)
+#
+# Each entry defines auth provider, dotenv file, and excluded tags for an
+# execution environment. Set SPECPROOF_ENV=<name> to select the active profile
+# (the legacy BDD_KIT_ENV is still read as a fallback — see docs/config-schema.md).
+# When unset, the entry with `default: true` is used.
+#
+# NOTE (Flutter): Dart runtime cannot read process.env directly, so
+# dotenvFile switching is handled by CI scripts (--dart-define=ENV=dev etc.).
+# The environments block here serves as a declaration for skills to reference
+# when generating and implementing scenarios.
+#
+# See docs/config-schema.md "environments" for the full field reference.
+# ---------------------------------------------------------------------------
+environments:
+  - name: local
+    default: true
+    # TODO: set auth provider for local development
+    # auth:
+    #   provider: mock
+    #   description: "Mock auth for local development. No real IdP calls."
+
+  # TODO: uncomment and configure additional environments as needed
+  # - name: dev
+  #   dotenvFile: ".env.dev"
+  #   auth:
+  #     provider: google
+  #     description: "Firebase Auth (Google) — dev project."
+  #   excludeTags: []

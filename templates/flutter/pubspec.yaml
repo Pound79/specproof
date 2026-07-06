@@ -1,5 +1,5 @@
 name: bdd_tests
-description: "BDD behavior tests (flutter_gherkin, Japanese Gherkin). Scaffolded by bdd-kit."
+description: "BDD behavior tests (flutter_gherkin, Japanese Gherkin). Scaffolded by specproof."
 publish_to: "none"
 version: 0.1.0
 

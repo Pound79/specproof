@@ -98,7 +98,18 @@ describe('checkDrift', () => {
     expect(report.driftCount).toBe(0);
     expect(report.driftLinkCount).toBe(0);
     expect(report.entries).toEqual([]);
-    expect(report.warnings).toEqual([]);
+    expect(report.bothSidesChanged).toEqual([]);
+    // SPEC_DOC's "2. History" section has no spec ref (by design — it's the
+    // fixture's unlinked section, used elsewhere to prove section-scoping).
+    // A-2 correctly flags it even though the linked "1. Login" section is
+    // otherwise fully clean.
+    expect(report.warnings).toEqual([
+      expect.objectContaining({
+        kind: 'unregistered-spec-heading',
+        path: 'docs/spec.md',
+        message: expect.stringContaining('2. History'),
+      }),
+    ]);
   });
 
   it('warns about a link that tracks nothing, without affecting clean/drift', async () => {
@@ -116,14 +127,15 @@ describe('checkDrift', () => {
 
     expect(report.clean).toBe(true);
     expect(report.driftCount).toBe(0);
-    expect(report.warnings).toHaveLength(1);
-    expect(report.warnings[0]).toMatchObject({
-      linkId: 'orphan',
-      kind: 'empty-link',
-    });
+    expect(report.warnings).toContainEqual(
+      expect.objectContaining({ linkId: 'orphan', kind: 'empty-link' })
+    );
+    expect(
+      report.warnings.filter((warning) => warning.kind === 'empty-link')
+    ).toHaveLength(1);
   });
 
-  it('flags a feature that still carries the bdd-kit draft marker', async () => {
+  it('flags a feature that still carries the specproof draft marker', async () => {
     await writeFile(
       path.join(root, 'features/login.feature'),
       `# language: ja\n${DRAFT_MARKER}\n機能: ログイン\n`,
@@ -479,6 +491,68 @@ describe('checkDrift', () => {
       heading: '1. Login',
       status: 'missing',
     });
+  });
+
+  it('flags a *.feature file under featuresDir that no link registers (A-1)', async () => {
+    await writeFile(
+      path.join(root, 'features/copied.feature'),
+      '機能: コピーされた機能\n',
+      'utf8'
+    );
+
+    const report = await checkDrift(manifestPath, root, {
+      featuresDir: 'features',
+    });
+
+    expect(report.warnings).toContainEqual(
+      expect.objectContaining({
+        kind: 'unregistered-feature',
+        path: 'features/copied.feature',
+      })
+    );
+    const unregistered = report.warnings.find(
+      (warning) => warning.kind === 'unregistered-feature'
+    );
+    expect(unregistered?.linkId).toBeUndefined();
+  });
+
+  it('does not flag a registered feature as unregistered-feature', async () => {
+    const report = await checkDrift(manifestPath, root, {
+      featuresDir: 'features',
+    });
+
+    expect(
+      report.warnings.filter((warning) => warning.kind === 'unregistered-feature')
+    ).toEqual([]);
+  });
+
+  it('lists a link under bothSidesChanged only when both its spec and impl drifted (B)', async () => {
+    await writeFile(
+      path.join(root, 'src/login.ts'),
+      'export const login = 2;\n',
+      'utf8'
+    );
+    const editedLinked = SPEC_DOC.replace(
+      'login spec body',
+      'login spec body v2'
+    );
+    await writeFile(path.join(root, 'docs/spec.md'), editedLinked, 'utf8');
+
+    const report = await checkDrift(manifestPath, root);
+
+    expect(report.bothSidesChanged).toEqual(['login']);
+  });
+
+  it('does not list a link under bothSidesChanged when only one side drifted', async () => {
+    await writeFile(
+      path.join(root, 'src/login.ts'),
+      'export const login = 2;\n',
+      'utf8'
+    );
+
+    const report = await checkDrift(manifestPath, root);
+
+    expect(report.bothSidesChanged).toEqual([]);
   });
 });
 

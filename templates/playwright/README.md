@@ -1,14 +1,14 @@
-# bdd-kit Playwright Scaffold
+# specproof Playwright Scaffold
 
 A config-driven, framework-agnostic Playwright + playwright-bdd scaffold.
-Drop this package into your repository, adjust `bdd-kit.config.yaml`, and
+Drop this package into your repository, adjust `specproof.config.yaml`, and
 you have a working BDD E2E suite in minutes.
 
 ---
 
 ## Prerequisites
 
-- Node.js 24+ (the bdd-traceability CLI requires Node >= 24)
+- Node.js 24+ (the specproof-traceability CLI requires Node >= 24)
 - npm 10+
 
 ---
@@ -22,9 +22,9 @@ npm install
 npm run install:browsers
 ```
 
-### 2. Configure `bdd-kit.config.yaml`
+### 2. Configure `specproof.config.yaml`
 
-The `bdd-kit.config.yaml` file at the **repository root** drives the entire
+The `specproof.config.yaml` file at the **repository root** drives the entire
 scaffold. Open it and update:
 
 | Section | What to change |
@@ -92,13 +92,13 @@ This generates glue code with `bddgen`, then runs all scenarios that are
 ## Project Structure
 
 ```
-.                          <- repo root (bdd-kit.config.yaml lives here)
+.                          <- repo root (specproof.config.yaml lives here)
 packages/e2e/              <- this package
   features/                <- Gherkin .feature files
   steps/                   <- Step definitions  (*. steps.ts)
   src/
     config/
-      bdd-kit-config.ts    <- config loader (loadBddKitConfig)
+      specproof-config.ts  <- config loader (loadSpecproofConfig)
       env.ts               <- env-var helpers (resolveBaseUrl, credentialsFor)
       locale.ts            <- language forcing helper (forceAppLanguage)
     fixtures/
@@ -112,7 +112,7 @@ packages/e2e/              <- this package
       global-teardown.ts   <- no-op teardown stub
   scripts/
     setup-auth-users.sh    <- optional: pre-create test users
-  playwright.config.ts     <- Playwright config (reads bdd-kit.config.yaml)
+  playwright.config.ts     <- Playwright config (reads specproof.config.yaml)
   traceability.yaml        <- spec/impl/feature link manifest
   .env.example             <- env var template
 ```
@@ -121,7 +121,7 @@ packages/e2e/              <- this package
 
 ## Config-Driven Behaviour
 
-All runner behaviour is derived from `bdd-kit.config.yaml`:
+All runner behaviour is derived from `specproof.config.yaml`:
 
 - **Projects** — one Playwright project per entry; `authed-admin` is skipped
   automatically when `E2E_ADMIN_USERNAME` is not set.
@@ -145,9 +145,49 @@ selector that must be adapted to your application's DOM. Use
 ## Traceability
 
 `traceability.yaml` links spec docs, implementation files, and feature files.
-Use the bdd-sync skill, or the traceability CLI configured in
-`bdd-kit.config.yaml` (`commands.traceabilityCheck` / `commands.traceabilityUpdate`),
+Use the specproof-sync skill, or the traceability CLI configured in
+`specproof.config.yaml` (`commands.traceabilityCheck` / `commands.traceabilityUpdate`),
 to keep the manifest up to date.
+
+---
+
+## BDD Methodology Pointers
+
+The specproof-* skills resolve `{{config:layout.e2eReadme}}` to this file for
+the conventions below. Full rationale lives in `docs/methodology.md`; this is
+a summary + link, not a copy.
+
+### 変更起点別フロー
+
+- spec-first: `/specproof-new-feature` or `/specproof-sync` creates the
+  feature + stub steps → `/specproof-implement` makes it green → bless.
+- feature-first: a human edits the `.feature` directly → `/specproof-implement`
+  makes it green → bless.
+- impl-first: `/specproof-bootstrap` — **one-time only**, see below.
+
+### bootstrap は一度きり・実装変更後の追従経路
+
+`/specproof-bootstrap` seeds a feature from existing code exactly once per
+domain. Never re-run it to regenerate an existing feature — that turns the
+test into a copy of the code it should verify, so it stops catching
+regressions. To follow an implementation change instead: `specproof-check`
+(detect drift) → `/specproof-sync` (reflect the diff, never deletes existing
+scenarios) → `specproof-update` (bless).
+
+### 仕様の置き場所 と 「テストが難しい ≠ 観測不能」
+
+Classify a behavior by whether it is **user-observable**, not by how hard it
+is to automate: observable → keep it in `.feature` (tag `@fixme`/`@skip` with
+a one-line reason if automation is hard); not observable (status-code
+contracts, internal constants, non-functional requirements) → rationale doc
+only. Do not move something to the rationale doc merely because it's hard to
+test.
+
+### なぜ層ドキュメント（rationale doc）の規約
+
+Rationale docs are **human-authored, never auto-generated** from
+implementation — auto-extraction just launders line numbers into fabricated
+rationale, reproducing the spec rot specproof exists to catch.
 
 ---
 
@@ -155,4 +195,5 @@ to keep the manifest up to date.
 
 - [playwright-bdd docs](https://playwright-bdd.github.io/)
 - [Playwright docs](https://playwright.dev/)
-- [bdd-kit config schema](../../docs/config-schema.md)
+- [specproof config schema](../../docs/config-schema.md)
+- [specproof methodology](../../docs/methodology.md)

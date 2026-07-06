@@ -1,12 +1,12 @@
 import { test as setup } from "@playwright/test";
-import { loadBddKitConfig, isConditionMet } from "../config/bdd-kit-config";
+import { loadSpecproofConfig, isConditionMet } from "../config/specproof-config";
 import { credentialsFor } from "../config/env";
 import { saveAuthState } from "./saveAuthState";
 
 /**
  * Authentication setup file.
  *
- * For every project in bdd-kit.config.yaml where `setup: true`, this file
+ * For every project in specproof.config.yaml where `setup: true`, this file
  * registers a Playwright setup test that logs in with the configured
  * credentials and persists the browser session to `storageState`.
  *
@@ -15,7 +15,7 @@ import { saveAuthState } from "./saveAuthState";
  * whatever accounts ARE configured.
  */
 
-const cfg = loadBddKitConfig();
+const cfg = loadSpecproofConfig();
 
 for (const p of cfg.projects) {
   if (!p.setup) continue;

@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 import { LoginPage } from "../pages/LoginPage";
 import { ExamplePage } from "../pages/ExamplePage";
 import type { Credentials } from "../config/env";
-import { loadBddKitConfig } from "../config/bdd-kit-config";
+import { loadSpecproofConfig } from "../config/specproof-config";
 import { forceAppLanguage } from "../config/locale";
 
 /**
@@ -20,7 +20,7 @@ export async function saveAuthState(
   credentials: Credentials,
   authFile: string,
 ): Promise<void> {
-  const cfg = loadBddKitConfig();
+  const cfg = loadSpecproofConfig();
 
   // Pin the app language before navigating so the saved storageState carries
   // the correct locale and post-login assertions match the expected UI text.

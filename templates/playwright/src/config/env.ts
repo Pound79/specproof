@@ -2,10 +2,10 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import dotenv from "dotenv";
 import type {
-  BddKitConfig,
+  SpecproofConfig,
   EnvironmentProfile,
   ProjectConfig,
-} from "./bdd-kit-config";
+} from "./specproof-config";
 
 // ---------------------------------------------------------------------------
 // Package root (used as base for dotenv file resolution)
@@ -88,7 +88,7 @@ export function shouldStartWebServer(): boolean {
  * Resolves the target base URL from the env var named in cfg.env.baseUrl.
  * Falls back to http://localhost:5173 when unset.
  */
-export function resolveBaseUrl(cfg: BddKitConfig): string {
+export function resolveBaseUrl(cfg: SpecproofConfig): string {
   return trimmed(process.env[cfg.env.baseUrl]) ?? "http://localhost:5173";
 }
 

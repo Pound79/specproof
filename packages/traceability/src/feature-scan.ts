@@ -1,7 +1,8 @@
 // A small, locale-aware Gherkin scanner. It is intentionally NOT a full parser:
 // it only needs to enumerate scenarios with their attached tags and whether a
 // reason comment precedes them — enough for the skip-reason lint and the stats
-// census. Supports the keyword sets bdd-kit ships adapters for (English + 日本語).
+// census. Supports the keyword sets specproof ships adapters for (English +
+// 日本語).
 
 export interface ScannedScenario {
   /** 1-based line number of the scenario keyword. */
