@@ -1,7 +1,7 @@
 {
   "name": "specproof",
   "description": "Keeps AI-written E2E tests honest — spec ↔ impl ↔ feature traceability with deterministic drift detection. Single entry: the /specproof orchestrator detects framework + mode and drives the internal movements (bootstrap / new-feature / implement / sync), stopping at every human gate. Drift detection is the AI-free specproof-traceability CLI. Driven by a per-repo specproof.config.yaml.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Pound79",
     "url": "https://github.com/Pound79"
