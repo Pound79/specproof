@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Playwright template ships its dotenv sample as `env.example` (no leading dot)
+  instead of `.env.example`; `specproof init` restores the dot on scaffold, so
+  consumers still get `.env.example`. The dotless name keeps the file
+  committable and packable in environments where `**/.env.*` deny rules (secret
+  scanners, sandboxes, some CI) would otherwise block reading or publishing it —
+  the same reason templates already ship `gitignore` rather than `.gitignore`.
+
+### Fixed
+
+- Playwright template dotenv sample referenced the pre-rename
+  `bdd-kit.config.yaml` in a comment; corrected to `specproof.config.yaml`
+  (missed by the 0.2.0 rename because the sandbox blocked writing `.env.example`).
+
 ## [0.2.0] - 2026-07-06
 
 ### Changed

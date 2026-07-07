@@ -187,10 +187,17 @@ export interface ScaffoldResult {
   layoutRewritten: boolean;
 }
 
+// Dotfiles are shipped in templates without their leading dot (see the copy
+// loop below for why) and restored to their real name on scaffold.
+const DOTFILE_RESTORE: Record<string, string> = {
+  gitignore: ".gitignore",
+  "env.example": ".env.example",
+};
+
 /**
  * Copy a template tree into the target repo, applying the same path
  * mappings `specproof init` has always used (gitignore -> .gitignore,
- * specproof.config.yaml -> repo root) plus two additions:
+ * env.example -> .env.example, specproof.config.yaml -> repo root) plus:
  *   - specproof.config.yaml's hardcoded layout paths are rewritten to match
  *     `e2eDir` when it differs from the template's default (H4).
  *   - files under `github-workflows/` land in `<repoRoot>/.github/workflows/`
@@ -213,12 +220,19 @@ export function scaffoldTemplate(params: {
   let layoutRewritten = false;
 
   for (const rel of walk(tplDir)) {
-    // npm strips files literally named ".gitignore" from the published tarball,
-    // so templates ship it as "gitignore"; restore the leading dot on copy.
-    const mappedRel =
-      path.basename(rel) === "gitignore"
-        ? path.join(path.dirname(rel), ".gitignore")
-        : rel;
+    // Templates ship these dotfiles WITHOUT the leading dot, restored on copy:
+    //   - "gitignore":   npm strips a file literally named ".gitignore" from
+    //                    the published tarball.
+    //   - "env.example": ".env.example" matches `**/.env.*` deny rules in many
+    //                    secret scanners / sandboxes (and CI), which blocks it
+    //                    from being read, staged, or packed. Shipping it dotless
+    //                    keeps it committable and packable everywhere; the
+    //                    consumer still gets ".env.example".
+    const base = path.basename(rel);
+    const restoredDotfile = DOTFILE_RESTORE[base];
+    const mappedRel = restoredDotfile
+      ? path.join(path.dirname(rel), restoredDotfile)
+      : rel;
 
     const relParts = mappedRel.split(path.sep);
     const isWorkflow = relParts[0] === "github-workflows";

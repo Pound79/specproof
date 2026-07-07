@@ -300,4 +300,29 @@ describe("scaffoldTemplate", () => {
     expect(forceResult.written).toContain(path.join("e2e", "steps", "example.steps.ts"));
     expect(await readFile(existingPath, "utf-8")).toBe("// template version\n");
   });
+
+  it("restores dotless template dotfiles (gitignore, env.example) to their real names", async () => {
+    // Templates ship these without the leading dot; scaffold must restore it so
+    // the consumer ends up with .gitignore / .env.example.
+    await writeTplFile("gitignore", "node_modules\n");
+    await writeTplFile("env.example", "# E2E_BASE_URL=http://localhost:5173\n");
+
+    const e2eDir = path.join(repoRoot, "e2e");
+    const result = scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: "e2e",
+      force: false,
+    });
+
+    expect(result.written).toContain(path.join("e2e", ".gitignore"));
+    expect(result.written).toContain(path.join("e2e", ".env.example"));
+    expect(result.written).not.toContain(path.join("e2e", "env.example"));
+    expect(existsSync(path.join(e2eDir, ".env.example"))).toBe(true);
+    expect(existsSync(path.join(e2eDir, "env.example"))).toBe(false);
+    expect(await readFile(path.join(e2eDir, ".env.example"), "utf-8")).toBe(
+      "# E2E_BASE_URL=http://localhost:5173\n",
+    );
+  });
 });
