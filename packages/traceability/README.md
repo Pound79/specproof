@@ -106,6 +106,23 @@ object, not by patching the source text. Any hand-written comments in
 rationale/notes in the linked spec doc or a sibling comment file instead of
 inline in the manifest.
 
+### Manifest safety limits
+
+Manifest paths are checked against the physical repository root. A symlink is
+accepted only when its resolved target stays inside that root; escaping or
+dangling symlinks are rejected.
+
+To keep pull-request CI predictable for untrusted manifests, the loader applies
+these limits:
+
+- manifest file: 8 MiB
+- links: 10,000
+- references: 1,000 per link and 20,000 total
+- path: 4,096 characters; id/hash: 256; label/heading: 1,024
+
+`specproof-check` and `specproof-update` preserve manifest order while limiting
+file reads to 32 concurrent operations.
+
 ## Programmatic API
 
 The package also exposes a typed library surface:

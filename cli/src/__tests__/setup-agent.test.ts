@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -116,6 +116,32 @@ describe("runSetupAgent", () => {
     );
     expect(content).not.toBe("existing content");
     expect(content).toContain("name: specproof");
+  });
+
+  it("rejects an agent skills directory that escapes through a repository symlink", async () => {
+    const repo = path.join(root, "repo");
+    const outside = path.join(root, "outside");
+    await mkdir(outside);
+    await symlink(outside, path.join(repo, ".agents"));
+
+    expect(() => runSetupAgent({ agent: "codex" })).toThrow(
+      /symbolic link|symlink/i,
+    );
+    expect(readdirSync(outside)).toEqual([]);
+  });
+
+  it("rejects a nested skill destination symlink before writing outside the repo", async () => {
+    const repo = path.join(root, "repo");
+    const outside = path.join(root, "outside");
+    const skillsDir = path.join(repo, ".agents", "skills");
+    await mkdir(skillsDir, { recursive: true });
+    await mkdir(outside);
+    await symlink(outside, path.join(skillsDir, "specproof"));
+
+    expect(() => runSetupAgent({ agent: "codex" })).toThrow(
+      /symbolic link|symlink/i,
+    );
+    expect(readdirSync(outside)).toEqual([]);
   });
 });
 

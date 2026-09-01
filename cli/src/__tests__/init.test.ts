@@ -1,5 +1,13 @@
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -37,6 +45,19 @@ describe("runInit", () => {
     await expect(
       runInit({ adapter: "playwright", dir: path.join(root, "outside") }),
     ).rejects.toThrow(/--dir must stay within the current repo/);
+  });
+
+  it("rejects a target directory that escapes through a repository symlink", async () => {
+    const repo = path.join(root, "repo");
+    const outside = path.join(root, "outside");
+    await mkdir(path.join(repo, "packages"), { recursive: true });
+    await mkdir(outside);
+    await symlink(outside, path.join(repo, "packages", "e2e"));
+
+    await expect(runInit({ adapter: "playwright" })).rejects.toThrow(
+      /symbolic link|symlink/i,
+    );
+    expect(await readdir(outside)).toEqual([]);
   });
 });
 
@@ -324,5 +345,61 @@ describe("scaffoldTemplate", () => {
     expect(await readFile(path.join(e2eDir, ".env.example"), "utf-8")).toBe(
       "# E2E_BASE_URL=http://localhost:5173\n",
     );
+  });
+
+  it("rejects a nested destination symlink before writing outside the repo", async () => {
+    await writeTplFile("steps/example.steps.ts", "// template\n");
+    const outside = path.join(root, "outside");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(e2eDir, { recursive: true });
+    await mkdir(outside);
+    await symlink(outside, path.join(e2eDir, "steps"));
+
+    expect(() =>
+      scaffoldTemplate({
+        tplDir,
+        repoRoot,
+        e2eDir,
+        templateDefaultDir: "e2e",
+        force: false,
+      }),
+    ).toThrow(/symbolic link|symlink/i);
+    expect(await readdir(outside)).toEqual([]);
+  });
+
+  it("rejects a symlinked workflow destination before writing outside the repo", async () => {
+    await writeTplFile("github-workflows/specproof-drift-check.yml", "name: drift\n");
+    const outside = path.join(root, "outside");
+    await mkdir(outside);
+    await symlink(outside, path.join(repoRoot, ".github"));
+
+    expect(() =>
+      scaffoldTemplate({
+        tplDir,
+        repoRoot,
+        e2eDir: path.join(repoRoot, "e2e"),
+        templateDefaultDir: "e2e",
+        force: false,
+      }),
+    ).toThrow(/symbolic link|symlink/i);
+    expect(await readdir(outside)).toEqual([]);
+  });
+
+  it("rejects symlinks in the template source tree", async () => {
+    const outsideFile = path.join(root, "outside.ts");
+    await mkdir(tplDir, { recursive: true });
+    await writeFile(outsideFile, "// outside\n");
+    await symlink(outsideFile, path.join(tplDir, "escape.ts"));
+
+    expect(() =>
+      scaffoldTemplate({
+        tplDir,
+        repoRoot,
+        e2eDir: path.join(repoRoot, "e2e"),
+        templateDefaultDir: "e2e",
+        force: false,
+      }),
+    ).toThrow(/symbolic link|symlink/i);
+    expect(existsSync(path.join(repoRoot, "e2e"))).toBe(false);
   });
 });

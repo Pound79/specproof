@@ -3,13 +3,15 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectSnapshot, detectAdapter } from "./detect.js";
+import {
+  assertSafeRepositoryWrite,
+  walkRegularFilesWithoutSymlinks,
+} from "./path-security.js";
 
 export type AgentType = "claude" | "codex" | "all";
 
@@ -81,14 +83,6 @@ export const isScaffoldExcluded = (name: string, isDirectory: boolean): boolean 
     ? SCAFFOLD_EXCLUDED_DIRS.has(name)
     : SCAFFOLD_EXCLUDED_FILES.has(name);
 
-const walk = (dir: string, base: string = dir): string[] =>
-  readdirSync(dir).flatMap((name) => {
-    const full = path.join(dir, name);
-    const isDirectory = statSync(full).isDirectory();
-    if (isScaffoldExcluded(name, isDirectory)) return [];
-    return isDirectory ? walk(full, base) : [path.relative(base, full)];
-  });
-
 const resolveTargetDir = (repoRoot: string, dir: string): string => {
   const resolved = path.resolve(repoRoot, dir);
   const relative = path.relative(repoRoot, resolved);
@@ -96,6 +90,7 @@ const resolveTargetDir = (repoRoot: string, dir: string): string => {
     relative === "" ||
     (!relative.startsWith("..") && !path.isAbsolute(relative))
   ) {
+    assertSafeRepositoryWrite(repoRoot, resolved);
     return resolved;
   }
   throw new Error(`--dir must stay within the current repo: ${dir}`);
@@ -219,7 +214,7 @@ export function scaffoldTemplate(params: {
   const skippedWorkflows: string[] = [];
   let layoutRewritten = false;
 
-  for (const rel of walk(tplDir)) {
+  for (const rel of walkRegularFilesWithoutSymlinks(tplDir, isScaffoldExcluded)) {
     // Templates ship these dotfiles WITHOUT the leading dot, restored on copy:
     //   - "gitignore":   npm strips a file literally named ".gitignore" from
     //                    the published tarball.
@@ -245,6 +240,8 @@ export function scaffoldTemplate(params: {
       : isWorkflow
         ? path.join(repoRoot, ".github", "workflows", ...relParts.slice(1))
         : path.join(e2eDir, mappedRel);
+
+    assertSafeRepositoryWrite(repoRoot, dest);
 
     // Workflow files never overwrite an existing consumer CI file, even with
     // --force; everything else follows the usual --force semantics.

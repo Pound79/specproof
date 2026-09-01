@@ -99,6 +99,209 @@ links:
     await expect(loadManifest(manifestPath)).rejects.toThrow(/impl\[0\]/);
   });
 
+  it('rejects an empty reference path', async () => {
+    await writeManifest(`
+version: 1
+links:
+  - id: login
+    label: Login
+    spec: []
+    impl:
+      - path: ""
+        hash: abc
+    features: []
+`);
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/impl\[0\].*path/i);
+  });
+
+  it('rejects an excessively long reference path', async () => {
+    await writeManifest(
+      JSON.stringify({
+        version: 1,
+        links: [
+          {
+            id: 'login',
+            label: 'Login',
+            spec: [],
+            impl: [{ path: 'a'.repeat(4097), hash: 'abc' }],
+            features: [],
+          },
+        ],
+      })
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/impl\[0\].*path/i);
+  });
+
+  it('rejects an excessively long spec heading', async () => {
+    await writeManifest(
+      JSON.stringify({
+        version: 1,
+        links: [
+          {
+            id: 'login',
+            label: 'Login',
+            spec: [
+              { path: 'docs/spec.md', heading: 'a'.repeat(1025), hash: 'abc' },
+            ],
+            impl: [],
+            features: [],
+          },
+        ],
+      })
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/spec\[0\].*heading/i);
+  });
+
+  it('rejects an excessively long hash', async () => {
+    await writeManifest(
+      JSON.stringify({
+        version: 1,
+        links: [
+          {
+            id: 'login',
+            label: 'Login',
+            spec: [],
+            impl: [{ path: 'src/login.ts', hash: 'a'.repeat(257) }],
+            features: [],
+          },
+        ],
+      })
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/impl\[0\].*hash/i);
+  });
+
+  it('rejects a manifest with too many links', async () => {
+    await writeManifest(
+      JSON.stringify({
+        version: 1,
+        links: Array.from({ length: 10_001 }, (_, index) => ({
+          id: `link-${index}`,
+          label: `Link ${index}`,
+          spec: [],
+          impl: [],
+          features: [],
+        })),
+      })
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/10,?000 links/i);
+  });
+
+  it('rejects a link with too many references', async () => {
+    await writeManifest(
+      JSON.stringify({
+        version: 1,
+        links: [
+          {
+            id: 'large-link',
+            label: 'Large link',
+            spec: [],
+            impl: Array.from({ length: 1_001 }, (_, index) => ({
+              path: `src/file-${index}.ts`,
+              hash: 'PENDING',
+            })),
+            features: [],
+          },
+        ],
+      })
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(
+      /links\[0\].*1,?000 references/i
+    );
+  });
+
+  it('rejects a manifest with too many total references', async () => {
+    let refIndex = 0;
+    const links = Array.from({ length: 21 }, (_, linkIndex) => {
+      const count = linkIndex === 20 ? 1 : 1_000;
+      return {
+        id: `link-${linkIndex}`,
+        label: `Link ${linkIndex}`,
+        spec: [],
+        impl: Array.from({ length: count }, () => ({
+          path: `src/file-${refIndex++}.ts`,
+          hash: 'PENDING',
+        })),
+        features: [],
+      };
+    });
+    await writeManifest(JSON.stringify({ version: 1, links }));
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(
+      /20,?000 total references/i
+    );
+  });
+
+  it('rejects a manifest file larger than 8 MiB before parsing it', async () => {
+    await writeManifest(
+      `#${'x'.repeat(8 * 1024 * 1024)}\nversion: 1\nlinks: []\n`
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/8 MiB/i);
+  });
+
+  it('rejects a reference path containing a NUL byte', async () => {
+    await writeManifest(
+      JSON.stringify({
+        version: 1,
+        links: [
+          {
+            id: 'login',
+            label: 'Login',
+            spec: [],
+            impl: [{ path: 'src/\0login.ts', hash: 'PENDING' }],
+            features: [],
+          },
+        ],
+      })
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/impl\[0\].*path/i);
+  });
+
+  it('rejects an excessively long link id', async () => {
+    await writeManifest(
+      JSON.stringify({
+        version: 1,
+        links: [
+          {
+            id: 'a'.repeat(257),
+            label: 'Login',
+            spec: [],
+            impl: [],
+            features: [],
+          },
+        ],
+      })
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/links\[0\].*id/i);
+  });
+
+  it('rejects an excessively long link label', async () => {
+    await writeManifest(
+      JSON.stringify({
+        version: 1,
+        links: [
+          {
+            id: 'login',
+            label: 'a'.repeat(1025),
+            spec: [],
+            impl: [],
+            features: [],
+          },
+        ],
+      })
+    );
+
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/links\[0\].*label/i);
+  });
+
   it('rejects a manifest with duplicate link ids', async () => {
     await writeManifest(`
 version: 1

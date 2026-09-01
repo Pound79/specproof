@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { open, writeFile } from "node:fs/promises";
 import { parse, stringify } from "yaml";
 
 export interface SpecRef {
@@ -27,23 +27,18 @@ export interface TraceabilityManifest {
   links: TraceabilityLink[];
 }
 
+const MAX_PATH_LENGTH = 4096;
+const MAX_HEADING_LENGTH = 1024;
+const MAX_HASH_LENGTH = 256;
+const MAX_LINKS = 10_000;
+const MAX_REFS_PER_LINK = 1_000;
+const MAX_TOTAL_REFS = 20_000;
+const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
+const MAX_ID_LENGTH = 256;
+const MAX_LABEL_LENGTH = 1024;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
-
-const isFileRef = (value: unknown): value is FileRef =>
-  isRecord(value) &&
-  typeof value.path === "string" &&
-  typeof value.hash === "string";
-
-const isSpecRef = (value: unknown): value is SpecRef =>
-  isRecord(value) &&
-  isFileRef(value) &&
-  typeof value.heading === "string" &&
-  (value.headingLevel === undefined ||
-    (typeof value.headingLevel === "number" &&
-      Number.isInteger(value.headingLevel) &&
-      value.headingLevel >= 1 &&
-      value.headingLevel <= 6));
 
 const fail = (where: string, detail: string): never => {
   throw new Error(
@@ -53,18 +48,65 @@ const fail = (where: string, detail: string): never => {
   );
 };
 
+const assertFileRef: (
+  value: unknown,
+  where: string,
+) => asserts value is FileRef = (value, where) => {
+  if (!isRecord(value)) {
+    return fail(where, "expected a reference object");
+  }
+  if (
+    typeof value.path !== "string" ||
+    value.path.length === 0 ||
+    value.path.length > MAX_PATH_LENGTH ||
+    value.path.includes("\0")
+  ) {
+    fail(where, `path must be 1-${MAX_PATH_LENGTH} characters without NUL`);
+  }
+  if (
+    typeof value.hash !== "string" ||
+    value.hash.length > MAX_HASH_LENGTH
+  ) {
+    fail(where, `hash must be a string of at most ${MAX_HASH_LENGTH} characters`);
+  }
+};
+
+const assertSpecRef: (
+  value: unknown,
+  where: string,
+) => asserts value is SpecRef = (value, where) => {
+  assertFileRef(value, where);
+  const record = value as FileRef & Record<string, unknown>;
+  if (
+    typeof record.heading !== "string" ||
+    record.heading.length > MAX_HEADING_LENGTH
+  ) {
+    fail(
+      where,
+      `heading must be a string of at most ${MAX_HEADING_LENGTH} characters`,
+    );
+  }
+  if (
+    record.headingLevel !== undefined &&
+    (typeof record.headingLevel !== "number" ||
+      !Number.isInteger(record.headingLevel) ||
+      record.headingLevel < 1 ||
+      record.headingLevel > 6)
+  ) {
+    fail(where, "headingLevel must be an integer from 1 through 6");
+  }
+};
+
 const assertRefArray = (
   value: unknown,
   where: string,
-  isValid: (ref: unknown) => boolean,
+  assertValid: (ref: unknown, refWhere: string) => void,
 ): void => {
   if (!Array.isArray(value)) {
     fail(where, "expected an array");
   }
   (value as unknown[]).forEach((ref, index) => {
-    if (!isValid(ref)) {
-      fail(`${where}[${index}]`, `malformed ref: ${JSON.stringify(ref)}`);
-    }
+    assertValid(ref, `${where}[${index}]`);
   });
 };
 
@@ -76,29 +118,64 @@ const assertManifestShape: (
       "Invalid traceability manifest: expected { version: 1, links: [...] }",
     );
   }
+  if (value.links.length > MAX_LINKS) {
+    throw new Error(
+      `Invalid traceability manifest: at most ${MAX_LINKS.toLocaleString("en-US")} links are allowed`,
+    );
+  }
+  let totalRefs = 0;
   value.links.forEach((link: unknown, index: number) => {
     const where = `links[${index}]`;
     if (!isRecord(link)) {
       fail(where, `expected a link object, got ${JSON.stringify(link)}`);
       return;
     }
-    if (typeof link.id !== "string" || link.id === "") {
-      fail(where, "missing or non-string id");
+    if (
+      typeof link.id !== "string" ||
+      link.id === "" ||
+      link.id.length > MAX_ID_LENGTH
+    ) {
+      fail(where, `id must be a non-empty string of at most ${MAX_ID_LENGTH} characters`);
     }
-    if (typeof link.label !== "string" || link.label === "") {
-      fail(`${where} (id: ${String(link.id)})`, "missing or non-string label");
+    if (
+      typeof link.label !== "string" ||
+      link.label === "" ||
+      link.label.length > MAX_LABEL_LENGTH
+    ) {
+      fail(
+        `${where} (id: ${String(link.id)})`,
+        `label must be a non-empty string of at most ${MAX_LABEL_LENGTH} characters`,
+      );
     }
-    assertRefArray(link.spec, `${where}.spec`, isSpecRef);
-    assertRefArray(link.impl, `${where}.impl`, isFileRef);
-    assertRefArray(link.features, `${where}.features`, isFileRef);
+    assertRefArray(link.spec, `${where}.spec`, assertSpecRef);
+    assertRefArray(link.impl, `${where}.impl`, assertFileRef);
+    assertRefArray(link.features, `${where}.features`, assertFileRef);
+    const refCount =
+      (link.spec as unknown[]).length +
+      (link.impl as unknown[]).length +
+      (link.features as unknown[]).length;
+    if (refCount > MAX_REFS_PER_LINK) {
+      throw new Error(
+        `Invalid traceability manifest at ${where}: at most ${MAX_REFS_PER_LINK.toLocaleString("en-US")} references are allowed per link`,
+      );
+    }
+    totalRefs += refCount;
+    if (totalRefs > MAX_TOTAL_REFS) {
+      throw new Error(
+        `Invalid traceability manifest: at most ${MAX_TOTAL_REFS.toLocaleString("en-US")} total references are allowed`,
+      );
+    }
   });
 
-  const ids = (value.links as TraceabilityLink[]).map((link) => link.id);
-  const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
-  if (duplicates.length > 0) {
-    const unique = [...new Set(duplicates)];
+  const seenIds = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const { id } of value.links as TraceabilityLink[]) {
+    if (seenIds.has(id)) duplicates.add(id);
+    seenIds.add(id);
+  }
+  if (duplicates.size > 0) {
     throw new Error(
-      `Invalid traceability manifest: duplicate link id(s): ${unique.join(", ")}`,
+      `Invalid traceability manifest: duplicate link id(s): ${[...duplicates].join(", ")}`,
     );
   }
 };
@@ -106,7 +183,20 @@ const assertManifestShape: (
 export const loadManifest = async (
   manifestPath: string,
 ): Promise<TraceabilityManifest> => {
-  const raw = await readFile(manifestPath, "utf8");
+  const handle = await open(manifestPath, "r");
+  let raw: string;
+  try {
+    const { size } = await handle.stat();
+    if (size > MAX_MANIFEST_BYTES) {
+      throw new Error("Invalid traceability manifest: file exceeds 8 MiB");
+    }
+    raw = await handle.readFile({ encoding: "utf8" });
+  } finally {
+    await handle.close();
+  }
+  if (Buffer.byteLength(raw, "utf8") > MAX_MANIFEST_BYTES) {
+    throw new Error("Invalid traceability manifest: file exceeds 8 MiB");
+  }
   const parsed: unknown = parse(raw);
   assertManifestShape(parsed);
   return parsed;
