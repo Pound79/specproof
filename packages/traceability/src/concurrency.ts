@@ -8,21 +8,41 @@ export const createTaskLimiter = (concurrency: number): RunTaskLimited => {
 
   let active = 0;
   const waiting: Array<() => void> = [];
+  let aborted = false;
+  let abortReason: unknown;
 
   return <T>(task: () => Promise<T>): Promise<T> =>
     new Promise<T>((resolve, reject) => {
       const run = (): void => {
+        if (aborted) {
+          reject(abortReason);
+          return;
+        }
         active += 1;
         void Promise.resolve()
           .then(task)
-          .then(resolve, reject)
+          .then(
+            resolve,
+            (error: unknown) => {
+              if (!aborted) {
+                aborted = true;
+                abortReason = error;
+              }
+              reject(error);
+            },
+          )
           .finally(() => {
             active -= 1;
-            waiting.shift()?.();
+            if (aborted) {
+              while (waiting.length > 0) waiting.shift()?.();
+            } else {
+              waiting.shift()?.();
+            }
           });
       };
 
-      if (active < concurrency) run();
+      if (aborted) reject(abortReason);
+      else if (active < concurrency) run();
       else waiting.push(run);
     });
 };
