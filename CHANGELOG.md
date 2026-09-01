@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-02
+
 ### Added
 
 - A dependency audit workflow now blocks pull requests when `npm audit` finds
-  moderate-or-higher vulnerabilities.
+  moderate-or-higher vulnerabilities. (#26)
 
 ### Changed
 
@@ -18,23 +20,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   10,000 links, more than 1,000 refs per link or 20,000 refs total, empty/NUL
   paths, and oversized path/id/label/heading/hash fields. File hashing for both
   `check` and `update` is capped at 32 concurrent reads, and queued reads are
-  cancelled after the first failure.
+  cancelled after the first failure. (#26)
 - GitHub Actions are pinned to reviewed immutable commit SHAs. Generated
   traceability commands pin `@pound79/specproof-traceability` to the scaffold
-  release version, and the release script updates/verifies those pins.
+  release version, and the release script updates/verifies those pins. (#26)
 
 ### Fixed
 
 - `specproof init` and `specproof setup-agent` now reject pre-existing symbolic
   links in destination ancestors instead of following them to write outside the
-  target repository. Template and skill source walks also reject symbolic links.
+  target repository. Template and skill source walks also reject symbolic links. (#26)
 - Manifest references now enforce physical repository containment immediately
   before hashing: pre-existing symlinks that resolve outside the repository or
   cannot be resolved are rejected while internal symlinks remain supported.
   Concurrent filesystem replacement after validation remains outside the
-  check's threat model.
+  check's threat model. (#26)
 - Updated the transitive `esbuild` dependency to 0.28.2, resolving the Windows
-  development-server arbitrary file-read advisory.
+  development-server arbitrary file-read advisory. (#26)
 
 ## [0.2.1] - 2026-07-07
 
@@ -272,7 +274,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/specproof/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/Pound79/specproof/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Pound79/specproof/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Pound79/specproof/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/Pound79/specproof/compare/v0.1.5...v0.1.6

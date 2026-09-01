@@ -53,7 +53,7 @@ jobs:
         id: check
         continue-on-error: true
         run: |
-          npx -y -p @pound79/specproof-traceability@0.2.1 specproof-check \
+          npx -y -p @pound79/specproof-traceability@0.2.2 specproof-check \
             --strict --json --github-annotations > drift-report.json
 
       # Fork PRs run with a read-only GITHUB_TOKEN regardless of the
