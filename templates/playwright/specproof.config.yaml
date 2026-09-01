@@ -39,10 +39,10 @@ commands:
   # list / stats. Works for any repo because it hashes file/section text. After
   # installing @pound79/specproof-traceability you can drop `-y -p` and call the
   # bin directly (e.g. `npx specproof-check`).
-  traceabilityCheck: "npx -y -p @pound79/specproof-traceability@0.2.1 specproof-check"
-  traceabilityUpdate: "npx -y -p @pound79/specproof-traceability@0.2.1 specproof-update"
-  traceabilityList: "npx -y -p @pound79/specproof-traceability@0.2.1 specproof-list"
-  traceabilityStats: "npx -y -p @pound79/specproof-traceability@0.2.1 specproof-stats"
+  traceabilityCheck: "npx -y -p @pound79/specproof-traceability@0.2.2 specproof-check"
+  traceabilityUpdate: "npx -y -p @pound79/specproof-traceability@0.2.2 specproof-update"
+  traceabilityList: "npx -y -p @pound79/specproof-traceability@0.2.2 specproof-list"
+  traceabilityStats: "npx -y -p @pound79/specproof-traceability@0.2.2 specproof-stats"
 
 # ---------------------------------------------------------------------------
 # layout: file/directory locations (relative to repo root)
