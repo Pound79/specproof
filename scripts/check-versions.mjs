@@ -10,6 +10,8 @@
 //   Claude Code plugin .claude-plugin/marketplace.json (metadata.version)
 //                      plugins/specproof/.claude-plugin/plugin.json (version)
 //                      (bumped explicitly by release.sh)
+//   Consumer pins      both adapter configs + generated drift workflows
+//                      (bumped explicitly by release.sh)
 //
 // `npm version --workspaces` only touches npm workspaces, so the plugin
 // manifests are structurally outside its reach. This check is the backstop:
@@ -29,28 +31,62 @@ import { dirname, join } from "node:path";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Each source: a human label, the repo-relative file, and how to pull the
-// version out of the parsed JSON.
+const jsonVersion = (select) => (text) => select(JSON.parse(text));
+const traceabilityPinVersion = (text) => {
+  const matches = [
+    ...text.matchAll(
+      /@pound79\/specproof-traceability@([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.]+)?)/g,
+    ),
+  ].map((match) => match[1]);
+  const versions = new Set(matches);
+  if (matches.length === 0 || versions.size !== 1) {
+    throw new Error("expected one consistent pinned traceability version");
+  }
+  return matches[0];
+};
+
+// Each source: a human label, the repo-relative file, and how to pull its
+// version out of the file text.
 const SOURCES = [
   {
     label: "npm @pound79/specproof",
     file: "cli/package.json",
-    get: (json) => json.version,
+    get: jsonVersion((json) => json.version),
   },
   {
     label: "npm @pound79/specproof-traceability",
     file: "packages/traceability/package.json",
-    get: (json) => json.version,
+    get: jsonVersion((json) => json.version),
   },
   {
     label: "plugin marketplace",
     file: ".claude-plugin/marketplace.json",
-    get: (json) => json.metadata?.version,
+    get: jsonVersion((json) => json.metadata?.version),
   },
   {
     label: "plugin manifest",
     file: "plugins/specproof/.claude-plugin/plugin.json",
-    get: (json) => json.version,
+    get: jsonVersion((json) => json.version),
+  },
+  {
+    label: "playwright config pin",
+    file: "templates/playwright/specproof.config.yaml",
+    get: traceabilityPinVersion,
+  },
+  {
+    label: "flutter config pin",
+    file: "templates/flutter/specproof.config.yaml",
+    get: traceabilityPinVersion,
+  },
+  {
+    label: "playwright workflow pin",
+    file: "templates/playwright/github-workflows/specproof-drift-check.yml",
+    get: traceabilityPinVersion,
+  },
+  {
+    label: "flutter workflow pin",
+    file: "templates/flutter/github-workflows/specproof-drift-check.yml",
+    get: traceabilityPinVersion,
   },
 ];
 
@@ -58,7 +94,7 @@ const rows = SOURCES.map((source) => {
   const path = join(repoRoot, source.file);
   let version;
   try {
-    version = source.get(JSON.parse(readFileSync(path, "utf8")));
+    version = source.get(readFileSync(path, "utf8"));
   } catch (err) {
     return { ...source, version: undefined, error: err.message };
   }
@@ -82,9 +118,9 @@ if (consistent) {
 console.error("version check FAILED: sources disagree\n");
 for (const r of rows) console.error(line(r) + (r.error ? `  (${r.error})` : ""));
 console.error(
-  "\nAll four version sources must match. The npm packages are bumped by " +
-    "`npm version --workspaces`; the two plugin manifests are bumped by " +
-    "scripts/release.sh. Run a release via scripts/release.sh (which bumps " +
+  "\nAll release version sources must match. The npm packages are bumped by " +
+    "`npm version --workspaces`; plugin manifests and consumer pins are bumped " +
+    "by scripts/release.sh. Run a release via scripts/release.sh (which bumps " +
     "all of them in lockstep) rather than editing versions by hand.",
 );
 process.exit(1);

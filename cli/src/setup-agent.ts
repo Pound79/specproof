@@ -2,11 +2,13 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
-  readdirSync,
-  statSync,
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertSafeRepositoryWrite,
+  walkRegularFilesWithoutSymlinks,
+} from "./path-security.js";
 
 export type SupportedAgent = "codex" | "claude";
 const SUPPORTED_AGENTS: readonly SupportedAgent[] = ["codex", "claude"];
@@ -57,37 +59,24 @@ const resolvePluginSkillsRoot = (): string => {
   return found;
 };
 
-const walkDir = (dir: string, base: string = dir): string[] =>
-  readdirSync(dir).flatMap((name) => {
-    const full = path.join(dir, name);
-    return statSync(full).isDirectory()
-      ? walkDir(full, base)
-      : [path.relative(base, full)];
-  });
-
 const setupCodex = (repoRoot: string, force: boolean): string[] => {
   const skillsSource = resolvePluginSkillsRoot();
   const targetDir = path.join(repoRoot, ".agents", "skills");
+  assertSafeRepositoryWrite(repoRoot, targetDir);
 
   const written: string[] = [];
   const skipped: string[] = [];
 
-  const skillDirs = readdirSync(skillsSource).filter((name) =>
-    statSync(path.join(skillsSource, name)).isDirectory(),
-  );
-
-  for (const skillName of skillDirs) {
-    const skillSrcDir = path.join(skillsSource, skillName);
-    for (const rel of walkDir(skillSrcDir)) {
-      const dest = path.join(targetDir, skillName, rel);
-      if (existsSync(dest) && !force) {
-        skipped.push(path.relative(repoRoot, dest));
-        continue;
-      }
-      mkdirSync(path.dirname(dest), { recursive: true });
-      copyFileSync(path.join(skillSrcDir, rel), dest);
-      written.push(path.relative(repoRoot, dest));
+  for (const rel of walkRegularFilesWithoutSymlinks(skillsSource)) {
+    const dest = path.join(targetDir, rel);
+    assertSafeRepositoryWrite(repoRoot, dest);
+    if (existsSync(dest) && !force) {
+      skipped.push(path.relative(repoRoot, dest));
+      continue;
     }
+    mkdirSync(path.dirname(dest), { recursive: true });
+    copyFileSync(path.join(skillsSource, rel), dest);
+    written.push(path.relative(repoRoot, dest));
   }
 
   console.log(`specproof setup-agent codex — skills installed to .agents/skills/`);
