@@ -17,10 +17,11 @@
 #      (.claude-plugin/marketplace.json + plugins/specproof/.claude-plugin/plugin.json)
 #      -- npm version --workspaces cannot reach these, so they are bumped here;
 #      forgetting this is what once stranded the plugin at 0.1.4 while npm was 0.1.5
-#   5. stamp the CHANGELOG: [Unreleased] -> [<version>] - <date>, update compare links
-#   6. assert every version source agrees (scripts/check-versions.mjs)
-#   7. commit "chore: release v<version>"
-#   8. create the tag, then push main + tag atomically  -> triggers npm publish
+#   5. bump generated consumer traceability pins to <version>
+#   6. stamp the CHANGELOG: [Unreleased] -> [<version>] - <date>, update compare links
+#   7. assert every version source agrees (scripts/check-versions.mjs)
+#   8. commit "chore: release v<version>"
+#   9. create the tag, then push main + tag atomically  -> triggers npm publish
 #
 # Usage:
 #   scripts/release.sh <version> [options]
@@ -130,6 +131,7 @@ if [ "$DRY_RUN" = true ]; then
   echo "  - snapshot release files (rolled back automatically if the bump fails)"
   echo "  - npm version $VERSION --workspaces --no-git-tag-version   (bumps cli + packages/* + lockfile)"
   echo "  - bump plugin manifests to $VERSION (.claude-plugin/marketplace.json + plugins/specproof/.claude-plugin/plugin.json)"
+  echo "  - bump generated consumer traceability pins to $VERSION"
   echo "  - stamp CHANGELOG [Unreleased] -> [$VERSION] - $RELEASE_DATE (+ update compare links)"
   echo "  - node scripts/check-versions.mjs   (assert all version sources agree)"
   echo "  - git commit -m \"chore: release $TAG\""
@@ -176,6 +178,10 @@ RELEASE_FILES=(
   cli/package.json
   .claude-plugin/marketplace.json
   plugins/specproof/.claude-plugin/plugin.json
+  templates/playwright/specproof.config.yaml
+  templates/flutter/specproof.config.yaml
+  templates/playwright/github-workflows/specproof-drift-check.yml
+  templates/flutter/github-workflows/specproof-drift-check.yml
 )
 for p in packages/*/package.json; do
   [ -e "$p" ] && RELEASE_FILES+=("$p")
@@ -239,6 +245,35 @@ for (const [file, set] of targets) {
   set(json);
   fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
   console.log(`    ${file}: version -> ${version}`);
+}
+NODE
+
+# --- mutate: bump generated consumer traceability pins ----------------------
+
+echo "==> Bumping generated consumer traceability pins to $VERSION"
+node - "$VERSION" <<'NODE'
+const fs = require("node:fs");
+const [version] = process.argv.slice(2);
+const files = [
+  "templates/playwright/specproof.config.yaml",
+  "templates/flutter/specproof.config.yaml",
+  "templates/playwright/github-workflows/specproof-drift-check.yml",
+  "templates/flutter/github-workflows/specproof-drift-check.yml",
+];
+const packageName = "@pound79/specproof-traceability";
+const pinnedVersion = new RegExp(
+  `${packageName}@[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.]+)?`,
+  "g",
+);
+for (const file of files) {
+  const text = fs.readFileSync(file, "utf8");
+  if (!pinnedVersion.test(text)) {
+    console.error(`${file}: pinned ${packageName} version not found`);
+    process.exit(1);
+  }
+  pinnedVersion.lastIndex = 0;
+  fs.writeFileSync(file, text.replace(pinnedVersion, `${packageName}@${version}`));
+  console.log(`    ${file}: pin -> ${version}`);
 }
 NODE
 

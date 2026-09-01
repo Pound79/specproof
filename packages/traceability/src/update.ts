@@ -14,6 +14,9 @@ import {
 } from './manifest.js';
 import { resolveWithinRoot } from './resolve.js';
 import type { DriftSide } from './check.js';
+import { createTaskLimiter, type RunTaskLimited } from './concurrency.js';
+
+const MAX_CONCURRENT_FILE_READS = 32;
 
 export interface UpdateChange {
   linkId: string;
@@ -32,12 +35,15 @@ interface RefreshResult<Ref> {
 const refreshSpecRef = async (
   ref: SpecRef,
   linkId: string,
-  repoRoot: string
+  repoRoot: string,
+  runLimited: RunTaskLimited
 ): Promise<RefreshResult<SpecRef>> => {
-  const hash = await computeHeadingSectionHash(
-    resolveWithinRoot(repoRoot, ref.path),
-    ref.heading,
-    ref.headingLevel
+  const hash = await runLimited(() =>
+    computeHeadingSectionHash(
+      resolveWithinRoot(repoRoot, ref.path),
+      ref.heading,
+      ref.headingLevel
+    )
   );
   if (hash === FILE_MISSING || hash === SECTION_MISSING) {
     throw new Error(
@@ -65,9 +71,12 @@ const refreshFileRef = async (
   ref: FileRef,
   linkId: string,
   repoRoot: string,
-  side: Extract<DriftSide, 'impl' | 'feature'>
+  side: Extract<DriftSide, 'impl' | 'feature'>,
+  runLimited: RunTaskLimited
 ): Promise<RefreshResult<FileRef>> => {
-  const hash = await computeFileHash(resolveWithinRoot(repoRoot, ref.path));
+  const hash = await runLimited(() =>
+    computeFileHash(resolveWithinRoot(repoRoot, ref.path))
+  );
   if (hash === FILE_MISSING) {
     throw new Error(
       `Cannot update link "${linkId}": file missing: ${ref.path}. ` +
@@ -88,17 +97,20 @@ const isChange = (change: UpdateChange | null): change is UpdateChange =>
 
 const refreshLink = async (
   link: TraceabilityLink,
-  repoRoot: string
+  repoRoot: string,
+  runLimited: RunTaskLimited
 ): Promise<{ link: TraceabilityLink; changes: UpdateChange[] }> => {
   const specResults = await Promise.all(
-    link.spec.map((ref) => refreshSpecRef(ref, link.id, repoRoot))
+    link.spec.map((ref) => refreshSpecRef(ref, link.id, repoRoot, runLimited))
   );
   const implResults = await Promise.all(
-    link.impl.map((ref) => refreshFileRef(ref, link.id, repoRoot, 'impl'))
+    link.impl.map((ref) =>
+      refreshFileRef(ref, link.id, repoRoot, 'impl', runLimited)
+    )
   );
   const featureResults = await Promise.all(
     link.features.map((ref) =>
-      refreshFileRef(ref, link.id, repoRoot, 'feature')
+      refreshFileRef(ref, link.id, repoRoot, 'feature', runLimited)
     )
   );
 
@@ -142,6 +154,7 @@ export const updateManifestHashes = async (
   options: UpdateOptions = {}
 ): Promise<UpdateResult> => {
   const manifest = await loadManifest(manifestPath);
+  const runLimited = createTaskLimiter(MAX_CONCURRENT_FILE_READS);
   const { linkId, dryRun = false } = options;
   if (
     linkId !== undefined &&
@@ -154,7 +167,7 @@ export const updateManifestHashes = async (
   const results = await Promise.all(
     manifest.links.map((link) =>
       linkId === undefined || link.id === linkId
-        ? refreshLink(link, repoRoot)
+        ? refreshLink(link, repoRoot, runLimited)
         : Promise.resolve({ link, changes: [] as UpdateChange[] })
     )
   );
