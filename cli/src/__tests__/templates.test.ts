@@ -9,6 +9,12 @@ const repoRoot = path.resolve(fileURLToPath(import.meta.url), "../../../..");
 const read = (relPath: string): string =>
   readFileSync(path.join(repoRoot, relPath), "utf8");
 
+const traceabilityVersion = (
+  JSON.parse(read("packages/traceability/package.json")) as { version: string }
+).version;
+const pinnedTraceabilityPackage =
+  `@pound79/specproof-traceability@${traceabilityVersion}`;
+
 const TEMPLATE_CONFIGS = [
   "templates/playwright/specproof.config.yaml",
   "templates/flutter/specproof.config.yaml",
@@ -17,12 +23,12 @@ const TEMPLATE_CONFIGS = [
 // The traceability engine exposes four bins; templates wire all four so the
 // drift / bless / list / stats workflow works out of the box.
 const EXPECTED_COMMANDS: Record<string, string> = {
-  traceabilityCheck: "npx -y -p @pound79/specproof-traceability specproof-check",
+  traceabilityCheck: `npx -y -p ${pinnedTraceabilityPackage} specproof-check`,
   traceabilityUpdate:
-    "npx -y -p @pound79/specproof-traceability specproof-update",
-  traceabilityList: "npx -y -p @pound79/specproof-traceability specproof-list",
+    `npx -y -p ${pinnedTraceabilityPackage} specproof-update`,
+  traceabilityList: `npx -y -p ${pinnedTraceabilityPackage} specproof-list`,
   traceabilityStats:
-    "npx -y -p @pound79/specproof-traceability specproof-stats",
+    `npx -y -p ${pinnedTraceabilityPackage} specproof-stats`,
 };
 
 describe("template traceability commands", () => {
@@ -66,4 +72,38 @@ describe("no stale npx form in scaffolds / docs", () => {
       expect(read(file).includes(BARE_NPX_FORM)).toBe(false);
     });
   }
+});
+
+const WORKFLOW_FILES = [
+  ".github/workflows/ci.yml",
+  ".github/workflows/dependency-review.yml",
+  ".github/workflows/release.yml",
+  "templates/playwright/github-workflows/specproof-drift-check.yml",
+  "templates/flutter/github-workflows/specproof-drift-check.yml",
+];
+
+const EXPECTED_ACTION_SHAS: Record<string, string> = {
+  "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+  "actions/setup-node": "820762786026740c76f36085b0efc47a31fe5020",
+  "actions/github-script": "f28e40c7f34bde8b3046d885e986cb6290c5673b",
+};
+
+describe("GitHub Actions supply-chain pins", () => {
+  for (const file of WORKFLOW_FILES) {
+    it(`${file} pins every third-party action to its reviewed full SHA`, () => {
+      const uses = [...read(file).matchAll(/uses:\s+([^@\s]+)@([^\s#]+)/g)];
+      expect(uses.length).toBeGreaterThan(0);
+      for (const [, action, ref] of uses) {
+        expect(ref, `${file}: ${action}`).toBe(EXPECTED_ACTION_SHAS[action]);
+      }
+    });
+  }
+});
+
+describe("dependency security workflow", () => {
+  it("runs npm audit at moderate severity with read-only contents", () => {
+    const workflow = read(".github/workflows/dependency-review.yml");
+    expect(workflow).toMatch(/permissions:\n\s+contents: read/);
+    expect(workflow).toContain("npm audit --audit-level=moderate");
+  });
 });

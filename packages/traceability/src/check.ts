@@ -19,6 +19,9 @@ import { resolveWithinRoot } from './resolve.js';
 import { DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG } from './config.js';
 import { auditUnregisteredImpl } from './impl-audit.js';
 import { auditSpecHeadings } from './spec-audit.js';
+import { createTaskLimiter, type RunTaskLimited } from './concurrency.js';
+
+const MAX_CONCURRENT_FILE_READS = 32;
 
 export type DriftSide = 'spec' | 'impl' | 'feature';
 
@@ -83,14 +86,17 @@ const isClean = (storedHash: string, currentHash: string): boolean =>
 
 const checkLink = async (
   link: TraceabilityLink,
-  repoRoot: string
+  repoRoot: string,
+  runLimited: RunTaskLimited
 ): Promise<DriftEntry[]> => {
   const specEntries = await Promise.all(
     link.spec.map(async (ref): Promise<DriftEntry | null> => {
-      const currentHash = await computeHeadingSectionHash(
-        resolveWithinRoot(repoRoot, ref.path),
-        ref.heading,
-        ref.headingLevel
+      const currentHash = await runLimited(() =>
+        computeHeadingSectionHash(
+          resolveWithinRoot(repoRoot, ref.path),
+          ref.heading,
+          ref.headingLevel
+        )
       );
       if (isClean(ref.hash, currentHash)) {
         return null;
@@ -112,8 +118,8 @@ const checkLink = async (
       ...link.impl.map((ref) => ({ ref, side: 'impl' as const })),
       ...link.features.map((ref) => ({ ref, side: 'feature' as const })),
     ].map(async ({ ref, side }): Promise<DriftEntry | null> => {
-      const currentHash = await computeFileHash(
-        resolveWithinRoot(repoRoot, ref.path)
+      const currentHash = await runLimited(() =>
+        computeFileHash(resolveWithinRoot(repoRoot, ref.path))
       );
       if (isClean(ref.hash, currentHash)) {
         return null;
@@ -234,10 +240,11 @@ const collectFeatureTargets = async (
 const lintFeature = async (
   target: FeatureTarget,
   repoRoot: string,
-  reasonRequiredTags: string[]
+  reasonRequiredTags: string[],
+  runLimited: RunTaskLimited
 ): Promise<DriftWarning[]> => {
-  const content = await readFileOrNull(
-    resolveWithinRoot(repoRoot, target.relPath)
+  const content = await runLimited(() =>
+    readFileOrNull(resolveWithinRoot(repoRoot, target.relPath))
   );
   if (content === null) {
     return [];
@@ -282,8 +289,9 @@ export const checkDrift = async (
   const reasonRequiredTags =
     options.reasonRequiredTags ?? DEFAULT_REASON_REQUIRED_TAGS;
   const manifest = await loadManifest(manifestPath);
+  const runLimited = createTaskLimiter(MAX_CONCURRENT_FILE_READS);
   const entriesPerLink = await Promise.all(
-    manifest.links.map((link) => checkLink(link, repoRoot))
+    manifest.links.map((link) => checkLink(link, repoRoot, runLimited))
   );
   const entries = entriesPerLink.flat();
   const driftLinkCount = new Set(entries.map((entry) => entry.linkId)).size;
@@ -294,7 +302,9 @@ export const checkDrift = async (
     options.featuresDir
   );
   const featureWarningGroups = await Promise.all(
-    targets.map((target) => lintFeature(target, repoRoot, reasonRequiredTags))
+    targets.map((target) =>
+      lintFeature(target, repoRoot, reasonRequiredTags, runLimited)
+    )
   );
   const unregisteredFeatureWarnings = targets
     .filter((target) => target.linkId === undefined)

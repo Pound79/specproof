@@ -102,7 +102,9 @@ drift が検出されたリンクについて、変更内容を E2E feature・st
 
 1. ブランチ作成: `{{config:git.branchPrefix}}<YYYY-MM-DD>` (main から。既に作業ブランチ上ならそのまま)
 2. conventional commit: `feat({{config:git.commitScope}}): sync BDD features with spec/impl drift (<link-ids>)`
-3. push して `gh pr create`。PR本文には以下を含める:
+3. PR作成前にGitHub操作の可否を確認する。GitHub connector/MCPが利用できる場合はそれを優先し、CLIを使う場合は `command -v gh` と `gh auth status` を読み取り専用で確認する。
+   - `gh` が `~/.config/gh` やOS Keychainなどのsandbox権限で失敗した場合、`gh auth login` / `gh auth refresh` を自動実行しない。pushまで成功していればブランチURLを提示し、PR作成はユーザーに案内して停止する。
+   - 利用可能なら `gh pr create` を実行する。PR本文には以下を含める:
    - どのリンクがどちら側の変更に追従したか
    - 検証ゲートの実行結果 (smoke 未実行ならその旨)
 

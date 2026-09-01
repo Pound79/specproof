@@ -31,10 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Use Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
 
@@ -53,7 +53,7 @@ jobs:
         id: check
         continue-on-error: true
         run: |
-          npx -y -p @pound79/specproof-traceability specproof-check \
+          npx -y -p @pound79/specproof-traceability@0.2.1 specproof-check \
             --strict --json --github-annotations > drift-report.json
 
       # Fork PRs run with a read-only GITHUB_TOKEN regardless of the
@@ -62,7 +62,7 @@ jobs:
       # and the job failure below still surface the result on the PR.
       - name: Comment on PR
         if: github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const fs = require('fs');
