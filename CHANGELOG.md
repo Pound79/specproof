@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Dependency Review now blocks pull requests that introduce moderate-or-higher
-  vulnerabilities in runtime or development dependencies.
+- A dependency audit workflow now blocks pull requests when `npm audit` finds
+  moderate-or-higher vulnerabilities.
 
 ### Changed
 

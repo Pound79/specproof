@@ -86,8 +86,6 @@ const EXPECTED_ACTION_SHAS: Record<string, string> = {
   "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
   "actions/setup-node": "820762786026740c76f36085b0efc47a31fe5020",
   "actions/github-script": "f28e40c7f34bde8b3046d885e986cb6290c5673b",
-  "actions/dependency-review-action":
-    "a1d282b36b6f3519aa1f3fc636f609c47dddb294",
 };
 
 describe("GitHub Actions supply-chain pins", () => {
@@ -100,4 +98,12 @@ describe("GitHub Actions supply-chain pins", () => {
       }
     });
   }
+});
+
+describe("dependency security workflow", () => {
+  it("runs npm audit at moderate severity with read-only contents", () => {
+    const workflow = read(".github/workflows/dependency-review.yml");
+    expect(workflow).toMatch(/permissions:\n\s+contents: read/);
+    expect(workflow).toContain("npm audit --audit-level=moderate");
+  });
 });
