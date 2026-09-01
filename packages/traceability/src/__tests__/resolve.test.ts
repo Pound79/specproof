@@ -45,6 +45,12 @@ describe('resolveWithinRoot', () => {
     );
   });
 
+  it('allows an in-repository path whose name starts with two dots', () => {
+    expect(resolveWithinRoot(ROOT, '..generated/file.ts')).toBe(
+      path.join(ROOT, '..generated/file.ts')
+    );
+  });
+
   it('allows a symlink whose physical target stays inside the repository', () => {
     const realDir = path.join(ROOT, 'real-dir');
     mkdirSync(realDir);

@@ -108,9 +108,11 @@ inline in the manifest.
 
 ### Manifest safety limits
 
-Manifest paths are checked against the physical repository root. A symlink is
-accepted only when its resolved target stays inside that root; escaping or
-dangling symlinks are rejected.
+Manifest paths are checked against the physical repository root immediately
+before hashing. A symlink is accepted only when its resolved target stays inside
+that root; pre-existing escaping or dangling symlinks are rejected. This check
+does not provide an OS-level lock against another process replacing a path
+after validation.
 
 To keep pull-request CI predictable for untrusted manifests, the loader applies
 these limits:
@@ -121,7 +123,8 @@ these limits:
 - path: 4,096 characters; id/hash: 256; label/heading: 1,024
 
 `specproof-check` and `specproof-update` preserve manifest order while limiting
-file reads to 32 concurrent operations.
+file reads to 32 concurrent operations. If a read fails, queued reads are
+cancelled instead of continuing unnecessary filesystem work.
 
 ## Programmatic API
 

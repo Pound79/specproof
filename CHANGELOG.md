@@ -17,19 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Traceability manifest loading now rejects files larger than 8 MiB, more than
   10,000 links, more than 1,000 refs per link or 20,000 refs total, empty/NUL
   paths, and oversized path/id/label/heading/hash fields. File hashing for both
-  `check` and `update` is capped at 32 concurrent reads.
+  `check` and `update` is capped at 32 concurrent reads, and queued reads are
+  cancelled after the first failure.
 - GitHub Actions are pinned to reviewed immutable commit SHAs. Generated
   traceability commands pin `@pound79/specproof-traceability` to the scaffold
   release version, and the release script updates/verifies those pins.
 
 ### Fixed
 
-- `specproof init` and `specproof setup-agent` now reject symbolic links in
-  destination ancestors instead of following them to write outside the target
-  repository. Template and skill source walks also reject symbolic links.
-- Manifest references now enforce physical repository containment: symlinks
-  that resolve outside the repository or cannot be resolved are rejected while
-  symlinks whose targets remain inside are supported.
+- `specproof init` and `specproof setup-agent` now reject pre-existing symbolic
+  links in destination ancestors instead of following them to write outside the
+  target repository. Template and skill source walks also reject symbolic links.
+- Manifest references now enforce physical repository containment immediately
+  before hashing: pre-existing symlinks that resolve outside the repository or
+  cannot be resolved are rejected while internal symlinks remain supported.
+  Concurrent filesystem replacement after validation remains outside the
+  check's threat model.
 - Updated the transitive `esbuild` dependency to 0.28.2, resolving the Windows
   development-server arbitrary file-read advisory.
 
