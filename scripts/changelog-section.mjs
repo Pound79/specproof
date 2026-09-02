@@ -31,7 +31,14 @@ if (!match) {
 }
 
 const rest = text.slice(match.index + match[0].length);
-const nextHeading = rest.search(/\n## \[/);
+// The heading match above consumes the trailing newline, so `rest` can start
+// directly with the next "## [" (no leading "\n") when a section is empty —
+// anchor on line-start (`^`, multiline) rather than a literal preceding "\n"
+// so an immediately-adjacent heading is still detected as the boundary.
+// Also stop at Keep a Changelog compare-link definitions so the oldest
+// section (which has no following heading) doesn't swallow them.
+const boundary = /^(?:## \[|\[[^\]]+\]:\s*https?:)/m;
+const nextHeading = rest.search(boundary);
 const body = (nextHeading === -1 ? rest : rest.slice(0, nextHeading)).trim();
 if (!body) {
   console.error(`CHANGELOG.md: "## [${version}]" section is empty`);
