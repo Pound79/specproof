@@ -83,7 +83,9 @@ scripts/release.sh <version>        # 例: scripts/release.sh 0.1.5
 - `--dry-run` — 前提チェックして実行計画だけ表示（変更しない）。まず叩いて確認すると安全。
 - `--yes` — 確認プロンプトを飛ばす（CI / 非対話）。
 - `--skip-checks` — ローカル検証を省略（CI 側でも走る）。
-- `--allow-empty-changelog` — Unreleased が空でもリリース（非推奨）。
+- `--allow-empty-changelog` — Unreleased が空でもリリース（非推奨）。この場合 CHANGELOG に
+  該当バージョン節の本文が無いため、Release workflow は自動で `--generate-notes`
+  （コミットログからの自動生成）にフォールバックする。
 
 ### 5. リリース後の検証
 ```bash
