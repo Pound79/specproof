@@ -20,8 +20,11 @@ specproof の npm パッケージをリリースする。**機械的処理は `s
 
 - リリースは `.github/workflows/release.yml` が **`v*` タグの push で発火**し、各 `package.json` の
   `version` を読んで npm publish する。**既に publish 済みのバージョンは skip**。
-- **タグ名 ≠ publish される version**。version は `package.json` から読まれる。`package.json` を上げずに
-  タグだけ打つと、workflow は「既出」で全 skip し **何も publish されず無言で成功する**。
+- **タグ名 ≠ publish される version**。version は `package.json` から読まれる。ただし
+  `release.yml` の `publish` job 冒頭で `v<tag> == v<cli/package.json version>` を検証しており、
+  不一致なら **npm publish の前に**失敗する（`package.json` を上げずにタグだけ打つケースを含む）。
+  この検証は npm publish より前に置くことが必須 — publish は取り消せないため、後段（Release 作成）
+  で検出しても手遅れ。
 - `npm version --workspaces` は `package.json` だけでなく **`package-lock.json` も更新**する。怠ると
   workflow 冒頭の `npm ci` が不整合で落ちる。`scripts/release.sh` はこの更新を検証する。
 - **Claude Code プラグインは別チャネル**。プラグインの version は npm ではなく
@@ -38,6 +41,11 @@ specproof の npm パッケージをリリースする。**機械的処理は `s
   本文にする。既に同名 Release があれば skip）。**タイトルは `vX.Y.Z` のみ**（過去の
   `vX.Y.Z — <一言要約>` 形式は人手による要約なので自動生成の対象外）。見出し的な一言を足したい
   場合はリリース後に手動で `gh release edit v<version> --title "v<version> — <要約>"`。
+  version に `-` を含む場合（例: `0.3.0-rc.1`。`scripts/release.sh` の semver 正規表現が
+  prerelease suffix を許可している）は GitHub Release に自動で `--prerelease` を付け、
+  通常リリースの `Latest` 扱いにはならない。同様に npm publish も dist-tag を
+  `next`（通常は `latest`）に切り替えるため、`npm i @pound79/specproof` が誤って
+  prerelease を解決することはない。
 
 ## 手順
 
@@ -103,7 +111,11 @@ GitHub Release は workflow が自動作成する（上記「必ず理解して�
   プラグインマニフェスト2つの version bump 漏れ。`npm run check:versions` で不一致を確認し、
   `.claude-plugin/marketplace.json` と `plugins/specproof/.claude-plugin/plugin.json` を揃える。
   正攻法は次の patch を `scripts/release.sh` で切ること（4源を lockstep で bump する）。
-- **何も publish されない / workflow が skip した** → `package.json` の version を上げ忘れ、または
+- **`Verify tag matches package version` で落ちる** → 打ったタグと `cli/package.json` の
+  version が食い違っている（`package.json` の bump 忘れ、またはタグの打ち間違い）。npm publish の
+  前に落ちるので安全。`npm view <pkg> version` で現状を確認し、タグを打ち直すか
+  `package.json` を揃えてから再タグする。
+- **何も publish されない / workflow が skip した**（上記チェックは通ったのに）→
   既に publish 済みのバージョンでタグを打った。`npm view <pkg> version` で確認し、version を上げ直して
   新しいタグを切る。
 - **workflow が `npm ci` で落ちる** → `package-lock.json` が package.json と不整合。

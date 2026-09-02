@@ -8,7 +8,7 @@ Thanks for your interest in contributing! This document covers the essentials.
 # Requires Node.js >= 24 (see .nvmrc)
 npm ci            # install all workspace dependencies
 npm run typecheck # tsc --noEmit across all workspaces
-npm test          # vitest run across all workspaces
+npm test          # vitest across workspaces + node:test for scripts/
 npm run build     # build publishable packages
 ```
 

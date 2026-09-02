@@ -41,10 +41,12 @@ never leaves a half-bumped tree.)
 
 - The workflow fires on a **`v*` tag push**, then reads the `version` from each
   `package.json` and publishes it — **skipping any version already on npm**.
-- The **tag name is only a trigger**: the published version comes from
-  `package.json`, not the tag. Tagging `v0.1.5` while `package.json` still says
-  `0.1.4` publishes nothing (it's "already published") and the run goes green
-  silently. Always bump `package.json` first — which `scripts/release.sh` does.
+- The **published version comes from `package.json`**, not the tag name — but
+  the workflow's first step verifies the pushed tag equals `v<cli/package.json
+  version>` and fails loudly (before touching npm) if they disagree. This runs
+  before any publish because npm publish can't be undone. Always bump
+  `package.json` first — which `scripts/release.sh` does — so the tag you push
+  already matches.
 - `npm version --workspaces` updates `package-lock.json` too. A bumped
   `package.json` with a stale lockfile makes the workflow's `npm ci` fail. The
   script verifies the lockfile was updated and refuses to continue otherwise.

@@ -38,7 +38,7 @@ npx -y -p @pound79/specproof-traceability specproof-stats   # シナリオ censu
 ```bash
 npm ci            # 依存インストール
 npm run typecheck # tsc --noEmit
-npm test          # vitest run
+npm test          # vitest + scripts/ の node:test
 npm run build     # ビルド
 ```
 
