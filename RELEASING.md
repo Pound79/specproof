@@ -79,8 +79,12 @@ except for `CHANGELOG.md`, and the target tag does not already exist.
 gh run watch                                  # watch the Release workflow
 npm view @pound79/specproof version             # expect the new version
 npm view @pound79/specproof-traceability version
-gh release create v0.1.5 --generate-notes     # optional GitHub Release notes
+gh release view v0.1.5                        # GitHub Release is created automatically
 ```
+
+The workflow creates the GitHub Release itself once both packages publish (title
+`vX.Y.Z`, notes copied verbatim from the matching `CHANGELOG.md` section) — no
+manual `gh release create` needed.
 
 ## Notes
 
