@@ -33,6 +33,11 @@ specproof の npm パッケージをリリースする。**機械的処理は `s
   CI（`ci.yml`）で毎 PR 走るほか、Release workflow（`release.yml`）でも publish 前ゲートとして走る（ドリフト時は publish されない）。
 - publish は `id-token: write` + `--provenance` で行われるため supply-chain 来歴が付く。
   **必ずこの workflow 経由でリリースする**（ローカルからの手動 `npm publish` は使わない）。
+- npm publish 成功後、workflow が `gh release create` で GitHub Release も自動作成する
+  （`scripts/changelog-section.mjs <version>` が CHANGELOG.md の該当バージョン節をそのまま notes
+  本文にする。既に同名 Release があれば skip）。**タイトルは `vX.Y.Z` のみ**（過去の
+  `vX.Y.Z — <一言要約>` 形式は人手による要約なので自動生成の対象外）。見出し的な一言を足したい
+  場合はリリース後に手動で `gh release edit v<version> --title "v<version> — <要約>"`。
 
 ## 手順
 
@@ -85,8 +90,10 @@ scripts/release.sh <version>        # 例: scripts/release.sh 0.1.5
 gh run watch                                  # Release workflow を監視
 npm view @pound79/specproof version             # <version> になっていれば成功
 npm view @pound79/specproof-traceability version
-gh release create v<version> --generate-notes # 任意: GitHub Release ノート
+gh release view v<version>                    # GitHub Release も自動作成されているはず
 ```
+GitHub Release は workflow が自動作成する（上記「必ず理解しておく前提」参照）。手動での
+`gh release create` は不要 — 二重作成にはならない（既存タグの Release があれば workflow 側が skip する）。
 
 ## トラブルシュート
 
@@ -107,3 +114,8 @@ gh release create v<version> --generate-notes # 任意: GitHub Release ノート
 - **間違ったタグを push してしまった（publish 前に気づいた）** →
   `git push --delete origin v<version>` でリモートタグを削除（既に publish 済みなら npm の unpublish は
   原則不可なので、次の patch を出す）。
+- **`Create GitHub Release` ステップだけ失敗する**（npm publish 自体は成功している）→
+  `CHANGELOG.md` に `## [<version>]` 節が無い（`scripts/release.sh` を通さず手でタグを打った等）。
+  `node scripts/changelog-section.mjs <version>` をローカルで実行してエラー内容を確認し、
+  CHANGELOG を直して job を re-run するか、`gh release create v<version> --notes-file -` を手動実行する。
+  publish 済みの npm パッケージには影響しない（この失敗はロールバック対象ではない）。
