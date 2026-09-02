@@ -12,6 +12,8 @@ jobs:
       id-token: write   # npm provenance
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -44,3 +46,32 @@ jobs:
             npm publish --workspace cli --provenance
           fi
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release — kept out of the `publish`
+                         # job so this token never coexists with `npm ci` /
+                         # `npm test` / `npm run build` running third-party
+                         # dependency code (see CHANGELOG / PR history).
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # gh authenticates via GH_TOKEN below, not git
+      - name: Create GitHub Release
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: |
+          PKG_VERSION=$(node -p "require('./cli/package.json').version")
+          TAG="$GITHUB_REF_NAME"
+          if [ "$TAG" != "v$PKG_VERSION" ]; then
+            echo "::error::pushed tag $TAG does not match cli/package.json version v$PKG_VERSION — refusing to create a mismatched GitHub Release"
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::Release $TAG already exists — skipping"
+          elif node scripts/changelog-section.mjs "$PKG_VERSION" > "$RUNNER_TEMP/release-notes.md" 2>/dev/null; then
+            gh release create "$TAG" --verify-tag --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+          else
+            echo "::warning::no CHANGELOG.md section for $PKG_VERSION — falling back to --generate-notes"
+            gh release create "$TAG" --verify-tag --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
+          fi
