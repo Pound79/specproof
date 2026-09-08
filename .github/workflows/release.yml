@@ -12,6 +12,19 @@ jobs:
       id-token: write   # npm provenance
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Must run before any publish step: npm publish can't be undone, so a
+      # tag/package-version mismatch (e.g. a manual `v0.3.1` push while
+      # cli/package.json still says the unpublished `0.3.0`) has to fail
+      # here, not after 0.3.0 is already on the registry.
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION=$(node -p "require('./cli/package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$PKG_VERSION" ]; then
+            echo "::error::pushed tag $GITHUB_REF_NAME does not match cli/package.json version v$PKG_VERSION — refusing to publish"
+            exit 1
+          fi
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -29,18 +42,58 @@ jobs:
       - name: Publish @pound79/specproof-traceability
         run: |
           PKG_VERSION=$(node -p "require('./packages/traceability/package.json').version")
+          NPM_TAG=latest
+          case "$PKG_VERSION" in *-*) NPM_TAG=next ;; esac
           if npm view @pound79/specproof-traceability@"$PKG_VERSION" version 2>/dev/null; then
             echo "::notice::@pound79/specproof-traceability@$PKG_VERSION already published — skipping"
           else
-            npm publish --workspace packages/traceability --provenance
+            npm publish --workspace packages/traceability --provenance --tag "$NPM_TAG"
           fi
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
       - name: Publish @pound79/specproof
         run: |
           PKG_VERSION=$(node -p "require('./cli/package.json').version")
+          NPM_TAG=latest
+          case "$PKG_VERSION" in *-*) NPM_TAG=next ;; esac
           if npm view @pound79/specproof@"$PKG_VERSION" version 2>/dev/null; then
             echo "::notice::@pound79/specproof@$PKG_VERSION already published — skipping"
           else
-            npm publish --workspace cli --provenance
+            npm publish --workspace cli --provenance --tag "$NPM_TAG"
           fi
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release — kept out of the `publish`
+                         # job so this token never coexists with `npm ci` /
+                         # `npm test` / `npm run build` running third-party
+                         # dependency code (see CHANGELOG / PR history).
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # gh authenticates via GH_TOKEN below, not git
+      - name: Create GitHub Release
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: |
+          PKG_VERSION=$(node -p "require('./cli/package.json').version")
+          TAG="$GITHUB_REF_NAME"
+          # Belt-and-suspenders: `publish` already refuses to run past this same
+          # check (before any npm publish), so this is unreachable via the
+          # normal path — kept in case this job is ever triggered independently.
+          if [ "$TAG" != "v$PKG_VERSION" ]; then
+            echo "::error::pushed tag $TAG does not match cli/package.json version v$PKG_VERSION — refusing to create a mismatched GitHub Release"
+            exit 1
+          fi
+          EXTRA_ARGS=()
+          case "$PKG_VERSION" in
+            *-*) EXTRA_ARGS+=(--prerelease) ;;
+          esac
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::Release $TAG already exists — skipping"
+          elif node scripts/changelog-section.mjs "$PKG_VERSION" > "$RUNNER_TEMP/release-notes.md" 2>/dev/null; then
+            gh release create "$TAG" --verify-tag --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md" "${EXTRA_ARGS[@]}"
+          else
+            echo "::warning::no CHANGELOG.md section for $PKG_VERSION — falling back to --generate-notes"
+            gh release create "$TAG" --verify-tag --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes "${EXTRA_ARGS[@]}"
+          fi

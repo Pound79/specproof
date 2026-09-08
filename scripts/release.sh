@@ -110,7 +110,7 @@ const marker = "## [Unreleased]";
 const idx = text.indexOf(marker);
 if (idx === -1) process.exit(2);
 const rest = text.slice(idx + marker.length);
-const nextRel = rest.search(/\n## \[/);
+const nextRel = rest.search(/^## \[/m);
 const body = (nextRel === -1 ? rest : rest.slice(0, nextRel)).trim();
 process.exit(body ? 0 : 1);
 NODE
@@ -292,7 +292,7 @@ if (idx === -1) {
   process.exit(1);
 }
 const rest = text.slice(idx + marker.length);
-const nextRel = rest.search(/\n## \[/);
+const nextRel = rest.search(/^## \[/m);
 const body = (nextRel === -1 ? rest : rest.slice(0, nextRel)).trim();
 if (!body && allowEmpty !== "true") {
   console.error('CHANGELOG.md: "## [Unreleased]" is empty.');
@@ -377,6 +377,6 @@ git push --atomic origin main "$TAG"
 echo ""
 echo "==> Done. Verify the release:"
 echo "    gh run watch                                  # watch the Release workflow"
-echo "    npm view @pound79/specproof version             # expect $VERSION"
-echo "    npm view @pound79/specproof-traceability version    # expect $VERSION"
-echo "    gh release create $TAG --generate-notes       # optional GitHub Release"
+echo "    npm view @pound79/specproof@$VERSION version             # expect $VERSION"
+echo "    npm view @pound79/specproof-traceability@$VERSION version    # expect $VERSION"
+echo "    gh release view $TAG                          # GitHub Release should be auto-created"
