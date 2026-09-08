@@ -98,8 +98,8 @@ scripts/release.sh <version>        # 例: scripts/release.sh 0.1.5
 ### 5. リリース後の検証
 ```bash
 gh run watch                                  # Release workflow を監視
-npm view @pound79/specproof version             # <version> になっていれば成功
-npm view @pound79/specproof-traceability version
+npm view @pound79/specproof@<version> version             # <version> が存在すれば成功
+npm view @pound79/specproof-traceability@<version> version
 gh release view v<version>                    # GitHub Release も自動作成されているはず
 ```
 GitHub Release は workflow が自動作成する（上記「必ず理解しておく前提」参照）。手動での
@@ -128,8 +128,10 @@ GitHub Release は workflow が自動作成する（上記「必ず理解して�
 - **間違ったタグを push してしまった（publish 前に気づいた）** →
   `git push --delete origin v<version>` でリモートタグを削除（既に publish 済みなら npm の unpublish は
   原則不可なので、次の patch を出す）。
-- **`Create GitHub Release` ステップだけ失敗する**（npm publish 自体は成功している）→
-  `CHANGELOG.md` に `## [<version>]` 節が無い（`scripts/release.sh` を通さず手でタグを打った等）。
-  `node scripts/changelog-section.mjs <version>` をローカルで実行してエラー内容を確認し、
-  CHANGELOG を直して job を re-run するか、`gh release create v<version> --notes-file -` を手動実行する。
-  publish 済みの npm パッケージには影響しない（この失敗はロールバック対象ではない）。
+- **GitHub Release が CHANGELOG ではなく自動生成 notes になった** →
+  `CHANGELOG.md` に `## [<version>]` 節が無い、または節が空（`scripts/release.sh` を通さず
+  手でタグを打った、または `--allow-empty-changelog` を使った等）。`node scripts/changelog-section.mjs <version>`
+  をローカルで実行して、CHANGELOG 由来の notes を作れる状態か確認する。
+- **`Create GitHub Release` ステップ自体が失敗する**（npm publish 自体は成功している）→
+  GitHub API / `contents: write` 権限 / tag / 既存 Release の状態などを確認する。publish 済みの npm
+  パッケージには影響しない（この失敗はロールバック対象ではない）。
