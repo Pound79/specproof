@@ -76,7 +76,8 @@ drift が検出されたリンクについて、変更内容を E2E feature・st
      要求・許容している」となった場合にだけここへ来る）
    - 変更の文脈が欲しい場合の補助として `git diff origin/main...HEAD -- <path>`
      または直近の変更コミット。ただし main 上の未コミット変更のみ・ベース
-     ブランチが main でない等では diff が空になり得るため、空でも現在内容を正とする
+     ブランチが main でない等では diff が空になり得るため、空でも現在内容を分析対象として扱う。
+     なお、feature の期待値の権威は spec のみとする
 2. 現在の `.feature` ファイルと、それを参照する `{{config:layout.stepsDir}}/*{{config:layout.stepFileSuffix}}` を読む。
 3. `prompts/system.md`（`{{config:layout.idiomGuide}}` が設定されている場合はそのパス）の
    生成ガイドに**厳密に**従って `.feature` を更新する。
