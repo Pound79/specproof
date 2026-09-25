@@ -29,7 +29,7 @@ specproof の入口は単一の `/specproof` オーケストレータで、状�
 |---|---|---|
 | `specproof-bootstrap` | **impl → feature** | 既存実装を起点に feature ドラフトを一度だけ作成する。E2E カバレッジがほぼ無いドメインの底上げ専用。 |
 | `specproof-new-feature` | **spec → feature** | 仕様書の新規セクションを起点に、feature・stub step・トレーサビリティリンクを一式作成する。 |
-| `specproof-sync` | **spec/impl diff → feature** | drift 検知後の同期。変更されたスペック／実装の diff を feature に反映する。 |
+| `specproof-sync` | **drift → feature（期待値は spec から）** | drift 検知後の追従。決定表（§4）で正を決め、feature の期待値は spec から導出する。impl の diff を期待値の生成元にしない。 |
 | `specproof-check`（CLI・スキルではない） | **read-only 検知** | マニフェストのハッシュと現ファイルを比較して drift を報告する決定論 CLI（AI 不使用・ファイル非変更）。利用者は `/specproof` オーケストレータか CLI を直接使う。 |
 | `specproof-implement` | **feature → impl** | 人が先に書いた RED 状態の feature を起点に、step 本体・画面操作抽象層・製品 impl を実装する。 |
 
@@ -47,7 +47,7 @@ feature が RED になった / pending step がある
 
 spec または impl が変わった疑いがある
   └→ specproof-check（read-only CLI）
-       └ drift あり → specproof-sync（spec/impl diff → feature）
+       └ drift あり → specproof-sync（drift → feature・期待値は spec から）
 ```
 
 ### なぜ方向ラベルを付けるか
@@ -96,8 +96,8 @@ CI は green のままなのでカバレッジ縮小に気づけない。
 
 `specproof-bootstrap` は `impl → feature` 方向で動作するが、**一度きりの初期化**という制約が付く。
 bootstrap 後の変更はすべて feature-first（人間が `.feature` を先に編集 → 赤 → 実装 → 緑）で行う。
-実装変更を feature に追随させる必要がある場合は「drift 検知 → `specproof-sync` による差分反映」であり、
-再生成ではない。
+実装変更を feature に追随させる必要がある場合は「drift 検知 → `specproof-sync`」であり、再生成ではない。
+振る舞いが変わる実装変更は人が spec と照らして裁定し、feature の期待値は spec から導出する（§4）。
 
 ---
 
@@ -174,9 +174,9 @@ drift 検知（`specproof-check`）の後、`specproof-sync` は次の決定表�
 
 | drift の組み合わせ | 扱い | 理由 |
 |---|---|---|
-| impl のみ changed | 実装が正。**観測可能な振る舞いが変わったら** feature の文言・シナリオを更新して green を確認。**変わらないリファクタなら** feature 無変更で bless（ハッシュ更新）のみ | 実装が仕様の最新の表明。リファクタで人著シナリオを上書きしない |
+| impl のみ changed | **変わらないリファクタなら** feature 無変更で bless（ハッシュ更新）のみ。**観測可能な振る舞いが変わったら必ず停止。** 実装の diff と spec の該当節を提示し、ユーザーに裁定を求める: 実装の誤り → feature を変えず実装修正へ／spec の変更が必要 → feature を変えず spec を先に更新して再評価／spec がすでに新挙動を要求・許容 → feature の期待値を spec だけから導出して更新。どの分岐でも impl を期待値の情報源にしない | 実装に feature を合わせ直すと、実装の誤りまで期待値に取り込み、テストが実装の写しになる（impl → feature の禁止と同じ理由）。リファクタで人著シナリオを上書きしない |
 | spec のみ changed | 仕様が正。feature を仕様の新内容に合わせて更新 | 仕様書が権威 |
-| **spec と impl の両方 changed** | **必ず停止。** 両方の diff を提示し、どちらに追従するかユーザーに確認。確認が取れるまで進めない | リファクタ中・仕様変更中・マージ競合のいずれかの可能性が高く、ドメイン判断なしに「正」を決められない。自動追従すると意図しない仕様上書きや実装の巻き戻しが起きる |
+| **spec と impl の両方 changed** | **必ず停止。** 両方の diff を提示し、どちらを正とするかユーザーに確認。確認が取れるまで進めない。impl を正とする場合も、spec を先に更新し、feature の期待値は更新後の spec から導出する | リファクタ中・仕様変更中・マージ競合のいずれかの可能性が高く、ドメイン判断なしに「正」を決められない。自動追従すると意図しない仕様上書きや実装の巻き戻しが起きる |
 | feature のみ changed | 手動編集を bless。再生成せずハッシュ更新のみ | 人間の意図的な feature 編集を尊重する |
 | いずれかが missing | 自動同期しない。マニフェストのリンク定義修正をユーザーに提案 | リンク定義がないことはマニフェスト設計自体が不完全であり、ファイルを作成・削除する前に意図を確認すべき |
 
@@ -420,7 +420,7 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
         │    ↓                                   │
         │  specproof-check（read-only）           │
         │    ↓ drift あり                        │
-        │  specproof-sync（diff → feature 更新） │
+        │  specproof-sync（spec 起点で追従）     │
         │    ↓                                   │
         │  specproof-implement（必要なら）        │
         │    ↓                                   │

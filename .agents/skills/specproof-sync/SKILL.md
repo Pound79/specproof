@@ -1,6 +1,6 @@
 ---
 name: specproof-sync
-description: Sync BDD features with detected spec/implementation drift. For each stale traceability link, reads the changed diff, regenerates the .feature file and step definitions, validates with the configured bdd runner and smoke tests, refreshes manifest hashes, and prepares a branch + commit + PR. Use after specproof-check reports drift, or when the user asks to sync specs/implementation/tests.
+description: Reconcile BDD features with the authoritative spec after detected spec/implementation drift. For each stale traceability link, decides the authoritative side from the decision table (spec-only change -> update the .feature from the spec; pure refactor -> bless only; implementation behavior change or both-sides change -> stop for a human decision), derives expected values from the spec only and never from the implementation diff, updates the .feature and step definitions, validates with the configured bdd runner and smoke tests, refreshes manifest hashes, and prepares a branch + commit + PR. Use after specproof-check reports drift, or when the user asks to sync specs/implementation/tests.
 ---
 
 # BDD Sync
@@ -43,14 +43,25 @@ drift が検出されたリンクについて、変更内容を E2E feature・st
 
 | drift の組み合わせ              | 扱い                                                                                                                                                        |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| impl のみ changed               | 実装が正。**観測可能な振る舞いが変わったか確認**: 変わったら feature を新挙動に合わせ更新し green を確認、変わらないリファクタなら feature 無変更で bless のみ（人著シナリオを上書きしない） |
+| impl のみ changed               | **観測可能な振る舞いが変わったか確認**: 変わらないリファクタなら feature 無変更で bless のみ（人著シナリオを上書きしない）。**変わったなら必ず停止。** 実装の diff とリンク先の spec 該当節を提示し、下の「振る舞い変化の裁定」をユーザーに求める。裁定が取れるまで feature / manifest を更新しない |
 | spec のみ changed               | 仕様が正。feature を仕様の新内容に合わせて更新                                                                                                              |
-| **spec と impl の両方 changed** | **必ず停止。** 両方の diff を提示し、どちらに追従するかユーザーに確認 (エージェントのユーザー確認ツールを使う)。確認が取れるまで進めない |
+| **spec と impl の両方 changed** | **必ず停止。** 両方の diff を提示し、どちらを正とするかユーザーに確認 (エージェントのユーザー確認ツールを使う)。確認が取れるまで進めない。impl を正とする裁定でも、feature の期待値は impl から作らない — spec を impl の挙動に合わせて先に更新してもらい、更新後の spec から導出する |
 | feature のみ changed            | 手動編集を bless。再生成せずハッシュ更新(Step 5)のみ                                                                                                        |
 | いずれかが missing              | 自動同期しない。マニフェストのリンク定義修正をユーザーに提案                                                                                                |
 
 「spec と impl の両方 changed」は自力でグルーピングしなくてよい。Step 1 で取得した JSON の
 `bothSidesChanged`（linkId の配列）にそのリンクの id が含まれていれば該当し、必ず停止する。
+
+#### 振る舞い変化の裁定（impl のみ changed で観測可能な振る舞いが変わった場合）
+
+ユーザーの裁定ごとに次へ遷移する。**どの分岐でも、ユーザー確認の後であっても、impl の diff・
+現在内容を feature の期待値の情報源にしない。**
+
+| 裁定 | 遷移 |
+| ---- | ---- |
+| 実装の誤り | feature / manifest を変更せずに停止。実装の修正へ戻す（`/specproof-implement` 等） |
+| spec の変更が必要 | feature / manifest を変更せずに停止。spec を先に更新してもらい、drift を再評価する（再評価後は「両方 changed」として再び停止する） |
+| 現在の spec がすでに新しい挙動を要求・許容している | Step 3 へ進む。feature の期待値は spec の記述だけから導出する |
 
 ### 3. Feature / steps の更新
 
@@ -59,9 +70,14 @@ drift が検出されたリンクについて、変更内容を E2E feature・st
 1. 変更されたファイルの内容を把握する。drift は「ファイル内容の変化」で起きて
    いるので、まず該当パスの**現在内容を読むことを第一優先**とする:
    - 実装/仕様とも `<path>` の現在内容を読む (仕様は該当見出しセクション)
+   - **feature の期待値（シナリオと「ならば」の値）は spec だけから導出する。** impl は
+     step / page object で画面要素を探す手がかりとしてだけ読み、期待値の情報源にしない
+     （impl のみ changed で振る舞いが変わったリンクは、Step 2 の裁定で「spec が新しい挙動を
+     要求・許容している」となった場合にだけここへ来る）
    - 変更の文脈が欲しい場合の補助として `git diff origin/main...HEAD -- <path>`
      または直近の変更コミット。ただし main 上の未コミット変更のみ・ベース
-     ブランチが main でない等では diff が空になり得るため、空でも現在内容を正とする
+     ブランチが main でない等では diff が空になり得るため、空でも現在内容を分析対象として扱う。
+     なお、feature の期待値の権威は spec のみとする
 2. 現在の `.feature` ファイルと、それを参照する `{{config:layout.stepsDir}}/*{{config:layout.stepFileSuffix}}` を読む。
 3. `prompts/system.md`（`{{config:layout.idiomGuide}}` が設定されている場合はそのパス）の
    生成ガイドに**厳密に**従って `.feature` を更新する。
@@ -118,3 +134,5 @@ drift が検出されたリンクについて、変更内容を E2E feature・st
 - steps / page objects のコメントは英語。
 - テストが落ちた状態でコミットしない。
 - 両側変更時の自動解決は禁止 (必ずユーザー確認)。
+- impl のみ changed で観測可能な振る舞いが変わった場合も、feature を実装に自動で合わせない (必ずユーザー確認)。
+- **ユーザー確認後であっても、impl の diff・現在内容を feature の期待値の生成元として使用しない。** 期待値は常に spec から導出する。実装に合わせ直すと実装の誤りまで期待値に取り込み、テストが実装の写しになる。
