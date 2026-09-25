@@ -120,7 +120,7 @@ hood it drives these skills, each of which can also be invoked standalone:
 | `/specproof-bootstrap` | impl -> feature draft | You want to generate `.feature` drafts from existing code |
 | `/specproof-new-feature` | spec -> feature | You have a new spec section and want a RED `.feature` |
 | `/specproof-implement` | feature -> impl | You have a blessed `.feature` and want GREEN test code |
-| `/specproof-sync` | drift -> feature | Spec or impl changed and `.feature` needs to catch up |
+| `/specproof-sync` | drift -> feature | Spec or impl changed; reconcile `.feature` against the spec (impl behavior changes stop for your decision) |
 
 ## Drift detection (AI-free CLI)
 

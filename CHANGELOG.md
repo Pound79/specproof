@@ -16,6 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   feature. Pure refactors are still blessed with a hash update only. This keeps
   `impl → feature` regeneration out of the sync path, so tests do not absorb
   implementation mistakes as expected values.
+- `specproof-sync` now defines what happens after that decision: an
+  implementation mistake or a needed spec change stops without touching the
+  feature or manifest, and only a spec that already requires the new behavior
+  lets sync update the feature, with expected values derived from the spec. The
+  same rule applies when both spec and implementation changed and the user
+  picks the implementation: the spec is updated first. Even after user
+  confirmation, the implementation diff is never used as the source of expected
+  values. The skill descriptions, `specproof-implement`, `specproof-bootstrap`,
+  `docs/methodology.md`, both READMEs and the Playwright / Flutter template
+  READMEs now describe `specproof-sync` this way instead of as "reflect the
+  implementation diff into the feature".
 
 ## [0.2.2] - 2026-09-02
 

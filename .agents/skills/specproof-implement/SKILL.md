@@ -28,7 +28,7 @@ description: Implement production code (and pending step bodies / page-object me
 ## 核心思想: 方向の非対称性
 
 - `impl → feature`（テストをコードから再生成）= **同語反復で禁止**。テストが独立性を失い
-  緑が無意味になる（feature 層生成は specproof-new-feature / specproof-sync / specproof-bootstrap が担う）。
+  緑が無意味になる（feature 層の生成は specproof-new-feature（spec → feature）と specproof-bootstrap（impl → feature・一度きり）、drift 後の追従は specproof-sync（期待値は spec から導出し、impl を生成元にしない）が担う）。
 - `feature → impl`（独立した spec=feature を満たすよう実装）= **TDD として正当**。feature は
   人が先に書いた独立基準なので、緑になることが「コードが独立基準を満たした」証明になる。
 
@@ -38,7 +38,9 @@ description: Implement production code (and pending step bodies / page-object me
 
 | skill                                                              | 方向                | produces                                    |
 | ------------------------------------------------------------------- | ------------------- | ------------------------------------------- |
-| `specproof-new-feature` / `specproof-sync` / `specproof-bootstrap` | spec/impl → feature | `.feature` + **pending step stub**          |
+| `specproof-new-feature`                                            | spec → feature      | `.feature` + **pending step stub**          |
+| `specproof-sync`                                                   | drift → feature（期待値は spec から） | `.feature` + **pending step stub**          |
+| `specproof-bootstrap`                                              | impl → feature（一度きり） | `.feature` + **pending step stub**          |
 | **`specproof-implement`**                                          | **feature → impl**  | pending step 本体 + page object + 製品 impl |
 
 生成系は「feature + pending stub」で止め、`specproof-implement` が「緑にする残り全部」を担う。
@@ -173,5 +175,5 @@ description: Implement production code (and pending step bodies / page-object me
 - **① spec-first**: `/specproof-new-feature` or `/specproof-sync` で feature+stub → **`/specproof-implement`** で緑化 → bless
 - **② feature-first**: 人が feature 編集 → **`/specproof-implement`** で緑化 → bless
 
-`specproof-sync`（impl → feature）とは**反対方向**。混同しないこと。詳細は
+`specproof-sync`（drift → feature。期待値は spec から導出し、impl を生成元にしない）とは**反対方向**。混同しないこと。詳細は
 `{{config:layout.e2eReadme}}`「変更起点別フロー」「bootstrap は一度きり・実装変更後の追従経路」節。
