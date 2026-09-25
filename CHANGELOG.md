@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `specproof-sync` no longer updates a `.feature` to match the implementation
+  when only the implementation changed and its observable behavior changed. It
+  now stops, shows the implementation diff with the linked spec section, and
+  asks the user whether the change follows the spec before touching the
+  feature. Pure refactors are still blessed with a hash update only. This keeps
+  `impl → feature` regeneration out of the sync path, so tests do not absorb
+  implementation mistakes as expected values.
+
 ## [0.2.2] - 2026-09-02
 
 ### Added
