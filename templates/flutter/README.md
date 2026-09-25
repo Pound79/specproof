@@ -74,7 +74,10 @@ specproof-* skill は `{{config:layout.e2eReadme}}` としてこのファイル�
 `/specproof-bootstrap` は既存実装からドメインの feature を**一度だけ**起こす。既存 feature の
 再生成には使わない（実装のコピーになり、壊れたら赤くなるというテストの役目を失う）。
 実装変更を feature に追従させるときは `specproof-check`（drift 検知）→
-`/specproof-sync`（差分反映・既存シナリオは消さない）→ `specproof-update`（bless）の順で行う。
+`/specproof-sync` → `specproof-update`（bless）の順で行う。振る舞いの変わらないリファクタは
+そのまま bless。観測可能な振る舞いが変わった場合、sync は停止して spec と照らした裁定を求める
+（実装を直す／spec を先に更新する／spec がすでに新挙動を求めていると確認する）。feature の期待値は
+常に spec から導出し、実装の diff からは作らない。既存シナリオは消さない。
 
 ### 仕様の置き場所 と 「テストが難しい ≠ 観測不能」
 

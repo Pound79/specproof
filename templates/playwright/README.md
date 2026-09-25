@@ -171,8 +171,12 @@ a summary + link, not a copy.
 domain. Never re-run it to regenerate an existing feature — that turns the
 test into a copy of the code it should verify, so it stops catching
 regressions. To follow an implementation change instead: `specproof-check`
-(detect drift) → `/specproof-sync` (reflect the diff, never deletes existing
-scenarios) → `specproof-update` (bless).
+(detect drift) → `/specproof-sync` → `specproof-update` (bless). A pure
+refactor is blessed as-is. If observable behavior changed, sync stops and asks
+you to decide against the spec: fix the implementation, update the spec first,
+or confirm the spec already requires the new behavior. Expected values in the
+feature always come from the spec, never from the implementation diff, and
+existing scenarios are never deleted.
 
 ### 仕様の置き場所 と 「テストが難しい ≠ 観測不能」
 
