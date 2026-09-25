@@ -113,7 +113,7 @@ specproof の方法論の中身は BDD（Gherkin）。feature は観測可能な
 | `/specproof-bootstrap` | impl -> feature ドラフト | 既存コードから `.feature` ドラフトを生成したい |
 | `/specproof-new-feature` | spec -> feature | 新しい spec セクションがあり、RED な `.feature` を作りたい |
 | `/specproof-implement` | feature -> impl | bless 済みの `.feature` があり、GREEN なテストコードが欲しい |
-| `/specproof-sync` | drift -> feature | spec や impl が変わり、`.feature` を追従させたい |
+| `/specproof-sync` | drift -> feature | spec や impl が変わり、`.feature` を spec に照らして追従させたい（impl の振る舞い変化は人が裁定） |
 
 ## Drift 検知（AI 不使用の CLI）
 

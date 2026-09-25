@@ -34,7 +34,7 @@ description: Bootstrap a rich Gherkin .feature DRAFT from existing implementatio
 | skill                     | 方向                     | いつ使う                                            |
 | ------------------------- | ------------------------ | --------------------------------------------------- |
 | `specproof-new-feature`   | spec → feature           | 仕様セクションがあり E2E 未整備の**新規**機能       |
-| `specproof-sync`          | spec/impl diff → feature | drift 検知後の同期                                  |
+| `specproof-sync`          | drift → feature          | drift 検知後の追従。期待値は spec から導出し、impl を生成元にしない |
 | **`specproof-bootstrap`** | **impl → feature**       | **既存実装はあるが feature が薄い**ドメインの底上げ |
 
 **impl → feature は一度きりの bootstrap 専用。継続的に再生成してはいけない。** 理由:
@@ -50,8 +50,8 @@ description: Bootstrap a rich Gherkin .feature DRAFT from existing implementatio
   （テスト範囲の重力的収縮）。CI は green のままなので気づけない。
 
 **bootstrap 後の変更は必ず feature-first**（人間が `.feature` を先に編集 → 赤 → 実装 → 緑）。
-実装変更の feature 追従は再生成ではなく `{{config:commands.traceabilityCheck}}`（検知・CLI）→ `/specproof-sync`（差分反映・人間
-ゲート・既存シナリオ非削除）→ `{{config:commands.traceabilityUpdate}}`（bless）で行う。詳細は
+実装変更の feature 追従は再生成ではなく `{{config:commands.traceabilityCheck}}`（検知・CLI）→ `/specproof-sync`（期待値は spec から導出・impl の
+振る舞い変化は人間ゲートで停止・既存シナリオ非削除）→ `{{config:commands.traceabilityUpdate}}`（bless）で行う。詳細は
 `{{config:layout.e2eReadme}}`「bootstrap は一度きり・実装変更後の追従経路」節。
 
 ## 前提（生成は「正しさ」を作らない）
