@@ -12,13 +12,37 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
 そこで**フロー層を別リポの別ツールとして新設**し、specproof は静的正典層に徹する:
 
 - **specproof（静的正典層）が供給するもの**: シナリオの同一性（既定 = ファイルパス + シナリオ
-  タイトル、リネーム耐性が必要な箇所は任意の `@id` タグで上書き）、静的センサス（分母）、
-  drift / 整合性シグナル
+  タイトル、リネーム耐性が必要な箇所は任意の `@id:<value>` タグで上書き）、シナリオ台帳と
+  静的センサス（分母）、drift / 整合性シグナル。詳細は下記「契約」節
 - **フロー層が担うもの**: run レポートの解釈（シナリオ状態の認定。通過は CI プロファイルの
   実行事実で判定し自己申告を認めない）、時系列（進捗・velocity・健全性）、入口ゲート UI
 - **接続はデータ契約経由**: run レポートは標準形式（Cucumber Messages / CTRF）+ プロファイル
   メタデータ。シナリオ台帳・整合性は `ScenarioSource` / `IntegritySource` インターフェースとして
   定義し、specproof はその一実装（アダプタはフロー層側に置く）。specproof は差し替え可能
+
+## 契約
+
+フロー層アダプタが依存してよいのは以下の CLI 出力だけとする。library API（`parseScenarios`
+等）は公開契約に含めない（物理分離の規律を内部 import で崩さないため）。
+
+- **シナリオ台帳**: `specproof-stats --json` の各 domain に
+  `scenarios: [{ id, path, title, tags }]` を後方互換で追加する（既存の集計フィールドは維持）。
+  `path` は正規化した repo 相対 POSIX パス。行番号は編集のたびに動くため同一性に含めない。
+- **シナリオ同一性**: `@id:<value>` タグがあればその値、無ければ `path` + 前後空白を除いた
+  タイトル。括弧は Cucumber の tag expression でグループ化の記号なので書式に使わない。
+  - 一意性は repo 全体。重複（`@id` の重複と、`@id` の無いシナリオ同士のフォールバック ID の
+    衝突の両方）は `specproof-check` の warning kind `duplicate-scenario-id` として報告し、
+    `--strict` で失敗させる。
+  - `@id` の値を変えたら別シナリオとして扱う（履歴は引き継がない）。
+- **Scenario Outline**: 静的には Outline 1 件を 1 受入条件として数える（`parseScenarios` と
+  ADR 0002 の分母に揃える）。フロー層は Examples の全行が通過したときだけその受入条件を
+  green と認定する。Cucumber Messages の pickle は Outline の AST ノードを参照するので、
+  run 結果から元のシナリオに戻せる。
+- **整合性の投影**（`specproof-check --json` の結果をシナリオ単位に落とす規則）:
+  - ある `linkId` の drift エントリが 1 件でもあれば、その link の `features[]` に含まれる
+    全シナリオを untrusted とする（green を認定しない）。
+  - `unreviewed-draft`（draft マーカーが残る feature）のシナリオは green にしない。
+  - `unregistered-feature` のシナリオは trusted ではなく untracked として扱う。
 
 ## Considered Options
 
@@ -31,9 +55,10 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
 
 ## Consequences
 
-- specproof 側の変更は最小で済む: `@id` タグの尊重と、センサス / check 出力の機械可読形式
-  （`specproof-stats --json` / `specproof-check --json`）の安定化（フロー層アダプタが依存する
-  公開契約になる）程度。
+- specproof 側の変更は最小で済む: `@id:<value>` タグの解釈、`specproof-stats --json` への
+  `scenarios` 台帳の追加、`duplicate-scenario-id` warning の追加、そして stats / check の
+  JSON 出力の安定化（フロー層アダプタが依存する公開契約になる）程度。コード変更は後続の
+  PR で行い、本 ADR は契約の決定だけを記録する。
 - フロー層は将来、specproof 非採用のスタック（別の Gherkin 資産、非 BDD のテスト体系）にも
   アダプタ追加で接続できる。
 - 用語衝突に注意: specproof の **Feature**（`.feature` ファイル）と、開発フロー側の
@@ -41,4 +66,4 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
   用語集で明示的に呼び分ける（specproof の "domain" が後者に近い）。
 - フロー層の設計本文と用語集はフロー層側のリポジトリで管理し、本リポジトリには置かない。
 
-決定: 2026-07-11。記録のコミットは 2026-09-08。
+決定: 2026-07-11。記録のコミットは 2026-09-08。「契約」節の追記: 2026-09-28。
