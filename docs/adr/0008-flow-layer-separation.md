@@ -32,7 +32,7 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
   fallback ID。括弧は Cucumber の tag expression でグループ化の記号なので書式に使わない。
   - ID の文字列表現は両リポジトリで同じ値を生成するための契約として固定する。どちらも
     Unicode NFC に正規化する（macOS のファイル名は NFD になりうる）。
-    - `@id` あり: `<value>` をそのまま使う。
+    - `@id` あり: `<value>` を NFC 正規化した値を使う（それ以外の加工はしない）。
     - `@id` なし: `JSON.stringify([path, title])`。`path` は台帳と同じ正規化済みパス、
       `title` は前後の空白を除き、連続する空白を 1 つの半角スペースにまとめたもの。出力は
       JavaScript の `JSON.stringify` と同じ形（区切りに空白を入れず、非 ASCII 文字を
@@ -41,10 +41,13 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
       ならないようにする。
     - 台帳の `title` フィールドは正規化前の元のタイトルを返す。
   - `@id` は Scenario / Scenario Outline に直接付けたタグだけを読み、1 シナリオに最大 1 個、
-    value は非空とする。2 個以上・空値・Feature / Rule / Examples への付与は
+    value は非空とする。Scenario 自身の `@id` が 2 個以上・空値・先頭 `[` のときは
     `specproof-check` の warning kind `invalid-scenario-id` とし、そのシナリオは台帳上
-    `id: null`（フロー層では untracked）になる。Feature に付けると Cucumber のタグ継承で
-    配下の全シナリオが同じ ID を持つため、継承したタグは ID として扱わない。
+    `id: null`（フロー層では untracked）になる。
+  - Feature / Rule / Examples に付いた `@id` は ID として読まず、配下のシナリオは通常どおり
+    （自身の `@id` か fallback ID で）ID を持つ。付ける場所の誤りとして同じ
+    `invalid-scenario-id` warning を出す。Feature に付けると Cucumber のタグ継承で配下の
+    全シナリオが同じ ID を持ってしまうため、継承したタグは ID として扱わない。
   - 一意性は repo 全体。重複（`@id` の重複と、`@id` の無いシナリオ同士のフォールバック ID の
     衝突の両方）は `specproof-check` の warning kind `duplicate-scenario-id` として報告し、
     `--strict` で失敗させる。
@@ -62,13 +65,21 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
     `path` と同じ POSIX 正規化をかける。repo root の外を指す `uri` は untracked とする。
   - CTRF: `testId` / `filePath` は任意項目で specproof の ID と一致する保証がないため、
     producer / profile が各 test の `labels.specproofScenarioId` に ID を入れることを必須と
-    する。テスト名からの推測はしない。
+    する。テスト名からの推測はしない。producer は specproof のシナリオ 1 件につき test を
+    1 件だけ出し、retry 後の最終結果を入れる。同じ `specproofScenarioId` の test が 2 件
+    以上ある場合、フロー層はその受入条件を untracked とする（どの結果を採るか決められない
+    ため）。
   - どちらの形式でも ID を取り出せない結果、台帳に無い ID を指す結果は untracked とする。
 - **Scenario Outline**: 静的には Outline 1 件を 1 受入条件として数える（`parseScenarios` と
   ADR 0002 の分母に揃える）。フロー層は Examples の全行が通過したときだけその受入条件を
-  green と認定する。Cucumber Messages の pickle は Outline の AST ノードを参照するので
-  （上記の対応規則）、run 結果から元のシナリオに戻せる。CTRF では同じ
-  `specproofScenarioId` を持つ全結果を 1 受入条件にまとめる。
+  green と認定する。一部の行しか実行されていない結果を green と誤認しないよう、実行された
+  行の集合を期待される行の集合と突き合わせる。
+  - Cucumber Messages: 期待される行は `gherkinDocument` の Examples の全行。pickle の
+    `astNodeIds` の 2 番目が指す行ごとに、`willBeRetried` でない最後の `testCaseFinished`
+    が passed かを見る。1 行でも結果が無いか passed でなければ green にしない。
+  - CTRF: 行の展開と retry はフロー層から見えないため、producer が Outline 1 件を test 1 件に
+    集約する。Examples の全行を実行し、retry 後の最終結果がすべて passed のときだけ
+    `passed` にする。
 - **整合性の投影**（`specproof-check --json` の結果をシナリオ単位に落とす規則）:
   - ある `linkId` の drift エントリが 1 件でもあれば、その link の `features[]` に含まれる
     全シナリオを untrusted とする（green を認定しない）。
