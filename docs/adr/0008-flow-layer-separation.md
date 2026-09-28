@@ -28,8 +28,18 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
 - **シナリオ台帳**: `specproof-stats --json` の各 domain に
   `scenarios: [{ id, path, title, tags }]` を後方互換で追加する（既存の集計フィールドは維持）。
   `path` は正規化した repo 相対 POSIX パス。行番号は編集のたびに動くため同一性に含めない。
-- **シナリオ同一性**: `@id:<value>` タグがあればその値、無ければ `path` + 前後空白を除いた
-  タイトル。括弧は Cucumber の tag expression でグループ化の記号なので書式に使わない。
+- **シナリオ同一性**: `@id:<value>` タグがあればその値、無ければ `path` とタイトルから作る
+  fallback ID。括弧は Cucumber の tag expression でグループ化の記号なので書式に使わない。
+  - ID の文字列表現は両リポジトリで同じ値を生成するための契約として固定する。どちらも
+    Unicode NFC に正規化する（macOS のファイル名は NFD になりうる）。
+    - `@id` あり: `<value>` をそのまま使う。
+    - `@id` なし: `JSON.stringify([path, title])`。`path` は台帳と同じ正規化済みパス、
+      `title` は前後の空白を除き、連続する空白を 1 つの半角スペースにまとめたもの。出力は
+      JavaScript の `JSON.stringify` と同じ形（区切りに空白を入れず、非 ASCII 文字を
+      `\u` エスケープしない）とする。区切り文字や引用符のエスケープは JSON に任せる。
+    - 先頭が `[` の `@id` 値は `invalid-scenario-id` とし、`@id` 値と fallback ID が同じ文字列に
+      ならないようにする。
+    - 台帳の `title` フィールドは正規化前の元のタイトルを返す。
   - `@id` は Scenario / Scenario Outline に直接付けたタグだけを読み、1 シナリオに最大 1 個、
     value は非空とする。2 個以上・空値・Feature / Rule / Examples への付与は
     `specproof-check` の warning kind `invalid-scenario-id` とし、そのシナリオは台帳上
@@ -44,7 +54,8 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
   - `@id` の値を変えたら別シナリオとして扱う（履歴は引き継がない）。
 - **run 結果とシナリオ ID の対応**:
   - Cucumber Messages: pickle の `astNodeIds` 先頭が指す Scenario ノード自身の `@id` タグ、
-    無ければ pickle の `uri` + その AST ノードの静的タイトル。Examples の値が展開された
+    無ければ pickle の `uri` とその AST ノードの静的タイトルから上記の規則で fallback ID を
+    作る。Examples の値が展開された
     `pickle.name` は使わない。`uri` は runner に渡されたパスがそのまま入る（絶対パスや
     Windows の区切り文字もありうる）ため、`file://` を外し、区切りを `/` に揃え、run
     プロファイルのメタデータが示す repository root を基準に repo 相対化してから、台帳の
