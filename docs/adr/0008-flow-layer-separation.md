@@ -30,14 +30,31 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
   `path` は正規化した repo 相対 POSIX パス。行番号は編集のたびに動くため同一性に含めない。
 - **シナリオ同一性**: `@id:<value>` タグがあればその値、無ければ `path` + 前後空白を除いた
   タイトル。括弧は Cucumber の tag expression でグループ化の記号なので書式に使わない。
+  - `@id` は Scenario / Scenario Outline に直接付けたタグだけを読み、1 シナリオに最大 1 個、
+    value は非空とする。2 個以上・空値・Feature / Rule / Examples への付与は
+    `specproof-check` の warning kind `invalid-scenario-id` とし、そのシナリオは台帳上
+    `id: null`（フロー層では untracked）になる。Feature に付けると Cucumber のタグ継承で
+    配下の全シナリオが同じ ID を持つため、継承したタグは ID として扱わない。
   - 一意性は repo 全体。重複（`@id` の重複と、`@id` の無いシナリオ同士のフォールバック ID の
     衝突の両方）は `specproof-check` の warning kind `duplicate-scenario-id` として報告し、
     `--strict` で失敗させる。
+  - `ScenarioSource` アダプタは、台帳に同じ `id` が 2 件以上あれば読み込み自体を失敗させる
+    （ID は join key なので、曖昧なまま集計を続けない）。`--strict` なしの check を通った
+    台帳でも同じ。
   - `@id` の値を変えたら別シナリオとして扱う（履歴は引き継がない）。
+- **run 結果とシナリオ ID の対応**:
+  - Cucumber Messages: pickle の `astNodeIds` 先頭が指す Scenario ノード自身の `@id` タグ、
+    無ければ pickle の `uri` + その AST ノードの静的タイトル。Examples の値が展開された
+    `pickle.name` は使わない。
+  - CTRF: `testId` / `filePath` は任意項目で specproof の ID と一致する保証がないため、
+    producer / profile が各 test の `labels.specproofScenarioId` に ID を入れることを必須と
+    する。テスト名からの推測はしない。
+  - どちらの形式でも ID を取り出せない結果、台帳に無い ID を指す結果は untracked とする。
 - **Scenario Outline**: 静的には Outline 1 件を 1 受入条件として数える（`parseScenarios` と
   ADR 0002 の分母に揃える）。フロー層は Examples の全行が通過したときだけその受入条件を
-  green と認定する。Cucumber Messages の pickle は Outline の AST ノードを参照するので、
-  run 結果から元のシナリオに戻せる。
+  green と認定する。Cucumber Messages の pickle は Outline の AST ノードを参照するので
+  （上記の対応規則）、run 結果から元のシナリオに戻せる。CTRF では同じ
+  `specproofScenarioId` を持つ全結果を 1 受入条件にまとめる。
 - **整合性の投影**（`specproof-check --json` の結果をシナリオ単位に落とす規則）:
   - ある `linkId` の drift エントリが 1 件でもあれば、その link の `features[]` に含まれる
     全シナリオを untrusted とする（green を認定しない）。
@@ -56,7 +73,7 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
 ## Consequences
 
 - specproof 側の変更は最小で済む: `@id:<value>` タグの解釈、`specproof-stats --json` への
-  `scenarios` 台帳の追加、`duplicate-scenario-id` warning の追加、そして stats / check の
+  `scenarios` 台帳の追加、`duplicate-scenario-id` / `invalid-scenario-id` warning の追加、そして stats / check の
   JSON 出力の安定化（フロー層アダプタが依存する公開契約になる）程度。コード変更は後続の
   PR で行い、本 ADR は契約の決定だけを記録する。
 - フロー層は将来、specproof 非採用のスタック（別の Gherkin 資産、非 BDD のテスト体系）にも
