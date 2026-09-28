@@ -40,12 +40,15 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
     `--strict` で失敗させる。
   - `ScenarioSource` アダプタは、台帳に同じ `id` が 2 件以上あれば読み込み自体を失敗させる
     （ID は join key なので、曖昧なまま集計を続けない）。`--strict` なしの check を通った
-    台帳でも同じ。
+    台帳でも同じ。`id: null` のシナリオは一意性チェックの対象外とする。
   - `@id` の値を変えたら別シナリオとして扱う（履歴は引き継がない）。
 - **run 結果とシナリオ ID の対応**:
   - Cucumber Messages: pickle の `astNodeIds` 先頭が指す Scenario ノード自身の `@id` タグ、
     無ければ pickle の `uri` + その AST ノードの静的タイトル。Examples の値が展開された
-    `pickle.name` は使わない。
+    `pickle.name` は使わない。`uri` は runner に渡されたパスがそのまま入る（絶対パスや
+    Windows の区切り文字もありうる）ため、`file://` を外し、区切りを `/` に揃え、run
+    プロファイルのメタデータが示す repository root を基準に repo 相対化してから、台帳の
+    `path` と同じ POSIX 正規化をかける。repo root の外を指す `uri` は untracked とする。
   - CTRF: `testId` / `filePath` は任意項目で specproof の ID と一致する保証がないため、
     producer / profile が各 test の `labels.specproofScenarioId` に ID を入れることを必須と
     する。テスト名からの推測はしない。
