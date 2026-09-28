@@ -75,8 +75,17 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
   green と認定する。一部の行しか実行されていない結果を green と誤認しないよう、実行された
   行の集合を期待される行の集合と突き合わせる。
   - Cucumber Messages: 期待される行は `gherkinDocument` の Examples の全行。pickle の
-    `astNodeIds` の 2 番目が指す行ごとに、`willBeRetried` でない最後の `testCaseFinished`
-    が passed かを見る。1 行でも結果が無いか passed でなければ green にしない。
+    `astNodeIds` の 2 番目で行を特定し、行ごとの合否を次の手順で決める（通常の Scenario も
+    pickle 1 件として同じ手順で合否を決める）。
+    1. `TestCase.pickleId` → `TestCaseStarted.testCaseId` で pickle の実行 attempt を集め、
+       `TestCaseFinished.willBeRetried` が false の attempt を最終 attempt とする。
+       `TestCaseFinished` 自体は合否を持たない。
+    2. 最終 attempt の `testCaseStartedId` を持つ `TestStepFinished` の
+       `testStepResult.status` を見る。`TestCase.testSteps`（hook を含む）の全 step に
+       結果があり、そのすべてが `PASSED` のときだけ行を passed とする。`SKIPPED` /
+       `PENDING` / `UNDEFINED` / `AMBIGUOUS` / `UNKNOWN` / `FAILED` はどれも passed に
+       しない。
+    3. 最終 attempt が無い行、passed でない行が 1 件でもあれば green にしない。
   - CTRF: 行の展開と retry はフロー層から見えないため、producer が Outline 1 件を test 1 件に
     集約する。Examples の全行を実行し、retry 後の最終結果がすべて passed のときだけ
     `passed` にする。
