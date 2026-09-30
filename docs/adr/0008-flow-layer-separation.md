@@ -1,7 +1,7 @@
 # フロー層（run 状態・進捗・進捗管理 UI）を specproof から分離し、静的エンジンの境界を維持する
 
-受入条件を分母にした進捗管理（run 結果にもとづくシナリオ状態の認定、時系列の計測、
-受入条件一覧の入口ゲート UI）を求める開発フロー側の要求が生じた。これらを specproof に
+受け入れ条件を分母にした進捗管理（run 結果にもとづくシナリオ状態の認定、時系列の計測、
+受け入れ条件一覧の入口ゲート UI）を求める開発フロー側の要求が生じた。これらを specproof に
 取り込むかが論点。
 
 specproof の traceability エンジンは静的・決定論的であることを設計の核とし、`stats.ts` にも
@@ -67,11 +67,11 @@ run 結果の解釈・時系列・ホスティングを取り込むことは、�
     producer / profile が各 test の `labels.specproofScenarioId` に ID を入れることを必須と
     する。テスト名からの推測はしない。producer は specproof のシナリオ 1 件につき test を
     1 件だけ出し、retry 後の最終結果を入れる。同じ `specproofScenarioId` の test が 2 件
-    以上ある場合、フロー層はその受入条件を untracked とする（どの結果を採るか決められない
+    以上ある場合、フロー層はその受け入れ条件を untracked とする（どの結果を採るか決められない
     ため）。
   - どちらの形式でも ID を取り出せない結果、台帳に無い ID を指す結果は untracked とする。
-- **Scenario Outline**: 静的には Outline 1 件を 1 受入条件として数える（`parseScenarios` と
-  ADR 0002 の分母に揃える）。フロー層は Examples の全行が通過したときだけその受入条件を
+- **Scenario Outline**: 静的には Outline 1 件を 1 受け入れ条件として数える（`parseScenarios` と
+  ADR 0002 の分母に揃える）。フロー層は Examples の全行が通過したときだけその受け入れ条件を
   green と認定する。一部の行しか実行されていない結果を green と誤認しないよう、実行された
   行の集合を期待される行の集合と突き合わせる。
   - Cucumber Messages: 期待される行は `gherkinDocument` の Examples の全行。pickle の
