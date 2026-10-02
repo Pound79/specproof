@@ -110,9 +110,10 @@ specproof の方法論の中身は BDD（Gherkin）。feature は観測可能な
 
 | スキル | 方向 | 使うタイミング |
 |--------|------|---------------|
+| `/specproof-setup` | detect + scaffold | 検出したフレームワーク向けに `specproof.config.yaml` とテンプレートを（再）scaffold したい（通常は `/specproof` が駆動） |
 | `/specproof-bootstrap` | impl -> feature ドラフト | 既存コードから `.feature` ドラフトを生成したい |
 | `/specproof-new-feature` | spec -> feature | 新しい spec セクションがあり、RED な `.feature` を作りたい |
-| `/specproof-implement` | feature -> impl | bless 済みの `.feature` があり、GREEN なテストコードが欲しい |
+| `/specproof-implement` | feature -> impl | bless 済みの RED な `.feature` があり、それを GREEN にする製品コード（と未実装の step）を書きたい |
 | `/specproof-sync` | drift -> feature | spec や impl が変わり、`.feature` を spec に照らして追従させたい（impl の振る舞い変化は人が裁定） |
 
 ## Drift 検知（AI 不使用の CLI）
@@ -123,6 +124,7 @@ spec・実装・feature ファイルが変わった？ トレーサビリティ�
 ```bash
 npx -y -p @pound79/specproof-traceability specproof-check   # drift 検知
 npx -y -p @pound79/specproof-traceability specproof-update  # ハッシュを bless
+npx -y -p @pound79/specproof-traceability specproof-list    # 登録済みドメインと未追跡ページの一覧
 npx -y -p @pound79/specproof-traceability specproof-stats   # シナリオ census
 ```
 

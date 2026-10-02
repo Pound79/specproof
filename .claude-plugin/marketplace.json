@@ -12,7 +12,7 @@
     {
       "name": "specproof",
       "source": "./plugins/specproof",
-      "description": "spec<->impl<->feature BDD flow: setup, bootstrap, new-feature, sync, drift, implement. Config-driven via specproof.config.yaml; framework-agnostic (playwright web, Flutter flutter_gherkin + Patrol)."
+      "description": "spec<->impl<->feature BDD flow: setup, bootstrap, new-feature, sync, implement. Config-driven via specproof.config.yaml; framework-agnostic (playwright web, Flutter flutter_gherkin)."
     }
   ]
 }

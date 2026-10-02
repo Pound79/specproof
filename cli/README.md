@@ -20,7 +20,7 @@ No install required — run it with `npx`:
 # Scaffold a Playwright (web) e2e package
 npx @pound79/specproof init --adapter playwright
 
-# Scaffold a Flutter (flutter_gherkin + Patrol) package
+# Scaffold a Flutter (flutter_gherkin) package
 npx @pound79/specproof init --adapter flutter
 
 # Let the CLI detect the framework and pick an adapter

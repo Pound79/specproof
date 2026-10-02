@@ -85,6 +85,7 @@ This generates glue code with `bddgen`, then runs all scenarios that are
 | `npm run test:ui` | Open Playwright UI mode |
 | `npm run report` | Open the last HTML report |
 | `npm run typecheck` | TypeScript type check (no emit) |
+| `npm run lint` | Lint placeholder (no linter configured; replace with eslint/prettier) |
 | `npm run install:browsers` | Install Chromium browser binary |
 
 ---
@@ -199,5 +200,5 @@ rationale, reproducing the spec rot specproof exists to catch.
 
 - [playwright-bdd docs](https://playwright-bdd.github.io/)
 - [Playwright docs](https://playwright.dev/)
-- [specproof config schema](../../docs/config-schema.md)
-- [specproof methodology](../../docs/methodology.md)
+- [specproof config schema](https://github.com/Pound79/specproof/blob/main/docs/config-schema.md)
+- [specproof methodology](https://github.com/Pound79/specproof/blob/main/docs/methodology.md)

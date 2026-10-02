@@ -13,7 +13,6 @@
     "playwright",
     "flutter",
     "flutter_gherkin",
-    "patrol",
     "traceability",
     "e2e",
     "tdd"

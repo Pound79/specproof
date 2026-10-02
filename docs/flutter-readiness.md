@@ -71,8 +71,11 @@ emulator.wtf）/ `patrol develop` hot-restart。これらは `flutter.nativePerm
 
 ## Phase 5 着手前チェックリスト
 
-- [ ] gherkin 戦略 A（前処理）/ B（flutter_gherkin）を決定
+> Phase 0 時点の記録。チェック済みの項目は、その後の実装で達成を確認したもの（B を採用し
+> `templates/flutter/` に `build.yaml`・`pubspec.yaml`・`github-workflows/` を同梱）。未チェックの項目は未着手のまま残している。
+
+- [x] gherkin 戦略 A（前処理）/ B（flutter_gherkin）を決定（B を採用）
 - [ ] `flutter:` セクションの 9 capability を required/optional 確定（config の TODO ブロック）
-- [ ] flutter scaffold template に `build.yaml`（sources 含む）/ `pubspec` devDeps / CI YAML を同梱
+- [x] flutter scaffold template に `build.yaml`（sources 含む）/ `pubspec` devDeps / CI YAML を同梱
 - [ ] flutter idiomGuide（PatrolTester + step 命名 + tag 伝播）を著す
 - [ ] sample Flutter app で drift -> sync -> implement が green になることを dogfood
