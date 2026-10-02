@@ -4,11 +4,12 @@
 > 実行順は **バグ → 設計 → 自リポ実証**（ADR 0007）。各設計項目は ADR と監査 issue ID に紐付く。
 
 > **監査ステータス（最終更新: 2026-07-06）**: 本文（各フェーズ・項目の記述内容）は歴史的記録として
-> 一切書き換えていない。2026-07-06 の多角的レビュー（`REVIEW.local.md`）で `git log` を精査した結果、
-> **Phase A・Phase B は全項目が v0.1.0 公開前（一部は本セッション内）に実装完了**、**Phase C は移行ガイド・
+> 一切書き換えていない。2026-07-06 の多角的レビュー（非公開の内部レビュー。このリポジトリには含まれない）で `git log` を精査した結果、
+> **Phase A・Phase B は全項目が v0.1.0 公開前（一部は公開後の 2c3d555）に実装完了**、**Phase C は移行ガイド・
 > worked-example の準備が完了**していることを確認した。各行に `[Done <short-hash>]` 等を付記する。
 > ただし同レビューでは、実装済みの設計の上に新たな未配線・不足（C1〜C4・H1〜H6・M2〜M10）が
-> 別途見つかっている。それらは本ロードマップの対象外（新規課題）であり、`REVIEW.local.md` を参照。
+> 別途見つかっている。それらは本ロードマップの対象外（新規課題）であり、詳細は非公開の内部レビュー
+> （2026-07-06。このリポジトリには含まれない）に記録されている。
 
 ---
 
@@ -31,8 +32,8 @@
 **受け入れ基準**: 素の他リポで `init → npm install → bddgen → smoke` が通り、`specproof-check` が clean。
 
 > **2026-07-06 時点の状態**: 上記 9 項目は全て Done。ただし受け入れ基準そのもの（素の他リポでの
-> scaffold → smoke 到達）は、同日の `REVIEW.local.md` レビューで playwright テンプレの commands が
-> workspaces 前提で repo root から動かない（新規指摘 C4）ことが判明し、一部未達だった。本セッション内で
+> scaffold → smoke 到達）は、同日の非公開の内部レビュー（このリポジトリには含まれない）で playwright テンプレの commands が
+> workspaces 前提で repo root から動かない（新規指摘 C4）ことが判明し、一部未達だった。同日のレビュー対応で
 > `templates/playwright/specproof.config.yaml` の commands を `cd packages/e2e && ...` 形に修正し解消済み。
 
 ---
@@ -51,13 +52,14 @@
 - **done でのみハード**: `@fixme` > 0。
 - **soft（config でハード化可）**: `@skip`/`@fixme` の理由コメント欠落（I15）。
 - `specproof stats`（fixme/skip 件数・最古 fixme 日付, I19）。AI は enforcer にしない。
+  （I19 は件数のみ Done。最古 fixme の日付とレビュー周期は未実装）
 
-### B-3. ハンドオフレポート + 停止モデル（ADR 0005）→ 監査 I21 `[Done: このセッションで対応、未コミット]`
+### B-3. ハンドオフレポート + 停止モデル（ADR 0005）→ 監査 I21 `[Done: 2c3d555]`
 - 固定 6 セクション（やったこと / 検証 PASS-FAIL-SKIPPED / 裁定 / 作業 / 完了ダッシュボード / 次の一手）。
 - 可逆作業は一括 + レポート 1 枚、不可逆（bless/implement）はドメイン毎ゲート。
 - specproof-implement に env-absent fallback 節を追加（I21、smoke の SKIPPED と PASS を区別）。
-  `[Done]` — 2026-07-06 レビューの M9 で「未実装の疑い」と再指摘されていたが、
-  `plugins/specproof/skills/specproof-implement/SKILL.md` Step 5 に追加し解消（本セッション内、未コミット）。
+  `[Done: 2c3d555]` — 2026-07-06 レビューの M9 で「未実装の疑い」と再指摘されていたが、
+  `plugins/specproof/skills/specproof-implement/SKILL.md` Step 5 に追加し解消。
 
 ### B-4. spec 不在の 2 点運用（ADR 0001）→ 監査 I4 `[Done: 8b32400]`（ADR 0001 で正式化。マニフェストの spec 配列は空配列を許容する既存スキーマで 2 点運用に対応、専用コードパス追加は不要な性質の項目）
 - spec 骨子抽出をデフォルト、無理なら impl↔feature の 2 点運用に正式降格。
@@ -78,14 +80,14 @@
 - I16: バケット B に環境条件付きサブタイプ（B-env）を明記。`[Done: ed430cc]`
 - I13: sync の「impl のみ changed」に「リファクタなら bless のみ」分岐を back-port。`[Done: ed430cc]`
 - I11: `specproof-update --link-id`（将来は per-link ファイル分割）。`[Done: 8c427c2]`
-- I17: テンプレに `agents:` / `implement:` の雛形ブロック + 未設定時の in-session fallback。`[Done: ed430cc]`（本セッション内で `specproof-implement` SKILL.md にセルフレビュー退化の明示も追加し強化）
+- I17: テンプレに `agents:` / `implement:` の雛形ブロック + 未設定時の in-session fallback。`[Done: ed430cc]`（2026-07-06 のレビュー対応で `specproof-implement` SKILL.md にセルフレビュー退化の明示も追加し強化）
 - I22: 第 3 アダプタ拡張手順の文書化 + `--adapter-dir` フラグ。`[Done: ed430cc]`（アダプタ追加手順の文書化のみ。`--adapter-dir` フラグ自体は未実装 — 監査 I22 の主要要求である「手順文書化」は満たしているため Done 扱い）
 
 **受け入れ基準**: 破壊は 2 ゲートのみ。既存ユーザーが段階的に opt-in できる。
 
 > **2026-07-06 時点の状態**: Phase B の全項目（B-1〜B-8、I4/I9/I11〜I19/I21/I22）が Done。
 > ただし対応後の配布物に新たな未配線・不足（C1〜C4・H1〜H6）が別途見つかっている
-> （`REVIEW.local.md` 参照、本ロードマップの対象外の新規課題）。
+> （非公開の内部レビュー（2026-07-06。このリポジトリには含まれない）に記録、本ロードマップの対象外の新規課題）。
 
 ---
 
@@ -95,11 +97,12 @@
 - **受け入れ基準**: 既存シナリオが green のまま通る。draft-marker ゲート・`--strict`・完了レポートを
   実データで検証する。
 
-> **2026-07-06 時点の状態**: `[準備 Done: b1a011d / 実証 Open]`。jma-longlist（89 シナリオ・本番）向けの
-> v1→v2 移行ガイド（`docs/migration-v1-to-v2.md`）と移行済み config サンプルを整備済み（ADR 0007）。
-> ただし b1a011d のコミットメッセージ自身が明記する通り、**jma-longlist リポへの実適用と 89 シナリオの
-> green 検証はこのリポのサンドボックス書込範囲外**であり、jma スコープの別セッションで実施する残タスク。
-> `REVIEW.local.md` §5-2 も、旗艦事例 jma-longlist 自体が `@fixme` 16 件で done 定義未達であり、
+> **2026-07-06 時点の状態**: `[準備 Done: b1a011d / 実証 Open]`（`b1a011d` と移行ガイド
+> `docs/migration-v1-to-v2.md` は公開前の履歴で、このリポジトリからは参照できない）。外部の本番
+> Playwright スイート向けの v1→v2 移行ガイドと移行済み config サンプルを整備済み（ADR 0007）。
+> ただし**外部の本番 Playwright スイートへの実適用と既存シナリオの green 検証はこのリポジトリの
+> 作業範囲外**であり、別途実施する残タスク。非公開の内部レビュー（2026-07-06。このリポジトリには
+> 含まれない）も、その実適用先自体が `@fixme` を残し done 定義未達であり、
 > 「done gate は到達可能」（ADR 0002）という主張はまだ実証されていないと指摘している。
 > Phase C の受け入れ基準（既存シナリオが green のまま通ることの実データ検証）は**未達**として扱う。
 

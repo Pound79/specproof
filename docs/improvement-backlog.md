@@ -4,11 +4,12 @@
 > 各課題は file:line 根拠付きで確認済み。本ファイルは実行可能な改善リストとして書かれた。
 
 > **監査ステータス（最終更新: 2026-07-06）**: 本文（課題の記述内容）は歴史的記録として一切書き換えていない。
-> 2026-07-06 の多角的レビュー（`REVIEW.local.md`）で `git log` を精査した結果、**I1〜I22 の全 22 項目が
-> v0.1.0 公開前（I21 のみ本セッション内）に実装完了**していることを確認した。各項目の先頭に
+> 2026-07-06 の多角的レビュー（非公開の内部レビュー。このリポジトリには含まれない）で `git log` を精査した結果、
+> **I1〜I22 の全 22 項目が v0.1.0 公開前（I21 のみ公開後の 2c3d555）に実装完了**していることを確認した。各項目の先頭に
 > `[Done <short-hash>]` を付記する（複数コミットにまたがる場合は列挙）。根拠は `git show --stat <hash>` で
-> 参照できる。ただし「実装済み」は当時の課題文の解決を意味するのみで、同レビューでは対応後の配布物に
-> 新たな未配線・不足（C1〜C4・H1〜H6・M2〜M10、`REVIEW.local.md` 参照）が別途見つかっている。
+> 参照できるが、このリポジトリにあるのは `8b32400`（v0.1.0 の初回公開）と `2c3d555` だけで、それ以外のハッシュは
+> 公開前の履歴のため参照できない。ただし「実装済み」は当時の課題文の解決を意味するのみで、同レビューでは対応後の配布物に
+> 新たな未配線・不足（C1〜C4・H1〜H6・M2〜M10。詳細は同じ内部レビューに記録）が別途見つかっている。
 > それらは本バックログの I1〜I22 とは別の新規課題であり、本ファイルのステータス欄には含めていない。
 
 ## 北極星を「今この瞬間」ブロックしているもの（最優先）
@@ -16,7 +17,7 @@
 「`specproof を導入して`」一声の理想は、以下が直っていないと**最初のコマンドで詰む**。
 
 - **I1 (critical)** `[Done: eabf502, 0cceec1]`（npm publish CI 追加 + README/publishConfig 整備。`@pound79/specproof-traceability`/`@pound79/specproof` とも npm registry で v0.1.6 公開確認済み） パッケージ未公開: `@pound79/specproof-traceability` / `@pound79/specproof` が npm で 404。README の git 依存フォールバックも具体構文なし。→ 公開 + CI publish。当面は README に具体的な git-dep ブロックを足して早期採用者を解放。
-- **I2 (critical)** `[Done: 0cceec1]`（2026-07-06 レビューで関連の新規指摘 C4「workspaces 前提で repo root から動かない」が別途判明したが、本セッション内で `templates/playwright/specproof.config.yaml` の commands を `cd packages/e2e && ...` 形に修正済み） playwright テンプレに `traceabilityCheck/Update` コマンドが無い。fallback の `npm run traceability:*` スクリプトも未定義 → sync/new-feature が `Missing script` で途中停止。flutter テンプレには正しく入っている。→ playwright config に npx コマンドを明記（flutter と対称化）。
+- **I2 (critical)** `[Done: 0cceec1]`（2026-07-06 レビューで関連の新規指摘 C4「workspaces 前提で repo root から動かない」が別途判明したが、同日のレビュー対応で `templates/playwright/specproof.config.yaml` の commands を `cd packages/e2e && ...` 形に修正済み） playwright テンプレに `traceabilityCheck/Update` コマンドが無い。fallback の `npm run traceability:*` スクリプトも未定義 → sync/new-feature が `Missing script` で途中停止。flutter テンプレには正しく入っている。→ playwright config に npx コマンドを明記（flutter と対称化）。
 - **I3 (high)** `[Done: 0cceec1, 6822b57]` Node バージョン不整合: README は「20+」だが engines は `>=24`（`.nvmrc` も 24）。smoke は通った後にエンジンエラーで混乱。→ README を 24+ に統一 + テンプレ package.json に engines を追加。
 
 ## ノーマティブ文書の矛盾（契約に従うと壊れる）
@@ -27,7 +28,7 @@
 - **I8 (medium)** `[Done: 0cceec1]` `driftCount` の意味ズレ: doc は「drift リンク数」、コードは「drift ref 数」（1 リンクで impl+feature drift なら 2）。CI/bot がリンク数を誤集計。→ `driftLinkCount` を追加（既存 API は壊さない）。
 - **I13 (medium)** `[Done: ed430cc]`（doc/prompt レベルの分岐 back-port。この課題の性質上エンジン変更は不要） `specproof-sync`/`methodology.md §4` は「impl のみ changed → feature 更新」を**無条件**化。methodology.md §4 の「リファクタなら bless のみ」分岐が欠落 → 純リファクタで人手シナリオ文言を上書きしうる。→ 両正本に分岐を back-port。
 - **I16 (medium)** `[Done: ed430cc]` 3 バケットモデルに「環境条件付き」サブタイプ（B-env）が無い。skill は環境タグを別扱いしているのに methodology は 3 分類のまま → Google-OAuth 系を誤って `@skip` に。→ バケット B に B-env を明記。
-- **I21 (low)** `[Done: このセッションで対応、未コミット]`（2026-07-06 レビューの M9 で「未実装の疑い」として再指摘されていたが、`plugins/specproof/skills/specproof-implement/SKILL.md` Step 5 に env-absent フォールバック（smoke を SKIPPED(理由) として明示）を追加し解消） `specproof-implement` に「smoke 環境が無ければ generate+typecheck まで＋未実行を明示」フォールバック節が欠落（sync/bootstrap にはある）→ smoke の PASS と SKIPPED が見分けられない。→ 文言を対称化。
+- **I21 (low)** `[Done: 2c3d555]`（2026-07-06 レビューの M9 で「未実装の疑い」として再指摘されていたが、`plugins/specproof/skills/specproof-implement/SKILL.md` Step 5 に env-absent フォールバック（smoke を SKIPPED(理由) として明示）を追加し解消） `specproof-implement` に「smoke 環境が無ければ generate+typecheck まで＋未実行を明示」フォールバック節が欠落（sync/bootstrap にはある）→ smoke の PASS と SKIPPED が見分けられない。→ 文言を対称化。
 
 ## drift エンジンの鋭い縁
 
@@ -40,7 +41,7 @@
 
 - **I14 (medium)** `[Done: e9b24c3, 58728ec]` bootstrap 再実行ガードも provenance ガードも doc のみ。`cp scratch/x.feature features/x.feature` → `specproof-implement` で**同語反復ループが CI に検知されず完成可能**。→ ドラフトに機械可読マーカー（`# specproof: draft`）を埋め、implement が検出したら停止（マーカー除去＝人間の「査読した」意思表示）。
 - **I15 (medium)** `[Done: 3b50ae4]` `@skip`/`@fixme` の理由コメント必須が**自動検証ゼロ**（3 文書で必須と謳うのに linter なし）→ 理由 corpus が sync の度に静かに劣化。→ 軽量 Gherkin lint（理由コメント存在チェック）を CI に。
-- **I19 (low)** `[Done: 521ae46]` `@fixme` のレビュー周期・年齢上限・除去ステップが無い。implement の escalation ③ が `@fixme` を増やす一方で減らす経路が無く、`@fixme`(soon) と `@skip`(indefinite) の区別が崩壊。→ 周期を methodology に明記 + `specproof stats`（fixme/skip 件数・最古 fixme 日付）。
+- **I19 (low)** `[Done: 521ae46]`（件数のみ Done。最古 fixme の日付とレビュー周期は未実装） `@fixme` のレビュー周期・年齢上限・除去ステップが無い。implement の escalation ③ が `@fixme` を増やす一方で減らす経路が無く、`@fixme`(soon) と `@skip`(indefinite) の区別が崩壊。→ 周期を methodology に明記 + `specproof stats`（fixme/skip 件数・最古 fixme 日付）。
 
 ## 移植性・拡張性（他チーム展開）
 

@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Japanese prose spells "acceptance criteria" as 受け入れ条件, matching the
-// Notion database/property names. The short form is assembled from two parts
+// spelling used by downstream tools. The short form is assembled from two parts
 // so this file does not trip its own check.
 const banned = "受入" + "条件";
 const needle = Buffer.from(banned, "utf8");

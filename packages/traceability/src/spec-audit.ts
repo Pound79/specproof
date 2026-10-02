@@ -44,7 +44,7 @@ const duplicateHeadingWarning = (
 
 // A-2 + A-4: enumerates the ATX headings of every markdown file that already
 // has at least one registered spec ref (deliberately NOT every file under
-// specDir — see WAVE2-DESIGN.local.md A-2 for why that would be noisy), at
+// specDir, which would flag every unrelated doc heading as noise), at
 // each headingLevel the manifest actually references in that file. A heading
 // with no matching registered (path, heading, level) triple is
 // unregistered-spec-heading; a registered heading that occurs more than once
