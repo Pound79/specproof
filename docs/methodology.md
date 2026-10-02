@@ -8,7 +8,7 @@
 
 ## 目次
 
-1. [5 ロール・スキルモデル](#1-5-ロールスキルモデル)
+1. [ロール・スキルモデル](#1-ロールスキルモデル)
 2. [方向の非対称性不変条件](#2-方向の非対称性不変条件)
 3. [3 バケット分類](#3-3-バケット分類)
 4. [ドリフト解決決定表](#4-ドリフト解決決定表)
@@ -437,18 +437,18 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 
 | プレースホルダ | 意味 |
 |---|---|
-| `{{cmd_bddgen}}` | Gherkin と step 定義の整合確認コマンド |
-| `{{cmd_typecheck}}` | 型チェックコマンド |
-| `{{cmd_traceability_update}}` | マニフェストのハッシュを更新するコマンド |
-| `{{cmd_traceability_check}}` | drift チェックを実行するコマンド |
-| `{{cmd_smoke}}` | smoke テスト実行コマンド（`{{tag_slow}}` タグを除外） |
+| `{{cmd_bddgen}}` | Gherkin と step 定義の整合確認コマンド（`{{config:commands.generate}}`） |
+| `{{cmd_typecheck}}` | 型チェックコマンド（`{{config:commands.typecheck}}`） |
+| `{{cmd_traceability_update}}` | マニフェストのハッシュを更新するコマンド（`{{config:commands.traceabilityUpdate}}`） |
+| `{{cmd_traceability_check}}` | drift チェックを実行するコマンド（`{{config:commands.traceabilityCheck}}`） |
+| `{{cmd_smoke}}` | smoke テスト実行コマンド（`{{tag_slow}}` タグを除外。`{{config:commands.smoke}}`） |
 | `{{e2e_features_dir}}` | feature ファイルが置かれるディレクトリ |
 | `{{scratch_dir}}` | bootstrap ドラフトの一時出力先 |
 | `{{traceability_manifest}}` | トレーサビリティ・マニフェスト YAML のパス |
-| `{{tag_slow}}` | 外部呼び出し等で低速なシナリオに付けるタグ |
-| `{{tag_generate}}` | ドメイン固有の重い生成処理を伴うシナリオのタグ |
-| `{{tag_role_admin}}` | 管理者ロールで実行するシナリオのタグ |
-| `{{tag_role_user}}` | 一般ユーザーロールで実行するシナリオのタグ |
+| `{{tag_slow}}` | 外部呼び出し等で低速なシナリオに付けるタグ（`{{config:tags.slow}}`） |
+| `{{tag_generate}}` | ドメイン固有の重い生成処理を伴うシナリオのタグ（`{{config:tags.generate}}`） |
+| `{{tag_role_admin}}` | 管理者ロールで実行するシナリオのタグ（`{{config:tags.admin}}`） |
+| `{{tag_role_user}}` | 一般ユーザーロールで実行するシナリオのタグ（`{{config:tags.user}}`） |
 | `{{bdd_runner}}` | BDD テストランナー（フレームワーク固有） |
 | `{{code_reviewer_agent}}` | コードレビューエージェント識別子 |
 | `{{security_reviewer_agent}}` | セキュリティレビューエージェント識別子 |

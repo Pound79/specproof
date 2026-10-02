@@ -23,7 +23,7 @@ export const toGithubWarningAnnotation = (warning: DriftWarning): string =>
 export interface IsCheckFailureOptions {
   /** Opt-in hard enforcement for unregistered-impl under --strict (config
    *  `strictUnregisteredImpl`). implGlobs is structurally noisier than the
-   *  other warning kinds (see WAVE2-DESIGN.local.md A-3), so it stays
+   *  other warning kinds, so it stays
    *  warn-only under --strict unless a repo explicitly opts in. */
   strictUnregisteredImpl?: boolean;
   /** Opt-in hard enforcement for unregistered-spec-heading under --strict

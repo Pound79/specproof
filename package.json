@@ -2,7 +2,7 @@
   "name": "specproof",
   "private": true,
   "version": "0.0.0",
-  "description": "Framework-agnostic AI-development quality governance kit: a traceability engine + AI agent skills (SKILL.md standard) + per-framework BDD scaffolds (playwright web, Flutter flutter_gherkin + Patrol).",
+  "description": "Framework-agnostic AI-development quality governance kit: a traceability engine + AI agent skills (SKILL.md standard) + per-framework BDD scaffolds (playwright web, Flutter flutter_gherkin).",
   "type": "module",
   "license": "MIT",
   "author": "Pound79",
