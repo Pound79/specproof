@@ -30,6 +30,7 @@ Drift 検知は決定論的 CLI で、AI を使わない:
 ```bash
 npx -y -p @pound79/specproof-traceability specproof-check   # drift 検知
 npx -y -p @pound79/specproof-traceability specproof-update  # ハッシュを bless
+npx -y -p @pound79/specproof-traceability specproof-list    # 登録済みドメインと未追跡ページの一覧
 npx -y -p @pound79/specproof-traceability specproof-stats   # シナリオ census
 ```
 

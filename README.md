@@ -117,9 +117,10 @@ hood it drives these skills, each of which can also be invoked standalone:
 
 | Skill | Direction | Use when |
 |-------|-----------|----------|
+| `/specproof-setup` | detect + scaffold | You want to (re-)scaffold `specproof.config.yaml` and templates for a detected framework (normally driven by `/specproof`) |
 | `/specproof-bootstrap` | impl -> feature draft | You want to generate `.feature` drafts from existing code |
 | `/specproof-new-feature` | spec -> feature | You have a new spec section and want a RED `.feature` |
-| `/specproof-implement` | feature -> impl | You have a blessed `.feature` and want GREEN test code |
+| `/specproof-implement` | feature -> impl | You have a blessed RED `.feature` and want production code (plus pending steps) that makes it GREEN |
 | `/specproof-sync` | drift -> feature | Spec or impl changed; reconcile `.feature` against the spec (impl behavior changes stop for your decision) |
 
 ## Drift detection (AI-free CLI)
@@ -130,6 +131,7 @@ it deterministically with SHA-256 hashes -- no AI involved:
 ```bash
 npx -y -p @pound79/specproof-traceability specproof-check   # detect drift
 npx -y -p @pound79/specproof-traceability specproof-update  # bless hashes
+npx -y -p @pound79/specproof-traceability specproof-list    # registered domains + untracked pages
 npx -y -p @pound79/specproof-traceability specproof-stats   # scenario census
 ```
 

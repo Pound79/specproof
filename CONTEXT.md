@@ -29,7 +29,7 @@ _Avoid_: 確定 feature, 本番 feature
 
 **Draft marker（`# specproof: draft`）**:
 bootstrap がドラフトに埋める Gherkin コメント行。featuresDir に残存＝未査読ドラフトの昇格を意味する。
-人間が査読・刻印して移す際に削除する（＝レビュー完了の明示）。`traceability-check --strict` が
+人間が査読・刻印して移す際に削除する（＝レビュー完了の明示）。`specproof-check --strict` が
 `unreviewed-draft` として失敗させ、specproof-implement は着手を拒否する（同語反復ファイアウォール）。
 レガシーな `# bdd-kit: draft` マーカーも後方互換のため引き続き検出される。
 _Avoid_: TODO コメント
