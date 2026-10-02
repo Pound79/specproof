@@ -63,7 +63,7 @@ layout:
   textConstants: "packages/e2e/src/config/text.ts"  # [required] UI string constants file
   manifest: "packages/e2e/traceability.yaml"  # [required] traceability manifest path
   specDir: "docs"                         # [required] design rationale docs root
-  implGlobs:                              # [required] implementation files tracked by traceability
+  implGlobs:                              # [optional] implementation files tracked by traceability
     # TODO: replace these globs with paths that match your application's source
     # Also used by `specproof-check` to flag implementation files with no
     # linked spec/feature ("unregistered-impl"). Advisory by default (does

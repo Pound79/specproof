@@ -9,7 +9,7 @@
 - Flutter 3.44+ / Dart 3.12+
 - **Node.js 24+** — traceability CLI（`npx -y -p @pound79/specproof-traceability specproof-check` 等）を使うため。
   Flutter 専業のリポでも traceability コマンドは Node 製なので Node が必要（`specproof.config.yaml`
-  の `commands.traceabilityCheck` / `traceabilityUpdate` / `traceabilityList` を参照）。
+  の `commands.traceabilityCheck` / `traceabilityUpdate` / `traceabilityList` / `traceabilityStats` を参照）。
 
 ## セットアップ（`specproof init --adapter flutter` 後）
 
