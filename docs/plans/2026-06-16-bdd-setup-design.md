@@ -1,5 +1,7 @@
 # bdd-setup: auto-detect adapter and scaffold
 
+> 状態: 実装済み（specproof-setup / specproof detect / init --adapter auto）。本文の旧名（bdd-setup・bdd-kit・bdd-drift）は当時の記録
+
 ## Problem
 
 Users must manually determine the correct adapter (`playwright` | `flutter`) and
