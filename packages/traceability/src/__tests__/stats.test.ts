@@ -24,21 +24,21 @@ describe('buildStats', () => {
 
     const report = buildStats(features);
 
-    expect(report.domains[0]).toEqual({
+    expect(report.domains[0]).toMatchObject({
       domain: 'features/a.feature',
       total: 3,
       automated: 2, // tagless + @slow both count as automated
       fixme: 1,
       skip: 0,
     });
-    expect(report.domains[1]).toEqual({
+    expect(report.domains[1]).toMatchObject({
       domain: 'features/b.feature',
       total: 2,
       automated: 0,
       fixme: 1, // @fixme wins over @skip/@admin
       skip: 1,
     });
-    expect(report.totals).toEqual({
+    expect(report.totals).toMatchObject({
       domain: 'TOTAL',
       total: 5,
       automated: 2,

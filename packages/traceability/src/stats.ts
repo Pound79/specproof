@@ -11,6 +11,10 @@ export interface DomainStats {
   automated: number;
   fixme: number;
   skip: number;
+  /** total は条件数。Outline の展開行を別に数える。 */
+  cases: number;
+  phase: { draft: number; pending: number; complete: number };
+  verification: { machine: number; human: number };
 }
 
 // The reason-required tags this census classifies by. A repo that renames them
@@ -55,22 +59,37 @@ const classify = (
   return 'automated';
 };
 
+const emptyStats = (domain: string): DomainStats => ({
+  domain, total: 0, automated: 0, fixme: 0, skip: 0, cases: 0,
+  phase: { draft: 0, pending: 0, complete: 0 },
+  verification: { machine: 0, human: 0 },
+});
+
 const statsFor = (
   domain: string,
   scenarios: ScannedScenario[],
   tags: StatsTags
 ): DomainStats => {
-  const tally = { automated: 0, fixme: 0, skip: 0 };
+  const stats = emptyStats(domain);
   for (const scenario of scenarios) {
-    tally[classify(scenario, tags)] += 1;
+    const stateTags = scenario.effectiveStateTags ?? scenario.tags;
+    if (stateTags.includes('@draft') && stateTags.includes('@red-contract')) {
+      throw new Error(`@draft と @red-contract は併記できません: ${JSON.stringify(domain)}:${scenario.line}`);
+    }
+    if (scenario.exampleTags?.some(example =>
+      example.some(tag => ['@draft', '@red-contract', '@human'].includes(tag)))) {
+      throw new Error(`Examples の状態タグは条件全体に付けてください: ${JSON.stringify(domain)}:${scenario.line}`);
+    }
+    const phase = stateTags.includes('@draft') ? 'draft'
+      : stateTags.includes('@red-contract') ? 'pending' : 'complete';
+    const verification = stateTags.includes('@human') ? 'human' : 'machine';
+    stats.total += 1;
+    stats[classify(scenario, tags)] += 1;
+    stats.cases += scenario.caseCount ?? 1;
+    stats.phase[phase] += 1;
+    stats.verification[verification] += 1;
   }
-  return {
-    domain,
-    total: scenarios.length,
-    automated: tally.automated,
-    fixme: tally.fixme,
-    skip: tally.skip,
-  };
+  return stats;
 };
 
 export const buildStats = (
@@ -84,16 +103,20 @@ export const buildStats = (
   const domains = features.map((feature) =>
     statsFor(feature.domain, feature.scenarios, resolved)
   );
-  const totals = domains.reduce<DomainStats>(
-    (acc, domain) => ({
-      domain: 'TOTAL',
-      total: acc.total + domain.total,
-      automated: acc.automated + domain.automated,
-      fixme: acc.fixme + domain.fixme,
-      skip: acc.skip + domain.skip,
-    }),
-    { domain: 'TOTAL', total: 0, automated: 0, fixme: 0, skip: 0 }
-  );
+  const totals = domains.reduce<DomainStats>((acc, domain) => {
+    acc.total += domain.total;
+    acc.automated += domain.automated;
+    acc.fixme += domain.fixme;
+    acc.skip += domain.skip;
+    acc.cases += domain.cases;
+    for (const phase of ['draft', 'pending', 'complete'] as const) {
+      acc.phase[phase] += domain.phase[phase];
+    }
+    for (const verification of ['machine', 'human'] as const) {
+      acc.verification[verification] += domain.verification[verification];
+    }
+    return acc;
+  }, emptyStats('TOTAL'));
   return {
     domains,
     totals,
@@ -108,6 +131,9 @@ export const formatStats = (report: StatsReport): string => {
   const row = (stats: DomainStats): string =>
     `  ${stats.domain}: ${stats.total} total / ${stats.automated} automated / ${fixmeTag} ${stats.fixme} / ${skipTag} ${stats.skip}`;
 
+  const axes = (stats: DomainStats): string =>
+    `    ${stats.total} conditions / ${stats.cases} cases; phase: draft ${stats.phase.draft} / pending ${stats.phase.pending} / complete ${stats.phase.complete}; verification: machine ${stats.verification.machine} / human ${stats.verification.human}`;
+
   const doneLine = report.fixmeClean
     ? `${fixmeTag} is 0 — the ${fixmeTag} half of "done" is met. Remaining ${skipTag} need human sign-off.`
     : `${fixmeTag} remaining: ${report.totals.fixme} — automate them or demote to ${skipTag} (with a reason) to reach done.`;
@@ -115,10 +141,12 @@ export const formatStats = (report: StatsReport): string => {
   return [
     `Scenario census (static). "automated" = no ${fixmeTag}/${skipTag} tag; GREEN still requires running the suite.`,
     '',
-    ...report.domains.map(row),
+    ...report.domains.flatMap(stats => [row(stats), axes(stats)]),
     '',
     row(report.totals),
+    axes(report.totals),
     '',
+    'complete = 状態タグなしの静的分類。GREEN には実際のsuite実行が必要です。',
     doneLine,
   ].join('\n');
 };

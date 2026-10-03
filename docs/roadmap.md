@@ -1,15 +1,16 @@
 # 現在の実装対象と残件
 
-状態は `origin/main` の `0b2deae1`（0.2.2）でコードと照合したもの。
+S1 はこのブランチで実装済み。公開版 0.2.2 には未配布。S2 は baseline
+`origin/main` の `0b2deae1`（0.2.2）で未実装を確認した。
 実行の入口は [AGENTS.md](../AGENTS.md)、CLI の現行保証は
 [traceability README](../packages/traceability/README.md)。静的集計は実行済み GREEN を認定しない。
 
-## 今回の未実装対象
+## 今回の実装対象
 
 | 工程 | 追加する契約 | 対応ソース |
 |---|---|---|
-| S1 | phase（draft/pending/complete）と verification（machine/human）を別軸で集計。条件と Outline 展開ケースを区別する。 | `packages/traceability/src/feature-scan.ts`、`stats.ts`、`cli-stats.ts` |
-| S2 | version 1 の `links[].criteria` を任意の string 配列として検証・保持する。 | `packages/traceability/src/manifest.ts`、`update.ts` |
+| S1（実装済み・未配布） | phase（draft/pending/complete）と verification（machine/human）を別軸で集計。条件と Outline 展開ケースを区別する。 | `packages/traceability/src/feature-scan.ts`、`stats.ts`、`cli-stats.ts` |
+| S2（未実装） | version 1 の `links[].criteria` を任意の string 配列として検証・保持する。 | `packages/traceability/src/manifest.ts`、`update.ts` |
 
 S1 は `@draft`→draft、`@red-contract`→pending、状態タグなし→complete。
 verification は `@human`→human、それ以外→machine。complete は静的分類であり GREEN ではない。
