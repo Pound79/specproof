@@ -1,6 +1,6 @@
 # specproof Flutter adapter (flutter_gherkin + 日本語 Gherkin)
 
-`flutter_gherkin` ベースの BDD 振る舞いテスト足場。**日本語 Gherkin（`# language: ja`・機能/シナリオ/前提/もし/ならば/かつ）がキーワードも step テキストも通る**唯一の実用構成。Flutter 3.44.1 / Dart 3.12.1 で green 実証済み。
+`flutter_gherkin` ベースの BDD 振る舞いテスト足場。**日本語 Gherkin（`# language: ja`・機能/シナリオ/前提/もし/ならば/かつ）がキーワードも step テキストも通る**唯一の実用構成。2026-06-06 の sample を Flutter 3.44.1 / Dart 3.12.1 で GREEN 実証した当時の構成。現在のアプリ・SDK・revision の GREEN は再実行で確認する（[現行入口と残件](https://github.com/Pound79/specproof/blob/main/docs/flutter-readiness.md)）。
 
 > なぜ flutter_gherkin か: `bdd_widget_test` はパーサが英語専用で、さらに step 名生成が `\w`（ASCII限定）で日本語を全 strip するため日本語不可。`flutter_gherkin` は `dart_gherkin` の `ja` dialect で日本語を完全サポート。代償は rc.17 で保守停滞（バージョン pin で対処）。詳細は kit の `docs/flutter-readiness.md`。
 

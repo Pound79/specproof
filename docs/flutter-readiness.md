@@ -1,81 +1,28 @@
-# Flutter adapter readiness 検証サマリ（Phase 5 必読）
+# Flutter adapter の現行入口
 
-## 決定（実証済み・2026-06-06）
+**現行（0.2.2）**: 同梱 adapter は `flutter_gherkin: 3.0.0-rc.17` と
+`build_runner: ">=2.4.0 <2.5.0"` を使用する。日本語 Gherkin 対応を理由に採用し、
+`bdd_widget_test` は不採用。2026-06-06 の Flutter 3.44.1 / Dart 3.12.1 での
+sample GREEN は当時の観測であり、現在のアプリ・SDK・revision の GREEN を保証しない。
 
-**採用: `flutter_gherkin` 3.0.0-rc.17（日本語 Gherkin 完全対応）。bdd_widget_test は不採用。**
-sample-flutter-app（Flutter 3.44.1 / Dart 3.12.1）で日本語シナリオ（`# language: ja`・機能/シナリオ/前提/もし/ならば）が
-build_runner 生成 → `flutter test` で **green** を実証。実装は `templates/flutter/` + `specproof init --adapter flutter`。
-実機検証で確定した必須レシピ（落とし穴）は `templates/flutter/README.md` の規約表を参照:
-別 `bdd_tests/` パッケージ / `flutter create --platforms=macos .` で実行先用意 / `Future<void> main() async` + 生成 runner を
-直接 `await`（rc.17 の `executeTestSuite` は fire-and-forget で `group()` エラー） / `build.yaml` の sources に
-`integration_test/**.dart` / Dart 識別子は ASCII・日本語は RegExp 内 / build_runner 2.4.x pin。
+## 現在使える手順と正本
 
-以下は Phase 0 時点（実装前）の調査サマリ。
+- scaffold: `npx @pound79/specproof init --adapter flutter`。
+- SDK/Node の前提、別 `bdd_tests/` package、実行先の作成、依存解決→生成→実行は
+  [Flutter template README](../templates/flutter/README.md#セットアップspecproof-init---adapter-flutter-後) が正本。
+- async main で生成 runner を直接 await、build/runtime 両方の日本語指定、
+  `build.yaml` sources、ASCII 識別子、pin、`.feature` のみ hash する規約も同 README に集約。
+- 設定キーは [config-schema](./config-schema.md)、層の境界と Flutter 固有値は
+  [adapter-contract](./adapter-contract.md#3-playwright-v1-vs-flutter-の-capability-マッピング対照表)。
 
----
+## 未完作業と未採択案
 
-Phase 0 で `bdd_widget_test` + `Patrol` を実地調査（context7 + 公式 docs）し、
-adapter contract が「方法論・traceability エンジンを無改変のまま Flutter を載せられるか」を
-adversarial に検証した結果。**結論: 現 contract のままでは不十分（adequate: false）。**
-ただし不足はすべて `flutter:` セクションと scaffold template の追加で吸収可能で、
-**①エンジン・②方法論の改変は不要**。
+Flutter の drift→sync→implement の実アプリ dogfood、専用 idiomGuide は未確認/未整備。
+Patrol の tag 伝播、build-only、native 権限、flavor 等は調査案であり、
+現在の `flutter:` 設定や実行手順に加えてはならない。
 
-出典: pub.dev/bdd_widget_test, github.com/olexale/bdd_widget_test, patrol.leancode.co,
-context7 `/olexale/bdd_widget_test` `/leancodepl/patrol`。
+## 履歴
 
-## 最重要ブロッカー: 日本語 Gherkin 非対応
-
-`bdd_widget_test` は `dart_gherkin`/`flutter_gherkin` に依存せず**独自パーサー**を持ち、
-`bdd_line.dart` に英語キーワード（`Feature:` `Scenario:` `Given` `When` `Then` `And` `But` …）
-のみハードコード。`# language: ja` ディレクティブの解析は存在せず、`機能:` `シナリオ:` `前提`
-`もし` `ならば` `かつ` は parse 失敗するか黙殺される。
-
-**対処は二択**:
-- **(A) 前処理**: `commands.preprocess` で日本語キーワードを英語へ変換してから `build_runner`。
-- **(B) 切替**: `flutter_gherkin`/`dart_gherkin`（Cucumber i18n 完全対応・`# language: ja` 可）を使う。
-
-→ `flutter.gherkinParser: bdd_widget_test | flutter_gherkin` を config に持たせ、
-skill が前処理要否を判断する設計にする。Phase 5 着手前に A/B を決定すること。
-
-## codegen / step / traceability の要点
-
-- **codegen**: `build_runner` の `FeatureBuilder` が `foo.feature` -> `foo_test.dart` を生成。
-  `_test.dart` は **build のたびに上書き** されるので **commit せず CI で再生成**（`generatedTestPolicy: regenerate-on-ci`）。
-- **step 束縛**: 実行時 regex レジストリ無し。step 文 -> lowerCamelCase 関数名へ**コンパイル時変換**
-  （`I see {'0'} text` -> `iSeeText(tester, text)`、`step/i_see_text.dart`）。step ファイルは
-  一度生成され**上書きされない**ので実装は保全される。keyword は lookup で無視される
-  （`Given`/`When` 同文 -> 同一関数）。
-- **traceability ハッシュ対象**: **`.feature` を hash する**（`_test.dart` は volatile なので不可）。
-  → エンジンは `layout.featuresDir` を hash source にする現設計のままで正しい。
-
-## contract に不足している capability（9 件・Phase 5 で `flutter:` に追加）
-
-| # | 不足 | 追加案 |
-|---|---|---|
-| 1 | ja Gherkin 前処理の口 | `commands.preprocess` + `flutter.gherkinParser` |
-| 2 | `@tag` が `patrolTest(tags:)` に自動伝播しない | `flutter.tagPropagationMechanism` + flutter idiomGuide |
-| 3 | device farm 向け build-only モード | `commands.buildArtifact`（`patrol build android/ios`） |
-| 4 | CI で generate が smoke より先という順序保証 | `flutter.ciCommandOrder` or scaffold の CI YAML で構造的に担保 |
-| 5 | traceability hash source が `.feature` である明記 | contract §4 に明記 + `flutter.traceabilityHashSource: feature` |
-| 6 | `bdd_hooks/`（beforeAll 等）の配置 | `layout.hooksDir`（default `bdd_hooks`） |
-| 7 | `build.yaml` の sources に `integration_test/**` 追加が必須 | `flutter.buildYamlSources` + scaffold が build.yaml を同梱 |
-| 8 | flavor（build-time）と auth role（runtime）の直交性が projects[] で表現不可 | `flutter.flavors` を projects[] と分離、`projects[].flavor` を追加 |
-| 9 | `{}` パラメータは Dart リテラル必須（任意文字列は compile-fail） | `flutter.parameterLiteralPolicy` + bootstrap が feature に注記 |
-
-## Patrol が web には無い native capability
-
-permission ダイアログ（`grantPermissionWhenInUse` 等）/ システム通知 / WebView /
-クロスアプリ（OAuth）/ 接続・ダークモード制御 / native sharding（Firebase Test Lab・
-emulator.wtf）/ `patrol develop` hot-restart。これらは `flutter.nativePermissions` 等で
-表現する（Phase 5 で required/optional を確定）。
-
-## Phase 5 着手前チェックリスト
-
-> Phase 0 時点の記録。チェック済みの項目は、その後の実装で達成を確認したもの（B を採用し
-> `templates/flutter/` に `build.yaml`・`pubspec.yaml`・`github-workflows/` を同梱）。未チェックの項目は未着手のまま残している。
-
-- [x] gherkin 戦略 A（前処理）/ B（flutter_gherkin）を決定（B を採用）
-- [ ] `flutter:` セクションの 9 capability を required/optional 確定（config の TODO ブロック）
-- [x] flutter scaffold template に `build.yaml`（sources 含む）/ `pubspec` devDeps / CI YAML を同梱
-- [ ] flutter idiomGuide（PatrolTester + step 命名 + tag 伝播）を著す
-- [ ] sample Flutter app で drift -> sync -> implement が green になることを dogfood
+不採用 parser の生成方式と Phase 0 の 9 capability 案は
+[調査本文](./history/2026-06-06-flutter-readiness.md) に移動した。
+現行の step 実装・必須設定は上記正本から読む。

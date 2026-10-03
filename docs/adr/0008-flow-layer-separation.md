@@ -1,5 +1,10 @@
 # フロー層（run 状態・進捗・進捗管理 UI）を specproof から分離し、静的エンジンの境界を維持する
 
+> 状態: 採択済み。以下は決定時の契約・理由を保存した本文。
+> 実装確認: `origin/main` `0b2deae1`（0.2.2）では静的 stats と drift CLI は実装済みだが、
+> `scenarios` ID 台帳、`@id` の解釈、`invalid-scenario-id` / `duplicate-scenario-id` は未実装。
+> S1/S2 は [roadmap](../roadmap.md) の別工程であり、ID 台帳を完成扱いせず、その機能も追加しない。
+
 受け入れ条件を分母にした進捗管理（run 結果にもとづくシナリオ状態の認定、時系列の計測、
 受け入れ条件一覧の入口ゲート UI）を求める開発フロー側の要求が生じた。これらを specproof に
 取り込むかが論点。
