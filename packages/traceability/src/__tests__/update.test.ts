@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -309,5 +309,80 @@ describe('updateManifestHashes', () => {
 
     const onDisk = await loadManifest(manifestPath);
     expect(onDisk.links[0].impl[0].hash).toBe(original.links[0].impl[0].hash);
+  });
+
+  it.each([
+    { name: '全件更新', options: {} },
+    { name: '単一 link 更新', options: { linkId: 'login' } },
+    { name: '全件 dry-run', options: { dryRun: true } },
+    { name: '単一 link dry-run', options: { linkId: 'login', dryRun: true } },
+  ])('$name で criteria と全階層の未知キーを保持する', async ({ options }) => {
+    const original = await buildManifest(root);
+    const link = original.links[0];
+    const decorated = {
+      ...original,
+      metadata: { owner: 'team' },
+      links: [{
+        ...link,
+        criteria: ['AC-001', 'TC-1A-05-01'],
+        extension: { enabled: false },
+        spec: link.spec.map(ref => ({ ...ref, annotation: '仕様' })),
+        impl: link.impl.map(ref => ({ ...ref, annotation: '実装' })),
+        features: link.features.map(ref => ({ ...ref, annotation: 'feature' })),
+      }, {
+        ...link, id: 'other', label: 'Other', criteria: ['AC-001'], extension: '二つ目',
+      }],
+    };
+    await writeFile(manifestPath, JSON.stringify(decorated), 'utf8');
+    const before = await readFile(manifestPath, 'utf8');
+    await writeFile(path.join(root, 'docs/spec.md'), SPEC_DOC.replace('login spec body', '変更した仕様'), 'utf8');
+    await writeFile(path.join(root, 'src/login.ts'), 'export const login = 99;\n', 'utf8');
+    await writeFile(path.join(root, 'features/login.feature'), 'Feature: Changed\n', 'utf8');
+
+    const updated = await updateManifestHashes(manifestPath, root, options);
+    expect(updated).toMatchObject({
+      metadata: decorated.metadata,
+      links: [{
+        criteria: ['AC-001', 'TC-1A-05-01'], extension: { enabled: false },
+        spec: [{ annotation: '仕様' }], impl: [{ annotation: '実装' }], features: [{ annotation: 'feature' }],
+      }, { criteria: ['AC-001'], extension: '二つ目' }],
+    });
+    expect(updated.links[0].impl[0].hash).toBe(await computeFileHash(path.join(root, 'src/login.ts')));
+    expect(updated.changes).toHaveLength(options.linkId ? 3 : 6);
+    if (options.linkId) expect(updated.links[1]).toEqual(decorated.links[1]);
+    if (options.dryRun) {
+      expect(await readFile(manifestPath, 'utf8')).toBe(before);
+    } else {
+      const { changes: _changes, ...expected } = updated;
+      expect(await loadManifest(manifestPath)).toEqual(expected);
+    }
+  });
+
+  it('更新後も criteria の省略と空配列を区別する', async () => {
+    const manifest = await buildManifest(root);
+    manifest.links.push({ ...manifest.links[0], id: 'empty', label: 'Empty', criteria: [] });
+    await writeFile(manifestPath, JSON.stringify(manifest), 'utf8');
+    await updateManifestHashes(manifestPath, root);
+    const loaded = await loadManifest(manifestPath);
+    expect(Object.hasOwn(loaded.links[0], 'criteria')).toBe(false);
+    expect(loaded.links[1]).toHaveProperty('criteria', []);
+  });
+
+  it.each([
+    { name: '全件更新', options: {} },
+    { name: '単一 link 更新', options: { linkId: 'login' } },
+    { name: '全件 dry-run', options: { dryRun: true } },
+    { name: '単一 link dry-run', options: { linkId: 'login', dryRun: true } },
+  ])('$name で他 link の不正な criteria を拒否しファイルを変えない', async ({ options }) => {
+    const manifest = await buildManifest(root);
+    manifest.links.push({
+      ...manifest.links[0], id: 'invalid', label: 'Invalid', criteria: [''],
+    });
+    const before = JSON.stringify(manifest);
+    await writeFile(manifestPath, before, 'utf8');
+    await writeFile(path.join(root, 'src/login.ts'), 'export const login = 99;\n', 'utf8');
+
+    await expect(updateManifestHashes(manifestPath, root, options)).rejects.toThrow(/links\[1\]\.criteria/);
+    expect(await readFile(manifestPath, 'utf8')).toBe(before);
   });
 });

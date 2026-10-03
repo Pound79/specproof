@@ -17,6 +17,8 @@ English | [日本語](./README_ja.md)
 [S1/S2 と未完作業](./docs/roadmap.md)、[Flutter 実行手順](./templates/flutter/README.md)、
 [CLI の現行保証](./packages/traceability/README.md) に直接進める。
 ADR 0008 の ID 台帳は採択済み未実装で、S1/S2 の範囲には含めない。
+S1 の統計拡張と S2 の `links[].criteria` 検証・保持は 0.3.0 候補に実装済み。
+npm 公開は未実施で、既存の固定版 0.2.2 にこの保証があるとは扱わない。
 watch/loop と共通の native 材料の固定版・静的 scanner の対象範囲は [共通材料の読取試験](packages/traceability/src/__tests__/shared-native-contract.test.ts) を参照する。
 
 
