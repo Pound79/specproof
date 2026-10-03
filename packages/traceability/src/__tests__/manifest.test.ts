@@ -1,8 +1,8 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { loadManifest } from '../manifest.js';
+import { loadManifest, saveManifest, type TraceabilityManifest } from '../manifest.js';
 
 const VALID_MANIFEST = `
 version: 1
@@ -321,5 +321,84 @@ links:
     await expect(loadManifest(manifestPath)).rejects.toThrow(
       /duplicate.*login/i
     );
+  });
+
+  const criteriaManifest = (criteria: unknown): TraceabilityManifest => ({
+    version: 1,
+    links: [{ id: 'login', label: 'Login', spec: [], impl: [], features: [], criteria }],
+  } as unknown as TraceabilityManifest);
+
+  it('criteria の省略と空配列を区別して保持する', async () => {
+    await writeManifest(VALID_MANIFEST);
+    expect(Object.hasOwn((await loadManifest(manifestPath)).links[0], 'criteria')).toBe(false);
+    await writeManifest(JSON.stringify(criteriaManifest([])));
+    expect((await loadManifest(manifestPath)).links[0]).toHaveProperty('criteria', []);
+  });
+
+  it('AC・TC・任意の Unicode ID を不透明文字列のまま読み書きする', async () => {
+    const ids = ['AC-001', 'TC-1A-05-01', '条件-確認', 'ac-001', ' AC-001 ', 'é', 'e\u0301'];
+    await writeManifest(JSON.stringify(criteriaManifest(ids)));
+    const loaded = await loadManifest(manifestPath);
+    expect(loaded.links[0]).toHaveProperty('criteria', ids);
+    await saveManifest(manifestPath, loaded);
+    expect((await loadManifest(manifestPath)).links[0]).toHaveProperty('criteria', ids);
+  });
+
+  it('同じ条件 ID を複数 link が参照できる', async () => {
+    const manifest = criteriaManifest(['AC-001']);
+    manifest.links.push({ ...manifest.links[0], id: 'profile', label: 'Profile' });
+    await writeManifest(JSON.stringify(manifest));
+    await expect(loadManifest(manifestPath)).resolves.toMatchObject({
+      links: [{ criteria: ['AC-001'] }, { criteria: ['AC-001'] }],
+    });
+  });
+
+  const invalidCriteria = [
+    { reason: 'null', value: null },
+    { reason: '配列でない文字列', value: 'AC-001' },
+    { reason: '数値', value: 42 },
+    { reason: 'オブジェクト', value: {} },
+    { reason: '文字列でない要素', value: [42] },
+    { reason: 'null 要素', value: [null] },
+    { reason: '空文字', value: [''] },
+    { reason: '同一 link 内の重複', value: ['AC-001', 'AC-001'] },
+    ...Array.from({ length: 32 }, (_, code) => ({
+      reason: `C0 制御文字 U+${code.toString(16).padStart(4, '0')}`,
+      value: [`AC-${String.fromCharCode(code)}001`],
+    })),
+    ...Array.from({ length: 33 }, (_, offset) => ({
+      reason: `DEL/C1 制御文字 U+${(127 + offset).toString(16).padStart(4, '0')}`,
+      value: [`AC-${String.fromCharCode(127 + offset)}001`],
+    })),
+    { reason: '行区切り', value: ['AC-\u2028001'] },
+    { reason: '段落区切り', value: ['AC-\u2029001'] },
+  ];
+
+  it.each(invalidCriteria)('不正な criteria を load で拒否する: $reason', async ({ value }) => {
+    await writeManifest(JSON.stringify(criteriaManifest(value)));
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/links\[0\]\.criteria/);
+  });
+
+  it.each(invalidCriteria)('不正な criteria の save で既存ファイルを変えない: $reason', async ({ value }) => {
+    await writeManifest(VALID_MANIFEST);
+    await expect(saveManifest(manifestPath, criteriaManifest(value))).rejects.toThrow(/links\[0\]\.criteria/);
+    expect(await readFile(manifestPath, 'utf8')).toBe(VALID_MANIFEST);
+  });
+
+  it('load/save は root・link・参照の未知キーを保持する', async () => {
+    const manifest = {
+      version: 1 as const,
+      metadata: { owner: 'team', enabled: false },
+      links: [{
+        id: 'login', label: 'Login', criteria: ['AC-001'],
+        extension: { detail: ['one', 'two'] },
+        spec: [{ path: 'spec.md', heading: 'Login', hash: 'abc', revision: 7 }],
+        impl: [{ path: 'impl.ts', hash: 'abc', role: 'primary' }],
+        features: [{ path: 'login.feature', hash: 'abc', annotation: true }],
+      }],
+    };
+    await writeManifest(JSON.stringify(manifest));
+    await saveManifest(manifestPath, await loadManifest(manifestPath));
+    expect(await loadManifest(manifestPath)).toEqual(manifest);
   });
 });
