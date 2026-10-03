@@ -4,51 +4,35 @@ spec <-> impl <-> feature のトレーサビリティ駆動 BDD フローを、f
 3 層（方法論 skill / traceability エンジン / 足場テンプレート）に分離した
 振る舞いテスト生成キット。
 
-## Skills
+## 変更対象から読む
 
-specproof は 6 つの skill を提供する。`specproof` がオーケストレータで、残り 5 つは
-内部ムーブメントとして駆動される（単体起動も可）。
+最初にこの入口を読み、対象行の資料・ソースだけを追加で読む。全 ADR・履歴の通読は不要。
 
-| Skill | Direction | Use when |
-|-------|-----------|----------|
-| `specproof` | orchestrator | BDD フロー全体を駆動する単一入口 |
-| `specproof-setup` | detect + scaffold | リポに specproof を導入する |
-| `specproof-bootstrap` | impl -> feature draft | 既存コードから .feature ドラフトを生成 |
-| `specproof-new-feature` | spec -> feature | 新しい spec セクションから RED な .feature を作成 |
-| `specproof-implement` | feature -> impl | blessed .feature を GREEN にする実装 |
-| `specproof-sync` | drift -> feature | spec/impl 変更後に .feature を追従 |
+| 変更対象 | 現行資料 | 対応ソース |
+|---|---|---|
+| S1/S2・静的 CLI | [roadmap](docs/roadmap.md)、[traceability README](packages/traceability/README.md) | `packages/traceability/src/`（S1: `feature-scan.ts` / `stats.ts` / `cli-stats.ts`、S2: `manifest.ts` / `update.ts`） |
+| 設定・adapter 境界 | [config-schema](docs/config-schema.md)、[adapter-contract](docs/adapter-contract.md) | `packages/traceability/src/config.ts`、`templates/*/specproof.config.yaml` |
+| Flutter 実行 | [Flutter template README](templates/flutter/README.md)、[残件](docs/flutter-readiness.md) | `templates/flutter/`、`cli/src/init.ts` |
+| skill・BDD 規則 | [methodology](docs/methodology.md)、対象 skill の `SKILL.md` | `plugins/specproof/skills/` |
+| scaffold・agent 導入 | [cli README](cli/README.md) | `cli/src/detect.ts` / `init.ts` / `setup-agent.ts` |
 
-## Config
+ID 台帳は [ADR 0008](docs/adr/0008-flow-layer-separation.md) の採択済み未実装契約。
+S1/S2 に追加しない。CLI で実行済み GREEN は判定せず、run は別ツールの責務。
+履歴は roadmap のリンク先に保存し、当時の Done を現在の保証として読まない。
 
-すべての skill は `specproof.config.yaml`（リポルート）から設定を読む。
-`{{config:...}}` トークンは skill 実行時にこのファイルの値で解決する。
+## 開発・検証
 
-## Traceability CLI (AI-free)
+Node.js 24+。`npm ci` 後、コード変更は `npm run typecheck`、`npm test`、`npm run build`。
+文書変更は関連リンク/anchor・CLI/skill/prompt の参照を確認する。
+追跡 manifest の spec/hash へ影響する変更を過去 GREEN や凍結値の更新で隠さない。
 
-Drift 検知は決定論的 CLI で、AI を使わない:
+## 作業規則
 
-```bash
-npx -y -p @pound79/specproof-traceability specproof-check   # drift 検知
-npx -y -p @pound79/specproof-traceability specproof-update  # ハッシュを bless
-npx -y -p @pound79/specproof-traceability specproof-list    # 登録済みドメインと未追跡ページの一覧
-npx -y -p @pound79/specproof-traceability specproof-stats   # シナリオ census
-```
-
-## Development
-
-```bash
-npm ci            # 依存インストール
-npm run typecheck # tsc --noEmit
-npm test          # vitest + scripts/ の node:test
-npm run build     # ビルド
-```
-
-## Architecture
-
-- `packages/traceability/` — `@pound79/specproof-traceability`: SHA-256 drift 検知 CLI
-- `cli/` — `@pound79/specproof`: scaffold CLI (`specproof init`)
-- `plugins/specproof/skills/` — BDD methodology skill 群 (SKILL.md)
-- `templates/` — framework 別テンプレート (playwright / flutter)
+main の作業ツリー・既存 PR を保護し、新規 branch で小さい PR に分ける。
+機能変更は実際の RED 観測から始め、コードとセキュリティの独立レビュー後に commit する。
+会話・新規文書・commit は日本語、絵文字無し。commit は Conventional Commits、全行72文字以内。
+本文は heredoc から `git commit -F -` へ渡す。既存 PR 更新・merge・force push は別途指示が要る。
+`.env*`・`.npmrc`・鍵は読まず、資格情報は既存注入経路を使用する。不要資料は削除せず移動する。
 
 ## Invariants
 

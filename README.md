@@ -11,6 +11,14 @@ English | [日本語](./README_ja.md)
 
 </div>
 
+## 実装・運用の現行入口
+
+変更対象→読む正本→対応ソースは [AGENTS.md](./AGENTS.md#変更対象から読む)。
+[S1/S2 と未完作業](./docs/roadmap.md)、[Flutter 実行手順](./templates/flutter/README.md)、
+[CLI の現行保証](./packages/traceability/README.md) に直接進める。
+ADR 0008 の ID 台帳は採択済み未実装で、S1/S2 の範囲には含めない。
+
+
 When the same AI agent writes your implementation *and* your E2E tests, the
 tests stop being independent evidence. They become a mirror of whatever the
 code happens to do: bugs ship green, and coverage quietly shrinks to the happy

@@ -1,7 +1,8 @@
 # specproof アダプター契約
 
 **バージョン**: 0.2.x（`@pound79/specproof` / `@pound79/specproof-traceability` 0.2 系に対応）  
-**ステータス**: 運用中（設定キーの正準は `docs/config-schema.md`）
+**ステータス**: 現行（設定キーの正本は [config-schema](./config-schema.md)）。
+実値は同梱 template、実行手順は各 template README を参照する。
 
 ---
 
@@ -19,176 +20,85 @@ consumer リポジトリは `specproof.config.yaml` を 1 枚だけ配置する�
 
 ## 2. capability 一覧
 
+フィールド型・要否・設定値・後方互換の正本は [config-schema](./config-schema.md)。
+ここでは責務だけを示す。consumer の config 値を解決し、同梱例の値を他アプリへ固定しない。
+
 ### 2.1 commands（実行コマンド）
 
-skill が呼び出す 4 つの標準コマンド。アダプターは各エントリに対してリポジトリで実際に動くシェルコマンド文字列を供給する。
-
-| capability key | 役割 | playwright v1 | Flutter |
-|---|---|---|---|
-| `commands.generate` | `.feature` → glue コード生成 | `cd packages/e2e && npm run bddgen` | `cd bdd_tests && dart run build_runner build --delete-conflicting-outputs` |
-| `commands.typecheck` | 型検査 | `cd packages/e2e && npm run typecheck` | `cd bdd_tests && flutter analyze` |
-| `commands.lint` | フォーマット + 静的解析 | `cd packages/e2e && npm run lint` | `cd bdd_tests && dart format --set-exit-if-changed . && flutter analyze` |
-| `commands.smoke` | 高速サブセット実行（CI 必須パス） | `cd packages/e2e && npm run test:smoke` | `cd bdd_tests && flutter test integration_test/gherkin_suite_test.dart -d macos` |
-
-追加の補助コマンドとして `commands.traceabilityUpdate` / `commands.traceabilityCheck` / `commands.traceabilityList` / `commands.traceabilityStats` を定義できる（任意）。これらは traceability エンジンの CLI を呼び出す。**設定キー名の正準は `docs/config-schema.md`（camelCase）** に従う。
+[commands](./config-schema.md#commands) のコマンドを repo root から実行する。
+生成→型検査→lint→smoke の具体値は adapter template が供給する。
 
 ### 2.2 layout（ディレクトリ / ファイルレイアウト）
 
-skill がファイルを読み書きする際の基点パス。すべてリポルートからの相対パス。
-
-| フィールド | 役割 | playwright v1 | Flutter |
-|---|---|---|---|
-| `layout.e2eRoot` | E2E パッケージのルート | `packages/e2e` | `bdd_tests` |
-| `layout.featuresDir` | `.feature` ファイルを置くディレクトリ | `packages/e2e/features` | `bdd_tests/integration_test/features`（build.yaml の sources に要追加） |
-| `layout.stepsDir` | ステップ定義ファイルのディレクトリ | `packages/e2e/steps` | `bdd_tests/integration_test/steps`（Dart: build_runner が step/ フォルダを生成） |
-| `layout.pagesDir` | ページオブジェクト（POM）のディレクトリ | `packages/e2e/src/pages` | `bdd_tests/integration_test/app` |
-| `layout.textConstants` | UI 表示文字列定数ファイル | `packages/e2e/src/config/text.ts` | `lib/l10n/app_ja.arb` |
-| `layout.implGlobs` | 実装ファイルの glob リスト（traceability に登録） | `["packages/web/src/pages/exampleApp/*.tsx", "packages/cdk/lambda/exampleApp/*.ts"]` | `["lib/**/*.dart"]` |
-| `layout.specDir` | 設計根拠 doc のディレクトリ | `docs/example-app` | 同左（方法論非依存） |
-| `layout.manifest` | traceability マニフェストのパス | `packages/e2e/traceability.yaml` | 同左 |
-| `layout.scratchDir` | feature ドラフトの一時出力先 | `/tmp/specproof-draft` | `/tmp/specproof-draft` |
-| `layout.testRunnerConfig` | テストランナー設定ファイル | `playwright.config.ts` | `pubspec.yaml` |
-| `layout.stepFileExt` | ステップ定義ファイルの拡張子 | `.ts` | `.dart` |
-| `layout.e2eReadme` | E2E README（skill がリンク先として参照） | `packages/e2e/README.md` | `bdd_tests/README.md` |
+[layout](./config-schema.md#layoutリポルート相対パス) は repo root 相対。
+`.feature` ソースを hash し、生成物を feature の代わりに追跡しない。
 
 ### 2.3 language（Gherkin 方言）
 
-| フィールド | 説明 |
-|---|---|
-| `language` | Cucumber i18n ロケールコード。`ja` で日本語キーワードを使用。playwright-bdd は `# language: ja` ディレクティブを feature ファイル先頭行で読む。**重要**: 日本語 Gherkin は `flutter_gherkin` を使う（`bdd_widget_test` は英語キーワード専用パーサーで日本語不可のため**不採用**。`docs/flutter-readiness.md` で確定済み）。|
+`language` と feature 冒頭の `# language: ja` を一致させる。
+日本語 Flutter は `flutter_gherkin` を使用する（[採用理由](./flutter-readiness.md)）。
 
 ### 2.4 tags taxonomy（タグ分類体系）
 
-skill が feature ファイル内でタグを参照するときの正準名称。各エントリの value が実際の Gherkin タグ文字列。
-
-| フィールド | 役割 |
-|---|---|
-| `tags.slow` | 実 AI 呼び出し等、時間がかかるシナリオ。smoke 実行では除外する |
-| `tags.generate` | 重い生成処理など、ドメイン固有の重い操作。常に `tags.slow` と併用 |
-| `tags.admin` | 管理者ロールが必要なシナリオ（対応 project: `authed-admin`） |
-| `tags.user` | 一般ユーザーロール（省略時は `not @admin` と解釈） |
-| `tags.sf` | 外部 SaaS fixture 依存シナリオ（任意。外部依存フラグ） |
-| `tags.fixme` | 自動化困難・既知不具合。CI では除外するが feature には残す |
-| `tags.skip` | 意図的に除外。rationale doc へのリンクを必ずコメントで添える |
+[tags の正本](./config-schema.md#tags--projects--env--environments--implement--git--agents--conventions--examples)。
+`fixme` / `skip` の設定値は理由 lint と静的 done gate にも使う。
 
 ### 2.5 roles / projects（ランナープロファイル）
 
-テストランナーが認証状態ごとにセッションを分けるプロファイル名。
-
-| フィールド | 説明 |
-|---|---|
-| `projects` | オブジェクトのリスト。各エントリは `name`（プロファイル名）と `tags`（対象タグ式）を持つ |
-| `projects[].name` | ランナーが識別するプロジェクト名（playwright: `name:` フィールド） |
-| `projects[].tags` | このプロジェクトが実行するシナリオのタグ式 |
-
-playwright v1 の実値: `[{name: "authed", tags: "not @admin"}, {name: "authed-admin", tags: "@admin"}, {name: "guest", tags: ""}]`
+`projects[]` は認証ロール軸。環境・シナリオ属性とは
+[直交して評価](./config-schema.md#直交性-environments--projects--tags) する。
 
 ### 2.6 step + POM idiom guide（参照先）
 
-skill が新規ステップ定義やページオブジェクトを生成するときに従うイディオムガイドへのパス。
-
-| フィールド | 説明 |
-|---|---|
-| `idiomGuide` | step / POM の書き方ガイドへのリポ相対パス（playwright: `specproof-sync/prompts/system.md`） |
+`idiomGuide` は consumer に存在するガイドの repo 相対パス。
+Flutter 専用 guide は未整備であり、他 adapter の例を適用しない。
 
 ### 2.7 環境変数
 
-skill が参照できる環境変数の論理名称。実値は consumer のシェル/CI が供給する。
-
-| フィールド | 説明 |
-|---|---|
-| `env.baseUrl` | E2E テストが接続するアプリの URL 環境変数名（例: `E2E_BASE_URL`） |
-| `env.username` | テストユーザーのメールアドレス環境変数名（例: `E2E_USERNAME`）（任意） |
+`env` は論理名を定義する。実値は consumer の shell/CI の既存注入経路で供給し、
+資格情報を config やログへ記載しない。
 
 ### 2.8 meta（アダプター識別）
 
-| フィールド | 説明 |
-|---|---|
-| `adapter` | アダプター種別。`playwright` または `flutter`（将来拡張可能） |
-| `bddRunner` | BDD フレームワーク識別子。`playwright-bdd`、`flutter_gherkin` など（日本語 Gherkin は `flutter_gherkin`。`bdd_widget_test` は日本語不可で**不採用**＝`docs/flutter-readiness.md` で確定） |
-| `bddGenTool` | `commands.generate` で使われるツール名（ログ・エラー表示用）。例: `bddgen`、`build_runner` |
+`adapter` は `playwright` / `flutter`、`bddRunner` / `bddGenTool` は利用 tool の識別子。
+第 3 adapter は §6 のソース変更を要する。
 
-### 2.9 conventions（コーディング規約参照）
+### 2.9 conventions（ステップ定義の慣例）
 
-skill が生成コードに適用する規約へのリファレンス。
+`stepFrameworkPattern`、`pendingStubBody` 等は
+[config-schema](./config-schema.md) と consumer の実ファイルから解決する。
 
-| フィールド | 説明 |
-|---|---|
-| `conventions.agentsDoc` | エージェント規約ドキュメントへのパス（任意）。例: `AGENTS.md` |
-| `conventions.i18nLintPlugin` | i18n 静的解析プラグイン名（任意）。例: `eslint-plugin-i18next` |
-| `conventions.stepFrameworkPattern` | ステップバインド関数の呼び出しパターン名（任意）。例: `createBdd`（playwright-bdd 固有） |
-| `conventions.pendingStubBody` | 未実装ステップのスタブ本体（任意）。例: `throw new Error('pending: implement this step');` |
+### 2.10 environments（実行環境プロファイル）
 
-### 2.10 environments（実行環境プロファイル — required）
-
-実行環境（local / dev / staging 等）ごとに認証プロバイダ・dotenv ファイル・除外タグを宣言的に定義する。**required（1 エントリ以上）。adapter-agnostic** — playwright / Flutter 両方に適用。
-
-認証プロバイダ（`auth.provider` / `auth.description`）は `environments[]` 内にのみ定義する。トップレベル `auth` は存在しない。
-
-| フィールド | 説明 |
-|---|---|
-| `environments[]` | 環境プロファイルのリスト。**1 エントリ以上必須。** |
-| `environments[].name` | 環境名。`SPECPROOF_ENV` 環境変数の値と照合する。 |
-| `environments[].default` | `SPECPROOF_ENV` 未設定時のフォールバック（`true` は 1 エントリだけ）。 |
-| `environments[].dotenvFile` | この環境で読み込む dotenv ファイル（e2e パッケージルート相対）。省略時は `.env`。 |
-| `environments[].auth.provider` | 認証プロバイダ識別子（この環境での認証方式）。 |
-| `environments[].auth.description` | 認証方式の人間向け説明（スキルのステップ実装時に参照）。 |
-| `environments[].excludeTags` | この環境で除外するタグのリスト。ランナーが grep/filter に合成する。 |
-| `environments[].envOverrides` | dotenv 読み込み後に追加注入する key-value。shell 既設定値は上書きしない。 |
-
-**選択ルール**: `SPECPROOF_ENV` 設定済み → 一致する `name` のエントリ（不一致時はエラー）。未設定 → `default: true` → 先頭エントリ。
-
-**3 軸の直交性**:
-
-| 軸 | capability | 選択メカニズム |
-|---|---|---|
-| 実行環境 | `environments[]` | `SPECPROOF_ENV` |
-| 認証ロール | `projects[]` | `tags` + `conditional` |
-| シナリオ属性 | `tags` | ランナーのタグフィルタ |
-
-`excludeTags` は環境軸からタグ軸へのフィルタ（例: local 環境では `@google-auth` を除外）。3 軸は独立に評価され、すべて通過したシナリオだけが実行対象になる。
-
-**Flutter adapter での適用**: Dart runtime は `process.env` を直接読めないため、`dotenvFile` の切り替えは CI スクリプト（`--dart-define=ENV=dev` 等）で行う。`environments` はスキルがシナリオ生成・実装時に参照する宣言として機能する。runtime の dotenv 切り替えは adapter の CI テンプレートが担当する。
+型・選択順序・旧 `BDD_KIT_ENV` の現役 fallback は
+[environments の正本](./config-schema.md#environmentsrequired--1-エントリ以上)。
+Flutter runtime の環境切替は consumer の CI/script が担当する。
 
 ---
 
 ## 3. playwright v1 vs Flutter の capability マッピング対照表
 
-| capability | フィールドパス | playwright v1（実値） | Flutter |
-|---|---|---|---|
-| glue コード生成 | `commands.generate` | `cd packages/e2e && npm run bddgen` | `cd bdd_tests && dart run build_runner build --delete-conflicting-outputs` |
-| 型検査 | `commands.typecheck` | `cd packages/e2e && npm run typecheck` | `cd bdd_tests && flutter analyze` |
-| lint | `commands.lint` | `cd packages/e2e && npm run lint` | `cd bdd_tests && dart format --set-exit-if-changed . && flutter analyze` |
-| スモークテスト | `commands.smoke` | `cd packages/e2e && npm run test:smoke` | `cd bdd_tests && flutter test integration_test/gherkin_suite_test.dart -d macos` |
-| feature ディレクトリ | `layout.featuresDir` | `packages/e2e/features` | `bdd_tests/integration_test/features` |
-| ステップ定義 | `layout.stepsDir` | `packages/e2e/steps` | `bdd_tests/integration_test/steps`（generated: `step/`） |
-| POM | `layout.pagesDir` | `packages/e2e/src/pages` | `bdd_tests/integration_test/app` |
-| UI 文字列定数 | `layout.textConstants` | `packages/e2e/src/config/text.ts` | `lib/l10n/app_ja.arb` |
-| マニフェスト | `layout.manifest` | `packages/e2e/traceability.yaml` | `traceability.yaml`（同一エンジン） |
-| Gherkin 方言 | `language` | `ja` | `ja`（`flutter_gherkin` が日本語キーワードを読む） |
-| slow タグ | `tags.slow` | `@slow` | `@slow` |
-| 管理者タグ | `tags.admin` | `@admin` | アプリに応じて再定義 |
-| ステップ拡張子 | `layout.stepFileExt` | `.ts` | `.dart` |
-| ランナープロジェクト | `projects[].name` | `authed / authed-admin / guest` | テンプレートは定義しない（アプリに応じて追加） |
-| POM イディオム | `idiomGuide` | `specproof-sync/prompts/system.md` | テンプレートは定義しない（アプリに応じて追加） |
-| ステップバインド | `conventions.stepFrameworkPattern` | `createBdd` | 名前変換（関数名=ステップ文） |
+コマンド・配置の実値は [Playwright config](../templates/playwright/specproof.config.yaml) と
+[Flutter config](../templates/flutter/specproof.config.yaml) が正本。
+Flutter の SDK 前提・依存 pin・生成→実行・step の規約は
+[Flutter README](../templates/flutter/README.md) に集約する。
 
 ### Flutter 固有 capability（`flutter:` セクション）
 
-Flutter adapter 固有の設定は `flutter:` セクションに隔離し、playwright adapter ではスキップされる。
-同梱テンプレート（`templates/flutter/specproof.config.yaml`）が持つキーは次のとおり。
+現行 template の宣言キーは次の 6 個。`adapter: flutter` の skill 向けであり、
+traceability エンジンが Flutter runner を起動する設定ではない。
 
-| capability | 説明 |
+| キー | 用途 |
 |---|---|
-| `flutter.gherkinParser` | Gherkin パーサー。`flutter_gherkin`（日本語 Gherkin 対応。`bdd_widget_test` は日本語不可で不採用） |
-| `flutter.testEntry` | テストエントリファイル（例: `bdd_tests/integration_test/gherkin_suite_test.dart`） |
-| `flutter.device` | 実行対象デバイス（例: `macos`。iOS / Android のデバイス・エミュレーター ID も可） |
-| `flutter.buildRunnerPin` | `build_runner` のバージョン制約（例: `">=2.4.0 <2.5.0"`） |
-| `flutter.buildYamlSources` | `build.yaml` に列挙が必須な sources（漏れると `build_runner` が何も生成しない） |
-| `flutter.traceabilityHashSource` | traceability がハッシュする対象。`feature`（`.feature` ソース。生成物の `*.g.dart` 等はハッシュしない） |
+| `gherkinParser` | `flutter_gherkin`（日本語対応） |
+| `testEntry` | suite エントリの repo 相対パス |
+| `device` | 利用する desktop/device/emulator ID |
+| `buildRunnerPin` | `>=2.4.0 <2.5.0` |
+| `buildYamlSources` | `build.yaml` で列挙する sources |
+| `traceabilityHashSource` | `feature`（生成 `*.g.dart` 等は除外） |
 
-> **将来案**: Patrol を使う native 操作（デバイス権限付与・flavor 指定・`patrol test --tags` 等）向けのキーは
-> 検討段階で、現行のテンプレート・skill はいずれも読まない。
+Patrol の native 操作・flavor・tag 伝播等のキーは未採択案。
+現行 template/skill は読まない（[残件](./flutter-readiness.md#未完作業と未採択案)）。
 
 ---
 
@@ -211,13 +121,15 @@ Flutter adapter 固有の設定は `flutter:` セクションに隔離し、play
 
 ## 5. 設定解決ルール
 
-1. skill は実行開始時に必ず `specproof.config.yaml` をリポルートから探索する（`discoverConfig()` 相当）。
-2. 見つからない場合はエラーを返す（デフォルト値による自動補完はしない）。
-3. Flutter の `flutter:` セクションは、`adapter: flutter` の場合のみ読む。
-4. `commands.traceability*`（`traceabilityCheck` / `traceabilityUpdate` / `traceabilityList` / `traceabilityStats`）が
-   省略された場合は `npx -y -p @pound79/specproof-traceability specproof-*`（`specproof-check` 等）をデフォルトとしてよい。
-5. `{{config:auth.provider}}` / `{{config:auth.description}}` はアクティブ環境プロファイルの
-   `auth` から解決する。`environments[]` は必須（1 エントリ以上）。
+1. skill は実行開始時に repo root の `specproof.config.yaml` を探索する。
+2. skill で未設定ならエラーとし、consumer 固有値を勝手に補完しない。
+   traceability CLI 自体の探索・fallback は `packages/traceability/src/config.ts` の契約。
+3. `flutter:` セクションは `adapter: flutter` の場合だけ読む。
+4. `commands.traceability*` の省略時は `npx -y -p @pound79/specproof-traceability specproof-*`
+   （`specproof-check` 等）を利用できる。必須引数・flags は [CLI README](../packages/traceability/README.md#cli)。
+5. `{{config:auth.provider}}` / `{{config:auth.description}}` は
+   [選択ルール](./config-schema.md#選択ルール) で選んだ `environments[]` の `auth` から解決する。
+   トップレベル `auth` は持たず、1 エントリ以上の環境宣言を要する。
 
 ---
 
