@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 静的統計に phase（draft/pending/complete）と verification（machine/human）の
+  別軸、Outline の展開ケース数を追加する。条件数とケース数を区別し、
+  従来の TOTAL 表示・fixme/skip・strict を維持する。complete は実行済み GREEN を示さない。
+- version 1 manifest の `links[].criteria` を任意の不透明な ID 配列として
+  検証・保持する。多対多の対応と未知キーを更新・dry-run で維持する。
+
 ### Changed
 
 - `specproof-sync` no longer updates a `.feature` to match the implementation

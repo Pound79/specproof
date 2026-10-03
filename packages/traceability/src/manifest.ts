@@ -20,6 +20,8 @@ export interface TraceabilityLink {
   spec: SpecRef[];
   impl: FileRef[];
   features: FileRef[];
+  /** 条件 ID の任意の対応。形式は consumer が定め、同じ ID を別 link に置ける。 */
+  criteria?: string[];
 }
 
 export interface TraceabilityManifest {
@@ -110,6 +112,27 @@ const assertRefArray = (
   });
 };
 
+const assertCriteria = (value: unknown, where: string): void => {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    return fail(where, "criteria は string 配列で指定してください");
+  }
+  const seen = new Set<string>();
+  for (const [index, id] of value.entries()) {
+    const at = `${where}[${index}]`;
+    if (typeof id !== "string" || id.length === 0) {
+      return fail(at, "条件 ID は空でない文字列で指定してください");
+    }
+    if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u.test(id)) {
+      fail(at, "条件 ID に制御文字・行区切り・段落区切りを含められません");
+    }
+    if (seen.has(id)) {
+      fail(at, "同じ link 内の条件 ID を重複させられません");
+    }
+    seen.add(id);
+  }
+};
+
 const assertManifestShape: (
   value: unknown,
 ) => asserts value is TraceabilityManifest = (value) => {
@@ -150,6 +173,7 @@ const assertManifestShape: (
     assertRefArray(link.spec, `${where}.spec`, assertSpecRef);
     assertRefArray(link.impl, `${where}.impl`, assertFileRef);
     assertRefArray(link.features, `${where}.features`, assertFileRef);
+    assertCriteria(link.criteria, `${where}.criteria`);
     const refCount =
       (link.spec as unknown[]).length +
       (link.impl as unknown[]).length +
@@ -206,6 +230,10 @@ export const saveManifest = async (
   manifestPath: string,
   manifest: TraceabilityManifest,
 ): Promise<void> => {
+  // 既存の writer の振る舞いを保ち、新しい criteria だけをファイル更新前に検査する。
+  manifest.links.forEach((link, index) => {
+    assertCriteria(link.criteria, `links[${index}].criteria`);
+  });
   const header =
     "# Traceability manifest linking spec sections, implementation files, and\n" +
     "# BDD feature files. Hashes are sha256; refresh them with:\n" +
