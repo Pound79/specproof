@@ -106,6 +106,37 @@ object, not by patching the source text. Any hand-written comments in
 rationale/notes in the linked spec doc or a sibling comment file instead of
 inline in the manifest.
 
+### Manifest の criteria
+
+ソースの S2 契約では version 1 の各 `links[]` に `criteria?: string[]` を指定できる。
+既存の配布版 0.2.2 は未更新なので、下流でこの保証を使うには別工程の配布更新が必要。
+
+```yaml
+version: 1
+links:
+  - id: login
+    label: Login
+    criteria: [AC-001, TC-1A-05-01]
+    spec: []
+    impl: []
+    features: []
+```
+
+省略と空配列を許容し、両者を区別して保持する。各 ID は空でない不透明文字列で、
+AC / TC 等の形式を固定せず、空白除去・大文字小文字変換・Unicode 正規化も行わない。
+consumer 固有の ID 書式は consumer の設定が検査する。
+不正型、空文字、C0 / DEL / C1 制御文字、Unicode の行区切り・段落区切り、
+同じ link 内の ID 重複は拒否する。同じ ID を複数 link から参照する多対多は許容する。
+
+`loadManifest` と、それを使う check/update は criteria を検査する。
+`saveManifest` も新しい criteria の契約だけを書込み前に検査し、不正なら既存ファイルを変えない。
+他の既存フィールドの形は従来どおり loader が検査する。
+load/update/save、全件更新、`--link-id`、`--dry-run` で criteria とオブジェクトの未知キーを
+保持する。dry-run はファイルの byte を変えない。YAML コメントの非保持は上記のとおり。
+
+criteria は条件と参照 link の対応であり、シナリオ ID 台帳・実行済み GREEN の証跡ではない。
+hash と strict の検査は従来のまま行う。上の空参照の例は `check --strict` の empty-link に該当する。
+
 ### Manifest safety limits
 
 Manifest paths are checked against the physical repository root immediately
