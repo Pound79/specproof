@@ -1,7 +1,7 @@
 # 現在の実装対象と残件
 
-既存実装の確認基準は `origin/main` の `0b2deae1`（0.2.2）。S2 は本 PR のソースで実装済み。
-配布版 0.2.2 は更新しておらず、下流の固定版へ S2 の保証を適用しない。
+S1 の統計拡張と S2 の `links[].criteria` 検証・保持は 0.3.0 候補に実装済み。
+npm 公開は未実施で、既存の固定版 0.2.2 にこの保証があるとは扱わない。
 実行の入口は [AGENTS.md](../AGENTS.md)、CLI の現行保証は
 [traceability README](../packages/traceability/README.md)。静的集計は実行済み GREEN を認定しない。
 
@@ -9,8 +9,8 @@
 
 | 工程 | 契約と状態 | 対応ソース |
 |---|---|---|
-| S1 | 未実装。phase（draft/pending/complete）と verification（machine/human）を別軸で集計。条件と Outline 展開ケースを区別する。 | `packages/traceability/src/feature-scan.ts`、`stats.ts`、`cli-stats.ts` |
-| S2 | ソースで実装済み・未配布。version 1 の `links[].criteria` を任意の string 配列として検証・保持する。 | `packages/traceability/src/manifest.ts`、`update.ts` |
+| S1（実装済み・未配布） | phase（draft/pending/complete）と verification（machine/human）を別軸で集計。条件と Outline 展開ケースを区別する。 | `packages/traceability/src/feature-scan.ts`、`stats.ts`、`cli-stats.ts` |
+| S2（実装済み・未配布） | version 1 の `links[].criteria` を任意の string 配列として検証・保持する。 | `packages/traceability/src/manifest.ts`、`update.ts` |
 
 S1 は `@draft`→draft、`@red-contract`→pending、状態タグなし→complete。
 verification は `@human`→human、それ以外→machine。complete は静的分類であり GREEN ではない。

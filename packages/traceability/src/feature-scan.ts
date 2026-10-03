@@ -1,74 +1,120 @@
-// A small, locale-aware Gherkin scanner. It is intentionally NOT a full parser:
-// it only needs to enumerate scenarios with their attached tags and whether a
-// reason comment precedes them — enough for the skip-reason lint and the stats
-// census. Supports the keyword sets specproof ships adapters for (English +
-// 日本語).
-
+// 英語・日本語の静的センサス用scanner。runnerの合否やシナリオIDは扱わない。
 export interface ScannedScenario {
-  /** 1-based line number of the scenario keyword. */
+  /** Scenario キーワードの1始まり行番号。 */
   line: number;
-  /** Scenario title (text after the keyword and colon). */
+  /** キーワードとコロンより後のタイトル。 */
   name: string;
-  /** Tags attached to the scenario, e.g. ['@skip', '@admin']. */
+  /** Scenario自身の直前タグ（従来のfixme/skip・理由lint契約）。 */
   tags: string[];
-  /** True when a `#` comment line sits in the scenario's preamble block. */
+  /** Scenario自身のタグの前に理由コメントがある（既存lintの境界）。 */
   hasReasonComment: boolean;
+  /** phase/verificationだけに使う、Feature/Ruleから継承した状態タグ。 */
+  effectiveStateTags?: string[];
+  /** 通常Scenarioは1、Outlineは全Examplesのデータ行数。旧API入力では省略可。 */
+  caseCount?: number;
+  /** 条件全体の状態へ投影できないExamplesタグを検査するための情報。 */
+  exampleTags?: string[][];
 }
 
-// Longer alternatives first so `シナリオアウトライン` wins over `シナリオ` and
-// `Scenario Outline` over `Scenario`. `Examples:` (the data table) is not in the
-// alternation, so it never matches. Known limitation of this line-level scanner:
-// a step whose text starts with `Example:` would be miscounted as a scenario; in
-// practice steps start with Given/When/Then/And/But (前提/もし/ならば/かつ).
 const SCENARIO_RE =
   /^(シナリオアウトライン|シナリオテンプレート|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:(.*)$/;
-
-const isTagLine = (line: string): boolean => line.startsWith('@');
-const isCommentLine = (line: string): boolean => line.startsWith('#');
+const FEATURE_RE = /^(Feature|Business Need|Ability|フィーチャ|機能)\s*:/;
+const RULE_RE = /^(Rule|ルール)\s*:/;
+const BACKGROUND_RE = /^(Background|背景)\s*:/;
+const EXAMPLES_RE = /^(Examples|Scenarios|例|サンプル)\s*:/;
 
 export const parseScenarios = (content: string): ScannedScenario[] => {
-  const lines = content.split('\n');
   const scenarios: ScannedScenario[] = [];
-
-  // Preamble block: the run of contiguous tag/comment lines directly above a
-  // scenario. A blank line (or any other line) breaks it.
   let pendingTags: string[] = [];
+  let pendingStateTags: string[] = [];
   let pendingComment = false;
+  let featureTags: string[] = [];
+  let ruleTags: string[] = [];
+  let current: ScannedScenario | undefined;
+  let outline = false;
+  let examples = false;
+  let tableHeader = false;
+  let docstring: string | undefined;
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const trimmed = lines[index].trim();
+  const clearPreamble = (): void => {
+    pendingTags = [];
+    pendingStateTags = [];
+    pendingComment = false;
+  };
 
+  for (const [index, line] of content.split('\n').entries()) {
+    const trimmed = line.trim();
+    if (docstring !== undefined) {
+      if (trimmed === docstring) docstring = undefined;
+      continue;
+    }
+    const fence = trimmed.match(/^("""|```)/);
+    if (fence) {
+      docstring = fence[1];
+      examples = false;
+      clearPreamble();
+      continue;
+    }
     if (trimmed === '') {
+      // 新しい状態軸はGherkinのタグ継承に従い、旧tags/理由lintの空行境界は維持する。
       pendingTags = [];
       pendingComment = false;
       continue;
     }
-    if (isTagLine(trimmed)) {
-      pendingTags = [
-        ...pendingTags,
-        ...trimmed.split(/\s+/).filter((token) => token.startsWith('@')),
-      ];
+    if (trimmed.startsWith('@')) {
+      const tags = trimmed.split(/\s+/).filter(tag => tag.startsWith('@'));
+      pendingTags.push(...tags);
+      pendingStateTags.push(...tags.filter(tag => ['@draft', '@red-contract', '@human'].includes(tag)));
       continue;
     }
-    if (isCommentLine(trimmed)) {
+    if (trimmed.startsWith('#')) {
       pendingComment = true;
       continue;
     }
-
-    const match = trimmed.match(SCENARIO_RE);
-    if (match) {
-      scenarios.push({
-        line: index + 1,
-        name: match[2].trim(),
-        tags: pendingTags,
-        hasReasonComment: pendingComment,
-      });
+    if (FEATURE_RE.test(trimmed)) {
+      featureTags = pendingStateTags;
+      ruleTags = [];
+      current = undefined;
+      examples = false;
+    } else if (RULE_RE.test(trimmed)) {
+      ruleTags = pendingStateTags;
+      current = undefined;
+      examples = false;
+    } else if (BACKGROUND_RE.test(trimmed)) {
+      current = undefined;
+      examples = false;
+    } else {
+      const match = trimmed.match(SCENARIO_RE);
+      if (match) {
+        outline = /Outline|Template|アウトライン|テンプレート/.test(match[1]);
+        current = {
+          line: index + 1,
+          name: match[2].trim(),
+          tags: pendingTags,
+          effectiveStateTags: [...new Set([...featureTags, ...ruleTags, ...pendingStateTags])],
+          hasReasonComment: pendingComment,
+          caseCount: outline ? 0 : 1,
+          exampleTags: [],
+        };
+        scenarios.push(current);
+        examples = false;
+      } else if (current && EXAMPLES_RE.test(trimmed)) {
+        current.exampleTags!.push(pendingStateTags);
+        examples = outline;
+        tableHeader = true;
+      } else if (examples && /^\|.*\|$/.test(trimmed)) {
+        if (tableHeader) tableHeader = false;
+        else current!.caseCount! += 1;
+      } else if (examples && tableHeader) {
+        // Examples見出しと表の間には説明文を置ける。
+      } else {
+        examples = false;
+      }
     }
-    // Any non-blank, non-tag, non-comment line (the scenario itself, a step,
-    // Feature:, Background:, …) ends the preamble block.
-    pendingTags = [];
-    pendingComment = false;
+    clearPreamble();
   }
-
+  if (docstring !== undefined) {
+    throw new Error('閉じていないdocstringがあります');
+  }
   return scenarios;
 };

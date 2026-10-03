@@ -17,8 +17,8 @@ English | [日本語](./README_ja.md)
 [S1/S2 と未完作業](./docs/roadmap.md)、[Flutter 実行手順](./templates/flutter/README.md)、
 [CLI の現行保証](./packages/traceability/README.md) に直接進める。
 ADR 0008 の ID 台帳は採択済み未実装で、S1/S2 の範囲には含めない。
-S2 の `links[].criteria` 検証・保持はソースに実装済み。配布版の更新は別工程で、
-既存の固定版 0.2.2 にこの保証があるとは扱わない。S1 の統計拡張は未実装。
+S1 の統計拡張と S2 の `links[].criteria` 検証・保持は 0.3.0 候補に実装済み。
+npm 公開は未実施で、既存の固定版 0.2.2 にこの保証があるとは扱わない。
 
 
 When the same AI agent writes your implementation *and* your E2E tests, the

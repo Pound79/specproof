@@ -37,6 +37,27 @@ npx specproof-stats            # scenario census (automated / @fixme / @skip; --
 - **`stats`** produces a scenario census and, with `--strict`, enforces the
   "done" gate (`@fixme` must be 0).
 
+### 静的な phase / verification とケース数
+
+`stats` の各 domain と totals は従来の `total`（条件数）、automated/fixme/skip に加えて、
+`cases`、`phase: { draft, pending, complete }`、`verification: { machine, human }` を返します。
+Outline は条件として1件、ケースは複数 Examples の全データ行を合計します。通常 Scenario は1ケースです。
+
+- phase: `@draft` は draft、`@red-contract` は pending、状態タグなしは complete。
+- verification: `@human` は human、その他は machine。phase と別軸です。
+- phase/verification の状態タグだけを Feature/Rule から継承し、次の Rule には前の Rule の状態を持ち越しません。
+- 継承を含む `@draft` と `@red-contract` の併記、Examples の `@draft` / `@red-contract` /
+  `@human` はエラーです。Examples 行の状態を条件全体へ投影できないためです。
+
+complete は状態タグなしという静的分類です。実行済み GREEN や正式な完了を示しません。
+fixme/skip とその設定値、Scenario自身の理由コメント検査、strict の fixme=0 は従来どおりです。
+旧 `tags` は Scenario 自身の直前タグを返し、fixme/skip の集計・lint 範囲を拡大しません。
+phase/verification は新しい `effectiveStateTags` を使用します。red-contract 単独は fixme 扱いしません。
+表示では従来の `TOTAL: N total / M automated / @fixme F / @skip S` 行を保持し、
+新しい統計を別行で表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring は失敗させます。
+シナリオ ID 台帳は [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
+の採択済み未実装契約で、この統計に追加していません。
+
 ### Structural warnings (`check`)
 
 Alongside drift, `check` reports non-drift structural advisories under

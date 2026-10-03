@@ -82,6 +82,50 @@ describe('config → checkDrift wiring (cli-check path)', () => {
   });
 });
 
+describe('S1 と既存の理由lint境界', () => {
+  it.each([['Feature', '@manual'], ['Rule', '@manual'], ['Feature', '@todo'], ['Rule', '@todo']])('従来の%sの%sはfixme/skip集計とlintを変えない', async (scope, tag) => {
+    const root = await makeRenamedTaxonomyRepo();
+    const prefix = scope === 'Feature' ? '' : 'Feature: 条件\n';
+    await writeFile(path.join(root, 'features/demo.feature'),
+      `${prefix}# 合意済みの理由\n${tag}\n${scope}: 対象範囲\nScenario: 条件\n Given 条件\n`);
+    const config = discoverConfig({ root });
+    const report = await checkDrift(config.manifestPath, config.repoRoot, {
+      featuresDir: config.featuresDir,
+      reasonRequiredTags: [config.fixmeTag, config.skipTag],
+    });
+    expect(report.warnings.filter(w => w.kind === 'missing-skip-reason')).toHaveLength(0);
+    const content = await readFileOrNull(path.join(root, 'features/demo.feature'));
+    const stats = buildStats([{ domain: 'features/demo.feature', scenarios: parseScenarios(content ?? '') }], {
+      fixmeTag: config.fixmeTag, skipTag: config.skipTag,
+    });
+    expect(stats.totals).toMatchObject({ fixme: 0, skip: 0, automated: 1 });
+  });
+
+  it('子で付け直したskipは親の理由で免除しない', async () => {
+    const root = await makeRenamedTaxonomyRepo();
+    await writeFile(path.join(root, 'features/demo.feature'),
+      '# 親の理由\n@manual\nFeature: 条件\n@manual\nScenario: 自身の理由なし\n Given 条件\n');
+    const config = discoverConfig({ root });
+    const report = await checkDrift(config.manifestPath, config.repoRoot, {
+      featuresDir: config.featuresDir,
+      reasonRequiredTags: [config.fixmeTag, config.skipTag],
+    });
+    expect(report.warnings.filter(w => w.kind === 'missing-skip-reason')).toHaveLength(1);
+  });
+
+  it('Featureの一般コメントでScenarioの理由欠落を消さない', async () => {
+    const root = await makeRenamedTaxonomyRepo();
+    await writeFile(path.join(root, 'features/demo.feature'),
+      '# 一般的なFeature説明\nFeature: 条件\n@manual\nScenario: 理由なし\n Given 条件\n');
+    const config = discoverConfig({ root });
+    const report = await checkDrift(config.manifestPath, config.repoRoot, {
+      featuresDir: config.featuresDir,
+      reasonRequiredTags: [config.fixmeTag, config.skipTag],
+    });
+    expect(report.warnings.filter(w => w.kind === 'missing-skip-reason')).toHaveLength(1);
+  });
+});
+
 describe('config → buildStats wiring (cli-stats path)', () => {
   it('counts the custom @todo as fixme so the done gate is not falsely green', async () => {
     const root = await makeRenamedTaxonomyRepo();
