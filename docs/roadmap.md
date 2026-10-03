@@ -1,7 +1,7 @@
 # 現在の実装対象と残件
 
-S1 の統計拡張と S2 の `links[].criteria` 検証・保持は 0.3.0 候補に実装済み。
-npm 公開は未実施で、既存の固定版 0.2.2 にこの保証があるとは扱わない。
+S1/S2 はこの配布候補で実装済み。候補版は 0.3.0 で、npm 公開は未実施。
+公開版とアプリの固定版は 0.2.2 のままで、下流の固定版へ新しい保証を適用しない。
 実行の入口は [AGENTS.md](../AGENTS.md)、CLI の現行保証は
 [traceability README](../packages/traceability/README.md)。静的集計は実行済み GREEN を認定しない。
 
@@ -23,7 +23,8 @@ S2 は省略・空配列を許容し、不正型・空文字・制御文字・�
 全件/単一 link 更新・dry-run で保持する。ID は不透明な非空文字列とし、AC / TC 等の形式を
 固定・正規化しない。consumer 固有の形式は consumer の設定が検査する。
 検証と writer の範囲は [traceability README](../packages/traceability/README.md#manifest-の-criteria) が正本。
-既存 hash/strict の保証は変更しない。S1/S2 は別 PR とし、配布版更新はその後の別工程。
+既存 hash/strict の保証は変更しない。S1/S2 の別 PR を統合した配布候補であり、
+npm 公開とアプリ package/lock の更新は後段の別工程である。
 
 ## 採択済み未実装
 
