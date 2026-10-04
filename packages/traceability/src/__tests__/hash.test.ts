@@ -226,45 +226,36 @@ describe('computeHeadingSectionHash', () => {
     expect(hash).toBe(FILE_MISSING);
   });
 
-  it('does not let a ## line inside a fenced code block end the section early', async () => {
-    const fenced = [
-      '# Title',
-      '',
-      '## 1. First section',
-      '',
-      'first body',
-      '',
-      '```md',
-      '## 2. Second section',
-      '```',
-      '',
-      'still first body',
-      '',
-      '## 2. Second section',
-      '',
-      'second body',
-      '',
+  it.each([
+    {
+      name: 'does not let a ## line inside a fenced code block end the section early',
+      prefix: ['first body', ''], opening: '```md', inner: [], closing: '```',
+      expected: '653525d531fe16e90229137eadd396c78a10f44d53ee8dc1defa9e195dc5f6fc',
+    },
+    {
+      name: 'treats ~~~ inside a ``` block as content, not a fence toggle',
+      prefix: [], opening: '```', inner: ['~~~'], closing: '```',
+      expected: 'ce8836ad430825261939f5e8668e72c787f8581f237f6ccf4e6a69d0245fbc36',
+    },
+    {
+      name: 'treats ``` inside a ~~~ block as content, not a fence toggle',
+      prefix: [], opening: '~~~', inner: ['```'], closing: '~~~',
+      expected: '9ba31dc9465b0e894a82a1d6fe8f274c08330785e0fdfc66a408d1ae424919ef',
+    },
+    {
+      name: 'does not close a 4-backtick fence with a shorter 3-backtick run',
+      prefix: [], opening: '````', inner: ['```'], closing: '````',
+      expected: '096838631288af768d26f01a8d7513d82bcd2eae85b889191883a7ae4febf031',
+    },
+  ])('$name', async ({ prefix, opening, inner, closing, expected }) => {
+    const md = [
+      '# Title', '', '## 1. First section', '', ...prefix,
+      opening, ...inner, '## 2. Second section', closing,
+      '', 'still first body', '', '## 2. Second section', '', 'second body', '',
     ].join('\n');
-    await writeFile(docPath, fenced, 'utf8');
+    await writeFile(docPath, md, 'utf8');
 
-    const expected = sha256(
-      [
-        '## 1. First section',
-        '',
-        'first body',
-        '',
-        '```md',
-        '## 2. Second section',
-        '```',
-        '',
-        'still first body',
-        '',
-      ].join('\n')
-    );
-
-    const hash = await computeHeadingSectionHash(docPath, '1. First section');
-
-    expect(hash).toBe(expected);
+    expect(await computeHeadingSectionHash(docPath, '1. First section')).toBe(expected);
   });
 
   it('does not match a heading that only appears inside a fenced code block', async () => {
@@ -283,123 +274,6 @@ describe('computeHeadingSectionHash', () => {
     const hash = await computeHeadingSectionHash(docPath, '1. First section');
 
     expect(hash).toBe(SECTION_MISSING);
-  });
-
-  it('treats ~~~ inside a ``` block as content, not a fence toggle', async () => {
-    const md = [
-      '# Title',
-      '',
-      '## 1. First section',
-      '',
-      '```',
-      '~~~',
-      '## 2. Second section',
-      '```',
-      '',
-      'still first body',
-      '',
-      '## 2. Second section',
-      '',
-      'second body',
-      '',
-    ].join('\n');
-    await writeFile(docPath, md, 'utf8');
-
-    const expected = sha256(
-      [
-        '## 1. First section',
-        '',
-        '```',
-        '~~~',
-        '## 2. Second section',
-        '```',
-        '',
-        'still first body',
-        '',
-      ].join('\n')
-    );
-
-    const hash = await computeHeadingSectionHash(docPath, '1. First section');
-
-    expect(hash).toBe(expected);
-  });
-
-  it('treats ``` inside a ~~~ block as content, not a fence toggle', async () => {
-    const md = [
-      '# Title',
-      '',
-      '## 1. First section',
-      '',
-      '~~~',
-      '```',
-      '## 2. Second section',
-      '~~~',
-      '',
-      'still first body',
-      '',
-      '## 2. Second section',
-      '',
-      'second body',
-      '',
-    ].join('\n');
-    await writeFile(docPath, md, 'utf8');
-
-    const expected = sha256(
-      [
-        '## 1. First section',
-        '',
-        '~~~',
-        '```',
-        '## 2. Second section',
-        '~~~',
-        '',
-        'still first body',
-        '',
-      ].join('\n')
-    );
-
-    const hash = await computeHeadingSectionHash(docPath, '1. First section');
-
-    expect(hash).toBe(expected);
-  });
-
-  it('does not close a 4-backtick fence with a shorter 3-backtick run', async () => {
-    const md = [
-      '# Title',
-      '',
-      '## 1. First section',
-      '',
-      '````',
-      '```',
-      '## 2. Second section',
-      '````',
-      '',
-      'still first body',
-      '',
-      '## 2. Second section',
-      '',
-      'second body',
-      '',
-    ].join('\n');
-    await writeFile(docPath, md, 'utf8');
-
-    const expected = sha256(
-      [
-        '## 1. First section',
-        '',
-        '````',
-        '```',
-        '## 2. Second section',
-        '````',
-        '',
-        'still first body',
-        '',
-      ].join('\n')
-    );
-
-    const hash = await computeHeadingSectionHash(docPath, '1. First section');
-
-    expect(hash).toBe(expected);
   });
 });
 

@@ -364,6 +364,7 @@ describe('checkDrift', () => {
     expect(report.clean).toBe(false);
     expect(report.driftCount).toBe(1);
     expect(report.driftLinkCount).toBe(1);
+    expect(report.bothSidesChanged).toEqual([]);
     expect(report.entries[0]).toMatchObject({
       linkId: 'login',
       side: 'impl',
@@ -541,18 +542,6 @@ describe('checkDrift', () => {
     const report = await checkDrift(manifestPath, root);
 
     expect(report.bothSidesChanged).toEqual(['login']);
-  });
-
-  it('does not list a link under bothSidesChanged when only one side drifted', async () => {
-    await writeFile(
-      path.join(root, 'src/login.ts'),
-      'export const login = 2;\n',
-      'utf8'
-    );
-
-    const report = await checkDrift(manifestPath, root);
-
-    expect(report.bothSidesChanged).toEqual([]);
   });
 });
 
