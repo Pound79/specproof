@@ -26,6 +26,16 @@ S2 は省略・空配列を許容し、不正型・空文字・制御文字・�
 既存 hash/strict の保証は変更しない。S1/S2 の別 PR を統合した配布候補であり、
 npm 公開とアプリ package/lock の更新は後段の別工程である。
 
+## 配布準備
+
+2026-10-04 の最新 main `fcce629482aa4855bcb947fbc09cc0a50d00b27b` から、
+version・型・全 workspace / script 試験・build・正式 pack・空 consumer の
+lock / npm ci / smoke を検証した。対象 SHA、tarball hash、内容照合と残条件は
+[D0-SP 公開準備](./release-readiness.md) を参照する。
+registry の latest と tag は引き続き `0.2.2` / `v0.2.2`。
+公開・tag 作成・下流アプリ の固定版更新と主 CI 再有効化は未実施であり、
+利用者の具体的な採択前に配布完了とは扱わない。
+
 ## 採択済み未実装
 
 [ADR 0008](./adr/0008-flow-layer-separation.md) の `scenarios` ID 台帳、
