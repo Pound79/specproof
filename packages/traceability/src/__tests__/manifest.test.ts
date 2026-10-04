@@ -178,13 +178,7 @@ links:
     await writeManifest(
       JSON.stringify({
         version: 1,
-        links: Array.from({ length: 10_001 }, (_, index) => ({
-          id: `link-${index}`,
-          label: `Link ${index}`,
-          spec: [],
-          impl: [],
-          features: [],
-        })),
+        links: Array.from({ length: 10_001 }, () => null),
       })
     );
 
@@ -374,12 +368,9 @@ links:
     { reason: '段落区切り', value: ['AC-\u2029001'] },
   ];
 
-  it.each(invalidCriteria)('不正な criteria を load で拒否する: $reason', async ({ value }) => {
+  it.each(invalidCriteria)('不正な criteria を load/save で拒否し既存ファイルを変えない: $reason', async ({ value }) => {
     await writeManifest(JSON.stringify(criteriaManifest(value)));
     await expect(loadManifest(manifestPath)).rejects.toThrow(/links\[0\]\.criteria/);
-  });
-
-  it.each(invalidCriteria)('不正な criteria の save で既存ファイルを変えない: $reason', async ({ value }) => {
     await writeManifest(VALID_MANIFEST);
     await expect(saveManifest(manifestPath, criteriaManifest(value))).rejects.toThrow(/links\[0\]\.criteria/);
     expect(await readFile(manifestPath, 'utf8')).toBe(VALID_MANIFEST);

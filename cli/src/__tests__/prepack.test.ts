@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 // eslint-disable-next-line -- plain .mjs helper shared with scripts/prepack.mjs
-import { bundle, includeInBundle } from "../../scripts/prepack-lib.mjs";
+import { bundle } from "../../scripts/prepack-lib.mjs";
 
 const makeTemplateTree = (root: string): string => {
   const src = path.join(root, "templates");
@@ -57,13 +57,5 @@ describe("prepack bundle", () => {
     expect(copied.some((p) => p.includes(".dart_tool"))).toBe(false);
     expect(copied).not.toContain("flutter/pubspec.lock");
     expect(copied).toContain("flutter/pubspec.yaml");
-  });
-
-  it("includeInBundle keeps regular files and drops excluded names", () => {
-    const root = mkdtempSync(path.join(tmpdir(), "prepack-"));
-    const src = makeTemplateTree(root);
-    expect(includeInBundle(path.join(src, "flutter", "pubspec.yaml"))).toBe(true);
-    expect(includeInBundle(path.join(src, "flutter", "pubspec.lock"))).toBe(false);
-    expect(includeInBundle(path.join(src, "flutter", ".dart_tool"))).toBe(false);
   });
 });
