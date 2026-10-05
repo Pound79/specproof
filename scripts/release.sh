@@ -129,7 +129,7 @@ if [ "$DRY_RUN" = true ]; then
   fi
   [ "$SKIP_CHECKS" = true ] && echo "  - skip local checks" || echo "  - npm ci (if node_modules missing) + npm run typecheck && npm run build && npm test"
   echo "  - snapshot release files (rolled back automatically if the bump fails)"
-  echo "  - npm version $VERSION --workspaces --no-git-tag-version   (bumps cli + packages/* + lockfile)"
+  echo "  - npm version $VERSION --workspaces --no-git-tag-version --allow-same-version   (bumps or verifies cli + packages/* + lockfile)"
   echo "  - bump plugin manifests to $VERSION (.claude-plugin/marketplace.json + plugins/specproof/.claude-plugin/plugin.json)"
   echo "  - bump generated consumer traceability pins to $VERSION"
   echo "  - stamp CHANGELOG [Unreleased] -> [$VERSION] - $RELEASE_DATE (+ update compare links)"
@@ -216,13 +216,26 @@ SNAPSHOT_TAKEN=true
 # --- mutate: bump versions (package.json files + package-lock.json) ----------
 
 echo "==> Bumping all workspaces to $VERSION"
-npm version "$VERSION" --workspaces --no-git-tag-version >/dev/null
+npm version "$VERSION" --workspaces --no-git-tag-version --allow-same-version >/dev/null
 
-if git diff --name-only | grep -q '^package-lock\.json$'; then
-  echo "    package-lock.json updated"
-else
-  die "package-lock.json was not updated by 'npm version' — refusing to release a lockfile that 'npm ci' will reject"
-fi
+# 同版の未公開候補では lock に差分がなくてもよい。差分の存在だけでは
+# 整合性を保証できないため、全 workspace と lock の対象版を直接照合する。
+node - "$VERSION" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const [version] = process.argv.slice(2);
+const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+const files = ["cli/package.json", ...fs.globSync("packages/*/package.json")];
+for (const file of files) {
+  const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+  const locked = lock.packages?.[path.dirname(file)];
+  if (pkg.version !== version || locked?.version !== version) {
+    console.error(`${file}: workspace/lock version mismatch (expected ${version}, package ${pkg.version}, lock ${locked?.version ?? "missing"})`);
+    process.exit(1);
+  }
+  console.log(`    ${file} + package-lock.json: version ${version}`);
+}
+NODE
 
 # --- mutate: bump the Claude Code plugin manifests ---------------------------
 # The plugin's version is read from these manifests, NOT from npm. They live

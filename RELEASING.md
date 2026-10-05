@@ -47,9 +47,10 @@ never leaves a half-bumped tree.)
   before any publish because npm publish can't be undone. Always bump
   `package.json` first — which `scripts/release.sh` does — so the tag you push
   already matches.
-- `npm version --workspaces` updates `package-lock.json` too. A bumped
-  `package.json` with a stale lockfile makes the workflow's `npm ci` fail. The
-  script verifies the lockfile was updated and refuses to continue otherwise.
+- `npm version --workspaces --allow-same-version` は既に対象版へ揃えた未公開候補も
+  受け付ける。同版なら `package-lock.json` の差分がなくてもよいが、全 workspace の
+  `package.json` と対応する lock entry が対象版と一致しなければ commit 前に拒否し、
+  release ファイルを復元する。対象版への更新時にも同じ照合を行う。
 - **The plugin is a separate channel.** `npm version --workspaces` only touches
   npm workspaces, so it cannot bump `.claude-plugin/marketplace.json` or
   `plugins/specproof/.claude-plugin/plugin.json`. `scripts/release.sh` bumps those
@@ -74,6 +75,12 @@ scripts/release.sh <version> [--yes] [--skip-checks] [--allow-empty-changelog] [
 
 The script refuses to run unless you are on `main`, the working tree is clean
 except for `CHANGELOG.md`, and the target tag does not already exist.
+
+差分・commit だけを準備して止める flag はない。`--dry-run` は計画表示のみで、
+公開確認を拒否すると差分を復元する。承諾後は commit → tag → atomic push と進み、
+公開 workflow を起動する。同版候補の受理は公開許可を代替しない。
+CHANGELOG の確定などで source SHA が変わる場合、旧候補の pack 証拠を最終公開 SHA の
+証拠へ流用せず、最終 exact SHA の version・検査・pack・空 consumer を再検証する。
 
 ## After releasing
 
