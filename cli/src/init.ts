@@ -71,7 +71,10 @@ const resolveTemplatesRoot = (): string => {
 // gitignored, so they exist only in working trees where someone ran the
 // template locally). Copying them into a consumer scaffold — or into the
 // published tarball via cli's prepack — would ship stale generated state.
-const SCAFFOLD_EXCLUDED_DIRS = new Set([".dart_tool", "node_modules", ".git"]);
+const SCAFFOLD_EXCLUDED_DIRS = new Set([
+  ".dart_tool", "node_modules", ".git", ".auth", "test-results",
+  "playwright-report", ".features-gen", "build", "coverage",
+]);
 const SCAFFOLD_EXCLUDED_FILES = new Set([
   ".flutter-plugins",
   ".flutter-plugins-dependencies",
@@ -79,9 +82,10 @@ const SCAFFOLD_EXCLUDED_FILES = new Set([
 ]);
 
 export const isScaffoldExcluded = (name: string, isDirectory: boolean): boolean =>
-  isDirectory
+  name === ".env" || name.startsWith(".env.") || name === ".npmrc" ||
+  (isDirectory
     ? SCAFFOLD_EXCLUDED_DIRS.has(name)
-    : SCAFFOLD_EXCLUDED_FILES.has(name);
+    : SCAFFOLD_EXCLUDED_FILES.has(name));
 
 const resolveTargetDir = (repoRoot: string, dir: string): string => {
   const resolved = path.resolve(repoRoot, dir);

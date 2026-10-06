@@ -7,7 +7,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const EXCLUDED_DIRS = new Set([".dart_tool", "node_modules", ".git"]);
+const EXCLUDED_DIRS = new Set([
+  ".dart_tool", "node_modules", ".git", ".auth", "test-results",
+  "playwright-report", ".features-gen", "build", "coverage",
+]);
 const EXCLUDED_FILES = new Set([
   ".flutter-plugins",
   ".flutter-plugins-dependencies",
@@ -16,8 +19,16 @@ const EXCLUDED_FILES = new Set([
 
 export const includeInBundle = (src) => {
   const name = path.basename(src);
-  const isDirectory = fs.statSync(src).isDirectory();
-  return isDirectory ? !EXCLUDED_DIRS.has(name) : !EXCLUDED_FILES.has(name);
+  if (name === ".env" || name.startsWith(".env.") || name === ".npmrc") return false;
+  const entry = fs.lstatSync(src);
+  if (entry.isSymbolicLink()) {
+    throw new Error(`Source tree must not contain a symbolic link: ${src}`);
+  }
+  if (entry.isDirectory()) return !EXCLUDED_DIRS.has(name);
+  if (!entry.isFile()) {
+    throw new Error(`Source tree entry must be a regular file: ${src}`);
+  }
+  return !EXCLUDED_FILES.has(name);
 };
 
 export const bundle = (sources) => {
