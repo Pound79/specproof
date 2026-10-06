@@ -2,6 +2,7 @@ import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { parse } from "yaml";
 import { resolveDefaultManifestPath, resolveRepoRoot } from "./paths.js";
+import { resolveWithinRoot } from "./resolve.js";
 
 export interface TraceabilityConfig {
   /** Absolute path of the repo root. */
@@ -163,8 +164,13 @@ export const discoverConfig = (
     manifestPath = resolveDefaultManifestPath(repoRoot);
   }
 
+  // 明示指定も含め、manifest の読み書きをリポジトリ内に限定する。
+  manifestPath = resolveWithinRoot(repoRoot, manifestPath);
+
   const pagesDir = overrides.pagesDir ?? filePagesDir;
   const featuresDir = overrides.featuresDir ?? fileFeaturesDir;
+  if (pagesDir !== undefined) resolveWithinRoot(repoRoot, pagesDir);
+  if (featuresDir !== undefined) resolveWithinRoot(repoRoot, featuresDir);
   const implGlobs = asStringArray(fileConfig?.layout?.implGlobs);
   const strictUnregisteredImpl = asBoolean(
     fileConfig?.strictUnregisteredImpl,

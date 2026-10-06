@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readdir } from "node:fs/promises";
-import path from "node:path";
+import { resolveWithinRoot } from "./resolve.js";
 import { buildDomainList, formatDomainList } from "./list.js";
 import { loadManifest } from "./manifest.js";
 import { discoverConfig } from "./config.js";
@@ -17,7 +17,7 @@ const main = async (): Promise<void> => {
   // without it the report shows registered domains and an empty candidate list.
   let pageFileNames: string[] = [];
   if (config.pagesDir) {
-    const dirents = await readdir(path.join(config.repoRoot, config.pagesDir), {
+    const dirents = await readdir(resolveWithinRoot(config.repoRoot, config.pagesDir), {
       withFileTypes: true,
     });
     pageFileNames = dirents

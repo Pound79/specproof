@@ -1,5 +1,6 @@
-import { open, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { parse, stringify } from "yaml";
+import { readManifestFile } from "./manifest-io.js";
 
 export interface SpecRef {
   path: string;
@@ -35,7 +36,6 @@ const MAX_HASH_LENGTH = 256;
 const MAX_LINKS = 10_000;
 const MAX_REFS_PER_LINK = 1_000;
 const MAX_TOTAL_REFS = 20_000;
-const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const MAX_ID_LENGTH = 256;
 const MAX_LABEL_LENGTH = 1024;
 
@@ -207,20 +207,7 @@ const assertManifestShape: (
 export const loadManifest = async (
   manifestPath: string,
 ): Promise<TraceabilityManifest> => {
-  const handle = await open(manifestPath, "r");
-  let raw: string;
-  try {
-    const { size } = await handle.stat();
-    if (size > MAX_MANIFEST_BYTES) {
-      throw new Error("Invalid traceability manifest: file exceeds 8 MiB");
-    }
-    raw = await handle.readFile({ encoding: "utf8" });
-  } finally {
-    await handle.close();
-  }
-  if (Buffer.byteLength(raw, "utf8") > MAX_MANIFEST_BYTES) {
-    throw new Error("Invalid traceability manifest: file exceeds 8 MiB");
-  }
+  const raw = await readManifestFile(manifestPath);
   const parsed: unknown = parse(raw);
   assertManifestShape(parsed);
   return parsed;
