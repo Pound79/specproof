@@ -4,7 +4,10 @@
 // package dependency-free (no `minimatch`/`fast-glob`); the templates only
 // ever need patterns like `src/**/*.ts`.
 
-const REGEX_SPECIAL = /[.+^${}()|[\]\\]/;
+const REGEX_SPECIAL = /[.?+^${}()|[\]\\]/;
+
+const normalizeGlob = (pattern: string): string =>
+  pattern.replace(/^(?:\.\/)+/, '');
 
 const escapeChar = (char: string): string =>
   REGEX_SPECIAL.test(char) ? `\\${char}` : char;
@@ -35,7 +38,7 @@ const segmentToRegExpSource = (segment: string): string => {
 // `src/**/*.ts` matches `src/foo.ts` as well as `src/a/b/foo.ts`, and
 // `foo/**` matches everything (at any depth) under `foo/`.
 export const globToRegExp = (pattern: string): RegExp => {
-  const rawSegments = pattern.split('/');
+  const rawSegments = normalizeGlob(pattern).split('/');
   const segments = rawSegments.filter(
     (segment, index) =>
       segment !== '**' || rawSegments[index - 1] !== '**'
@@ -72,11 +75,14 @@ export const globToRegExp = (pattern: string): RegExp => {
 // first segment already contains a wildcard (e.g. `**/*.feature`).
 export const globBaseDir = (pattern: string): string => {
   const literalSegments: string[] = [];
-  for (const segment of pattern.split('/')) {
+  const segments = normalizeGlob(pattern).split('/');
+  for (const segment of segments) {
     if (segment.includes('*')) {
       break;
     }
     literalSegments.push(segment);
   }
+  // 完全リテラルはファイル名までを base とせず、親から探索する。
+  if (literalSegments.length === segments.length) literalSegments.pop();
   return literalSegments.length === 0 ? '.' : literalSegments.join('/');
 };

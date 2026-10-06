@@ -93,12 +93,18 @@ const parseFence = (
   return { char: run[0], len: run.length, bare: match[2].trim() === '' };
 };
 
-// The ATX heading level of a line (the count of leading `#`, 1-6) when it is a
-// heading (a `#`-run followed by a space), else null.
-const headingLevelOf = (line: string): number | null => {
-  const match = line.match(/^(#{1,6}) /);
-  return match === null ? null : match[1].length;
+// CommonMark ATX: 0-3 spaces, 1-6 #, whitespace or EOL, optional closing #.
+const parseHeading = (line: string): { level: number; text: string } | null => {
+  const match = line.match(/^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/);
+  if (!match) return null;
+  return {
+    level: match[1].length,
+    text: (match[2] ?? '').replace(/(?:^|[ \t]+)#+[ \t]*$/, '').trim(),
+  };
 };
+
+const headingLevelOf = (line: string): number | null =>
+  parseHeading(line)?.level ?? null;
 
 // One entry per line for `lines`: true when that line sits inside (or is
 // itself a delimiter of) a CommonMark fenced code block, matched per the same
@@ -142,8 +148,7 @@ const assertValidLevel = (fn: string, level: number): void => {
 export interface Heading {
   /** 1-based line number of the heading line. */
   line: number;
-  /** Heading text: the line (trailing whitespace trimmed) with the leading
-   *  `#`-run and its separating space removed. */
+  /** ATX の前後の空白と任意の閉じ # を除いた見出し本文。 */
   text: string;
 }
 
@@ -163,8 +168,9 @@ export const listHeadings = (content: string, level: number): Heading[] => {
       continue;
     }
     const line = lines[index];
-    if (headingLevelOf(line) === level) {
-      headings.push({ line: index + 1, text: line.trimEnd().slice(level + 1) });
+    const parsed = parseHeading(line);
+    if (parsed?.level === level) {
+      headings.push({ line: index + 1, text: parsed.text });
     }
   }
   return headings;
@@ -205,7 +211,6 @@ export const computeHeadingSectionHash = async (
   }
 
   const lines = content.split('\n');
-  const headingLine = `${'#'.repeat(level)} ${heading}`;
   const fenced = fencedLineMask(lines);
 
   let start = -1;
@@ -217,7 +222,8 @@ export const computeHeadingSectionHash = async (
     const line = lines[index];
 
     if (start === -1) {
-      if (line.trimEnd() === headingLine) {
+      const parsed = parseHeading(line);
+      if (parsed?.level === level && parsed.text === heading) {
         start = index;
       }
     } else {

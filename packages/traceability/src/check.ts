@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { findFeatureFiles } from './feature-files.js';
 import path from 'node:path';
 import {
   computeFileHash,
@@ -215,10 +215,9 @@ const collectFeatureTargets = async (
   if (featuresDir === undefined) {
     return registered;
   }
-  const absFeaturesDir = resolveWithinRoot(repoRoot, featuresDir);
   let entries: string[];
   try {
-    entries = await readdir(absFeaturesDir, { recursive: true });
+    entries = await findFeatureFiles(repoRoot, featuresDir);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT' || code === 'ENOTDIR') {
@@ -227,8 +226,6 @@ const collectFeatureTargets = async (
     throw error;
   }
   const scanned: FeatureTarget[] = entries
-    .filter((entry) => entry.endsWith('.feature'))
-    .map((entry) => path.posix.join(featuresDir, entry.split(path.sep).join('/')))
     .filter((relPath) => !seen.has(relPath))
     .map((relPath) => ({ relPath }));
 

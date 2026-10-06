@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdir } from "node:fs/promises";
+import { findFeatureFiles } from "./feature-files.js";
 import path from "node:path";
 import { parseScenarios } from "./feature-scan.js";
 import { readFileOrNull } from "./hash.js";
@@ -16,14 +16,8 @@ const collectFeaturePaths = async (
 ): Promise<string[]> => {
   const featuresDir = config.featuresDir;
   if (featuresDir) {
-    const absDir = resolveWithinRoot(config.repoRoot, featuresDir);
     try {
-      const entries = await readdir(absDir, { recursive: true });
-      return entries
-        .filter((entry) => entry.endsWith(".feature"))
-        .map((entry) =>
-          path.posix.join(featuresDir, entry.split(path.sep).join("/")),
-        );
+      return await findFeatureFiles(config.repoRoot, featuresDir);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== "ENOENT" && code !== "ENOTDIR") {

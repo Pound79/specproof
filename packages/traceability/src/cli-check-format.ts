@@ -17,8 +17,14 @@ export const describeWarning = (
   failsUnderStrict: boolean,
 ): string => `[${failsUnderStrict ? "warning" : "advisory"}] ${warning.message}`;
 
+// GitHub workflow command の data と property は異なる escape 規則を持つ。
+const escapeData = (value: string): string =>
+  value.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+const escapeProperty = (value: string): string =>
+  escapeData(value).replace(/:/g, "%3A").replace(/,/g, "%2C");
+
 export const toGithubWarningAnnotation = (warning: DriftWarning): string =>
-  `::warning::specproof traceability: ${warning.message}`;
+  `::warning::specproof traceability: ${escapeData(warning.message)}`;
 
 export interface IsCheckFailureOptions {
   /** Opt-in hard enforcement for unregistered-impl under --strict (config
@@ -128,5 +134,5 @@ export const toGithubAnnotation = (entry: DriftEntry): string => {
     `Traceability drift in link "${entry.linkId}" (${entry.side}, ${entry.status})` +
     (entry.heading ? ` at heading "${entry.heading}"` : "") +
     ". Sync the linked feature (specproof-sync) or run: specproof-update";
-  return `::warning file=${entry.path}::${message}`;
+  return `::warning file=${escapeProperty(entry.path)}::${escapeData(message)}`;
 };
