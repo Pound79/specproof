@@ -1,16 +1,6 @@
-// Shared argv parsing + error-exit wrapper for the three traceability CLIs
-// (cli-check / cli-update / cli-list). Each CLI destructures only the fields
-// it needs; unknown tokens fall through to `flags` (e.g. --json, --github-annotations).
+// traceability CLI 共通の引数検証。未知の引数は処理を始める前に拒否する。
+type ValueOptionKey = "manifest" | "root" | "pagesDir" | "candidateSuffix" | "linkId";
 
-type ValueOptionKey =
-  | "manifest"
-  | "root"
-  | "pagesDir"
-  | "candidateSuffix"
-  | "linkId";
-
-// Maps a value-taking flag to the ParsedCliArgs key it populates. Anything not
-// listed here is treated as a boolean flag.
 const VALUE_OPTIONS: Record<string, ValueOptionKey> = {
   "--manifest": "manifest",
   "--root": "root",
@@ -18,9 +8,17 @@ const VALUE_OPTIONS: Record<string, ValueOptionKey> = {
   "--candidate-suffix": "candidateSuffix",
   "--link-id": "linkId",
 };
+const BOOLEAN_OPTIONS = ["--strict", "--json", "--github-annotations", "--dry-run"];
+export type TraceabilityCommand = "check" | "update" | "list" | "stats";
+const COMMAND_OPTIONS: Record<TraceabilityCommand, readonly string[]> = {
+  check: ["--manifest", "--root", "--strict", "--json", "--github-annotations"],
+  update: ["--manifest", "--root", "--link-id", "--dry-run"],
+  list: ["--manifest", "--root", "--pages-dir", "--candidate-suffix", "--json"],
+  stats: ["--manifest", "--root", "--strict", "--json"],
+};
 
 export interface ParsedCliArgs {
-  /** Boolean flags and any unrecognized tokens (e.g. --json). */
+  /** 検証済みの真偽値フラグ。 */
   flags: Set<string>;
   manifest?: string;
   root?: string;
@@ -29,19 +27,25 @@ export interface ParsedCliArgs {
   linkId?: string;
 }
 
-export const parseCliArgs = (argv: string[]): ParsedCliArgs => {
+export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): ParsedCliArgs => {
+  const allowed = new Set(
+    command ? COMMAND_OPTIONS[command] : [...Object.keys(VALUE_OPTIONS), ...BOOLEAN_OPTIONS],
+  );
   const flags = new Set<string>();
   const values: Partial<Record<ValueOptionKey, string>> = {};
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
+    if (!allowed.has(arg)) {
+      throw new Error(`Unknown option or argument: ${arg}`);
+    }
     const key = VALUE_OPTIONS[arg];
     if (key === undefined) {
       flags.add(arg);
       continue;
     }
     const value = argv[i + 1];
-    if (value === undefined) {
+    if (value === undefined || value.length === 0 || value.startsWith("-")) {
       throw new Error(`${arg} requires a value`);
     }
     values[key] = value;

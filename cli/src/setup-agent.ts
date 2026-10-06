@@ -1,14 +1,7 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-} from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  assertSafeRepositoryWrite,
-  walkRegularFilesWithoutSymlinks,
-} from "./path-security.js";
+import { assertSafeRepositoryWrite, walkRegularFilesWithoutSymlinks } from "./path-security.js";
 
 export type SupportedAgent = "codex" | "claude";
 const SUPPORTED_AGENTS: readonly SupportedAgent[] = ["codex", "claude"];
@@ -82,9 +75,7 @@ const setupCodex = (repoRoot: string, force: boolean): string[] => {
   console.log(`specproof setup-agent codex — skills installed to .agents/skills/`);
   for (const w of written) console.log(`  + ${w}`);
   if (skipped.length > 0) {
-    console.log(
-      `\nSkipped ${skipped.length} existing file(s) (use --force to overwrite):`,
-    );
+    console.log(`\nSkipped ${skipped.length} existing file(s) (use --force to overwrite):`);
     for (const s of skipped) console.log(`  = ${s}`);
   }
   console.log(`
@@ -110,9 +101,7 @@ export interface SetupAgentOptions {
 export function runSetupAgent(opts: SetupAgentOptions): void {
   const { agent } = opts;
   if (!agent) {
-    throw new Error(
-      `Usage: specproof setup-agent <${SUPPORTED_AGENTS.join("|")}> [--force]`,
-    );
+    throw new Error(`Usage: specproof setup-agent <${SUPPORTED_AGENTS.join("|")}> [--force]`);
   }
   if (!SUPPORTED_AGENTS.includes(agent as SupportedAgent)) {
     throw new Error(

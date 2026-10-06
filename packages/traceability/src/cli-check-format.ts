@@ -1,9 +1,7 @@
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
 
 export const describeEntry = (entry: DriftEntry): string => {
-  const location = entry.heading
-    ? `${entry.path} § ${entry.heading}`
-    : entry.path;
+  const location = entry.heading ? `${entry.path} § ${entry.heading}` : entry.path;
   return `[${entry.side}] ${location} — ${entry.status}`;
 };
 
@@ -12,13 +10,17 @@ export const describeEntry = (entry: DriftEntry): string => {
 // actually passed --strict. It lets callers distinguish hard warnings from
 // advisory ones (unregistered-impl / unregistered-spec-heading without their
 // opt-in flags) even in a plain, non-strict run.
-export const describeWarning = (
-  warning: DriftWarning,
-  failsUnderStrict: boolean,
-): string => `[${failsUnderStrict ? "warning" : "advisory"}] ${warning.message}`;
+export const describeWarning = (warning: DriftWarning, failsUnderStrict: boolean): string =>
+  `[${failsUnderStrict ? "warning" : "advisory"}] ${warning.message}`;
+
+// GitHub workflow command の data と property は異なる escape 規則を持つ。
+const escapeData = (value: string): string =>
+  value.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+const escapeProperty = (value: string): string =>
+  escapeData(value).replace(/:/g, "%3A").replace(/,/g, "%2C");
 
 export const toGithubWarningAnnotation = (warning: DriftWarning): string =>
-  `::warning::specproof traceability: ${warning.message}`;
+  `::warning::specproof traceability: ${escapeData(warning.message)}`;
 
 export interface IsCheckFailureOptions {
   /** Opt-in hard enforcement for unregistered-impl under --strict (config
@@ -72,9 +74,7 @@ export const isCheckFailure = (
   if (!strict) {
     return false;
   }
-  return report.warnings.some((warning) =>
-    warningFailsUnderStrict(warning.kind, options),
-  );
+  return report.warnings.some((warning) => warningFailsUnderStrict(warning.kind, options));
 };
 
 export interface WarningWithStrictInfo extends DriftWarning {
@@ -105,20 +105,15 @@ export interface DisplayWarnings {
 
 const UNREGISTERED_IMPL_DISPLAY_LIMIT = 20;
 
-export const selectWarningsForDisplay = (
-  warnings: DriftWarning[],
-): DisplayWarnings => {
-  const implWarnings = warnings.filter(
-    (warning) => warning.kind === 'unregistered-impl',
-  );
+export const selectWarningsForDisplay = (warnings: DriftWarning[]): DisplayWarnings => {
+  const implWarnings = warnings.filter((warning) => warning.kind === "unregistered-impl");
   if (implWarnings.length <= UNREGISTERED_IMPL_DISPLAY_LIMIT) {
     return { shown: warnings, hiddenCount: 0 };
   }
   const hiddenCount = implWarnings.length - UNREGISTERED_IMPL_DISPLAY_LIMIT;
   const truncatedImpl = implWarnings.slice(0, UNREGISTERED_IMPL_DISPLAY_LIMIT);
   const shown = warnings.filter(
-    (warning) =>
-      warning.kind !== 'unregistered-impl' || truncatedImpl.includes(warning),
+    (warning) => warning.kind !== "unregistered-impl" || truncatedImpl.includes(warning),
   );
   return { shown, hiddenCount };
 };
@@ -128,5 +123,5 @@ export const toGithubAnnotation = (entry: DriftEntry): string => {
     `Traceability drift in link "${entry.linkId}" (${entry.side}, ${entry.status})` +
     (entry.heading ? ` at heading "${entry.heading}"` : "") +
     ". Sync the linked feature (specproof-sync) or run: specproof-update";
-  return `::warning file=${entry.path}::${message}`;
+  return `::warning file=${escapeProperty(entry.path)}::${escapeData(message)}`;
 };

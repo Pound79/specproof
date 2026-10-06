@@ -32,7 +32,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prepack": "node scripts/prepack.mjs",
-    "postpack": "node -e \"const fs=require('node:fs');fs.rmSync('templates',{recursive:true,force:true});fs.rmSync('skills',{recursive:true,force:true})\""
+    "postpack": "node -e \"const fs=require('node:fs');fs.rmSync('templates',{recursive:true,force:true});fs.rmSync('skills',{recursive:true,force:true})\"",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

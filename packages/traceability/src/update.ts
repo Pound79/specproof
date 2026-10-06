@@ -3,7 +3,7 @@ import {
   computeHeadingSectionHash,
   FILE_MISSING,
   SECTION_MISSING,
-} from './hash.js';
+} from "./hash.js";
 import {
   loadManifest,
   saveManifest,
@@ -11,10 +11,10 @@ import {
   type SpecRef,
   type TraceabilityLink,
   type TraceabilityManifest,
-} from './manifest.js';
-import { resolveWithinRoot } from './resolve.js';
-import type { DriftSide } from './check.js';
-import { createTaskLimiter, type RunTaskLimited } from './concurrency.js';
+} from "./manifest.js";
+import { resolveWithinRoot } from "./resolve.js";
+import type { DriftSide } from "./check.js";
+import { createTaskLimiter, type RunTaskLimited } from "./concurrency.js";
 
 const MAX_CONCURRENT_FILE_READS = 32;
 
@@ -36,19 +36,15 @@ const refreshSpecRef = async (
   ref: SpecRef,
   linkId: string,
   repoRoot: string,
-  runLimited: RunTaskLimited
+  runLimited: RunTaskLimited,
 ): Promise<RefreshResult<SpecRef>> => {
   const hash = await runLimited(() =>
-    computeHeadingSectionHash(
-      resolveWithinRoot(repoRoot, ref.path),
-      ref.heading,
-      ref.headingLevel
-    )
+    computeHeadingSectionHash(resolveWithinRoot(repoRoot, ref.path), ref.heading, ref.headingLevel),
   );
   if (hash === FILE_MISSING || hash === SECTION_MISSING) {
     throw new Error(
       `Cannot update link "${linkId}": ${hash} for ${ref.path} (heading: ${ref.heading}). ` +
-        'Fix the manifest entry instead of blessing a missing reference.'
+        "Fix the manifest entry instead of blessing a missing reference.",
     );
   }
   if (hash === ref.hash) {
@@ -58,7 +54,7 @@ const refreshSpecRef = async (
     ref: { ...ref, hash },
     change: {
       linkId,
-      side: 'spec',
+      side: "spec",
       path: ref.path,
       heading: ref.heading,
       oldHash: ref.hash,
@@ -71,16 +67,14 @@ const refreshFileRef = async (
   ref: FileRef,
   linkId: string,
   repoRoot: string,
-  side: Extract<DriftSide, 'impl' | 'feature'>,
-  runLimited: RunTaskLimited
+  side: Extract<DriftSide, "impl" | "feature">,
+  runLimited: RunTaskLimited,
 ): Promise<RefreshResult<FileRef>> => {
-  const hash = await runLimited(() =>
-    computeFileHash(resolveWithinRoot(repoRoot, ref.path))
-  );
+  const hash = await runLimited(() => computeFileHash(resolveWithinRoot(repoRoot, ref.path)));
   if (hash === FILE_MISSING) {
     throw new Error(
       `Cannot update link "${linkId}": file missing: ${ref.path}. ` +
-        'Fix the manifest entry instead of blessing a missing reference.'
+        "Fix the manifest entry instead of blessing a missing reference.",
     );
   }
   if (hash === ref.hash) {
@@ -92,26 +86,21 @@ const refreshFileRef = async (
   };
 };
 
-const isChange = (change: UpdateChange | null): change is UpdateChange =>
-  change !== null;
+const isChange = (change: UpdateChange | null): change is UpdateChange => change !== null;
 
 const refreshLink = async (
   link: TraceabilityLink,
   repoRoot: string,
-  runLimited: RunTaskLimited
+  runLimited: RunTaskLimited,
 ): Promise<{ link: TraceabilityLink; changes: UpdateChange[] }> => {
   const specResults = await Promise.all(
-    link.spec.map((ref) => refreshSpecRef(ref, link.id, repoRoot, runLimited))
+    link.spec.map((ref) => refreshSpecRef(ref, link.id, repoRoot, runLimited)),
   );
   const implResults = await Promise.all(
-    link.impl.map((ref) =>
-      refreshFileRef(ref, link.id, repoRoot, 'impl', runLimited)
-    )
+    link.impl.map((ref) => refreshFileRef(ref, link.id, repoRoot, "impl", runLimited)),
   );
   const featureResults = await Promise.all(
-    link.features.map((ref) =>
-      refreshFileRef(ref, link.id, repoRoot, 'feature', runLimited)
-    )
+    link.features.map((ref) => refreshFileRef(ref, link.id, repoRoot, "feature", runLimited)),
   );
 
   return {
@@ -131,9 +120,8 @@ const refreshLink = async (
 
 export interface UpdateOptions {
   /** When set, only the link with this id is re-hashed; every other link's
-   *  stored hashes are left untouched. The manifest file itself is still fully
-   *  rewritten by saveManifest — this only confines hash *churn* to one link,
-   *  so concurrent feature branches don't conflict on each other's hashes. */
+   *  stored hashes are left untouched. Only changed hash scalars are replaced;
+   *  comments and unrelated text are preserved. A no-op never writes the file. */
   linkId?: string;
   /** Compute (and return) the same changes as a normal run, but never write
    *  the manifest file. Sentinel rejection (FILE_MISSING / SECTION_MISSING)
@@ -151,32 +139,28 @@ export interface UpdateResult extends TraceabilityManifest {
 export const updateManifestHashes = async (
   manifestPath: string,
   repoRoot: string,
-  options: UpdateOptions = {}
+  options: UpdateOptions = {},
 ): Promise<UpdateResult> => {
   const manifest = await loadManifest(manifestPath);
   const runLimited = createTaskLimiter(MAX_CONCURRENT_FILE_READS);
   const { linkId, dryRun = false } = options;
-  if (
-    linkId !== undefined &&
-    !manifest.links.some((link) => link.id === linkId)
-  ) {
-    throw new Error(
-      `Cannot update: no link with id "${linkId}" in the manifest.`
-    );
+  if (linkId !== undefined && !manifest.links.some((link) => link.id === linkId)) {
+    throw new Error(`Cannot update: no link with id "${linkId}" in the manifest.`);
   }
   const results = await Promise.all(
     manifest.links.map((link) =>
       linkId === undefined || link.id === linkId
         ? refreshLink(link, repoRoot, runLimited)
-        : Promise.resolve({ link, changes: [] as UpdateChange[] })
-    )
+        : Promise.resolve({ link, changes: [] as UpdateChange[] }),
+    ),
   );
   const updated: TraceabilityManifest = {
     ...manifest,
     links: results.map((result) => result.link),
   };
-  if (!dryRun) {
-    await saveManifest(manifestPath, updated);
+  const changes = results.flatMap((result) => result.changes);
+  if (!dryRun && changes.length > 0) {
+    await saveManifest(manifestPath, updated, manifest);
   }
-  return { ...updated, changes: results.flatMap((result) => result.changes) };
+  return { ...updated, changes };
 };

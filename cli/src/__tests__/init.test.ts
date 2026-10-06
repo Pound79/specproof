@@ -1,13 +1,5 @@
 import { existsSync } from "node:fs";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -36,9 +28,9 @@ describe("runInit", () => {
   });
 
   it("rejects target directories outside the current repo", async () => {
-    await expect(
-      runInit({ adapter: "playwright", dir: "../outside" }),
-    ).rejects.toThrow(/--dir must stay within the current repo/);
+    await expect(runInit({ adapter: "playwright", dir: "../outside" })).rejects.toThrow(
+      /--dir must stay within the current repo/,
+    );
   });
 
   it("rejects absolute target directories outside the current repo", async () => {
@@ -54,9 +46,7 @@ describe("runInit", () => {
     await mkdir(outside);
     await symlink(outside, path.join(repo, "packages", "e2e"));
 
-    await expect(runInit({ adapter: "playwright" })).rejects.toThrow(
-      /symbolic link|symlink/i,
-    );
+    await expect(runInit({ adapter: "playwright" })).rejects.toThrow(/symbolic link|symlink/i);
     expect(await readdir(outside)).toEqual([]);
   });
 });
@@ -219,10 +209,7 @@ describe("scaffoldTemplate", () => {
     expect(result.written).toContain("specproof.config.yaml");
     expect(result.written).toContain(path.join("e2e", "features", "example.feature"));
 
-    const configText = await readFile(
-      path.join(repoRoot, "specproof.config.yaml"),
-      "utf-8",
-    );
+    const configText = await readFile(path.join(repoRoot, "specproof.config.yaml"), "utf-8");
     expect(configText).toContain('e2eRoot: "e2e"');
     expect(configText).toContain('featuresDir: "e2e/features"');
     expect(configText).toContain('loginPage: "e2e/src/pages/LoginPage.ts"');
@@ -230,10 +217,7 @@ describe("scaffoldTemplate", () => {
   });
 
   it("does not rewrite specproof.config.yaml when e2eDir matches the template default", async () => {
-    await writeTplFile(
-      "specproof.config.yaml",
-      'layout:\n  e2eRoot: "packages/e2e"\n',
-    );
+    await writeTplFile("specproof.config.yaml", 'layout:\n  e2eRoot: "packages/e2e"\n');
 
     const e2eDir = path.join(repoRoot, "packages", "e2e");
     const result = scaffoldTemplate({
@@ -245,10 +229,7 @@ describe("scaffoldTemplate", () => {
     });
 
     expect(result.layoutRewritten).toBe(false);
-    const configText = await readFile(
-      path.join(repoRoot, "specproof.config.yaml"),
-      "utf-8",
-    );
+    const configText = await readFile(path.join(repoRoot, "specproof.config.yaml"), "utf-8");
     expect(configText).toContain('e2eRoot: "packages/e2e"');
   });
 
@@ -266,9 +247,9 @@ describe("scaffoldTemplate", () => {
 
     const expectedRel = path.join(".github", "workflows", "specproof-drift-check.yml");
     expect(result.written).toContain(expectedRel);
-    expect(existsSync(path.join(repoRoot, ".github", "workflows", "specproof-drift-check.yml"))).toBe(
-      true,
-    );
+    expect(
+      existsSync(path.join(repoRoot, ".github", "workflows", "specproof-drift-check.yml")),
+    ).toBe(true);
     expect(existsSync(path.join(e2eDir, "github-workflows"))).toBe(false);
   });
 

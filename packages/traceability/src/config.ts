@@ -2,6 +2,7 @@ import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { parse } from "yaml";
 import { resolveDefaultManifestPath, resolveRepoRoot } from "./paths.js";
+import { resolveWithinRoot } from "./resolve.js";
 
 export interface TraceabilityConfig {
   /** Absolute path of the repo root. */
@@ -104,9 +105,7 @@ const readConfigFile = (repoRoot: string): PartialConfigFile | null => {
   for (const name of LEGACY_CONFIG_FILENAMES) {
     const file = path.join(repoRoot, name);
     if (existsSync(file)) {
-      process.stderr.write(
-        `${name} is deprecated; rename it to specproof.config.yaml\n`,
-      );
+      process.stderr.write(`${name} is deprecated; rename it to specproof.config.yaml\n`);
       return parseConfigFile(file);
     }
   }
@@ -128,8 +127,7 @@ const asBoolean = (value: unknown, fallback: boolean): boolean =>
 // "@"-prefixed tokens. A config value missing the "@" (e.g. "todo") would
 // silently never match a scanned tag and re-introduce the very false-green this
 // config plumbing fixes — so normalize it to the canonical "@todo" form here.
-const normalizeTag = (raw: string): string =>
-  raw.startsWith("@") ? raw : `@${raw}`;
+const normalizeTag = (raw: string): string => (raw.startsWith("@") ? raw : `@${raw}`);
 
 /**
  * Discovers the effective traceability config. Resolution order:
@@ -140,9 +138,7 @@ const normalizeTag = (raw: string): string =>
  *
  * Synchronous because `resolveRepoRoot` may shell out to `git rev-parse`.
  */
-export const discoverConfig = (
-  overrides: DiscoverConfigOverrides = {},
-): TraceabilityConfig => {
+export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): TraceabilityConfig => {
   const repoRoot = overrides.root
     ? path.resolve(overrides.root)
     : resolveRepoRoot(overrides.startDir);
@@ -163,23 +159,21 @@ export const discoverConfig = (
     manifestPath = resolveDefaultManifestPath(repoRoot);
   }
 
+  // 明示指定も含め、manifest の読み書きをリポジトリ内に限定する。
+  manifestPath = resolveWithinRoot(repoRoot, manifestPath);
+
   const pagesDir = overrides.pagesDir ?? filePagesDir;
   const featuresDir = overrides.featuresDir ?? fileFeaturesDir;
+  if (pagesDir !== undefined) resolveWithinRoot(repoRoot, pagesDir);
+  if (featuresDir !== undefined) resolveWithinRoot(repoRoot, featuresDir);
   const implGlobs = asStringArray(fileConfig?.layout?.implGlobs);
-  const strictUnregisteredImpl = asBoolean(
-    fileConfig?.strictUnregisteredImpl,
-    false,
-  );
+  const strictUnregisteredImpl = asBoolean(fileConfig?.strictUnregisteredImpl, false);
   const strictUnregisteredSpecHeadings = asBoolean(
     fileConfig?.strictUnregisteredSpecHeadings,
     false,
   );
-  const fixmeTag = normalizeTag(
-    asString(fileConfig?.tags?.fixme) ?? DEFAULT_FIXME_TAG,
-  );
-  const skipTag = normalizeTag(
-    asString(fileConfig?.tags?.skip) ?? DEFAULT_SKIP_TAG,
-  );
+  const fixmeTag = normalizeTag(asString(fileConfig?.tags?.fixme) ?? DEFAULT_FIXME_TAG);
+  const skipTag = normalizeTag(asString(fileConfig?.tags?.skip) ?? DEFAULT_SKIP_TAG);
   // Identical tags collapse the skip bucket into fixme (skip always 0) and
   // silently distort the done gate. Fail loudly rather than mis-report.
   if (fixmeTag === skipTag) {

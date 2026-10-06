@@ -372,11 +372,7 @@ describe("detectAdapter", () => {
         packageJson: {
           dependencies: { react: "^18.0.0" },
         },
-        envExampleKeys: [
-          "E2E_BASE_URL_LOCAL",
-          "E2E_BASE_URL_DEV",
-          "E2E_USERNAME",
-        ],
+        envExampleKeys: ["E2E_BASE_URL_LOCAL", "E2E_BASE_URL_DEV", "E2E_USERNAME"],
       };
       const result = detectAdapter(snapshot);
       const names = result.hints.environments.map((e) => e.name);

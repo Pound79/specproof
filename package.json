@@ -23,6 +23,14 @@
     "test": "npm run test --workspaces --if-present && node --test \"scripts/**/*.test.?(c|m)js\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check:versions": "node scripts/check-versions.mjs",
-    "release": "bash scripts/release.sh"
+    "release": "bash scripts/release.sh",
+    "lint": "biome lint cli/src packages/traceability/src",
+    "format": "biome format --write cli/src packages/traceability/src",
+    "format:check": "biome format cli/src packages/traceability/src",
+    "test:coverage": "npm run test:coverage --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@vitest/coverage-v8": "5.0.2"
   }
 }

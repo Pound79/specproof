@@ -61,3 +61,11 @@ run 結果・正式 GREEN・時系列・進捗 UI は別ツールの責務とい
 [旧ロードマップ](./history/2026-07-06-roadmap.md) と
 [旧改善バックログ](./history/2026-07-06-improvement-backlog.md) に保存した。
 過去の Done や試験数を、現在の実装・実運用の証拠には使わない。
+
+## 公開前の consumer 検証
+
+同版の未公開候補は registry の `npx` では解決できない。`npm test` の
+`scaffold-traceability.test.mjs` はローカルの同版 tarball に package spec だけを置換し、
+両 adapter の root/既定/custom 配置で4つの生成済み traceability コマンドを実行する。
+これは npm 公開の代わりではなく、公開前検証である。registry からの利用開始には
+別途承認されたリリースが必要で、修正PRから公開処理は行わない。

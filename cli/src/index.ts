@@ -40,16 +40,12 @@ Options (setup-agent):
 const parseAgentType = (value: string | boolean | undefined): AgentType | undefined => {
   if (value === undefined) return undefined;
   if (value === true) {
-    throw new Error(
-      `--agent requires a value. Supported: ${VALID_AGENT_FLAGS.join(", ")}`,
-    );
+    throw new Error(`--agent requires a value. Supported: ${VALID_AGENT_FLAGS.join(", ")}`);
   }
-  if (VALID_AGENT_FLAGS.includes(value as typeof VALID_AGENT_FLAGS[number])) {
+  if (VALID_AGENT_FLAGS.includes(value as (typeof VALID_AGENT_FLAGS)[number])) {
     return value as AgentType;
   }
-  throw new Error(
-    `Unknown --agent value "${value}". Supported: ${VALID_AGENT_FLAGS.join(", ")}`,
-  );
+  throw new Error(`Unknown --agent value "${value}". Supported: ${VALID_AGENT_FLAGS.join(", ")}`);
 };
 
 const main = async (): Promise<void> => {
@@ -58,7 +54,7 @@ const main = async (): Promise<void> => {
     return;
   }
   if (command === "init") {
-    const flags = parseFlags(argv.slice(1));
+    const flags = parseFlags(argv.slice(1), command);
     await runInit({
       adapter: typeof flags.adapter === "string" ? flags.adapter : undefined,
       dir: typeof flags.dir === "string" ? flags.dir : undefined,
@@ -68,13 +64,13 @@ const main = async (): Promise<void> => {
     return;
   }
   if (command === "detect") {
-    const flags = parseFlags(argv.slice(1));
+    const flags = parseFlags(argv.slice(1), command);
     await runDetect({ json: flags.json === true });
     return;
   }
   if (command === "setup-agent") {
     const agentArg = argv[1];
-    const flags = parseFlags(argv.slice(2));
+    const flags = parseFlags(argv.slice(2), command);
     runSetupAgent({
       agent: agentArg,
       force: flags.force === true,
@@ -86,9 +82,6 @@ const main = async (): Promise<void> => {
 };
 
 main().catch((error: unknown) => {
-  console.error(
-    "specproof failed:",
-    error instanceof Error ? error.message : error,
-  );
+  console.error("specproof failed:", error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });

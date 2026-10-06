@@ -10,10 +10,7 @@ const makeTemplateTree = (root: string): string => {
   mkdirSync(path.join(src, "flutter", ".dart_tool"), { recursive: true });
   mkdirSync(path.join(src, "flutter", "steps"), { recursive: true });
   writeFileSync(path.join(src, "flutter", ".dart_tool", "version"), "stale");
-  writeFileSync(
-    path.join(src, "flutter", ".flutter-plugins-dependencies"),
-    "stale",
-  );
+  writeFileSync(path.join(src, "flutter", ".flutter-plugins-dependencies"), "stale");
   writeFileSync(path.join(src, "flutter", "pubspec.lock"), "stale");
   writeFileSync(path.join(src, "flutter", "pubspec.yaml"), "name: t");
   writeFileSync(path.join(src, "flutter", "steps", "a_steps.dart"), "ok");
@@ -21,9 +18,7 @@ const makeTemplateTree = (root: string): string => {
 };
 
 const listRecursive = (dir: string): string[] =>
-  (readdirSync(dir, { recursive: true }) as string[]).map((p) =>
-    p.split(path.sep).join("/"),
-  );
+  (readdirSync(dir, { recursive: true }) as string[]).map((p) => p.split(path.sep).join("/"));
 
 describe("prepack bundle", () => {
   it("excludes gitignored build leftovers from the bundled copy", () => {

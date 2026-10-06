@@ -1,17 +1,8 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { collectSnapshot, detectAdapter } from "./detect.js";
-import {
-  assertSafeRepositoryWrite,
-  walkRegularFilesWithoutSymlinks,
-} from "./path-security.js";
+import { collectSnapshot, detectAdapter, selectAdapterCandidate } from "./detect.js";
+import { assertSafeRepositoryWrite, walkRegularFilesWithoutSymlinks } from "./path-security.js";
 
 export type AgentType = "claude" | "codex" | "all";
 
@@ -40,10 +31,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
  * only happen in a monorepo checkout with a stale `prepack` leftover, and
  * in that case the monorepo source is always the authoritative, current one.
  */
-export const pickTemplatesRoot = (
-  bundled: string,
-  monorepo: string,
-): string | undefined => {
+export const pickTemplatesRoot = (bundled: string, monorepo: string): string | undefined => {
   if (existsSync(monorepo)) return monorepo;
   if (existsSync(bundled)) return bundled;
   return undefined;
@@ -71,7 +59,17 @@ const resolveTemplatesRoot = (): string => {
 // gitignored, so they exist only in working trees where someone ran the
 // template locally). Copying them into a consumer scaffold — or into the
 // published tarball via cli's prepack — would ship stale generated state.
-const SCAFFOLD_EXCLUDED_DIRS = new Set([".dart_tool", "node_modules", ".git"]);
+const SCAFFOLD_EXCLUDED_DIRS = new Set([
+  ".dart_tool",
+  "node_modules",
+  ".git",
+  ".auth",
+  "test-results",
+  "playwright-report",
+  ".features-gen",
+  "build",
+  "coverage",
+]);
 const SCAFFOLD_EXCLUDED_FILES = new Set([
   ".flutter-plugins",
   ".flutter-plugins-dependencies",
@@ -79,16 +77,17 @@ const SCAFFOLD_EXCLUDED_FILES = new Set([
 ]);
 
 export const isScaffoldExcluded = (name: string, isDirectory: boolean): boolean =>
-  isDirectory
-    ? SCAFFOLD_EXCLUDED_DIRS.has(name)
-    : SCAFFOLD_EXCLUDED_FILES.has(name);
+  name === ".env" ||
+  name.startsWith(".env.") ||
+  name === ".npmrc" ||
+  (isDirectory ? SCAFFOLD_EXCLUDED_DIRS.has(name) : SCAFFOLD_EXCLUDED_FILES.has(name));
 
 const resolveTargetDir = (repoRoot: string, dir: string): string => {
   const resolved = path.resolve(repoRoot, dir);
   const relative = path.relative(repoRoot, resolved);
   if (
     relative === "" ||
-    (!relative.startsWith("..") && !path.isAbsolute(relative))
+    (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
   ) {
     assertSafeRepositoryWrite(repoRoot, resolved);
     return resolved;
@@ -99,49 +98,24 @@ const resolveTargetDir = (repoRoot: string, dir: string): string => {
 export async function resolveAutoAdapter(
   repoRoot: string,
 ): Promise<{ adapter: string; dir: string }> {
-  const snapshot = await collectSnapshot(repoRoot);
-  const result = detectAdapter(snapshot);
-
-  const highCandidates = result.candidates.filter(
-    (c) => c.confidence === "high",
-  );
-  if (highCandidates.length === 1) {
-    const picked = highCandidates[0];
+  const result = detectAdapter(await collectSnapshot(repoRoot));
+  const picked = selectAdapterCandidate(result);
+  if (picked) {
     console.log(
-      `Auto-detected adapter: ${picked.adapter} (${picked.signals.join(", ")})`,
+      `Auto-detected adapter: ${picked.adapter} (${picked.confidence} confidence — signals: ${picked.signals.join(", ")}). Re-run with --adapter to override.`,
     );
     return { adapter: picked.adapter, dir: picked.dir };
   }
-
   if (result.candidates.length === 0) {
     throw new Error(
-      "Could not detect a framework. No pubspec.yaml (Flutter) or package.json found.\n" +
+      "Could not detect a supported framework from the repository files.\n" +
         "Specify an adapter explicitly: specproof init --adapter <playwright|flutter>",
     );
   }
-
-  // No single high-confidence winner. A lone medium-confidence candidate
-  // (e.g. a plain React app with no BDD deps yet) is still an unambiguous
-  // pick — only low-confidence-only or genuinely competing candidates fall
-  // through to the Ambiguous error below.
-  if (highCandidates.length === 0) {
-    const mediumCandidates = result.candidates.filter(
-      (c) => c.confidence === "medium",
-    );
-    if (mediumCandidates.length === 1) {
-      const picked = mediumCandidates[0];
-      console.log(
-        `Auto-detected adapter: ${picked.adapter} (medium confidence — signals: ${picked.signals.join(", ")}). ` +
-          "Re-run with --adapter to override.",
-      );
-      return { adapter: picked.adapter, dir: picked.dir };
-    }
-  }
-
   const summary = result.candidates
     .map(
-      (c) =>
-        `  - ${c.adapter} (${c.confidence}): ${c.signals.join(", ")}`,
+      (candidate) =>
+        `  - ${candidate.adapter} (${candidate.confidence}): ${candidate.signals.join(", ")}`,
     )
     .join("\n");
   throw new Error(
@@ -187,6 +161,7 @@ export interface ScaffoldResult {
 const DOTFILE_RESTORE: Record<string, string> = {
   gitignore: ".gitignore",
   "env.example": ".env.example",
+  "biome.template.json": "biome.json",
 };
 
 /**
@@ -207,7 +182,8 @@ export function scaffoldTemplate(params: {
   force: boolean;
 }): ScaffoldResult {
   const { tplDir, repoRoot, e2eDir, templateDefaultDir, force } = params;
-  const e2eRelPosix = path.relative(repoRoot, e2eDir).split(path.sep).join("/");
+  // リポジトリ直下は空文字ではなく「.」で表し、絶対パス化を防ぐ。
+  const e2eRelPosix = path.relative(repoRoot, e2eDir).split(path.sep).join("/") || ".";
 
   const written: string[] = [];
   const skipped: string[] = [];
@@ -225,9 +201,7 @@ export function scaffoldTemplate(params: {
     //                    consumer still gets ".env.example".
     const base = path.basename(rel);
     const restoredDotfile = DOTFILE_RESTORE[base];
-    const mappedRel = restoredDotfile
-      ? path.join(path.dirname(rel), restoredDotfile)
-      : rel;
+    const mappedRel = restoredDotfile ? path.join(path.dirname(rel), restoredDotfile) : rel;
 
     const relParts = mappedRel.split(path.sep);
     const isWorkflow = relParts[0] === "github-workflows";
@@ -246,9 +220,7 @@ export function scaffoldTemplate(params: {
     // Workflow files never overwrite an existing consumer CI file, even with
     // --force; everything else follows the usual --force semantics.
     if (existsSync(dest) && (isWorkflow || !force)) {
-      (isWorkflow ? skippedWorkflows : skipped).push(
-        path.relative(repoRoot, dest),
-      );
+      (isWorkflow ? skippedWorkflows : skipped).push(path.relative(repoRoot, dest));
       continue;
     }
 
@@ -257,11 +229,24 @@ export function scaffoldTemplate(params: {
     if (isConfig) {
       const raw = readFileSync(path.join(tplDir, rel), "utf-8");
       const content =
-        e2eRelPosix !== templateDefaultDir
-          ? raw.split(templateDefaultDir).join(e2eRelPosix)
-          : raw;
+        e2eRelPosix !== templateDefaultDir ? raw.split(templateDefaultDir).join(e2eRelPosix) : raw;
       if (content !== raw) layoutRewritten = true;
       writeFileSync(dest, content);
+    } else if (base === "biome.template.json") {
+      const config = JSON.parse(readFileSync(path.join(tplDir, rel), "utf8"));
+      let parent = path.resolve(e2eDir);
+      const root = path.resolve(repoRoot);
+      while (parent !== root && path.dirname(parent) !== parent) {
+        parent = path.dirname(parent);
+        if (
+          existsSync(path.join(parent, "biome.json")) ||
+          existsSync(path.join(parent, "biome.jsonc"))
+        ) {
+          config.root = false;
+          break;
+        }
+      }
+      writeFileSync(dest, JSON.stringify(config, null, 2) + "\n");
     } else {
       copyFileSync(path.join(tplDir, rel), dest);
     }
@@ -275,14 +260,10 @@ export function scaffoldTemplate(params: {
 export async function runInit(opts: InitOptions): Promise<void> {
   let { adapter } = opts;
   if (!adapter) {
-    throw new Error(
-      "--adapter is required (playwright | flutter | auto)",
-    );
+    throw new Error("--adapter is required (playwright | flutter | auto)");
   }
   if (!SUPPORTED.includes(adapter)) {
-    throw new Error(
-      `Unknown adapter "${adapter}". Supported: ${SUPPORTED.join(", ")}`,
-    );
+    throw new Error(`Unknown adapter "${adapter}". Supported: ${SUPPORTED.join(", ")}`);
   }
 
   const repoRoot = process.cwd();
@@ -298,19 +279,17 @@ export async function runInit(opts: InitOptions): Promise<void> {
     throw new Error(`No template found for adapter "${adapter}" at ${tplDir}`);
   }
 
-  const fallbackDir =
-    autoDir ?? (adapter === "flutter" ? "bdd_tests" : "packages/e2e");
+  const fallbackDir = autoDir ?? (adapter === "flutter" ? "bdd_tests" : "packages/e2e");
   const e2eDir = resolveTargetDir(repoRoot, opts.dir ?? fallbackDir);
   const force = opts.force ?? false;
 
-  const { written, skipped, skippedWorkflows, layoutRewritten } =
-    scaffoldTemplate({
-      tplDir,
-      repoRoot,
-      e2eDir,
-      templateDefaultDir: templateDefaultDir(adapter),
-      force,
-    });
+  const { written, skipped, skippedWorkflows, layoutRewritten } = scaffoldTemplate({
+    tplDir,
+    repoRoot,
+    e2eDir,
+    templateDefaultDir: templateDefaultDir(adapter),
+    force,
+  });
 
   const e2eLabel = path.relative(repoRoot, e2eDir) || ".";
   console.log(`specproof init (${adapter}) — scaffolded into ${e2eLabel}`);
@@ -319,9 +298,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
     console.log(`layout paths rewritten for ${e2eLabel}`);
   }
   if (skipped.length > 0) {
-    console.log(
-      `\nSkipped ${skipped.length} existing file(s) (use --force to overwrite):`,
-    );
+    console.log(`\nSkipped ${skipped.length} existing file(s) (use --force to overwrite):`);
     for (const s of skipped) console.log(`  = ${s}`);
   }
   if (skippedWorkflows.length > 0) {
@@ -338,7 +315,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const manualSteps =
     adapter === "flutter"
       ? `  a. Edit specproof.config.yaml at the repo root.
-  b. cd ${e2eLabel} && flutter create --platforms=macos --project-name ${path.basename(e2eDir)} .
+  b. cd ${e2eLabel} && flutter create --platforms=macos --project-name bdd_tests .
   c. flutter pub get && dart run build_runner build --delete-conflicting-outputs
   d. flutter test integration_test/gherkin_suite_test.dart -d macos
 

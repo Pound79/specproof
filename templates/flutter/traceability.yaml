@@ -1,0 +1,4 @@
+# Traceability manifest. Register reviewed spec/impl/feature links before using --strict.
+# Hashes are refreshed only after human review, with specproof-update.
+version: 1
+links: []

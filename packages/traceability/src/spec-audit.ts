@@ -1,8 +1,8 @@
-import path from 'node:path';
-import { listHeadings, readFileOrNull } from './hash.js';
-import { resolveWithinRoot } from './resolve.js';
-import type { DriftWarning } from './check.js';
-import type { TraceabilityManifest } from './manifest.js';
+import path from "node:path";
+import { listHeadings, readFileOrNull } from "./hash.js";
+import { resolveWithinRoot } from "./resolve.js";
+import type { DriftWarning } from "./check.js";
+import type { TraceabilityManifest } from "./manifest.js";
 
 interface FlatSpecRef {
   linkId: string;
@@ -18,14 +18,11 @@ const flattenSpecRefs = (manifest: TraceabilityManifest): FlatSpecRef[] =>
       path: path.posix.normalize(ref.path),
       heading: ref.heading,
       level: ref.headingLevel ?? 2,
-    }))
+    })),
   );
 
-const unregisteredHeadingWarning = (
-  relPath: string,
-  heading: string
-): DriftWarning => ({
-  kind: 'unregistered-spec-heading',
+const unregisteredHeadingWarning = (relPath: string, heading: string): DriftWarning => ({
+  kind: "unregistered-spec-heading",
   path: relPath,
   message: `spec heading is not registered in the manifest: "${heading}" in ${relPath}`,
 });
@@ -34,10 +31,10 @@ const duplicateHeadingWarning = (
   linkId: string,
   relPath: string,
   heading: string,
-  count: number
+  count: number,
 ): DriftWarning => ({
   linkId,
-  kind: 'duplicate-heading',
+  kind: "duplicate-heading",
   path: relPath,
   message: `heading "${heading}" appears ${count} times in ${relPath}; section hash is ambiguous`,
 });
@@ -51,7 +48,7 @@ const duplicateHeadingWarning = (
 // is duplicate-heading (its section hash is ambiguous).
 export const auditSpecHeadings = async (
   manifest: TraceabilityManifest,
-  repoRoot: string
+  repoRoot: string,
 ): Promise<DriftWarning[]> => {
   const refs = flattenSpecRefs(manifest);
   if (refs.length === 0) {
@@ -78,9 +75,7 @@ export const auditSpecHeadings = async (
     for (const level of levels) {
       const headings = listHeadings(content, level);
       const registeredHeadings = new Set(
-        refs
-          .filter((ref) => ref.path === relPath && ref.level === level)
-          .map((ref) => ref.heading)
+        refs.filter((ref) => ref.path === relPath && ref.level === level).map((ref) => ref.heading),
       );
 
       for (const heading of headings) {
@@ -99,9 +94,7 @@ export const auditSpecHeadings = async (
         }
         const count = countByText.get(ref.heading) ?? 0;
         if (count > 1) {
-          warnings.push(
-            duplicateHeadingWarning(ref.linkId, relPath, ref.heading, count)
-          );
+          warnings.push(duplicateHeadingWarning(ref.linkId, relPath, ref.heading, count));
         }
       }
     }

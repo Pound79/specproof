@@ -1,14 +1,15 @@
-import { describe, expect, it } from 'vitest';
-import { parseScenarios } from '../feature-scan.js';
-import { buildStats, formatStats } from '../stats.js';
+import { describe, expect, it } from "vitest";
+import { parseScenarios } from "../feature-scan.js";
+import { buildStats, formatStats } from "../stats.js";
 
-const census = (content: string) => buildStats([
-  { domain: 'features/demo.feature', scenarios: parseScenarios(content) },
-]);
-describe('S1 静的統計', () => {
-  it('英語・日本語とRule/Backgroundの3条件・5ケースを数える', () => {
+const census = (content: string) =>
+  buildStats([{ domain: "features/demo.feature", scenarios: parseScenarios(content) }]);
+describe("S1 静的統計", () => {
+  it("英語・日本語とRule/Backgroundの3条件・5ケースを数える", () => {
     const features = [
-      { domain: 'english.feature', scenarios: parseScenarios(`Feature: Native contract
+      {
+        domain: "english.feature",
+        scenarios: parseScenarios(`Feature: Native contract
   Background:
     Given shared state
       """text/plain
@@ -45,8 +46,11 @@ describe('S1 静的統計', () => {
     Scenario: unchanged condition
       Given input fixed
       Then result is yes
-`) },
-      { domain: 'japanese.feature', scenarios: parseScenarios(`# language: ja
+`),
+      },
+      {
+        domain: "japanese.feature",
+        scenarios: parseScenarios(`# language: ja
 機能: 日本語の正本
   背景:
     前提 共通の状態
@@ -56,16 +60,18 @@ describe('S1 静的統計', () => {
     前提 入力がある
     もし 実行する
     ならば 結果が表示される
-`) },
+`),
+      },
     ];
     expect(buildStats(features).totals).toMatchObject({
-      total: 3, cases: 5,
+      total: 3,
+      cases: 5,
       phase: { draft: 0, pending: 1, complete: 2 },
       verification: { machine: 3, human: 0 },
     });
   });
 
-  it('phase と verification を別軸にし、条件と展開ケースを分ける', () => {
+  it("phase と verification を別軸にし、条件と展開ケースを分ける", () => {
     const report = census(`Feature: 静的な分類
   @draft
   Scenario: 機械ドラフト
@@ -96,19 +102,20 @@ describe('S1 静的統計', () => {
       | 3 |
 `);
     expect(report.totals).toMatchObject({
-      total: 7, cases: 9,
+      total: 7,
+      cases: 9,
       phase: { draft: 2, pending: 3, complete: 2 },
       verification: { machine: 4, human: 3 },
     });
     const output = formatStats(report);
-    expect(output.split('\n')).toContain('  TOTAL: 7 total / 7 automated / @fixme 0 / @skip 0');
-    expect(output).toContain('7 conditions / 9 cases');
-    expect(output).toContain('draft 2 / pending 3 / complete 2');
-    expect(output).toContain('machine 4 / human 3');
-    expect(output).toContain('GREEN');
+    expect(output.split("\n")).toContain("  TOTAL: 7 total / 7 automated / @fixme 0 / @skip 0");
+    expect(output).toContain("7 conditions / 9 cases");
+    expect(output).toContain("draft 2 / pending 3 / complete 2");
+    expect(output).toContain("machine 4 / human 3");
+    expect(output).toContain("GREEN");
   });
 
-  it('Feature/Rule の状態を継承し、次の Rule に漏らさない', () => {
+  it("Feature/Rule の状態を継承し、次の Rule に漏らさない", () => {
     const report = census(`@human
 Feature: 継承
   Scenario: 直下
@@ -126,25 +133,27 @@ Feature: 継承
   });
 
   it.each([
-    '@draft @red-contract\nScenario: 直接併記',
-    '@draft\nFeature: 継承\n@red-contract\nScenario: 継承併記',
-    '@draft\nFeature: 継承\n@red-contract\nRule: 継承併記\nScenario: 条件',
-  ])('状態の不正併記を成功した集計にしない: %s', content => {
+    "@draft @red-contract\nScenario: 直接併記",
+    "@draft\nFeature: 継承\n@red-contract\nScenario: 継承併記",
+    "@draft\nFeature: 継承\n@red-contract\nRule: 継承併記\nScenario: 条件",
+  ])("状態の不正併記を成功した集計にしない: %s", (content) => {
     expect(() => census(content)).toThrow(/@draft.*@red-contract/);
   });
 
-  it.each(['@draft', '@red-contract', '@human'])('Examples の %s を条件状態へ変換しない', tag => {
-    expect(() => census(`Feature: 例
+  it.each(["@draft", "@red-contract", "@human"])("Examples の %s を条件状態へ変換しない", (tag) => {
+    expect(() =>
+      census(`Feature: 例
 Scenario Outline: 条件
  Given <値>
  ${tag}
  Examples:
   | 値 |
   | 1 |
-`)).toThrow(/Examples/);
+`),
+    ).toThrow(/Examples/);
   });
 
-  it('docstring と step DataTable をケースやシナリオに数えない', () => {
+  it("docstring と step DataTable をケースやシナリオに数えない", () => {
     const scenarios = parseScenarios(`Feature: 構造
 Scenario Outline: 実際の条件
  Given 本文
@@ -164,13 +173,15 @@ Scenario Outline: 実際の条件
 Scenario Outline: 空のOutline
  Given 条件
 `);
-    expect(scenarios.map(s => [s.name, s.caseCount])).toEqual([
-      ['実際の条件', 2], ['空のOutline', 0],
+    expect(scenarios.map((s) => [s.name, s.caseCount])).toEqual([
+      ["実際の条件", 2],
+      ["空のOutline", 0],
     ]);
   });
 
-  it('日本語 Outline と複数 Examples を数える', () => {
-    expect(census(`機能: 日本語
+  it("日本語 Outline と複数 Examples を数える", () => {
+    expect(
+      census(`機能: 日本語
 シナリオアウトライン: 条件
  前提 <値>
  例:
@@ -180,11 +191,13 @@ Scenario Outline: 空のOutline
   | 値 |
   | 2 |
   | 3 |
-`).totals).toMatchObject({ total: 1, cases: 3 });
+`).totals,
+    ).toMatchObject({ total: 1, cases: 3 });
   });
 
-  it('Examplesの説明文を挟んだ有効な表のケースを数える', () => {
-    expect(census(`Feature: 例の説明
+  it("Examplesの説明文を挟んだ有効な表のケースを数える", () => {
+    expect(
+      census(`Feature: 例の説明
 Scenario Outline: 条件
  Given <値>
  Examples: 先頭
@@ -196,20 +209,23 @@ Scenario Outline: 条件
   別の説明。
   | 値 |
   | 3 |
-`).totals).toMatchObject({ total: 1, cases: 3 });
+`).totals,
+    ).toMatchObject({ total: 1, cases: 3 });
   });
 
-  it('閉じていないdocstringで後続のfixmeを隠して成功しない', () => {
-    expect(() => census(`Feature: 不正な本文
+  it("閉じていないdocstringで後続のfixmeを隠して成功しない", () => {
+    expect(() =>
+      census(`Feature: 不正な本文
 Scenario: 条件
  Given 本文
   """
  @fixme
  Scenario: 残件
-`)).toThrow(/docstring/);
+`),
+    ).toThrow(/docstring/);
   });
 
-  it('無関係なFeatureコメントでScenarioのfixme理由検査を迂回しない', () => {
+  it("無関係なFeatureコメントでScenarioのfixme理由検査を迂回しない", () => {
     const [scenario] = parseScenarios(`# Featureの一般説明
 Feature: 理由の境界
  @fixme
@@ -219,7 +235,7 @@ Feature: 理由の境界
     expect(scenario.hasReasonComment).toBe(false);
   });
 
-  it('既存tagsは自身だけ、新状態軸はFeature/Ruleから継承する', () => {
+  it("既存tagsは自身だけ、新状態軸はFeature/Ruleから継承する", () => {
     const [scenario] = parseScenarios(`@fixme @human
 Feature: 互換
  @red-contract
@@ -228,22 +244,27 @@ Feature: 互換
   Scenario: 自身の除外
    Given 条件
 `);
-    expect(scenario.tags).toEqual(['@skip']);
-    expect(scenario.effectiveStateTags).toEqual(['@human', '@red-contract']);
-    expect(buildStats([{ domain: '互換.feature', scenarios: [scenario] }]).totals)
-      .toMatchObject({ fixme: 0, skip: 1, phase: { pending: 1 }, verification: { human: 1 } });
+    expect(scenario.tags).toEqual(["@skip"]);
+    expect(scenario.effectiveStateTags).toEqual(["@human", "@red-contract"]);
+    expect(buildStats([{ domain: "互換.feature", scenarios: [scenario] }]).totals).toMatchObject({
+      fixme: 0,
+      skip: 1,
+      phase: { pending: 1 },
+      verification: { human: 1 },
+    });
   });
 
-  it('従来のfixme/skipは親タグを継承せず自身のタグで集計する', () => {
+  it("従来のfixme/skipは親タグを継承せず自身のタグで集計する", () => {
     const content = `# 自動化の残件
 @todo
 Feature: 残件
  Scenario: 継承した残件
   Given 条件
 `;
-    const report = buildStats([
-      { domain: 'features/demo.feature', scenarios: parseScenarios(content) },
-    ], { fixmeTag: '@todo', skipTag: '@manual' });
+    const report = buildStats(
+      [{ domain: "features/demo.feature", scenarios: parseScenarios(content) }],
+      { fixmeTag: "@todo", skipTag: "@manual" },
+    );
     expect(report.totals.fixme).toBe(0);
     expect(report.fixmeClean).toBe(true);
   });

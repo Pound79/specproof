@@ -45,8 +45,17 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Formatting
+        run: npm run format:check
+
       - name: Test
         run: npm test
+
+      - name: Coverage thresholds
+        run: npm run test:coverage
 
   # Regression guard for REVIEW 2026-07-06 finding C4: a version of the
   # playwright template's specproof.config.yaml had `commands` that only ran
@@ -113,3 +122,7 @@ jobs:
       - name: Run commands.typecheck from the consumer repo root
         working-directory: ${{ runner.temp }}/scaffold-consumer
         run: cd packages/e2e && npm run typecheck
+
+      - name: Run scaffold linter
+        working-directory: ${{ runner.temp }}/scaffold-consumer/packages/e2e
+        run: npm run lint

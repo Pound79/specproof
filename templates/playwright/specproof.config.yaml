@@ -31,10 +31,10 @@ commands:
   # `specproof init` scaffolds this package at packages/e2e (repo root has no
   # workspaces wiring), so every command must `cd` into it explicitly rather
   # than relying on `npm run` resolving scripts from the repo root.
-  generate: "cd packages/e2e && npm run bddgen"         # [required] generate glue code from .feature files
-  typecheck: "cd packages/e2e && npm run typecheck"     # [required] TypeScript type check
-  lint: "cd packages/e2e && npm run lint"               # [required] lint + format
-  smoke: "cd packages/e2e && npm run test:smoke"        # [required] fast subset — excludes @slow, used in CI
+  generate: "cd packages/e2e && npm run bddgen" # [required] generate glue code from .feature files
+  typecheck: "cd packages/e2e && npm run typecheck" # [required] TypeScript type check
+  lint: "cd packages/e2e && npm run lint" # [required] lint + format
+  smoke: "cd packages/e2e && npm run test:smoke" # [required] fast subset — excludes @slow, used in CI
   # [optional] traceability engine (framework-agnostic Node CLI): check / update /
   # list / stats. Works for any repo because it hashes file/section text. After
   # installing @pound79/specproof-traceability you can drop `-y -p` and call the
@@ -43,35 +43,40 @@ commands:
   traceabilityUpdate: "npx -y -p @pound79/specproof-traceability@0.3.0 specproof-update"
   traceabilityList: "npx -y -p @pound79/specproof-traceability@0.3.0 specproof-list"
   traceabilityStats: "npx -y -p @pound79/specproof-traceability@0.3.0 specproof-stats"
+  install: cd packages/e2e && npm install
 
 # ---------------------------------------------------------------------------
 # layout: file/directory locations (relative to repo root)
 # ---------------------------------------------------------------------------
 layout:
-  e2eRoot: "packages/e2e"                  # [required] root of the e2e package
-  featuresDir: "packages/e2e/features"     # [required] .feature files directory
-  stepsDir: "packages/e2e/steps"          # [required] step definitions directory
-  stepFileSuffix: ".steps.ts"             # [optional] naming convention for step files
-  stepFileExt: ".ts"                      # [required] step file language extension
-  pagesDir: "packages/e2e/src/pages"      # [required] Page Object Model directory
+  e2eRoot: "packages/e2e" # [required] root of the e2e package
+  featuresDir: "packages/e2e/features" # [required] .feature files directory
+  stepsDir: "packages/e2e/steps" # [required] step definitions directory
+  stepFileSuffix: ".steps.ts" # [optional] naming convention for step files
+  stepFileExt: ".ts" # [required] step file language extension
+  pagesDir: "packages/e2e/src/pages" # [required] Page Object Model directory
   # [optional] specproof-list candidate-detection suffix. The engine
   # default ("Page.tsx", a React-app convention) does NOT match this scaffold's
   # own Page Objects (LoginPage.ts, ExamplePage.ts — plain .ts), so set it
   # explicitly to keep untracked-page detection working. Follow this suffix
   # when naming new page objects; see docs/config-schema.md.
   candidateSuffix: "Page.ts"
-  textConstants: "packages/e2e/src/config/text.ts"  # [required] UI string constants file
-  manifest: "packages/e2e/traceability.yaml"  # [required] traceability manifest path
-  specDir: "docs"                         # [required] design rationale docs root
-  implGlobs:                              # [optional] implementation files tracked by traceability
+  textConstants: "packages/e2e/src/config/text.ts" # [required] UI string constants file
+  manifest: "packages/e2e/traceability.yaml" # [required] traceability manifest path
+  specDir: "docs" # [required] design rationale docs root
+  implGlobs:
+    # [optional] implementation files tracked by traceability
     # TODO: replace these globs with paths that match your application's source
     # Also used by `specproof-check` to flag implementation files with no
     # linked spec/feature ("unregistered-impl"). Advisory by default (does
     # not fail CI); set strictUnregisteredImpl: true above to harden it.
     - "src/**/*.ts"
     - "src/**/*.tsx"
-  scratchDir: "/tmp/specproof-draft"      # [optional] temporary output for bootstrap drafts
-  e2eReadme: "packages/e2e/README.md"     # [optional] E2E package README; specproof-* skills link here
+  scratchDir: ".specproof/drafts" # [optional] temporary output for bootstrap drafts
+  e2eReadme: "packages/e2e/README.md" # [optional] E2E package README; specproof-* skills link here
+  i18nSource: packages/e2e/src/config/text.ts
+  testRunnerConfig: packages/e2e/playwright.config.ts
+  idiomGuide: packages/e2e/README.md
 
 # ---------------------------------------------------------------------------
 # fixtures: page-object fixture name -> source file (used by code-generation)
@@ -81,16 +86,16 @@ fixtures:
   examplePage: "packages/e2e/src/pages/ExamplePage.ts"
   # TODO: add additional page object fixtures here as your app grows
 
-# ---------------------------------------------------------------------------
-# tags: canonical Gherkin tag definitions
-# ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # tags: canonical Gherkin tag definitions
+  # ---------------------------------------------------------------------------
 tags:
-  slow: "@slow"          # [required] slow scenarios (e.g. real network calls); excluded from smoke
-  generate: "@generate"  # [required] heavy generation flows; always pair with @slow
-  admin: "@admin"        # [required] admin-role scenarios (authed-admin project)
-  user: "@user"          # [required] regular-user-role scenarios
-  fixme: "@fixme"        # [optional] known breakage or hard-to-automate; kept in feature
-  skip: "@skip"          # [optional] intentionally excluded; add a comment with the reason
+  slow: "@slow" # [required] slow scenarios (e.g. real network calls); excluded from smoke
+  generate: "@generate" # [required] heavy generation flows; always pair with @slow
+  admin: "@admin" # [required] admin-role scenarios (authed-admin project)
+  user: "@user" # [required] regular-user-role scenarios
+  fixme: "@fixme" # [optional] known breakage or hard-to-automate; kept in feature
+  skip: "@skip" # [optional] intentionally excluded; add a comment with the reason
 
 # ---------------------------------------------------------------------------
 # projects: runner profiles (one per auth state)
@@ -108,7 +113,7 @@ projects:
     credentialsEnv:
       username: "E2E_USERNAME"
       password: "E2E_PASSWORD"
-      newPassword: "E2E_NEW_PASSWORD"   # optional — only needed for first-login flows
+      newPassword: "E2E_NEW_PASSWORD" # optional — only needed for first-login flows
     features:
       - "features/example.feature"
       # TODO: add your .feature files here
@@ -130,20 +135,20 @@ projects:
   - name: "guest"
     # Unauthenticated — tests the login/auth flow itself
     tags: ""
-    storageState: ""   # empty string = no stored auth state (clean browser context)
+    storageState: "" # empty string = no stored auth state (clean browser context)
     setup: false
     features:
       - "features/example.feature"
       # TODO: add auth/login .feature files here
 
-# ---------------------------------------------------------------------------
-# env: logical names of environment variables (not their values)
-# The runner reads process.env[<value>] at runtime.
-# ---------------------------------------------------------------------------
+      # ---------------------------------------------------------------------------
+      # env: logical names of environment variables (not their values)
+      # The runner reads process.env[<value>] at runtime.
+      # ---------------------------------------------------------------------------
 env:
-  baseUrl: "E2E_BASE_URL"              # [required] application URL
-  username: "E2E_USERNAME"             # [optional] regular user — used for conditional checks
-  adminUsername: "E2E_ADMIN_USERNAME"  # [optional] admin user — controls authed-admin project
+  baseUrl: "E2E_BASE_URL" # [required] application URL
+  username: "E2E_USERNAME" # [optional] regular user — used for conditional checks
+  adminUsername: "E2E_ADMIN_USERNAME" # [optional] admin user — controls authed-admin project
 
 # ---------------------------------------------------------------------------
 # agents: review agents specproof-implement invokes (anti-gaming layer 2). [optional]
@@ -175,24 +180,6 @@ runner:
   # Playwright device descriptor (see https://playwright.dev/docs/emulation)
   device: "Desktop Chrome"
 
-  # localStorage key used to force the app language before scripts run.
-  # Leave empty ("") if your app does not use localStorage for locale.
-  # TODO: set to your app's locale key, e.g. "appLanguage"
-  # i18nLocaleStorageKey: ""
-
-  # Shell command Playwright uses to start the dev server when
-  # E2E_START_WEB_SERVER=true. Leave commented unless you use this feature.
-  # TODO: set to your dev-server start command, e.g. "npm run dev"
-  # webServerCommand: ""
-
-  # Path to a global teardown module (relative to the e2e package root).
-  # Leave commented to use the no-op stub included in this scaffold.
-  # globalTeardown: "src/setup/global-teardown.ts"
-
-  # Directory where auth storage state files are written.
-  # Default: "playwright/.auth"
-  authDir: "playwright/.auth"
-
 # ---------------------------------------------------------------------------
 # environments: execution environment profiles (required — at least 1 entry)
 #
@@ -209,15 +196,34 @@ runner:
 environments:
   - name: local
     default: true
+    auth:
+      provider: email-password
+      description: Example username/password login; replace with the application authentication scheme.
     # TODO: set auth provider for local development (mock, email-password, etc.)
     # auth:
     #   provider: mock
     #   description: "Mock auth for local development. No real IdP calls."
 
-  # TODO: uncomment and configure additional environments as needed
-  # - name: dev
-  #   dotenvFile: ".env.dev"
-  #   auth:
-  #     provider: google
-  #     description: "Firebase Auth (Google) — dev project."
-  #   excludeTags: []
+    # TODO: uncomment and configure additional environments as needed
+    # - name: dev
+    #   dotenvFile: ".env.dev"
+    #   auth:
+    #     provider: google
+    #     description: "Firebase Auth (Google) — dev project."
+    #   excludeTags: []
+strictUnregisteredImpl: false
+strictUnregisteredSpecHeadings: false
+conventions:
+  agentsDoc: AGENTS.md
+  i18nLintPlugin: none
+  stepFrameworkPattern: "createBdd(test): Given/When/Then"
+  pendingStubBody: throw new Error("Pending implementation");
+examples:
+  domainName: example
+  specDoc: docs/example.md
+  internalConstants:
+    - retry limit
+    - timeout policy
+git:
+  commitScope: bdd
+  branchPrefix: bdd/

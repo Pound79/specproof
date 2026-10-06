@@ -205,3 +205,24 @@ methodology, config schema, and the adapter contract.
 ## License
 
 [MIT](./LICENSE) © Pound79
+
+## CLI オプション一覧
+
+| コマンド | 対応オプション |
+|---|---|
+| specproof-check | --root, --manifest, --strict, --json, --github-annotations |
+| specproof-update | --root, --manifest, --link-id, --dry-run |
+| specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
+| specproof-stats | --root, --manifest, --strict, --json |
+
+`--root <dir>` は探索ルートを明示する。`--manifest <file>` は cwd 相対で解決するが、
+指定した root 内に置く必要がある。`--candidate-suffix <suffix>` は候補の拡張子込み suffix
+（例: Page.ts / _page.dart）。`--github-annotations` は GitHub Actions 用の注釈を stderr に出す。
+未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。
+
+`layout.implGlobs` は `*` / `**` に加えてリテラルのファイルパスと先頭 `./` を受け付ける。
+`?` はワイルドカードではなく文字として扱う。
+`specproof-update` は変更ゼロなら保存せず、変更した hash だけを原子的に保存する。
+コメント・書式を保持し、検出した同時編集や安全に更新できない YAML alias はエラーにする。
+
+CLI の診断メッセージは英語、プロジェクトの説明文書は日本語を基本とする。

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readdir } from "node:fs/promises";
-import path from "node:path";
+import { resolveWithinRoot } from "./resolve.js";
 import { buildDomainList, formatDomainList } from "./list.js";
 import { loadManifest } from "./manifest.js";
 import { discoverConfig } from "./config.js";
@@ -9,6 +9,7 @@ import { parseCliArgs, runCli } from "./cli-args.js";
 const main = async (): Promise<void> => {
   const { flags, manifest, root, pagesDir, candidateSuffix } = parseCliArgs(
     process.argv.slice(2),
+    "list",
   );
   const config = discoverConfig({ manifest, root, pagesDir, candidateSuffix });
   const loaded = await loadManifest(config.manifestPath);
@@ -17,12 +18,10 @@ const main = async (): Promise<void> => {
   // without it the report shows registered domains and an empty candidate list.
   let pageFileNames: string[] = [];
   if (config.pagesDir) {
-    const dirents = await readdir(path.join(config.repoRoot, config.pagesDir), {
+    const dirents = await readdir(resolveWithinRoot(config.repoRoot, config.pagesDir), {
       withFileTypes: true,
     });
-    pageFileNames = dirents
-      .filter((dirent) => dirent.isFile())
-      .map((dirent) => dirent.name);
+    pageFileNames = dirents.filter((dirent) => dirent.isFile()).map((dirent) => dirent.name);
   }
 
   const domainList = buildDomainList(loaded, pageFileNames, {

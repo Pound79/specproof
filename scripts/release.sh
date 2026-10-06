@@ -205,7 +205,10 @@ cleanup() {
   [ "$MUTATION_FINALIZED" = true ] || rollback_release_files
   rm -rf "$SNAP_DIR"
 }
-trap cleanup EXIT INT TERM
+# シグナルは終了だけを担当し、後始末は EXIT で一度だけ実行する。
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 for f in "${RELEASE_FILES[@]}"; do
   mkdir -p "$SNAP_DIR/$(dirname "$f")"

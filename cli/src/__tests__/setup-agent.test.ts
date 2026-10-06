@@ -12,9 +12,7 @@ const listFiles = (dir: string, base: string = dir): string[] =>
   readdirSync(dir)
     .flatMap((name) => {
       const full = path.join(dir, name);
-      return statSync(full).isDirectory()
-        ? listFiles(full, base)
-        : [path.relative(base, full)];
+      return statSync(full).isDirectory() ? listFiles(full, base) : [path.relative(base, full)];
     })
     .sort();
 
@@ -39,9 +37,7 @@ describe("runSetupAgent", () => {
   });
 
   it("rejects unknown agent type", () => {
-    expect(() => runSetupAgent({ agent: "unknown" })).toThrow(
-      /Unknown agent "unknown"/,
-    );
+    expect(() => runSetupAgent({ agent: "unknown" })).toThrow(/Unknown agent "unknown"/);
   });
 
   it("prints Claude Code instructions for 'claude' agent", () => {
@@ -77,16 +73,8 @@ describe("runSetupAgent", () => {
       expect(existsSync(skillMd), `${skill}/SKILL.md should exist`).toBe(true);
     }
 
-    const syncPrompts = path.join(
-      skillsDir,
-      "specproof-sync",
-      "prompts",
-      "system.md",
-    );
-    expect(
-      existsSync(syncPrompts),
-      "specproof-sync/prompts/system.md should exist",
-    ).toBe(true);
+    const syncPrompts = path.join(skillsDir, "specproof-sync", "prompts", "system.md");
+    expect(existsSync(syncPrompts), "specproof-sync/prompts/system.md should exist").toBe(true);
   });
 
   it("skips existing files without --force", async () => {
@@ -96,10 +84,7 @@ describe("runSetupAgent", () => {
 
     runSetupAgent({ agent: "codex" });
 
-    const content = readFileSync(
-      path.join(skillsDir, "SKILL.md"),
-      "utf-8",
-    );
+    const content = readFileSync(path.join(skillsDir, "SKILL.md"), "utf-8");
     expect(content).toBe("existing content");
   });
 
@@ -110,10 +95,7 @@ describe("runSetupAgent", () => {
 
     runSetupAgent({ agent: "codex", force: true });
 
-    const content = readFileSync(
-      path.join(skillsDir, "SKILL.md"),
-      "utf-8",
-    );
+    const content = readFileSync(path.join(skillsDir, "SKILL.md"), "utf-8");
     expect(content).not.toBe("existing content");
     expect(content).toContain("name: specproof");
   });
@@ -124,9 +106,7 @@ describe("runSetupAgent", () => {
     await mkdir(outside);
     await symlink(outside, path.join(repo, ".agents"));
 
-    expect(() => runSetupAgent({ agent: "codex" })).toThrow(
-      /symbolic link|symlink/i,
-    );
+    expect(() => runSetupAgent({ agent: "codex" })).toThrow(/symbolic link|symlink/i);
     expect(readdirSync(outside)).toEqual([]);
   });
 
@@ -138,9 +118,7 @@ describe("runSetupAgent", () => {
     await mkdir(outside);
     await symlink(outside, path.join(skillsDir, "specproof"));
 
-    expect(() => runSetupAgent({ agent: "codex" })).toThrow(
-      /symbolic link|symlink/i,
-    );
+    expect(() => runSetupAgent({ agent: "codex" })).toThrow(/symbolic link|symlink/i);
     expect(readdirSync(outside)).toEqual([]);
   });
 });
@@ -166,31 +144,23 @@ describe("pickPluginSkillsRoot", () => {
     await mkdir(bundled, { recursive: true });
     await mkdir(monorepoPrimary, { recursive: true });
 
-    expect(
-      pickPluginSkillsRoot(bundled, [monorepoPrimary, monorepoRare]),
-    ).toBe(monorepoPrimary);
+    expect(pickPluginSkillsRoot(bundled, [monorepoPrimary, monorepoRare])).toBe(monorepoPrimary);
   });
 
   it("falls back to the bundled copy when only it exists", async () => {
     await mkdir(bundled, { recursive: true });
 
-    expect(
-      pickPluginSkillsRoot(bundled, [monorepoPrimary, monorepoRare]),
-    ).toBe(bundled);
+    expect(pickPluginSkillsRoot(bundled, [monorepoPrimary, monorepoRare])).toBe(bundled);
   });
 
   it("picks the monorepo source when only it exists", async () => {
     await mkdir(monorepoPrimary, { recursive: true });
 
-    expect(
-      pickPluginSkillsRoot(bundled, [monorepoPrimary, monorepoRare]),
-    ).toBe(monorepoPrimary);
+    expect(pickPluginSkillsRoot(bundled, [monorepoPrimary, monorepoRare])).toBe(monorepoPrimary);
   });
 
   it("returns undefined when no candidate exists", () => {
-    expect(
-      pickPluginSkillsRoot(bundled, [monorepoPrimary, monorepoRare]),
-    ).toBeUndefined();
+    expect(pickPluginSkillsRoot(bundled, [monorepoPrimary, monorepoRare])).toBeUndefined();
   });
 });
 

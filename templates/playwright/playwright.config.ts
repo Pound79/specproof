@@ -26,9 +26,7 @@ const device = cfg.runner?.device ?? "Desktop Chrome";
 // ---------------------------------------------------------------------------
 
 // Determine whether any project needs the "setup" auth runner.
-const needsSetup = cfg.projects.some(
-  (p) => p.setup === true && isConditionMet(p.conditional, cfg),
-);
+const needsSetup = cfg.projects.some((p) => p.setup === true && isConditionMet(p.conditional, cfg));
 
 // Setup project — included only when at least one project requires it.
 const setupProject = needsSetup
@@ -56,9 +54,7 @@ function mergeExcludeTags(
   if (!env.excludeTags || env.excludeTags.length === 0) {
     return projectTags || undefined;
   }
-  const exclusion = env.excludeTags
-    .map((t) => `not ${t}`)
-    .join(" and ");
+  const exclusion = env.excludeTags.map((t) => `not ${t}`).join(" and ");
   if (!projectTags) {
     return exclusion;
   }
@@ -87,9 +83,7 @@ const appProjects = cfg.projects.flatMap((p) => {
       use: {
         ...devices[device],
         // Empty storageState string means a clean, unauthenticated session.
-        storageState: p.storageState
-          ? p.storageState
-          : { cookies: [], origins: [] },
+        storageState: p.storageState ? p.storageState : { cookies: [], origins: [] },
       },
       // Wire the setup dependency only for projects that require auth.
       ...(p.setup ? { dependencies: ["setup"] } : {}),

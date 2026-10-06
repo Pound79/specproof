@@ -9,7 +9,7 @@
 // Usage: node scripts/changelog-section.mjs <version>
 // Exit 1 if the section is missing or empty.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -69,6 +69,15 @@ function main() {
   process.stdout.write(body + "\n");
 }
 
-if (import.meta.main) {
+const isMain = () => {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+};
+
+if (isMain()) {
   main();
 }

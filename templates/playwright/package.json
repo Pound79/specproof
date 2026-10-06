@@ -12,9 +12,10 @@
     "test:headed": "bddgen && playwright test --headed",
     "test:ui": "bddgen && playwright test --ui",
     "report": "playwright show-report",
-    "lint": "echo 'no linter configured — add eslint/prettier in your project'",
+    "lint": "biome lint .",
     "typecheck": "tsc --noEmit",
-    "install:browsers": "playwright install chromium"
+    "install:browsers": "playwright install chromium",
+    "format:check": "biome format ."
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
@@ -22,6 +23,7 @@
     "dotenv": "^18.0.3",
     "yaml": "^2.6.1",
     "typescript": "^7.0.2",
-    "@types/node": "^26.0.1"
+    "@types/node": "^26.0.1",
+    "@biomejs/biome": "2.5.15"
   }
 }

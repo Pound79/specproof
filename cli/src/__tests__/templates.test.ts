@@ -6,14 +6,12 @@ import { describe, expect, it } from "vitest";
 // src/__tests__/templates.test.ts -> repo root is four levels up.
 const repoRoot = path.resolve(fileURLToPath(import.meta.url), "../../../..");
 
-const read = (relPath: string): string =>
-  readFileSync(path.join(repoRoot, relPath), "utf8");
+const read = (relPath: string): string => readFileSync(path.join(repoRoot, relPath), "utf8");
 
 const traceabilityVersion = (
   JSON.parse(read("packages/traceability/package.json")) as { version: string }
 ).version;
-const pinnedTraceabilityPackage =
-  `@pound79/specproof-traceability@${traceabilityVersion}`;
+const pinnedTraceabilityPackage = `@pound79/specproof-traceability@${traceabilityVersion}`;
 
 const TEMPLATE_CONFIGS = [
   "templates/playwright/specproof.config.yaml",
@@ -24,11 +22,9 @@ const TEMPLATE_CONFIGS = [
 // drift / bless / list / stats workflow works out of the box.
 const EXPECTED_COMMANDS: Record<string, string> = {
   traceabilityCheck: `npx -y -p ${pinnedTraceabilityPackage} specproof-check`,
-  traceabilityUpdate:
-    `npx -y -p ${pinnedTraceabilityPackage} specproof-update`,
+  traceabilityUpdate: `npx -y -p ${pinnedTraceabilityPackage} specproof-update`,
   traceabilityList: `npx -y -p ${pinnedTraceabilityPackage} specproof-list`,
-  traceabilityStats:
-    `npx -y -p ${pinnedTraceabilityPackage} specproof-stats`,
+  traceabilityStats: `npx -y -p ${pinnedTraceabilityPackage} specproof-stats`,
 };
 
 describe("template traceability commands", () => {
@@ -57,11 +53,7 @@ const TEXT_EXTENSIONS = new Set([".md", ".yaml", ".yml"]);
 const textFilesUnder = (relDir: string): string[] =>
   readdirSync(path.join(repoRoot, relDir), { recursive: true })
     .map((entry) => String(entry))
-    .filter(
-      (entry) =>
-        !entry.includes("node_modules") &&
-        TEXT_EXTENSIONS.has(path.extname(entry)),
-    )
+    .filter((entry) => !entry.includes("node_modules") && TEXT_EXTENSIONS.has(path.extname(entry)))
     .map((entry) => path.join(relDir, entry));
 
 describe("no stale npx form in scaffolds / docs", () => {

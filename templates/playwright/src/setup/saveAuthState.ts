@@ -28,16 +28,10 @@ export async function saveAuthState(
 
   const loginPage = new LoginPage(page);
   await loginPage.goto();
-  await loginPage.login(
-    credentials.username,
-    credentials.password,
-    credentials.newPassword,
-  );
+  await loginPage.login(credentials.username, credentials.password, credentials.newPassword);
 
   const examplePage = new ExamplePage(page);
   await examplePage.expectLoaded();
 
-  await page
-    .context()
-    .storageState({ path: path.resolve(process.cwd(), authFile) });
+  await page.context().storageState({ path: path.resolve(process.cwd(), authFile) });
 }

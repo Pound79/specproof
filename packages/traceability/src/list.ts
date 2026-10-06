@@ -78,9 +78,7 @@ export const buildDomainList = (
     .map((name) => (pagesDir ? path.posix.join(pagesDir, name) : name))
     .filter((page) => !referencedImpl.has(page))
     .map((page) => {
-      const base = path.posix
-        .basename(page)
-        .replace(/\.[^./]+$/, "");
+      const base = path.posix.basename(page).replace(/\.[^./]+$/, "");
       return { suggestedDomain: toDomainName(base), page };
     })
     .sort((a, b) => a.suggestedDomain.localeCompare(b.suggestedDomain));
@@ -94,10 +92,7 @@ export const buildDomainList = (
  * padding, the empty-candidates `(none)` line and the bootstrap hint can be
  * unit-tested without spawning the CLI or touching the filesystem.
  */
-export const formatDomainList = ({
-  registered,
-  candidates,
-}: DomainList): string => {
+export const formatDomainList = ({ registered, candidates }: DomainList): string => {
   const idWidth = Math.max(0, ...registered.map((domain) => domain.id.length));
   const lines = [
     `Registered domains (${registered.length}) — targets for specproof-sync and specproof-bootstrap:`,
@@ -119,9 +114,7 @@ export const formatDomainList = ({
     ...candidates.map((candidate) => candidate.suggestedDomain.length),
   );
   for (const candidate of candidates) {
-    lines.push(
-      `  ${candidate.suggestedDomain.padEnd(domainWidth)}  ${candidate.page}`,
-    );
+    lines.push(`  ${candidate.suggestedDomain.padEnd(domainWidth)}  ${candidate.page}`);
   }
   lines.push(
     "",

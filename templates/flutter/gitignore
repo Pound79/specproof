@@ -3,3 +3,9 @@
 build/
 pubspec.lock
 *.g.dart
+
+# 認証情報（見本だけは追跡可能）
+.env
+.env.*
+!.env.example
+.npmrc
