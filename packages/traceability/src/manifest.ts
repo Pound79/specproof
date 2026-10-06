@@ -1,5 +1,7 @@
-import { open, writeFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { parse, stringify } from "yaml";
+import { writeFileAtomic } from "./atomic-write.js";
+import { replaceManifestHashes } from "./manifest-text.js";
 
 export interface SpecRef {
   path: string;
@@ -204,6 +206,8 @@ const assertManifestShape: (
   }
 };
 
+const manifestSources = new WeakMap<TraceabilityManifest, string>();
+
 export const loadManifest = async (
   manifestPath: string,
 ): Promise<TraceabilityManifest> => {
@@ -223,12 +227,14 @@ export const loadManifest = async (
   }
   const parsed: unknown = parse(raw);
   assertManifestShape(parsed);
+  manifestSources.set(parsed, raw);
   return parsed;
 };
 
 export const saveManifest = async (
   manifestPath: string,
   manifest: TraceabilityManifest,
+  original?: TraceabilityManifest,
 ): Promise<void> => {
   // 既存の writer の振る舞いを保ち、新しい criteria だけをファイル更新前に検査する。
   manifest.links.forEach((link, index) => {
@@ -238,5 +244,12 @@ export const saveManifest = async (
     "# Traceability manifest linking spec sections, implementation files, and\n" +
     "# BDD feature files. Hashes are sha256; refresh them with:\n" +
     "#   specproof-update\n";
-  await writeFile(manifestPath, header + stringify(manifest), "utf8");
+  const source = original === undefined ? undefined : manifestSources.get(original);
+  if (original !== undefined && source === undefined) {
+    throw new Error("Original manifest must come from loadManifest");
+  }
+  const text = original && source !== undefined
+    ? replaceManifestHashes(source, original, manifest)
+    : header + stringify(manifest);
+  await writeFileAtomic(manifestPath, text, source);
 };

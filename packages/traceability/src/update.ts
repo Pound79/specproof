@@ -131,9 +131,8 @@ const refreshLink = async (
 
 export interface UpdateOptions {
   /** When set, only the link with this id is re-hashed; every other link's
-   *  stored hashes are left untouched. The manifest file itself is still fully
-   *  rewritten by saveManifest — this only confines hash *churn* to one link,
-   *  so concurrent feature branches don't conflict on each other's hashes. */
+   *  stored hashes are left untouched. Only changed hash scalars are replaced;
+   *  comments and unrelated text are preserved. A no-op never writes the file. */
   linkId?: string;
   /** Compute (and return) the same changes as a normal run, but never write
    *  the manifest file. Sentinel rejection (FILE_MISSING / SECTION_MISSING)
@@ -175,8 +174,9 @@ export const updateManifestHashes = async (
     ...manifest,
     links: results.map((result) => result.link),
   };
-  if (!dryRun) {
-    await saveManifest(manifestPath, updated);
+  const changes = results.flatMap((result) => result.changes);
+  if (!dryRun && changes.length > 0) {
+    await saveManifest(manifestPath, updated, manifest);
   }
-  return { ...updated, changes: results.flatMap((result) => result.changes) };
+  return { ...updated, changes };
 };
