@@ -207,7 +207,9 @@ export function scaffoldTemplate(params: {
   force: boolean;
 }): ScaffoldResult {
   const { tplDir, repoRoot, e2eDir, templateDefaultDir, force } = params;
-  const e2eRelPosix = path.relative(repoRoot, e2eDir).split(path.sep).join("/");
+  // リポジトリ直下は空文字ではなく「.」で表し、絶対パス化を防ぐ。
+  const e2eRelPosix =
+    path.relative(repoRoot, e2eDir).split(path.sep).join("/") || ".";
 
   const written: string[] = [];
   const skipped: string[] = [];
