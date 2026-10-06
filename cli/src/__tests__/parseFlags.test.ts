@@ -32,10 +32,10 @@ describe('parseFlags', () => {
     expect(result).toEqual({});
   });
 
-  it('ignores positional arguments without --', () => {
-    const result = parseFlags(['init', '--adapter', 'playwright']);
-
-    expect(result).toEqual({ adapter: 'playwright' });
+  it('予期しない位置引数を黙って無視せず拒否する', () => {
+    expect(() => parseFlags(['init', '--adapter', 'playwright'])).toThrow(
+      /Unknown option or argument: init/,
+    );
   });
 
   it('handles the last flag as boolean when no value follows', () => {

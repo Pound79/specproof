@@ -14,7 +14,7 @@ import {
 } from "./cli-check-format.js";
 
 const main = async (): Promise<void> => {
-  const { flags, manifest, root } = parseCliArgs(process.argv.slice(2));
+  const { flags, manifest, root } = parseCliArgs(process.argv.slice(2), "check");
   const config = discoverConfig({ manifest, root });
   const report = await checkDrift(config.manifestPath, config.repoRoot, {
     featuresDir: config.featuresDir,

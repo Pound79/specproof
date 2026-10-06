@@ -45,7 +45,7 @@ const collectFeaturePaths = async (
 };
 
 const main = async (): Promise<void> => {
-  const { flags, manifest, root } = parseCliArgs(process.argv.slice(2));
+  const { flags, manifest, root } = parseCliArgs(process.argv.slice(2), "stats");
   const config = discoverConfig({ manifest, root });
   const featurePaths = await collectFeaturePaths(config);
 

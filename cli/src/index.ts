@@ -58,7 +58,7 @@ const main = async (): Promise<void> => {
     return;
   }
   if (command === "init") {
-    const flags = parseFlags(argv.slice(1));
+    const flags = parseFlags(argv.slice(1), command);
     await runInit({
       adapter: typeof flags.adapter === "string" ? flags.adapter : undefined,
       dir: typeof flags.dir === "string" ? flags.dir : undefined,
@@ -68,13 +68,13 @@ const main = async (): Promise<void> => {
     return;
   }
   if (command === "detect") {
-    const flags = parseFlags(argv.slice(1));
+    const flags = parseFlags(argv.slice(1), command);
     await runDetect({ json: flags.json === true });
     return;
   }
   if (command === "setup-agent") {
     const agentArg = argv[1];
-    const flags = parseFlags(argv.slice(2));
+    const flags = parseFlags(argv.slice(2), command);
     runSetupAgent({
       agent: agentArg,
       force: flags.force === true,

@@ -9,6 +9,7 @@ import { parseCliArgs, runCli } from "./cli-args.js";
 const main = async (): Promise<void> => {
   const { flags, manifest, root, pagesDir, candidateSuffix } = parseCliArgs(
     process.argv.slice(2),
+    "list",
   );
   const config = discoverConfig({ manifest, root, pagesDir, candidateSuffix });
   const loaded = await loadManifest(config.manifestPath);

@@ -18,7 +18,7 @@ const describeChange = (change: UpdateChange): string => {
 };
 
 const main = async (): Promise<void> => {
-  const { flags, manifest, root, linkId } = parseCliArgs(process.argv.slice(2));
+  const { flags, manifest, root, linkId } = parseCliArgs(process.argv.slice(2), "update");
   const config = discoverConfig({ manifest, root });
   const dryRun = flags.has("--dry-run");
   const updated = await updateManifestHashes(
