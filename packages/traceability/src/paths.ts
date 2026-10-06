@@ -34,7 +34,8 @@ export const normalizeMsysPath = (p: string): string => {
  * meaningful.
  */
 export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
-  let dir = path.resolve(startDir);
+  const initialDir = path.resolve(startDir);
+  let dir = initialDir;
   for (;;) {
     for (const marker of ROOT_MARKERS) {
       if (existsSync(path.join(dir, marker))) {
@@ -50,7 +51,7 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
 
   try {
     const top = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      cwd: dir,
+      cwd: initialDir,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 5000,
@@ -64,8 +65,9 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
 
   throw new Error(
     `Could not resolve a repo root from "${startDir}": found no ` +
-      `${ROOT_MARKERS.join(" / ")} in any ancestor directory, and the path is ` +
-      "not inside a git repository. Pass --root or --manifest explicitly.",
+      `${ROOT_MARKERS.join(" / ")} in any ancestor directory, and ` +
+      "git rev-parse did not return a repository root. Pass --root explicitly " +
+      "(and --manifest for a non-default manifest).",
   );
 };
 

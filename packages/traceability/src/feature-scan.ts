@@ -10,14 +10,14 @@ export interface ScannedScenario {
   hasReasonComment: boolean;
   /** phase/verificationだけに使う、Feature/Ruleから継承した状態タグ。 */
   effectiveStateTags?: string[];
-  /** 通常Scenarioは1、Outlineは全Examplesのデータ行数。旧API入力では省略可。 */
+  /** 通常Scenarioは1、Examplesがあれば全データ行数。Outlineの初期値は0。旧API入力では省略可。 */
   caseCount?: number;
   /** 条件全体の状態へ投影できないExamplesタグを検査するための情報。 */
   exampleTags?: string[][];
 }
 
 const SCENARIO_RE =
-  /^(シナリオアウトライン|シナリオテンプレート|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:(.*)$/;
+  /^(シナリオアウトライン|シナリオテンプレート|シナリオテンプレ|テンプレ|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:(.*)$/;
 const FEATURE_RE = /^(Feature|Business Need|Ability|フィーチャ|機能)\s*:/;
 const RULE_RE = /^(Rule|ルール)\s*:/;
 const BACKGROUND_RE = /^(Background|背景)\s*:/;
@@ -86,7 +86,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
     } else {
       const match = trimmed.match(SCENARIO_RE);
       if (match) {
-        outline = /Outline|Template|アウトライン|テンプレート/.test(match[1]);
+        outline = /Outline|Template|アウトライン|テンプレ/.test(match[1]);
         current = {
           line: index + 1,
           name: match[2].trim(),
@@ -99,8 +99,10 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
         scenarios.push(current);
         examples = false;
       } else if (current && EXAMPLES_RE.test(trimmed)) {
+        // Scenario というキーワードでも、Examples があれば行ごとに展開される。
+        if (current.exampleTags!.length === 0) current.caseCount = 0;
         current.exampleTags!.push(pendingStateTags);
-        examples = outline;
+        examples = true;
         tableHeader = true;
       } else if (examples && /^\|.*\|$/.test(trimmed)) {
         if (tableHeader) tableHeader = false;
