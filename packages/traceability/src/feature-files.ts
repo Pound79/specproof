@@ -5,7 +5,10 @@ import { resolveWithinRoot } from "./resolve.js";
 
 const isWithin = (parent: string, candidate: string): boolean => {
   const relative = path.relative(parent, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+  );
 };
 
 /**
@@ -65,6 +68,8 @@ export const findFeatureFiles = async (
 
   const walk = async (dir: string): Promise<void> => {
     const entries = await readdir(dir, { withFileTypes: true });
+    // 最初のパスを残す重複排除が OS の列挙順に左右されないようにする。
+    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
       if (entry.isSymbolicLink()) await visitLink(full, entry);
