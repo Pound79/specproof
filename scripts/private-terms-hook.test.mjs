@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { addedLines, findTerms, parseTerms } from "./githooks/check-private-terms.mjs";
+import {
+  decodeContent,
+  findTerms,
+  parseRawDiff,
+  parseTerms,
+} from "./githooks/check-private-terms.mjs";
 
 // 実際に git commit / git push を走らせ、記録・送信が起きたかどうかを観測して判定する。
 // 語彙は架空の語にする（本物の私的な語をここに書くと、それ自体が公開される）。
@@ -56,7 +61,7 @@ const sandbox = (run, { terms = TERMS } = {}) => {
         cwd: remote,
         encoding: "utf8",
       }).stdout.trim();
-    run({ repo, dir, git, ok, write, count, remoteHead });
+    run({ repoPath: repo, dir, git, ok, write, count, remoteHead });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -80,18 +85,30 @@ test("語彙の読み込みと照合は大文字小文字と多バイト文字�
   assert.deepEqual(findTerms("nothing private here", terms), []);
 });
 
-test("diff の解析は '++ ' で始まる追加行を見出しと取り違えない", () => {
-  const diff = [
-    "diff --git a/x.md b/x.md",
-    "--- a/x.md",
-    "+++ b/x.md",
-    "@@ -0,0 +1,2 @@",
-    "+++ secret-app",
-    "+plain",
-  ].join("\n");
-  assert.deepEqual(addedLines(diff), [
-    { where: "x.md", text: "++ secret-app" },
-    { where: "x.md", text: "plain" },
+test("内容の復号は UTF-16 の BOM を解釈し、それ以外は UTF-8 として読む", () => {
+  const utf16le = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("secret-app", "utf16le")]);
+  assert.equal(decodeContent(utf16le), "secret-app");
+  const utf16be = Buffer.from(Buffer.from("内部案件", "utf16le")).swap16();
+  assert.equal(decodeContent(Buffer.concat([Buffer.from([0xfe, 0xff]), utf16be])), "内部案件");
+  assert.equal(decodeContent(Buffer.from("内部案件\0", "utf8")), "内部案件\0");
+});
+
+test("raw 形式の差分から新しい blob とパスを読み、gitlink と改名元を区別する", () => {
+  const sha = (c) => c.repeat(40);
+  const raw = [
+    `:000000 100644 ${sha("0")} ${sha("a")} A`,
+    "new.md",
+    `:100644 100644 ${sha("b")} ${sha("c")} R100`,
+    "old-name.md",
+    "renamed.md",
+    `:000000 160000 ${sha("0")} ${sha("d")} A`,
+    "vendor/sub",
+    "",
+  ].join("\0");
+  assert.deepEqual(parseRawDiff(raw), [
+    { path: "new.md", blob: sha("a"), gitlink: false },
+    { path: "renamed.md", blob: sha("c"), gitlink: false },
+    { path: "vendor/sub", blob: sha("d"), gitlink: true },
   ]);
 });
 
@@ -107,6 +124,32 @@ for (const [name, setup] of [
   ["追加行の多バイトの語", (r) => r.write("a.md", "これは内部案件の記録\n")],
   ["'++ ' で始まる追加行", (r) => r.write("a.md", "++ secret-app\n")],
   ["ファイル名", (r) => r.write("notes/secret-app.md", "x\n")],
+  [
+    "git が binary とみなすテキスト",
+    (r) => {
+      r.write(".git/info/attributes", "*.md -diff\n");
+      r.write("a.md", "uses secret-app\n");
+    },
+  ],
+  [
+    "UTF-16 のテキスト",
+    (r) =>
+      r.write(
+        "a.txt",
+        Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("uses secret-app\n", "utf16le")]),
+      ),
+  ],
+  [
+    "symlink から通常ファイルへの種別変更",
+    (r) => {
+      symlinkSync("README.md", path.join(r.repoPath, "link"));
+      r.ok(["add", "."]);
+      r.ok(["commit", "-q", "-m", "add link"]);
+      unlinkSync(path.join(r.repoPath, "link"));
+      r.write("link", "secret-app here\n");
+    },
+  ],
+  ["リンク先のパス", (r) => symlinkSync("../secret-app/x", path.join(r.repoPath, "link"))],
 ]) {
   test(`pre-commit: ${name}を含む変更は記録しない`, () =>
     sandbox((repo) => {
@@ -202,6 +245,42 @@ test("pre-push: 注釈付きタグの本文に語があれば送らない", () =
       encoding: "utf8",
     });
     assert.notEqual(remoteTag.status, 0);
+  }));
+
+test("pre-push: 別のリモートに送ったことのあるコミットも、送り先に未送信なら検査する", () =>
+  sandbox((repo) => {
+    repo.ok(["push", "-q", "origin", "main"]);
+    const privateRemote = path.join(repo.dir, "private.git");
+    repo.ok(["init", "-q", "--bare", privateRemote]);
+    repo.ok(["remote", "add", "priv", privateRemote]);
+    repo.ok(["switch", "-q", "-c", "feat"]);
+    repo.write("a.md", "uses secret-app\n");
+    repo.ok(["add", "."]);
+    repo.ok(["commit", "-q", "--no-verify", "-m", "docs: add"]);
+    repo.ok(["push", "-q", "--no-verify", "priv", "feat"]);
+    assert.notEqual(repo.git(["push", "-q", "origin", "feat"]).status, 0);
+    const remoteFeat = spawnSync("git", ["rev-parse", "-q", "--verify", "refs/heads/feat"], {
+      cwd: path.join(repo.dir, "remote.git"),
+      encoding: "utf8",
+    });
+    assert.notEqual(remoteFeat.status, 0);
+  }));
+
+test("pre-push: merge で持ち込んだ語も送らない", () =>
+  sandbox((repo) => {
+    repo.ok(["push", "-q", "origin", "main"]);
+    const before = repo.remoteHead();
+    repo.ok(["switch", "-q", "-c", "side"]);
+    repo.write("side.md", "side\n");
+    repo.ok(["add", "."]);
+    repo.ok(["commit", "-q", "-m", "side"]);
+    repo.ok(["switch", "-q", "main"]);
+    repo.ok(["merge", "-q", "--no-ff", "--no-commit", "side"]);
+    repo.write("evil.md", "secret-app\n");
+    repo.ok(["add", "evil.md"]);
+    repo.ok(["commit", "-q", "--no-verify", "-m", "Merge side"]);
+    assert.notEqual(repo.git(["push", "-q", "origin", "main"]).status, 0);
+    assert.equal(repo.remoteHead(), before);
   }));
 
 test("pre-push: 私的な語を含まないコミットとタグは送られる", () =>

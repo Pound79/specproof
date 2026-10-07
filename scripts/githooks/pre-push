@@ -1,3 +1,4 @@
 #!/bin/sh
 # 送るコミットとタグに私的な語が無いかを検査する（scripts/githooks/check-private-terms.mjs）。
-exec node "$(dirname "$0")/check-private-terms.mjs" push
+# $1 は送り先のリモート名（URL を直接指定した場合は URL）。
+exec node "$(dirname "$0")/check-private-terms.mjs" push "$1"
