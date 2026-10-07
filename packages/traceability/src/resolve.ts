@@ -37,6 +37,18 @@ const physicalPathOf = (target: string): string => {
   }
 };
 
+/** repo 外・リンク切れ・確かめられないリンク先を、区別せずに同じ文言で拒否する。 */
+const outsideRootError = (refPath: string): Error =>
+  new Error(`Manifest path "${refPath}" is dangling or resolves outside the repository root.`);
+
+const physicalPathOrUndefined = (target: string): string | undefined => {
+  try {
+    return physicalPathOf(target);
+  } catch {
+    return undefined;
+  }
+};
+
 // Resolves a manifest-relative path against the repo root and guarantees the
 // result stays inside the root. Guards against hand-edit mistakes (and the odd
 // malicious entry) where `ref.path` is `../something` or an absolute path that
@@ -50,10 +62,17 @@ export const resolveWithinRoot = (repoRoot: string, refPath: string): string => 
     // cwd は物理パスなので、symlink 経由の root と相対 --manifest の組み合わせは
     // 字句上は外に見える。絶対パスに限り、実体で比べ直して root 側の表記へ戻す。
     // 相対の `../` 参照は実体が中にあっても従来どおり拒否する。
-    const physicalRoot = path.isAbsolute(refPath) ? physicalRootOf(root, repoRoot) : undefined;
-    const physical = physicalRoot === undefined ? undefined : physicalPathOf(resolved);
-    if (physicalRoot === undefined || physical === undefined || !isWithin(physicalRoot, physical)) {
-      throw new Error(`Manifest path "${refPath}" resolves outside the repository root.`);
+    // repo 外のパスで起きた権限やループのエラーはそのまま出さず、同じ文言で拒否する
+    // （CI のログから runner 上のパスの状態を推測させない）。
+    // 実体の root の字句上の内側なら realpath せずに root 側の表記へ写し、下の要素ごとの
+    // 検査に任せる（root を物理パスで渡した場合と同じ結果になる）。
+    if (!path.isAbsolute(refPath)) throw outsideRootError(refPath);
+    const physicalRoot = physicalRootOf(root, repoRoot);
+    const physical = isWithin(physicalRoot, resolved)
+      ? resolved
+      : physicalPathOrUndefined(resolved);
+    if (physical === undefined || !isWithin(physicalRoot, physical)) {
+      throw outsideRootError(refPath);
     }
     resolved = path.join(root, path.relative(physicalRoot, physical));
   }
@@ -72,17 +91,17 @@ export const resolveWithinRoot = (repoRoot: string, refPath: string): string => 
       throw error;
     }
 
+    // 直前の要素までは repo 内と確認済みなので、ここで realpath が失敗するのは
+    // current 自体がリンクの場合だけ。リンク先が repo 外のとき、存在・権限・ループの
+    // 違いをエラー文から区別させないよう、失敗も外向きも同じ文言にする。
     let physicalCurrent: string;
     try {
       physicalCurrent = realpathSync(current);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        throw new Error(`Manifest path "${refPath}" contains an unresolved symbolic link.`);
-      }
-      throw error;
+    } catch {
+      throw outsideRootError(refPath);
     }
     if (!isWithin(physicalRoot, physicalCurrent)) {
-      throw new Error(`Manifest path "${refPath}" resolves outside the repository root.`);
+      throw outsideRootError(refPath);
     }
   }
   return resolved;

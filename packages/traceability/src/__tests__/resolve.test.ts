@@ -92,7 +92,9 @@ describe("resolveWithinRoot", () => {
   it("rejects a dangling symbolic link", () => {
     symlinkSync(path.join(ROOT, "does-not-exist"), path.join(ROOT, "dangling"));
 
-    expect(() => resolveWithinRoot(ROOT, "dangling/file.ts")).toThrow(/unresolved symbolic link/);
+    expect(() => resolveWithinRoot(ROOT, "dangling/file.ts")).toThrow(
+      /dangling or resolves outside the repository root/,
+    );
   });
 
   it("preserves missing semantics when an intermediate component is a file", () => {
