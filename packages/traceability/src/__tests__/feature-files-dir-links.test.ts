@@ -49,13 +49,31 @@ describe.skipIf(process.platform === "win32")("featuresDir 内のディレクト
       ]);
     }));
 
-  test("repo 外を指すディレクトリリンクは中を走査せずに拒否する", async () =>
+  test("子孫へのリンクを先に辿っても、後から来る祖先へのリンクの feature を落とさない", async () =>
+    fixture(async (root) => {
+      await mkdir(path.join(root, "shared/inner"), { recursive: true });
+      await writeFile(path.join(root, "shared/top.feature"), "Feature: top\n");
+      await writeFile(path.join(root, "shared/inner/in.feature"), "Feature: in\n");
+      // 名前順で a-inner（子孫）が b-shared（祖先）より先に読まれる。
+      await symlink("../shared/inner", path.join(root, "features/a-inner"));
+      await symlink("../shared", path.join(root, "features/b-shared"));
+      assert.deepEqual(await findFeatureFiles(root, "features"), [
+        "features/a-inner/in.feature",
+        "features/a.feature",
+        "features/b-shared/top.feature",
+        "features/sub/b.feature",
+      ]);
+    }));
+
+  test(".feature 以外の名前で repo 外を指すリンクは、中を読まずに無視する", async () =>
     fixture(async (root, outside) => {
       // 走査すれば読めないサブディレクトリで EACCES になる配置。
       await mkdir(path.join(outside, "locked"));
       await chmod(path.join(outside, "locked"), 0o000);
+      await writeFile(path.join(outside, "hosts"), "x\n");
       await symlink(outside, path.join(root, "features/vendor"));
-      await assert.rejects(findFeatureFiles(root, "features"), /outside the repository root/);
+      await symlink(path.join(outside, "hosts"), path.join(root, "features/README"));
+      assert.deepEqual(await findFeatureFiles(root, "features"), BASE);
     }));
 
   test("リンク切れは .feature 名なら拒否し、それ以外は無視する", async () =>
@@ -64,5 +82,26 @@ describe.skipIf(process.platform === "win32")("featuresDir 内のディレクト
       assert.deepEqual(await findFeatureFiles(root, "features"), BASE);
       await symlink("../missing.feature", path.join(root, "features/gone.feature"));
       await assert.rejects(findFeatureFiles(root, "features"));
+    }));
+
+  test(".feature 名のリンクは、repo 外の実体の有無にかかわらず同じ文言で拒否する", async () =>
+    fixture(async (root, outside) => {
+      await writeFile(path.join(outside, "exists.feature"), "Feature: x\n");
+      const messageFor = async (target: string): Promise<string> => {
+        const link = path.join(root, "features/probe.feature");
+        await symlink(target, link);
+        try {
+          await findFeatureFiles(root, "features");
+          return "resolved";
+        } catch (error) {
+          return (error as Error).message;
+        } finally {
+          await rm(link);
+        }
+      };
+      const existing = await messageFor(path.join(outside, "exists.feature"));
+      const missing = await messageFor(path.join(outside, "missing.feature"));
+      assert.match(existing, /outside the repository root/);
+      assert.equal(missing, existing);
     }));
 });
