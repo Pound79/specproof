@@ -164,7 +164,7 @@ export const updateManifestHashes = async (
   };
   const changes = results.flatMap((result) => result.changes);
   if (!dryRun && changes.length > 0) {
-    await saveManifest(manifestPath, updated, manifest);
+    await saveManifest(manifestPath, updated, manifest, repoRoot);
   }
   return { ...updated, changes };
 };
