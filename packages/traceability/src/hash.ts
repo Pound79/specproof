@@ -138,17 +138,23 @@ export interface Heading {
   text: string;
 }
 
+export interface HeadingCandidate extends Heading {
+  /** 旧 API が発見できた行だけ、その API が返した参照名を保持する。 */
+  legacyText?: string;
+}
+
 // Every ATX heading of exactly `level` in `content`, in document order,
 // skipping fenced code blocks. Used by check.ts to enumerate a spec doc's
 // headings for unregistered-heading and duplicate-heading detection — the
 // same "what heading does this line spell" logic computeHeadingSectionHash
 // uses to find its target section, generalized to every match instead of the
 // first.
-export const listHeadings = (content: string, level: number): Heading[] => {
-  assertValidLevel("listHeadings", level);
-  const lines = content.split("\n");
-  const fenced = fencedLineMask(lines);
-  const headings: Heading[] = [];
+const collectHeadingCandidates = (
+  lines: string[],
+  level: number,
+  fenced: boolean[],
+): HeadingCandidate[] => {
+  const headings: HeadingCandidate[] = [];
   for (let index = 0; index < lines.length; index += 1) {
     if (fenced[index]) {
       continue;
@@ -156,11 +162,32 @@ export const listHeadings = (content: string, level: number): Heading[] => {
     const line = lines[index];
     const parsed = parseHeading(line);
     if (parsed?.level === level) {
-      headings.push({ line: index + 1, text: parsed.text });
+      const legacyText = line.startsWith(`${"#".repeat(level)} `)
+        ? line.trimEnd().slice(level + 1)
+        : undefined;
+      headings.push({ line: index + 1, text: parsed.text, legacyText });
     }
   }
   return headings;
 };
+
+export const listHeadingCandidates = (content: string, level: number): HeadingCandidate[] => {
+  assertValidLevel("listHeadings", level);
+  const lines = content.split("\n");
+  return collectHeadingCandidates(lines, level, fencedLineMask(lines));
+};
+
+export const listHeadings = (content: string, level: number): Heading[] =>
+  listHeadingCandidates(content, level).map(({ line, text }) => ({ line, text }));
+
+// 旧 raw 名と別の canonical 名が衝突しても、保存済み参照を別の節へ移さない。
+// 文書全体の旧完全一致を優先し、無い場合だけ現在の正規化名を照合する。
+export const resolveHeadingReference = (
+  headings: HeadingCandidate[],
+  reference: string,
+): HeadingCandidate | undefined =>
+  headings.find((heading) => heading.legacyText === reference) ??
+  headings.find((heading) => heading.text === reference);
 
 // Extracts the markdown block from the `<level> <heading>` line (default level
 // 2 = `## `) up to (but not including) the next heading of level <= `level`,
@@ -197,29 +224,23 @@ export const computeHeadingSectionHash = async (
   const lines = content.split("\n");
   const fenced = fencedLineMask(lines);
 
-  let start = -1;
+  const target = resolveHeadingReference(collectHeadingCandidates(lines, level, fenced), heading);
+  if (target === undefined) {
+    return SECTION_MISSING;
+  }
+  const start = target.line - 1;
 
-  for (let index = 0; index < lines.length; index += 1) {
+  for (let index = start + 1; index < lines.length; index += 1) {
     if (fenced[index]) {
       continue;
     }
     const line = lines[index];
 
-    if (start === -1) {
-      const parsed = parseHeading(line);
-      if (parsed?.level === level && parsed.text === heading) {
-        start = index;
-      }
-    } else {
-      const lineLevel = headingLevelOf(line);
-      if (lineLevel !== null && lineLevel <= level) {
-        return sha256(lines.slice(start, index).join("\n"));
-      }
+    const lineLevel = headingLevelOf(line);
+    if (lineLevel !== null && lineLevel <= level) {
+      return sha256(lines.slice(start, index).join("\n"));
     }
   }
 
-  if (start === -1) {
-    return SECTION_MISSING;
-  }
   return sha256(lines.slice(start).join("\n"));
 };

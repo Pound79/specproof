@@ -32,6 +32,14 @@ npx @pound79/specproof detect --json
 
 Requires Node.js **>= 24**.
 
+配置先に空白や引用符を含める場合は、CLI に渡す `--dir` の値を shell で引用する。
+生成設定は YAML と shell の両方に合わせて引用し、ディレクトリ名をコマンドとして実行しない。
+制御文字を含む配置先は、ファイルを書き込む前に拒否する。
+
+```bash
+npx @pound79/specproof init --adapter playwright --dir 'e2e tests'
+```
+
 ## Commands
 
 | Command | Description |

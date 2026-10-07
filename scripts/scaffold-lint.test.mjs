@@ -27,6 +27,8 @@ for (const parentName of [null, "biome.json", "biome.jsonc"]) {
       assert.equal(config.root === false, parentName !== null);
       const result = run(biome, ["lint", "."], dir);
       assert.equal(result.status, 0, result.stderr);
+      const formatted = run(biome, ["format", "."], dir);
+      assert.equal(formatted.status, 0, formatted.stderr);
       // echo / 空の対象で成功していないことも検査する。
       writeFileSync(path.join(dir, "steps/invalid.steps.ts"), "debugger;\n");
       const invalid = run(biome, ["lint", "."], dir);

@@ -206,17 +206,14 @@ links:
   });
 
   it("rejects a manifest with too many total references", async () => {
-    let refIndex = 0;
     const links = Array.from({ length: 21 }, (_, linkIndex) => {
       const count = linkIndex === 20 ? 1 : 1_000;
       return {
         id: `link-${linkIndex}`,
         label: `Link ${linkIndex}`,
         spec: [],
-        impl: Array.from({ length: count }, () => ({
-          path: `src/file-${refIndex++}.ts`,
-          hash: "PENDING",
-        })),
+        // 参照数だけが境界条件なので、各参照は最小の有効値にする。
+        impl: Array.from({ length: count }, () => ({ path: "x", hash: "" })),
         features: [],
       };
     });
