@@ -65,8 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Examples` を付けた場合も、展開後のケース数を数える。
 - repo root の探索で `git rev-parse` のフォールバックが働いていなかった。
 - feature の探索がディレクトリの symlink を辿り、repo 外を走査したりループで
-  同じファイルを重複して報告したりしていた。repo 外を指すリンクは中を読む前に
-  拒否する。`.feature` という名前のディレクトリはファイルとして扱わない。
+  同じファイルを重複して報告したりしていた。repo 外の実体は読まない。`.feature`
+  名のリンクが repo 外やリンク切れなら拒否し、それ以外の名前のリンクは無視する。
+  repo 内の別ディレクトリへのリンクは辿る順序によらず一度ずつ数え、同じ実体の
+  ファイルは重複させない。`.feature` という名前のディレクトリはファイルとして扱わない。
 - symlink の manifest を `specproof-update` で更新できなかった。リンク先の実体を
   更新し、リンクは残す。保存の直前にも、実体が repo 内にあることを確かめる。
 - 新規作成した manifest が所有者しか読めない権限（0600）になっていた。
