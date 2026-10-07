@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
 ### Added
 
 - 静的統計に phase（draft/pending/complete）と verification（machine/human）の
@@ -88,7 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   除外する。テンプレートの gitignore も `.env.*`（`.env.example` を除く）を無視する。
 - manifest は通常ファイルだけを読み、FIFO やデバイスを拒否する。
 - 推移的依存 `source-map-js` を監査指摘の修正版（1.2.2）へ更新した。
-
 ## [0.2.2] - 2026-09-02
 
 ### Added
@@ -356,7 +357,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/specproof/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Pound79/specproof/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/Pound79/specproof/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Pound79/specproof/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Pound79/specproof/compare/v0.1.6...v0.2.0
