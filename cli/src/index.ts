@@ -3,10 +3,11 @@ import { runInit } from "./init.js";
 import type { AgentType } from "./init.js";
 import { runDetect } from "./cli-detect.js";
 import { runSetupAgent } from "./setup-agent.js";
-import { parseFlags } from "./flags.js";
+import { parseFlags, wantsHelp } from "./flags.js";
 
 const argv = process.argv.slice(2);
 const command = argv[0];
+const SUBCOMMANDS: readonly string[] = ["init", "detect", "setup-agent"];
 
 const VALID_AGENT_FLAGS = ["claude", "codex"] as const;
 
@@ -50,6 +51,11 @@ const parseAgentType = (value: string | boolean | undefined): AgentType | undefi
 
 const main = async (): Promise<void> => {
   if (command === undefined || command === "--help" || command === "-h") {
+    console.log(usage);
+    return;
+  }
+  // 既知のサブコマンドでは、引数の検証や書き込みより先に help を優先する。
+  if (SUBCOMMANDS.includes(command) && wantsHelp(argv.slice(1))) {
     console.log(usage);
     return;
   }
