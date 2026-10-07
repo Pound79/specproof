@@ -24,7 +24,7 @@ const RULES = [
     id: "local-path",
     reason: "マシン固有のパス（ホーム・一時ディレクトリ）",
     pattern: new RegExp(
-      `${HOME_PATH.source}|[\\\\/]root[\\\\/]|\\/var\\/folders\\/|\\/private\\/(?:tmp|var)\\/|\\/tmp\\/claude-`,
+      `${HOME_PATH.source}|[\\\\/]root[\\\\/]|\\/var\\/folders\\/|\\/private\\/(?:tmp|var)\\/|\\/tmp\\/claude[-/]`,
       "g",
     ),
     allow: (match) => {
@@ -139,6 +139,7 @@ test("検査規則は代表的な混入を検出し、例示用の表記は通�
     path("/", "", "root", ".ssh"),
     path("/", "", "var", "folders", "ab", "T", "x"),
     path("/", "", "private", "tmp", "claude-1", "x"),
+    path("/", "", "tmp", "claude", "x"),
     ["person", "company.co.jp"].join("@"),
     ["dev", "example.com.evil.io"].join("@"),
   ];
