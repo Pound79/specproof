@@ -24,11 +24,12 @@ const main = async (): Promise<void> => {
   });
 
   if (updated.changes.length === 0) {
+    // 変更が無いときは manifest を書き込まないので、更新したとは表示しない。
     console.log("No hash changes; manifest already up to date.");
-  } else {
-    for (const change of updated.changes) {
-      console.log(describeChange(change));
-    }
+    return;
+  }
+  for (const change of updated.changes) {
+    console.log(describeChange(change));
   }
 
   if (dryRun) {

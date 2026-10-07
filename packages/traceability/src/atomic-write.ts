@@ -59,8 +59,9 @@ export const writeFileAtomic = async (
   if (before?.text === text) return;
 
   const temp = path.join(path.dirname(file), `.${path.basename(file)}.${randomUUID()}.tmp`);
-  // wx は既存のファイルやリンクを上書きしない。完成までは所有者だけが読める。
-  const handle = await open(temp, "wx", 0o600);
+  // wx は既存のファイルやリンクを上書きしない。置き換え時は完成まで所有者だけが読め、
+  // 最後に元の mode へ揃える。新規作成時は通常の書き込みと同じく umask に任せる。
+  const handle = await open(temp, "wx", before ? 0o600 : 0o666);
   let closed = false;
   try {
     await handle.writeFile(text, "utf8");

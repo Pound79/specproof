@@ -77,4 +77,24 @@ describe.each(adapters)("$adapter テンプレートのコメント配置", ({ a
     assert.ok(changed.length > 0);
     for (const line of changed) assert.match(line, /apps\/e2e/, line);
   });
+
+  test("別の配置先で生成しても、既定の配置先を前提にした説明が残らない", () => {
+    const rewritten = rewriteScaffoldConfig(source, defaultDir, "apps/e2e");
+    const stale = rewritten.split("\n").filter((line) => line.includes(defaultDir));
+    assert.deepEqual(stale, []);
+  });
+
+  test("strict 系フラグの案内はキーの実際の位置と矛盾しない", () => {
+    const lines = source.split("\n");
+    const keyLine = lines.findIndex((line) => line.startsWith("strictUnregisteredImpl:"));
+    assert.ok(keyLine >= 0);
+    const hints = lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => /^\s*#.*strictUnregisteredImpl/.test(line));
+    assert.ok(hints.length > 0);
+    for (const { line, index } of hints) {
+      if (/\babove\b/.test(line)) assert.ok(index > keyLine, line);
+      if (/\bbelow\b/.test(line)) assert.ok(index < keyLine, line);
+    }
+  });
 });

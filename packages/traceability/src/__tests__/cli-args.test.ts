@@ -51,3 +51,18 @@ describe("parseCliArgs", () => {
     expect(candidateSuffix).toBeUndefined();
   });
 });
+
+describe("parseCliArgs の値の判定", () => {
+  it("単一ハイフンで始まる値を受け付ける", () => {
+    expect(parseCliArgs(["--candidate-suffix", "-page.ts"], "list").candidateSuffix).toBe(
+      "-page.ts",
+    );
+    expect(parseCliArgs(["--link-id", "-legacy"], "update").linkId).toBe("-legacy");
+  });
+
+  it("オプションやヘルプ指定を値として取り込まない", () => {
+    for (const value of ["--json", "--strict", "-h"]) {
+      expect(() => parseCliArgs(["--manifest", value], "check")).toThrow(/requires a value/);
+    }
+  });
+});

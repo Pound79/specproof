@@ -55,3 +55,48 @@ echo continued > continued.txt
     });
   }
 }
+
+// 後始末の途中（rollback の git reset 中）に 2 回目のシグナルが届いても、
+// 復元とスナップショットの削除を最後まで終えてから最初のシグナルの終了コードで止まる。
+for (const [first, status] of [["INT", 130], ["TERM", 143]]) {
+  for (const second of ["INT", "TERM"]) {
+    test(`${first} の後始末中に ${second} が届いても後始末を完了する`, () => {
+      const dir = mkdtempSync(path.join(os.tmpdir(), "release-signal-twice-"));
+      try {
+        const bin = path.join(dir, "bin");
+        mkdirSync(bin);
+        writeFileSync(
+          path.join(bin, "git"),
+          `#!/bin/sh\nprintf "%s\\n" "$@" >> git-calls.txt\nkill -s ${second} "$PPID"\nsleep 0.2\n`,
+          { mode: 0o755 },
+        );
+        writeFileSync(path.join(dir, "release.txt"), "before\n");
+        const script = `set -euo pipefail
+RELEASE_FILES=(release.txt)
+${cleanup}
+cleanup() { echo cleanup >> cleanup-count.txt; original_cleanup; echo done >> cleanup-done.txt; }
+cp -p release.txt "$SNAP_DIR/release.txt"
+echo "$SNAP_DIR" > snapshot-path.txt
+SNAPSHOT_TAKEN=true
+printf 'changed\\n' > release.txt
+kill -s ${first} "$$"
+echo continued > continued.txt
+`;
+        const result = spawnSync("bash", ["-c", script], {
+          cwd: dir, encoding: "utf8", timeout: 5_000,
+          env: { ...process.env, TMPDIR: dir, PATH: `${bin}${path.delimiter}${process.env.PATH}` },
+        });
+        assert.ifError(result.error);
+        assert.equal(result.status, status, result.stderr);
+        assert.equal(existsSync(path.join(dir, "continued.txt")), false);
+        assert.equal(readFileSync(path.join(dir, "cleanup-count.txt"), "utf8"), "cleanup\n");
+        assert.equal(readFileSync(path.join(dir, "cleanup-done.txt"), "utf8"), "done\n");
+        assert.equal(readFileSync(path.join(dir, "release.txt"), "utf8"), "before\n");
+        const snapshot = readFileSync(path.join(dir, "snapshot-path.txt"), "utf8").trim();
+        assert.equal(existsSync(snapshot), false);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
+}

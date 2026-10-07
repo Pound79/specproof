@@ -9,6 +9,13 @@ const COMMAND_OPTIONS: Record<Command, readonly string[]> = {
   "setup-agent": ["--force"],
 };
 
+// 次のオプションやヘルプ指定を値として飲み込まない。`-e2e` のような単一ハイフンの値は通す。
+const looksLikeOption = (value: string): boolean => value.startsWith("--") || value === "-h";
+
+/** サブコマンドの引数に help 指定が含まれるか。 */
+export const wantsHelp = (args: readonly string[]): boolean =>
+  args.includes("--help") || args.includes("-h");
+
 // コマンド実行前に全引数を検証し、誤記や値の欠落を黙って無視しない。
 export const parseFlags = (args: string[], command?: Command): Flags => {
   const allowed = new Set(
@@ -26,7 +33,7 @@ export const parseFlags = (args: string[], command?: Command): Flags => {
       continue;
     }
     const value = args[i + 1];
-    if (value === undefined || value.length === 0 || value.startsWith("-")) {
+    if (value === undefined || value.length === 0 || looksLikeOption(value)) {
       throw new Error(`${arg} requires a value`);
     }
     flags[key] = value;

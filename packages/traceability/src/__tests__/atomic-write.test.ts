@@ -30,6 +30,16 @@ test("新規 manifest を作成できる", async () =>
     assert.deepEqual(await readdir(dir), ["manifest.yaml"]);
   }));
 
+if (process.platform !== "win32") {
+  test("新規 manifest は通常の書き込みと同じく umask に従う権限で作る", async () =>
+    fixture(async (dir, file) => {
+      const reference = path.join(dir, "reference.txt");
+      await writeFile(reference, "x");
+      await writeFileAtomic(file, "new");
+      assert.equal((await stat(file)).mode & 0o777, (await stat(reference)).mode & 0o777);
+    }));
+}
+
 test("内容が同じなら inode と mtime も変えない", async () =>
   fixture(async (_dir, file) => {
     await writeFile(file, "old");

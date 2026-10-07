@@ -40,3 +40,6 @@ test("init の対応オプションを保持する", () => {
     },
   );
 });
+test("単一ハイフンで始まる配置先を値として受け付ける", () => {
+  assert.deepEqual(parseFlags(["--dir", "-e2e"], "init"), { dir: "-e2e" });
+});

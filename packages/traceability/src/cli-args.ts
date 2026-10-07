@@ -27,6 +27,9 @@ export interface ParsedCliArgs {
   linkId?: string;
 }
 
+// 次のオプションやヘルプ指定を値として飲み込まない。`-page.ts` のような単一ハイフンの値は通す。
+const looksLikeOption = (value: string): boolean => value.startsWith("--") || value === "-h";
+
 export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): ParsedCliArgs => {
   const allowed = new Set(
     command ? COMMAND_OPTIONS[command] : [...Object.keys(VALUE_OPTIONS), ...BOOLEAN_OPTIONS],
@@ -45,7 +48,7 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
       continue;
     }
     const value = argv[i + 1];
-    if (value === undefined || value.length === 0 || value.startsWith("-")) {
+    if (value === undefined || value.length === 0 || looksLikeOption(value)) {
       throw new Error(`${arg} requires a value`);
     }
     values[key] = value;
