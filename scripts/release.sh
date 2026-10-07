@@ -202,6 +202,9 @@ rollback_release_files() {
   git reset -q -- "${RELEASE_FILES[@]}" 2>/dev/null || true
 }
 cleanup() {
+  # 後始末中の 2 回目のシグナルで復元やスナップショット削除を中断させない。
+  # 終了コードは最初に届いたシグナル（または元の失敗）のまま保たれる。
+  trap '' INT TERM
   [ "$MUTATION_FINALIZED" = true ] || rollback_release_files
   rm -rf "$SNAP_DIR"
 }
