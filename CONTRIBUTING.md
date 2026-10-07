@@ -63,3 +63,23 @@ By participating, you agree to abide by our
 整形は `npm run format`。CLI診断は英語、会話・新規説明文書は日本語とする。
 カバレッジ対象・閾値は [品質基準](docs/quality-gates.md) を参照。
 Playwright scaffold の lint も no-op ではなく Biome を実行する。
+
+## 公開内容の検査
+
+このリポジトリは公開 OSS なので、私的な名前・手元の検証記録・マシン固有のパスを
+追跡しない（方針は [AGENTS.md](./AGENTS.md#公開リポジトリとしての規則)）。
+
+- `npm test` の `scripts/public-content.test.mjs` が、マシン固有のパス、許可していない
+  メールアドレス、`docs/evidence/`・`*.local.md`・見本以外の dotenv を検出する。CI でも走る。
+- 私的な名前はリポジトリに書くと公開されるため、clone ごとに次のフックを有効にし、
+  語彙をリポジトリの外に置く。
+
+```bash
+git config core.hooksPath scripts/githooks
+mkdir -p ~/.config/git
+$EDITOR ~/.config/git/private-terms.txt   # 1 行 1 語。空行と # で始まる行は無視
+```
+
+語彙の置き場所は環境変数 `SPECPROOF_PRIVATE_TERMS` でも指定できる。pre-commit は
+ステージした追加行・ファイル名・名義、commit-msg はメッセージ、pre-push は送る全コミットと
+注釈付きタグを検査する。語彙ファイルが無いときは、省略した旨を表示して通す。

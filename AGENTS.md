@@ -34,6 +34,20 @@ main の作業ツリー・既存 PR を保護し、新規 branch で小さい PR
 本文は heredoc から `git commit -F -` へ渡す。既存 PR 更新・merge・force push は別途指示が要る。
 `.env*`・`.npmrc`・鍵は読まず、資格情報は既存注入経路を使用する。不要資料は削除せず移動する。
 
+## 公開リポジトリとしての規則
+
+このリポジトリは公開 OSS。利用者に必要な情報だけを追跡し、次のものはコミット・PR 本文・
+タグに入れない。
+
+- 下流の私的なプロジェクト名、本名、勤務先など私的な名前。
+- 手元の検証記録やログ（`docs/evidence/` は作らない）、実行環境の詳細。
+- マシン固有のパス（ホームディレクトリ・一時ディレクトリ）。
+
+個人のリリース手順や検証メモは、gitignore 済みの `*.local.md` か私的なリポジトリに置く。
+`npm test` の `scripts/public-content.test.mjs` が汎用の混入を検出し、私的な名前は
+`scripts/githooks` のフックがリポジトリ外の語彙で検出する（設定は CONTRIBUTING.md）。
+コミットの名義は `Pound79` を使う。
+
 ## Invariants
 
 - **impl -> feature 再生成は一度きりの bootstrap 専用**。継続再生成は同語反復で禁止。
