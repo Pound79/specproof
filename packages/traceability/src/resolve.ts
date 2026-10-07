@@ -94,13 +94,14 @@ export const resolveWithinRoot = (repoRoot: string, refPath: string): string => 
     // 直前の要素までは repo 内と確認済みなので、ここで realpath が失敗するのは
     // current 自体がリンクの場合だけ。リンク先が repo 外のとき、存在・権限・ループの
     // 違いをエラー文から区別させないよう、失敗も外向きも同じ文言にする。
-    let physicalCurrent: string;
+    let physicalCurrent: string | undefined;
     try {
       physicalCurrent = realpathSync(current);
     } catch {
-      throw outsideRootError(refPath);
+      physicalCurrent = undefined;
     }
-    if (!isWithin(physicalRoot, physicalCurrent)) {
+    // CLI が出すスタックからも区別させないよう、エラーの生成箇所をそろえる。
+    if (physicalCurrent === undefined || !isWithin(physicalRoot, physicalCurrent)) {
       throw outsideRootError(refPath);
     }
   }

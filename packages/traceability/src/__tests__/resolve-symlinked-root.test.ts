@@ -104,26 +104,30 @@ describe.skipIf(process.platform === "win32")("symlink 経由の repo root", () 
       }
     }));
 
-  test("repo 内の実体パスのエラーは、root を論理パスで書いても物理パスと同じになる", () =>
-    withLinkedRepo(({ real, link }) => {
-      const locked = path.join(real, "locked");
-      mkdirSync(locked);
-      chmodSync(locked, 0o000);
-      try {
-        const errorFor = (root: string): string => {
-          try {
-            resolveWithinRoot(root, path.join(locked, "q.yaml"));
-            return "resolved";
-          } catch (error) {
-            return String((error as NodeJS.ErrnoException).code ?? (error as Error).message);
-          }
-        };
-        assert.equal(errorFor(link), errorFor(real));
-        assert.equal(errorFor(real), "EACCES");
-      } finally {
-        chmodSync(locked, 0o755);
-      }
-    }));
+  // root は chmod 000 を通過できるので、EACCES の検証だけを除外する。
+  test.skipIf(process.getuid?.() === 0)(
+    "repo 内の実体パスのエラーは、root を論理パスで書いても物理パスと同じになる",
+    () =>
+      withLinkedRepo(({ real, link }) => {
+        const locked = path.join(real, "locked");
+        mkdirSync(locked);
+        chmodSync(locked, 0o000);
+        try {
+          const errorFor = (root: string): string => {
+            try {
+              resolveWithinRoot(root, path.join(locked, "q.yaml"));
+              return "resolved";
+            } catch (error) {
+              return String((error as NodeJS.ErrnoException).code ?? (error as Error).message);
+            }
+          };
+          assert.equal(errorFor(link), errorFor(real));
+          assert.equal(errorFor(real), "EACCES");
+        } finally {
+          chmodSync(locked, 0o755);
+        }
+      }),
+  );
 
   test("repo 内のリンクが外を指すとき、リンク先の状態によらず同じ文言で拒否する", () =>
     withLinkedRepo(({ real, outside }) => {
