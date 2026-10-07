@@ -1,5 +1,7 @@
-import { open, writeFile } from "node:fs/promises";
+import { readManifestFile } from "./manifest-io.js";
 import { parse, stringify } from "yaml";
+import { writeFileAtomic } from "./atomic-write.js";
+import { replaceManifestHashes } from "./manifest-text.js";
 
 export interface SpecRef {
   path: string;
@@ -35,7 +37,6 @@ const MAX_HASH_LENGTH = 256;
 const MAX_LINKS = 10_000;
 const MAX_REFS_PER_LINK = 1_000;
 const MAX_TOTAL_REFS = 20_000;
-const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const MAX_ID_LENGTH = 256;
 const MAX_LABEL_LENGTH = 1024;
 
@@ -50,10 +51,10 @@ const fail = (where: string, detail: string): never => {
   );
 };
 
-const assertFileRef: (
-  value: unknown,
-  where: string,
-) => asserts value is FileRef = (value, where) => {
+const assertFileRef: (value: unknown, where: string) => asserts value is FileRef = (
+  value,
+  where,
+) => {
   if (!isRecord(value)) {
     return fail(where, "expected a reference object");
   }
@@ -65,28 +66,19 @@ const assertFileRef: (
   ) {
     fail(where, `path must be 1-${MAX_PATH_LENGTH} characters without NUL`);
   }
-  if (
-    typeof value.hash !== "string" ||
-    value.hash.length > MAX_HASH_LENGTH
-  ) {
+  if (typeof value.hash !== "string" || value.hash.length > MAX_HASH_LENGTH) {
     fail(where, `hash must be a string of at most ${MAX_HASH_LENGTH} characters`);
   }
 };
 
-const assertSpecRef: (
-  value: unknown,
-  where: string,
-) => asserts value is SpecRef = (value, where) => {
+const assertSpecRef: (value: unknown, where: string) => asserts value is SpecRef = (
+  value,
+  where,
+) => {
   assertFileRef(value, where);
   const record = value as FileRef & Record<string, unknown>;
-  if (
-    typeof record.heading !== "string" ||
-    record.heading.length > MAX_HEADING_LENGTH
-  ) {
-    fail(
-      where,
-      `heading must be a string of at most ${MAX_HEADING_LENGTH} characters`,
-    );
+  if (typeof record.heading !== "string" || record.heading.length > MAX_HEADING_LENGTH) {
+    fail(where, `heading must be a string of at most ${MAX_HEADING_LENGTH} characters`);
   }
   if (
     record.headingLevel !== undefined &&
@@ -115,31 +107,27 @@ const assertRefArray = (
 const assertCriteria = (value: unknown, where: string): void => {
   if (value === undefined) return;
   if (!Array.isArray(value)) {
-    return fail(where, "criteria は string 配列で指定してください");
+    return fail(where, "criteria must be a string array");
   }
   const seen = new Set<string>();
   for (const [index, id] of value.entries()) {
     const at = `${where}[${index}]`;
     if (typeof id !== "string" || id.length === 0) {
-      return fail(at, "条件 ID は空でない文字列で指定してください");
+      return fail(at, "criterion ID must be a non-empty string");
     }
     if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u.test(id)) {
-      fail(at, "条件 ID に制御文字・行区切り・段落区切りを含められません");
+      fail(at, "criterion ID must not contain control or separator characters");
     }
     if (seen.has(id)) {
-      fail(at, "同じ link 内の条件 ID を重複させられません");
+      fail(at, "criterion IDs must be unique within a link");
     }
     seen.add(id);
   }
 };
 
-const assertManifestShape: (
-  value: unknown,
-) => asserts value is TraceabilityManifest = (value) => {
+const assertManifestShape: (value: unknown) => asserts value is TraceabilityManifest = (value) => {
   if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.links)) {
-    throw new Error(
-      "Invalid traceability manifest: expected { version: 1, links: [...] }",
-    );
+    throw new Error("Invalid traceability manifest: expected { version: 1, links: [...] }");
   }
   if (value.links.length > MAX_LINKS) {
     throw new Error(
@@ -153,11 +141,7 @@ const assertManifestShape: (
       fail(where, `expected a link object, got ${JSON.stringify(link)}`);
       return;
     }
-    if (
-      typeof link.id !== "string" ||
-      link.id === "" ||
-      link.id.length > MAX_ID_LENGTH
-    ) {
+    if (typeof link.id !== "string" || link.id === "" || link.id.length > MAX_ID_LENGTH) {
       fail(where, `id must be a non-empty string of at most ${MAX_ID_LENGTH} characters`);
     }
     if (
@@ -204,31 +188,20 @@ const assertManifestShape: (
   }
 };
 
-export const loadManifest = async (
-  manifestPath: string,
-): Promise<TraceabilityManifest> => {
-  const handle = await open(manifestPath, "r");
-  let raw: string;
-  try {
-    const { size } = await handle.stat();
-    if (size > MAX_MANIFEST_BYTES) {
-      throw new Error("Invalid traceability manifest: file exceeds 8 MiB");
-    }
-    raw = await handle.readFile({ encoding: "utf8" });
-  } finally {
-    await handle.close();
-  }
-  if (Buffer.byteLength(raw, "utf8") > MAX_MANIFEST_BYTES) {
-    throw new Error("Invalid traceability manifest: file exceeds 8 MiB");
-  }
+const manifestSources = new WeakMap<TraceabilityManifest, string>();
+
+export const loadManifest = async (manifestPath: string): Promise<TraceabilityManifest> => {
+  const raw = await readManifestFile(manifestPath);
   const parsed: unknown = parse(raw);
   assertManifestShape(parsed);
+  manifestSources.set(parsed, raw);
   return parsed;
 };
 
 export const saveManifest = async (
   manifestPath: string,
   manifest: TraceabilityManifest,
+  original?: TraceabilityManifest,
 ): Promise<void> => {
   // 既存の writer の振る舞いを保ち、新しい criteria だけをファイル更新前に検査する。
   manifest.links.forEach((link, index) => {
@@ -238,5 +211,13 @@ export const saveManifest = async (
     "# Traceability manifest linking spec sections, implementation files, and\n" +
     "# BDD feature files. Hashes are sha256; refresh them with:\n" +
     "#   specproof-update\n";
-  await writeFile(manifestPath, header + stringify(manifest), "utf8");
+  const source = original === undefined ? undefined : manifestSources.get(original);
+  if (original !== undefined && source === undefined) {
+    throw new Error("Original manifest must come from loadManifest");
+  }
+  const text =
+    original && source !== undefined
+      ? replaceManifestHashes(source, original, manifest)
+      : header + stringify(manifest);
+  await writeFileAtomic(manifestPath, text, source);
 };

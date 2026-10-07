@@ -1,6 +1,6 @@
 ---
 name: specproof-implement
-description: Implement production code (and pending step bodies / page-object methods) to make a human-authored RED .feature go GREEN — the feature → impl (TDD) direction. Config-driven via specproof.config.yaml; works with any repo (web Playwright, Flutter, etc.). Reads the feature PLUS the linked spec/rationale, existing impl patterns, steps and page objects (the feature is black-box and underspecifies impl). Guards hard against test-gaming (no hardcoding test values, no test-input special-casing, no assertion hollowing) via an explicit rule + self-check, independent adversarial review, spec/contract alignment, and input variation. Never regenerates the feature from impl (that direction is tautological — forbidden) and never silently edits the feature body. Verifies the fast layer (bddgen + typecheck + lint + non-{{config:tags.slow}} smoke) and leaves {{config:tags.slow}}/{{config:tags.generate}}/{{config:tags.sf}} for human/CI. Edits only the target domain; cross-cutting changes stop with a proposal. Use after a feature is authored/blessed RED and you want code that satisfies it. Do NOT use to write the feature (that is specproof-new-feature / specproof-sync / specproof-bootstrap).
+description: Implement production code (and pending step bodies / page-object methods) to make a human-authored RED .feature go GREEN — the feature → impl (TDD) direction. Config-driven via specproof.config.yaml; works with any repo (web Playwright, Flutter, etc.). Reads the feature PLUS the linked spec/rationale, existing impl patterns, steps and page objects (the feature is black-box and underspecifies impl). Guards hard against test-gaming (no hardcoding test values, no test-input special-casing, no assertion hollowing) via an explicit rule + self-check, independent adversarial review, spec/contract alignment, and input variation. Never regenerates the feature from impl (that direction is tautological — forbidden) and never silently edits the feature body. Verifies the fast layer (bddgen + typecheck + lint + non-{{config:tags.slow}} smoke) and leaves {{config:tags.slow}}/{{config:tags.generate}} for human/CI. Edits only the target domain; cross-cutting changes stop with a proposal. Use after a feature is authored/blessed RED and you want code that satisfies it. Do NOT use to write the feature (that is specproof-new-feature / specproof-sync / specproof-bootstrap).
 ---
 
 # BDD Implement (feature 起点で impl を緑にする)
@@ -13,7 +13,7 @@ description: Implement production code (and pending step bodies / page-object me
 
 ## 0. 設定の解決（最初に必ず実行）
 
-リポルートの `specproof.config.yaml` を読み込み、このドキュメント内のすべての
+リポルートの `specproof.config.yaml` を読み込み、適用する adapter・手順に必要な
 `{{config:...}}` トークンを実値へ解決してから以降のステップを実行すること。
 
 - manifest パス、コマンド、タグ、レイアウト、プロジェクト定義はすべてこのファイルから来る。
@@ -103,7 +103,7 @@ description: Implement production code (and pending step bodies / page-object me
    ただし自己レビューは独立レビューの代替として強度が劣る（同一コンテキストが自分の diff を
    判定するため adversarial independence が働かない）ことをレポートに正直に書き、独立レビューを
    有効化するには `specproof.config.yaml` の `agents:` ブロックを設定するようユーザーに案内する。
-8. **`{{config:tags.slow}}`/`{{config:tags.generate}}`/`{{config:tags.sf}}`**: 実装はするが実行検証は委譲。「実装済み・smoke 緑・`{{config:tags.slow}}`
+8. **`{{config:tags.slow}}`/`{{config:tags.generate}}`**: 実装はするが実行検証は委譲。「実装済み・smoke 緑・`{{config:tags.slow}}`
    未実行」を明示。
 9. **レポート + 人間ゲート**: コミット/bless は人間（下記レポート様式）。
 
@@ -141,7 +141,7 @@ description: Implement production code (and pending step bodies / page-object me
   を項目別 OK/NG＋根拠1行で列挙。
 - レビュー実施形態: **独立エージェント**（`{{config:agents.codeReviewer}}` 等）による反証レビュー／
   **自己レビューのみ（独立レビュー未実施）** のいずれかを必ず明記し、指摘と対応を記載。
-- `{{config:tags.slow}}`/`{{config:tags.generate}}`/`{{config:tags.sf}}`: 「実装済み・未実行」リスト
+- `{{config:tags.slow}}`/`{{config:tags.generate}}`: 「実装済み・未実行」リスト
 - エスカレーション（あれば①〜④）
 - 残: **impl 側 drift の bless**（製品 impl は traceability 追跡対象）・コミット・full run は人間
 
@@ -177,3 +177,13 @@ description: Implement production code (and pending step bodies / page-object me
 
 `specproof-sync`（drift → feature。期待値は spec から導出し、impl を生成元にしない）とは**反対方向**。混同しないこと。詳細は
 `{{config:layout.e2eReadme}}`「変更起点別フロー」「bootstrap は一度きり・実装変更後の追従経路」節。
+
+## 設定解決の境界
+
+適用する adapter と手順が参照する設定だけを解決する。未設定の必須値・存在しない参照先は
+キー名と必要な編集を示して停止し、consumer 固有値を推測しない。
+
+`agents` は未設定時のインライン自己レビューという明示済み fallback を使用できる。
+`conventions.i18nLintPlugin: none` は専用 plugin がないという明示値であり、検査成功を意味しない。
+`examples` は説明用の例であり、実際の仕様・既存ファイルの存在を保証しない。
+Flutter の `projects` / `env` / `environments` は skill 用の宣言で、Dart runner へ自動注入されない。

@@ -84,7 +84,10 @@ jobs:
               repo,
               issue_number,
             });
-            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            const existing = comments
+              .filter((c) => c.user?.type === 'Bot' &&
+                c.user.login === 'github-actions[bot]' && c.body?.startsWith(marker))
+              .sort((a, b) => b.id - a.id)[0];
 
             const isClean = report.clean && report.warnings.length === 0;
 

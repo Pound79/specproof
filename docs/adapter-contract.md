@@ -122,7 +122,8 @@ Patrol の native 操作・flavor・tag 伝播等のキーは未採択案。
 ## 5. 設定解決ルール
 
 1. skill は実行開始時に repo root の `specproof.config.yaml` を探索する。
-2. skill で未設定ならエラーとし、consumer 固有値を勝手に補完しない。
+2. 適用する adapter・手順の必須キーが未設定ならエラーとし、consumer 固有値を勝手に補完しない。
+   任意キーは手順に明示した fallback だけを許可する（agents の自己レビュー等）。
    traceability CLI 自体の探索・fallback は `packages/traceability/src/config.ts` の契約。
 3. `flutter:` セクションは `adapter: flutter` の場合だけ読む。
 4. `commands.traceability*` の省略時は `npx -y -p @pound79/specproof-traceability specproof-*`

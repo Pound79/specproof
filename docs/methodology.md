@@ -364,7 +364,6 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
       "linkId": string,          // 警告がリンクに紐づく場合のみ存在（unregistered-* は該当リンクが無いため省略）
       "kind": string,            // 下表参照
       "path": string,            // 対象ファイルパス（empty-link では省略）
-      "heading": string,         // 対象見出しテキスト（該当する kind のみ）
       "message": string,
       "failsUnderStrict": boolean // この warning が --strict で失敗扱いになるかの実効値（config の strictUnregisteredImpl / strictUnregisteredSpecHeadings を反映）。CLI（specproof-check --json）出力層で付与され、checkDrift 本体・DriftWarning 型には含まれない
     }

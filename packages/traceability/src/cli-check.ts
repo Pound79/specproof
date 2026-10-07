@@ -14,7 +14,7 @@ import {
 } from "./cli-check-format.js";
 
 const main = async (): Promise<void> => {
-  const { flags, manifest, root } = parseCliArgs(process.argv.slice(2));
+  const { flags, manifest, root } = parseCliArgs(process.argv.slice(2), "check");
   const config = discoverConfig({ manifest, root });
   const report = await checkDrift(config.manifestPath, config.repoRoot, {
     featuresDir: config.featuresDir,
@@ -26,9 +26,7 @@ const main = async (): Promise<void> => {
     strictUnregisteredImpl: config.strictUnregisteredImpl,
     strictUnregisteredSpecHeadings: config.strictUnregisteredSpecHeadings,
   };
-  const { shown: shownWarnings, hiddenCount } = selectWarningsForDisplay(
-    report.warnings,
-  );
+  const { shown: shownWarnings, hiddenCount } = selectWarningsForDisplay(report.warnings);
 
   if (flags.has("--github-annotations")) {
     for (const entry of report.entries) {
@@ -64,9 +62,7 @@ const main = async (): Promise<void> => {
         console.log(`  ${describeEntry(entry)}`);
       }
     }
-    console.log(
-      "\nNext: review the changes, sync features if needed, then run: specproof-update",
-    );
+    console.log("\nNext: review the changes, sync features if needed, then run: specproof-update");
   }
 
   if (!flags.has("--json") && report.bothSidesChanged.length > 0) {
@@ -81,12 +77,7 @@ const main = async (): Promise<void> => {
   if (!flags.has("--json") && shownWarnings.length > 0) {
     console.log("");
     for (const warning of shownWarnings) {
-      console.log(
-        describeWarning(
-          warning,
-          warningFailsUnderStrict(warning.kind, strictOptions),
-        ),
-      );
+      console.log(describeWarning(warning, warningFailsUnderStrict(warning.kind, strictOptions)));
     }
     const hasHardWarning = shownWarnings.some((warning) =>
       warningFailsUnderStrict(warning.kind, strictOptions),

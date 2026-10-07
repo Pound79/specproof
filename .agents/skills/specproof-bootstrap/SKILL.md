@@ -13,7 +13,7 @@ description: Bootstrap a rich Gherkin .feature DRAFT from existing implementatio
 
 ## 0. 設定の解決（最初に必ず実行）
 
-リポルートの `specproof.config.yaml` を読み、以降に登場するすべての `{{config:...}}` トークンを
+リポルートの `specproof.config.yaml` を読み、以降に登場する適用する adapter・手順に必要な `{{config:...}}` トークンを
 そのファイルの対応フィールド値で置き換えてから作業を開始すること。
 このファイルが存在しない場合は **STOP し、ユーザーに
 `specproof init --adapter <framework>` の実行を依頼する**。
@@ -174,3 +174,13 @@ impl から生成した feature は「**今こう動いている**」の読め�
   全エントリの `excludeTags` に含まれていないことを確認する（全除外=実行されない dead code）。
   環境固有の認証フロー（例: mock vs Google OAuth）を検出した場合は coverageNotes に
   環境タグの推奨値と対応する `excludeTags` エントリを提案する。
+
+## 設定解決の境界
+
+適用する adapter と手順が参照する設定だけを解決する。未設定の必須値・存在しない参照先は
+キー名と必要な編集を示して停止し、consumer 固有値を推測しない。
+
+`agents` は未設定時のインライン自己レビューという明示済み fallback を使用できる。
+`conventions.i18nLintPlugin: none` は専用 plugin がないという明示値であり、検査成功を意味しない。
+`examples` は説明用の例であり、実際の仕様・既存ファイルの存在を保証しない。
+Flutter の `projects` / `env` / `environments` は skill 用の宣言で、Dart runner へ自動注入されない。

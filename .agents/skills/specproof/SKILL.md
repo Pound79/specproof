@@ -138,3 +138,13 @@ description: >
 - 不可逆作業（bless・implement）はドメイン毎にゲート。`# specproof: draft` 残存 feature は実装しない。
 - テストが落ちた状態でコミットしない。`{{config:tags.slow}}` 未実行は明示。
 - コミット / bless は人間。製品コードは `{{config:agents.securityReviewer}}` レビュー必須。
+
+## 設定解決の境界
+
+適用する adapter と手順が参照する設定だけを解決する。未設定の必須値・存在しない参照先は
+キー名と必要な編集を示して停止し、consumer 固有値を推測しない。
+
+`agents` は未設定時のインライン自己レビューという明示済み fallback を使用できる。
+`conventions.i18nLintPlugin: none` は専用 plugin がないという明示値であり、検査成功を意味しない。
+`examples` は説明用の例であり、実際の仕様・既存ファイルの存在を保証しない。
+Flutter の `projects` / `env` / `environments` は skill 用の宣言で、Dart runner へ自動注入されない。

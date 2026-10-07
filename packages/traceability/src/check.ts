@@ -1,5 +1,5 @@
-import { readdir } from 'node:fs/promises';
-import path from 'node:path';
+import { findFeatureFiles } from "./feature-files.js";
+import path from "node:path";
 import {
   computeFileHash,
   computeHeadingSectionHash,
@@ -8,22 +8,18 @@ import {
   FILE_MISSING,
   readFileOrNull,
   SECTION_MISSING,
-} from './hash.js';
-import { parseScenarios, type ScannedScenario } from './feature-scan.js';
-import {
-  loadManifest,
-  type TraceabilityLink,
-  type TraceabilityManifest,
-} from './manifest.js';
-import { resolveWithinRoot } from './resolve.js';
-import { DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG } from './config.js';
-import { auditUnregisteredImpl } from './impl-audit.js';
-import { auditSpecHeadings } from './spec-audit.js';
-import { createTaskLimiter, type RunTaskLimited } from './concurrency.js';
+} from "./hash.js";
+import { parseScenarios, type ScannedScenario } from "./feature-scan.js";
+import { loadManifest, type TraceabilityLink, type TraceabilityManifest } from "./manifest.js";
+import { resolveWithinRoot } from "./resolve.js";
+import { DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG } from "./config.js";
+import { auditUnregisteredImpl } from "./impl-audit.js";
+import { auditSpecHeadings } from "./spec-audit.js";
+import { createTaskLimiter, type RunTaskLimited } from "./concurrency.js";
 
 const MAX_CONCURRENT_FILE_READS = 32;
 
-export type DriftSide = 'spec' | 'impl' | 'feature';
+export type DriftSide = "spec" | "impl" | "feature";
 
 export interface DriftEntry {
   linkId: string;
@@ -32,7 +28,7 @@ export interface DriftEntry {
   heading?: string;
   storedHash: string;
   currentHash: string;
-  status: 'changed' | 'missing';
+  status: "changed" | "missing";
 }
 
 export interface DriftWarning {
@@ -41,13 +37,13 @@ export interface DriftWarning {
   // unregistered file/heading, which has no link to attach to.
   linkId?: string;
   kind:
-    | 'empty-link'
-    | 'unreviewed-draft'
-    | 'missing-skip-reason'
-    | 'unregistered-feature'
-    | 'unregistered-spec-heading'
-    | 'unregistered-impl'
-    | 'duplicate-heading';
+    | "empty-link"
+    | "unreviewed-draft"
+    | "missing-skip-reason"
+    | "unregistered-feature"
+    | "unregistered-spec-heading"
+    | "unregistered-impl"
+    | "duplicate-heading";
   // The offending file path (the feature, for unreviewed-draft). Absent for
   // empty-link, where the link itself — not a file — is the subject.
   path?: string;
@@ -72,11 +68,10 @@ export interface DriftReport {
   bothSidesChanged: string[];
 }
 
-const isSentinel = (hash: string): boolean =>
-  hash === FILE_MISSING || hash === SECTION_MISSING;
+const isSentinel = (hash: string): boolean => hash === FILE_MISSING || hash === SECTION_MISSING;
 
-const statusFor = (currentHash: string): DriftEntry['status'] =>
-  isSentinel(currentHash) ? 'missing' : 'changed';
+const statusFor = (currentHash: string): DriftEntry["status"] =>
+  isSentinel(currentHash) ? "missing" : "changed";
 
 // A missing file/section must always be reported, even when the stored hash is
 // already the same sentinel (e.g. a hand-edited manifest). Only a matching
@@ -87,7 +82,7 @@ const isClean = (storedHash: string, currentHash: string): boolean =>
 const checkLink = async (
   link: TraceabilityLink,
   repoRoot: string,
-  runLimited: RunTaskLimited
+  runLimited: RunTaskLimited,
 ): Promise<DriftEntry[]> => {
   const specEntries = await Promise.all(
     link.spec.map(async (ref): Promise<DriftEntry | null> => {
@@ -95,31 +90,31 @@ const checkLink = async (
         computeHeadingSectionHash(
           resolveWithinRoot(repoRoot, ref.path),
           ref.heading,
-          ref.headingLevel
-        )
+          ref.headingLevel,
+        ),
       );
       if (isClean(ref.hash, currentHash)) {
         return null;
       }
       return {
         linkId: link.id,
-        side: 'spec',
+        side: "spec",
         path: ref.path,
         heading: ref.heading,
         storedHash: ref.hash,
         currentHash,
         status: statusFor(currentHash),
       };
-    })
+    }),
   );
 
   const fileEntries = await Promise.all(
     [
-      ...link.impl.map((ref) => ({ ref, side: 'impl' as const })),
-      ...link.features.map((ref) => ({ ref, side: 'feature' as const })),
+      ...link.impl.map((ref) => ({ ref, side: "impl" as const })),
+      ...link.features.map((ref) => ({ ref, side: "feature" as const })),
     ].map(async ({ ref, side }): Promise<DriftEntry | null> => {
       const currentHash = await runLimited(() =>
-        computeFileHash(resolveWithinRoot(repoRoot, ref.path))
+        computeFileHash(resolveWithinRoot(repoRoot, ref.path)),
       );
       if (isClean(ref.hash, currentHash)) {
         return null;
@@ -132,35 +127,28 @@ const checkLink = async (
         currentHash,
         status: statusFor(currentHash),
       };
-    })
+    }),
   );
 
-  return [...specEntries, ...fileEntries].filter(
-    (entry): entry is DriftEntry => entry !== null
-  );
+  return [...specEntries, ...fileEntries].filter((entry): entry is DriftEntry => entry !== null);
 };
 
 // A link that tracks nothing on all three sides is structurally meaningless
 // (a partially-built or corrupted entry) and would otherwise report "clean".
 const isEmptyLink = (link: TraceabilityLink): boolean =>
-  link.spec.length === 0 &&
-  link.impl.length === 0 &&
-  link.features.length === 0;
+  link.spec.length === 0 && link.impl.length === 0 && link.features.length === 0;
 
 const emptyLinkWarning = (link: TraceabilityLink): DriftWarning => ({
   linkId: link.id,
-  kind: 'empty-link',
+  kind: "empty-link",
   message: `link "${link.id}" tracks nothing (spec, impl and features are all empty)`,
 });
 
-const unreviewedDraftWarning = (
-  featurePath: string,
-  linkId?: string
-): DriftWarning => {
+const unreviewedDraftWarning = (featurePath: string, linkId?: string): DriftWarning => {
   const message = `feature "${featurePath}" still carries the specproof draft marker ("${DRAFT_MARKER}") — review and remove it before implementing (unreviewed bootstrap draft)`;
   return linkId === undefined
-    ? { kind: 'unreviewed-draft', path: featurePath, message }
-    : { linkId, kind: 'unreviewed-draft', path: featurePath, message };
+    ? { kind: "unreviewed-draft", path: featurePath, message }
+    : { linkId, kind: "unreviewed-draft", path: featurePath, message };
 };
 
 // Tags whose scenarios must carry a one-line reason comment (the methodology
@@ -173,18 +161,18 @@ const missingSkipReasonWarning = (
   featurePath: string,
   scenario: ScannedScenario,
   tag: string,
-  linkId?: string
+  linkId?: string,
 ): DriftWarning => {
   const message = `scenario "${scenario.name}" (${featurePath}:${scenario.line}) is tagged ${tag} without a reason comment — add a "# ..." line above it stating why it is not automated`;
   return linkId === undefined
-    ? { kind: 'missing-skip-reason', path: featurePath, message }
-    : { linkId, kind: 'missing-skip-reason', path: featurePath, message };
+    ? { kind: "missing-skip-reason", path: featurePath, message }
+    : { linkId, kind: "missing-skip-reason", path: featurePath, message };
 };
 
 // A-1: a *.feature file physically present under featuresDir that no link's
 // features[] registers. No linkId — there is no link to attach the warning to.
 const unregisteredFeatureWarning = (relPath: string): DriftWarning => ({
-  kind: 'unregistered-feature',
+  kind: "unregistered-feature",
   path: relPath,
   message: `feature file is not registered in the traceability manifest: ${relPath}`,
 });
@@ -202,33 +190,30 @@ interface FeatureTarget {
 const collectFeatureTargets = async (
   manifest: TraceabilityManifest,
   repoRoot: string,
-  featuresDir: string | undefined
+  featuresDir: string | undefined,
 ): Promise<FeatureTarget[]> => {
   const registered: FeatureTarget[] = manifest.links.flatMap((link) =>
     link.features.map((ref) => ({
       relPath: path.posix.normalize(ref.path),
       linkId: link.id,
-    }))
+    })),
   );
   const seen = new Set(registered.map((target) => target.relPath));
 
   if (featuresDir === undefined) {
     return registered;
   }
-  const absFeaturesDir = resolveWithinRoot(repoRoot, featuresDir);
   let entries: string[];
   try {
-    entries = await readdir(absFeaturesDir, { recursive: true });
+    entries = await findFeatureFiles(repoRoot, featuresDir);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT' || code === 'ENOTDIR') {
+    if (code === "ENOENT" || code === "ENOTDIR") {
       return registered;
     }
     throw error;
   }
   const scanned: FeatureTarget[] = entries
-    .filter((entry) => entry.endsWith('.feature'))
-    .map((entry) => path.posix.join(featuresDir, entry.split(path.sep).join('/')))
     .filter((relPath) => !seen.has(relPath))
     .map((relPath) => ({ relPath }));
 
@@ -241,10 +226,10 @@ const lintFeature = async (
   target: FeatureTarget,
   repoRoot: string,
   reasonRequiredTags: string[],
-  runLimited: RunTaskLimited
+  runLimited: RunTaskLimited,
 ): Promise<DriftWarning[]> => {
   const content = await runLimited(() =>
-    readFileOrNull(resolveWithinRoot(repoRoot, target.relPath))
+    readFileOrNull(resolveWithinRoot(repoRoot, target.relPath)),
   );
   if (content === null) {
     return [];
@@ -254,13 +239,9 @@ const lintFeature = async (
     warnings.push(unreviewedDraftWarning(target.relPath, target.linkId));
   }
   for (const scenario of parseScenarios(content)) {
-    const tag = reasonRequiredTags.find((required) =>
-      scenario.tags.includes(required)
-    );
+    const tag = reasonRequiredTags.find((required) => scenario.tags.includes(required));
     if (tag !== undefined && !scenario.hasReasonComment) {
-      warnings.push(
-        missingSkipReasonWarning(target.relPath, scenario, tag, target.linkId)
-      );
+      warnings.push(missingSkipReasonWarning(target.relPath, scenario, tag, target.linkId));
     }
   }
   return warnings;
@@ -284,38 +265,27 @@ export interface CheckDriftOptions {
 export const checkDrift = async (
   manifestPath: string,
   repoRoot: string,
-  options: CheckDriftOptions = {}
+  options: CheckDriftOptions = {},
 ): Promise<DriftReport> => {
-  const reasonRequiredTags =
-    options.reasonRequiredTags ?? DEFAULT_REASON_REQUIRED_TAGS;
+  const reasonRequiredTags = options.reasonRequiredTags ?? DEFAULT_REASON_REQUIRED_TAGS;
   const manifest = await loadManifest(manifestPath);
   const runLimited = createTaskLimiter(MAX_CONCURRENT_FILE_READS);
   const entriesPerLink = await Promise.all(
-    manifest.links.map((link) => checkLink(link, repoRoot, runLimited))
+    manifest.links.map((link) => checkLink(link, repoRoot, runLimited)),
   );
   const entries = entriesPerLink.flat();
   const driftLinkCount = new Set(entries.map((entry) => entry.linkId)).size;
 
-  const targets = await collectFeatureTargets(
-    manifest,
-    repoRoot,
-    options.featuresDir
-  );
+  const targets = await collectFeatureTargets(manifest, repoRoot, options.featuresDir);
   const featureWarningGroups = await Promise.all(
-    targets.map((target) =>
-      lintFeature(target, repoRoot, reasonRequiredTags, runLimited)
-    )
+    targets.map((target) => lintFeature(target, repoRoot, reasonRequiredTags, runLimited)),
   );
   const unregisteredFeatureWarnings = targets
     .filter((target) => target.linkId === undefined)
     .map((target) => unregisteredFeatureWarning(target.relPath));
 
   const specHeadingWarnings = await auditSpecHeadings(manifest, repoRoot);
-  const implWarnings = await auditUnregisteredImpl(
-    manifest,
-    repoRoot,
-    options.implGlobs
-  );
+  const implWarnings = await auditUnregisteredImpl(manifest, repoRoot, options.implGlobs);
 
   const warnings = [
     ...manifest.links.filter(isEmptyLink).map(emptyLinkWarning),
@@ -326,13 +296,13 @@ export const checkDrift = async (
   ];
 
   const linkIdsWithSpecChange = new Set(
-    entries.filter((entry) => entry.side === 'spec').map((entry) => entry.linkId)
+    entries.filter((entry) => entry.side === "spec").map((entry) => entry.linkId),
   );
   const linkIdsWithImplChange = new Set(
-    entries.filter((entry) => entry.side === 'impl').map((entry) => entry.linkId)
+    entries.filter((entry) => entry.side === "impl").map((entry) => entry.linkId),
   );
   const bothSidesChanged = [...linkIdsWithSpecChange].filter((linkId) =>
-    linkIdsWithImplChange.has(linkId)
+    linkIdsWithImplChange.has(linkId),
   );
 
   return {

@@ -14,18 +14,13 @@ const makeTmp = async (): Promise<string> => {
 };
 
 afterEach(async () => {
-  await Promise.all(
-    created.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
-  );
+  await Promise.all(created.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
 describe("resolveRepoRoot", () => {
   it("returns the directory containing traceability.yaml, walking up", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "traceability.yaml"),
-      "version: 1\nlinks: []\n",
-    );
+    await writeFile(path.join(root, "traceability.yaml"), "version: 1\nlinks: []\n");
     const nested = path.join(root, "a", "b");
     await mkdir(nested, { recursive: true });
     expect(resolveRepoRoot(nested)).toBe(root);
@@ -35,19 +30,14 @@ describe("resolveRepoRoot", () => {
     // A bare tmp dir has no marker and tmpdir() is outside any git tree, so
     // the git rev-parse fallback fails too.
     const root = await makeTmp();
-    expect(() => resolveRepoRoot(root)).toThrow(
-      /Could not resolve a repo root/,
-    );
+    expect(() => resolveRepoRoot(root)).toThrow(/Could not resolve a repo root/);
   });
 });
 
 describe("discoverConfig", () => {
   it("defaults manifestPath to <root>/traceability.yaml", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "traceability.yaml"),
-      "version: 1\nlinks: []\n",
-    );
+    await writeFile(path.join(root, "traceability.yaml"), "version: 1\nlinks: []\n");
     const config = discoverConfig({ startDir: root });
     expect(config.repoRoot).toBe(root);
     expect(config.manifestPath).toBe(path.join(root, "traceability.yaml"));
@@ -55,18 +45,13 @@ describe("discoverConfig", () => {
 
   it("prefers specproof.config.yaml layout.manifest over the default", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "traceability.yaml"),
-      "version: 1\nlinks: []\n",
-    );
+    await writeFile(path.join(root, "traceability.yaml"), "version: 1\nlinks: []\n");
     await writeFile(
       path.join(root, "specproof.config.yaml"),
       "layout:\n  manifest: packages/e2e/traceability.yaml\n  pagesDir: packages/web/pages\n  candidateSuffix: Page.tsx\n  featuresDir: packages/e2e/features\n",
     );
     const config = discoverConfig({ startDir: root });
-    expect(config.manifestPath).toBe(
-      path.join(root, "packages/e2e/traceability.yaml"),
-    );
+    expect(config.manifestPath).toBe(path.join(root, "packages/e2e/traceability.yaml"));
     expect(config.pagesDir).toBe("packages/web/pages");
     expect(config.candidateSuffix).toBe("Page.tsx");
     expect(config.featuresDir).toBe("packages/e2e/features");
@@ -74,10 +59,7 @@ describe("discoverConfig", () => {
 
   it("lets an explicit manifest override win over discovery", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "traceability.yaml"),
-      "version: 1\nlinks: []\n",
-    );
+    await writeFile(path.join(root, "traceability.yaml"), "version: 1\nlinks: []\n");
     const custom = path.join(root, "custom.yaml");
     const config = discoverConfig({ root, manifest: custom });
     expect(config.manifestPath).toBe(custom);
@@ -92,10 +74,7 @@ describe("discoverConfig", () => {
 
   it("lets a --pages-dir override win over the config file", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "specproof.config.yaml"),
-      "layout:\n  pagesDir: from-config\n",
-    );
+    await writeFile(path.join(root, "specproof.config.yaml"), "layout:\n  pagesDir: from-config\n");
     const config = discoverConfig({ root, pagesDir: "from-cli" });
     expect(config.pagesDir).toBe("from-cli");
   });
@@ -150,9 +129,7 @@ describe("discoverConfig", () => {
       // "@todo" vs "todo" collide after normalization — the guard must catch it.
       "tags:\n  fixme: '@todo'\n  skip: todo\n",
     );
-    expect(() => discoverConfig({ root })).toThrow(
-      /tags\.fixme and tags\.skip must differ/,
-    );
+    expect(() => discoverConfig({ root })).toThrow(/tags\.fixme and tags\.skip must differ/);
   });
 
   it("leaves implGlobs undefined when layout.implGlobs is omitted", async () => {
@@ -189,20 +166,14 @@ describe("discoverConfig", () => {
 
   it("reads strictUnregisteredImpl: true from the config file", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "specproof.config.yaml"),
-      "strictUnregisteredImpl: true\n",
-    );
+    await writeFile(path.join(root, "specproof.config.yaml"), "strictUnregisteredImpl: true\n");
     const config = discoverConfig({ root });
     expect(config.strictUnregisteredImpl).toBe(true);
   });
 
   it("falls back to false when strictUnregisteredImpl is not a boolean", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "specproof.config.yaml"),
-      "strictUnregisteredImpl: yes\n",
-    );
+    await writeFile(path.join(root, "specproof.config.yaml"), "strictUnregisteredImpl: yes\n");
     const config = discoverConfig({ root });
     expect(config.strictUnregisteredImpl).toBe(false);
   });
@@ -245,34 +216,21 @@ describe("discoverConfig legacy bdd-kit.config.yaml fallback", () => {
       "layout:\n  manifest: packages/e2e/traceability.yaml\n",
     );
     const config = discoverConfig({ root });
-    expect(config.manifestPath).toBe(
-      path.join(root, "packages/e2e/traceability.yaml"),
-    );
+    expect(config.manifestPath).toBe(path.join(root, "packages/e2e/traceability.yaml"));
   });
 
   it("prefers specproof.config.yaml over a legacy bdd-kit.config.yaml in the same dir", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
-      "layout:\n  pagesDir: legacy-pages\n",
-    );
-    await writeFile(
-      path.join(root, "specproof.config.yaml"),
-      "layout:\n  pagesDir: new-pages\n",
-    );
+    await writeFile(path.join(root, "bdd-kit.config.yaml"), "layout:\n  pagesDir: legacy-pages\n");
+    await writeFile(path.join(root, "specproof.config.yaml"), "layout:\n  pagesDir: new-pages\n");
     const config = discoverConfig({ root });
     expect(config.pagesDir).toBe("new-pages");
   });
 
   it("writes a deprecation warning to stderr when falling back to bdd-kit.config.yaml", async () => {
     const root = await makeTmp();
-    await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
-      "layout:\n  pagesDir: from-config\n",
-    );
-    const writeSpy = vi
-      .spyOn(process.stderr, "write")
-      .mockImplementation(() => true);
+    await writeFile(path.join(root, "bdd-kit.config.yaml"), "layout:\n  pagesDir: from-config\n");
+    const writeSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
       discoverConfig({ root });
       expect(writeSpy).toHaveBeenCalledWith(

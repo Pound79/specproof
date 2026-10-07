@@ -71,7 +71,7 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 
 | ブロック | 要否 | 要点 |
 |---|---|---|
-| `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。sf/fixme/skip は optional。`fixme` / `skip` は省略時 `@fixme` / `@skip`。traceability エンジンの理由コメント必須タグ（`specproof-check`）と done gate（`specproof-stats --strict` の @fixme=0 判定）にも使われるため、リネーム時はこの値で集計・lint される。`@` は省略可（自動補完）。 |
+| `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。fixme/skip は optional。`fixme` / `skip` は省略時 `@fixme` / `@skip`。traceability エンジンの理由コメント必須タグ（`specproof-check`）と done gate（`specproof-stats --strict` の @fixme=0 判定）にも使われるため、リネーム時はこの値で集計・lint される。`@` は省略可（自動補完）。 |
 | `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。 |
 | `env` | required（baseUrl） | 環境変数の論理名。`adminUsername`<sup>+</sup> は authed-admin の条件判定。 |
 | `environments[]` | required（1エントリ以上） | 実行環境プロファイル。環境別の auth / dotenv / excludeTags を宣言。詳細は後述。 |
@@ -185,3 +185,23 @@ Phase 0 の coverage 検証（skill が参照する 143 個の hardcode token �
     テーブル経由で導出する。
 
 検証の生データ: ワークフロー出力の `coverage.gaps` / `coverage.corrections`（12 + 5 件）。
+
+## skill 用キーの解決とテンプレート例
+
+両テンプレートは `layout.i18nSource`、`conventions.*`、`examples.*`、`git.*` を明示する。
+`i18nSource`、`conventions.agentsDoc`、`examples.specDoc` は consumer に合わせて編集する例であり、
+存在しないパスを skill が勝手に作成・補完してよいという意味ではない。
+`conventions.i18nLintPlugin: none` は専用 plugin 未導入という明示値。専用検査は未実施と報告する。
+`conventions.pendingStubBody` は常に失敗する pending の例であり、空の成功実装に置き換えない。
+
+旧例の `tags.sf` は特定サービス固有の任意タグで、汎用 skill は要求しない。
+外部サービス依存の重いシナリオは、そのタグに加えて `tags.slow` 等を明示して分類する。
+
+Flutter の `projects[]` / `env` / `environments[]` は skill が読む宣言。Dart suite のフィルタ・
+auth・環境変数へ自動で反映されない。初期 counter 例は認証なし・URL不要で、
+`env.baseUrl` は共通語彙の名前だけを宣言する。不要な資格情報や URL を設定する必要はない。
+`flutter.*` は setup skill が pubspec/build.yaml/実行コマンドと照合する。
+Playwright の認証保存先は `projects[].storageState` が正本。未使用の `runner.authDir` は削除した。
+
+設定の必須キーが欠けていれば停止する。任意項目は、その手順が明示した fallback に限って
+省略できる（例: agents 未設定時の非独立自己レビュー）。adapter 固有キーは該当 adapter でのみ解決する。

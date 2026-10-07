@@ -183,3 +183,22 @@ npx -y @pound79/specproof init --adapter {{adapter}} --dir {{dir}}
 - `npm install`, `flutter create`, テスト実行等の重い副作用コマンドは自動実行しない。
 - 検出が候補なしなら未対応として正直に報告する。
 - config 調整は保守的に: 確信がない値には TODO コメントを残し、ユーザーに判断を委ねる。
+
+## 設定解決の境界
+
+適用する adapter と手順が参照する設定だけを解決する。未設定の必須値・存在しない参照先は
+キー名と必要な編集を示して停止し、consumer 固有値を推測しない。
+
+`agents` は未設定時のインライン自己レビューという明示済み fallback を使用できる。
+`conventions.i18nLintPlugin: none` は専用 plugin がないという明示値であり、検査成功を意味しない。
+`examples` は説明用の例であり、実際の仕様・既存ファイルの存在を保証しない。
+Flutter の `projects` / `env` / `environments` は skill 用の宣言で、Dart runner へ自動注入されない。
+
+### Flutter capability の照合（adapter: flutter の場合のみ）
+
+`{{config:flutter.gherkinParser}}` と `{{config:flutter.buildRunnerPin}}` を pubspec.yaml と照合し、
+`{{config:flutter.buildYamlSources}}` を build.yaml の sources と照合する。
+`{{config:flutter.testEntry}}` が存在し、`commands.smoke` の対象と
+`{{config:flutter.device}}` が一致することを確認する。
+`{{config:flutter.traceabilityHashSource}}` は feature である必要があり、生成 Dart を追跡しない。
+設定だけを書き換えて runner が変わったと扱わず、対応ファイル・コマンドの変更を提案する。

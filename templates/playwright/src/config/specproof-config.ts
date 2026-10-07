@@ -24,7 +24,6 @@ export interface RunnerConfig {
   device?: string;
   webServerCommand?: string;
   globalTeardown?: string;
-  authDir?: string;
   i18nLocaleStorageKey?: string;
 }
 
@@ -93,9 +92,7 @@ export function loadSpecproofConfig(startDir?: string): SpecproofConfig {
     for (const filename of LEGACY_CONFIG_FILENAMES) {
       const candidate = path.join(dir, filename);
       if (existsSync(candidate)) {
-        process.stderr.write(
-          `${filename} is deprecated; rename it to specproof.config.yaml\n`,
-        );
+        process.stderr.write(`${filename} is deprecated; rename it to specproof.config.yaml\n`);
         return parseConfigFile(candidate);
       }
     }
@@ -126,9 +123,7 @@ const parseConfigFile = (candidate: string): SpecproofConfig => {
     );
   }
   if (raw == null || typeof raw !== "object") {
-    throw new Error(
-      `specproof: config file at "${candidate}" is empty or not a YAML mapping.`,
-    );
+    throw new Error(`specproof: config file at "${candidate}" is empty or not a YAML mapping.`);
   }
   return raw as SpecproofConfig;
 };
@@ -151,9 +146,7 @@ const parseConfigFile = (candidate: string): SpecproofConfig => {
  * `environments` is required (at least 1 entry) — this function always
  * returns a profile.
  */
-export function resolveActiveEnvironment(
-  cfg: SpecproofConfig,
-): EnvironmentProfile {
+export function resolveActiveEnvironment(cfg: SpecproofConfig): EnvironmentProfile {
   const profiles = cfg.environments;
   if (!Array.isArray(profiles) || profiles.length === 0) {
     throw new Error(
@@ -176,9 +169,7 @@ export function resolveActiveEnvironment(
   }
 
   if (legacyEnvName && legacyEnvName.length > 0) {
-    process.stderr.write(
-      "BDD_KIT_ENV is deprecated; rename it to SPECPROOF_ENV\n",
-    );
+    process.stderr.write("BDD_KIT_ENV is deprecated; rename it to SPECPROOF_ENV\n");
     const match = profiles.find((p) => p.name === legacyEnvName);
     if (match) {
       return match;
@@ -200,9 +191,7 @@ export function resolveActiveEnvironment(
  * Returns the auth configuration for the active environment profile.
  * Returns `null` when the profile has no `auth` block.
  */
-export function resolveAuthProvider(
-  env: EnvironmentProfile,
-): EnvironmentAuth | null {
+export function resolveAuthProvider(env: EnvironmentProfile): EnvironmentAuth | null {
   return env.auth ?? null;
 }
 
@@ -213,10 +202,7 @@ export function resolveAuthProvider(
 /**
  * Returns `true` when `tag` appears in the environment's `excludeTags` list.
  */
-export function isTagExcludedByEnvironment(
-  tag: string,
-  env: EnvironmentProfile,
-): boolean {
+export function isTagExcludedByEnvironment(tag: string, env: EnvironmentProfile): boolean {
   if (!env.excludeTags || env.excludeTags.length === 0) {
     return false;
   }
@@ -243,10 +229,7 @@ export function isTagExcludedByEnvironment(
  * Returns `false` when the env var is absent or empty, signalling that the
  * project should be skipped.
  */
-export function isConditionMet(
-  condition: string | undefined,
-  cfg: SpecproofConfig,
-): boolean {
+export function isConditionMet(condition: string | undefined, cfg: SpecproofConfig): boolean {
   if (condition === undefined) {
     return true;
   }

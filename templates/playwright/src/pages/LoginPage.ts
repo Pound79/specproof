@@ -68,11 +68,7 @@ export class LoginPage {
    * Does not assert on the post-login state — callers decide what success means
    * for their scenario (e.g. checking the URL or a post-login landmark).
    */
-  async login(
-    username: string,
-    password: string,
-    newPassword?: string,
-  ): Promise<void> {
+  async login(username: string, password: string, newPassword?: string): Promise<void> {
     await this.usernameInput.fill(username);
     await this.passwordInput.fill(password);
     await this.submitButton.click();

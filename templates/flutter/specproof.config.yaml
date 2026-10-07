@@ -35,7 +35,7 @@ layout:
   # unless overridden here. Follow this suffix when naming new screen wrappers.
   candidateSuffix: "_page.dart"
   textConstants: "lib/l10n/app_ja.arb" # i18n source for UI-string assertions (app-specific)
-  manifest: "traceability.yaml"
+  manifest: "bdd_tests/traceability.yaml"
   specDir: "docs"
   # Also used by `specproof-check` to flag implementation files with no
   # linked spec/feature ("unregistered-impl"). Advisory by default (does
@@ -43,6 +43,10 @@ layout:
   implGlobs:
     - "lib/**/*.dart"
   e2eReadme: "bdd_tests/README.md" # E2E package README; specproof-* skills link here
+  i18nSource: lib/l10n/app_ja.arb
+  testRunnerConfig: bdd_tests/integration_test/gherkin_suite_test.dart
+  idiomGuide: bdd_tests/README.md
+  scratchDir: .specproof/drafts
 
 # Flutter-only capabilities (read when adapter: flutter).
 flutter:
@@ -51,7 +55,7 @@ flutter:
   device: "macos" # headless desktop target; or an iOS/Android device/emulator id
   buildRunnerPin: ">=2.4.0 <2.5.0"
   # build.yaml MUST list these sources or build_runner silently generates nothing:
-  buildYamlSources: ["lib/**", "integration_test/**.dart", "pubspec.*", "$package$"]
+  buildYamlSources: [ "lib/**", "integration_test/**.dart", "pubspec.*", "$package$" ]
   # traceability hashes the .feature SOURCE, never the generated *.g.dart / *_test.dart.
   traceabilityHashSource: feature
   # featureDefaultLanguage must be set in BOTH @GherkinTestSuite(...) (build time)
@@ -63,7 +67,7 @@ tags:
   admin: "@admin"
   user: "@user"
   fixme: "@fixme" # bucket-B TODO: to automate later; done gate requires zero
-  skip: "@skip"   # bucket-B: intentionally not automated; reason comment required
+  skip: "@skip" # bucket-B: intentionally not automated; reason comment required
 
 # ---------------------------------------------------------------------------
 # agents: review agents specproof-implement invokes (anti-gaming layer 2). [optional]
@@ -96,15 +100,43 @@ tags:
 environments:
   - name: local
     default: true
+    auth:
+      provider: none
+      description: The bundled counter example has no authentication; replace for an authenticated application.
     # TODO: set auth provider for local development
     # auth:
     #   provider: mock
     #   description: "Mock auth for local development. No real IdP calls."
 
-  # TODO: uncomment and configure additional environments as needed
-  # - name: dev
-  #   dotenvFile: ".env.dev"
-  #   auth:
-  #     provider: google
-  #     description: "Firebase Auth (Google) — dev project."
-  #   excludeTags: []
+    # TODO: uncomment and configure additional environments as needed
+    # - name: dev
+    #   dotenvFile: ".env.dev"
+    #   auth:
+    #     provider: google
+    #     description: "Firebase Auth (Google) — dev project."
+    #   excludeTags: []
+strictUnregisteredImpl: false
+strictUnregisteredSpecHeadings: false
+conventions:
+  agentsDoc: AGENTS.md
+  i18nLintPlugin: none
+  stepFrameworkPattern: givenN/whenN/thenN with FlutterWorld
+  pendingStubBody: throw UnimplementedError("Pending implementation");
+examples:
+  domainName: counter
+  specDoc: docs/example.md
+  internalConstants:
+    - retry limit
+    - timeout policy
+git:
+  commitScope: bdd
+  branchPrefix: bdd/
+projects:
+  - name: default
+    tags: not @slow
+    features:
+      - integration_test/features/counter.feature
+env:
+  baseUrl: E2E_BASE_URL
+  username: E2E_USERNAME
+fixtures: {}

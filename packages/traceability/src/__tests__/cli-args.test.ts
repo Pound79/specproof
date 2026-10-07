@@ -3,10 +3,7 @@ import { parseCliArgs } from "../cli-args.js";
 
 describe("parseCliArgs", () => {
   it("collects boolean flags and unrecognized tokens into flags", () => {
-    const { flags, manifest, root } = parseCliArgs([
-      "--json",
-      "--github-annotations",
-    ]);
+    const { flags, manifest, root } = parseCliArgs(["--json", "--github-annotations"]);
     expect(flags.has("--json")).toBe(true);
     expect(flags.has("--github-annotations")).toBe(true);
     expect(manifest).toBeUndefined();
@@ -35,26 +32,18 @@ describe("parseCliArgs", () => {
   });
 
   it("mixes value options and flags in any order", () => {
-    const { flags, manifest } = parseCliArgs([
-      "--json",
-      "--manifest",
-      "m.yaml",
-    ]);
+    const { flags, manifest } = parseCliArgs(["--json", "--manifest", "m.yaml"]);
     expect(manifest).toBe("m.yaml");
     expect(flags.has("--json")).toBe(true);
     expect(flags.has("m.yaml")).toBe(false);
   });
 
   it("throws when a value option is missing its value", () => {
-    expect(() => parseCliArgs(["--manifest"])).toThrow(
-      /--manifest requires a value/,
-    );
+    expect(() => parseCliArgs(["--manifest"])).toThrow(/--manifest requires a value/);
   });
 
   it("returns empty defaults for no arguments", () => {
-    const { flags, manifest, root, pagesDir, candidateSuffix } = parseCliArgs(
-      [],
-    );
+    const { flags, manifest, root, pagesDir, candidateSuffix } = parseCliArgs([]);
     expect(flags.size).toBe(0);
     expect(manifest).toBeUndefined();
     expect(root).toBeUndefined();

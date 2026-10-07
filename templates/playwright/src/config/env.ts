@@ -1,20 +1,13 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import dotenv from "dotenv";
-import type {
-  SpecproofConfig,
-  EnvironmentProfile,
-  ProjectConfig,
-} from "./specproof-config";
+import type { SpecproofConfig, EnvironmentProfile, ProjectConfig } from "./specproof-config";
 
 // ---------------------------------------------------------------------------
 // Package root (used as base for dotenv file resolution)
 // ---------------------------------------------------------------------------
 
-const packageRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../..",
-);
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 // ---------------------------------------------------------------------------
 // loadDotenv — environment-profile-aware dotenv loading

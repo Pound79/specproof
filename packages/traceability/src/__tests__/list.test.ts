@@ -31,18 +31,14 @@ describe("buildDomainList", () => {
             hash: "h1",
           },
         ],
-        features: [
-          { path: "packages/e2e/features/history.feature", hash: "h2" },
-        ],
+        features: [{ path: "packages/e2e/features/history.feature", hash: "h2" }],
       },
     ],
   };
 
   it("lists registered domains with feature counts", () => {
     const { registered } = buildDomainList(manifest, []);
-    expect(registered).toEqual([
-      { id: "history", label: "生成履歴の閲覧", featureCount: 1 },
-    ]);
+    expect(registered).toEqual([{ id: "history", label: "生成履歴の閲覧", featureCount: 1 }]);
   });
 
   it("flags suffix-matching files not referenced by any impl as candidates, sorted (with pagesDir)", () => {
@@ -76,11 +72,9 @@ describe("buildDomainList", () => {
   });
 
   it("normalises backslash pagesDir to forward slashes for manifest matching", () => {
-    const { candidates } = buildDomainList(
-      manifest,
-      ["CompareDebugPage.tsx"],
-      { pagesDir: "src\\pages" },
-    );
+    const { candidates } = buildDomainList(manifest, ["CompareDebugPage.tsx"], {
+      pagesDir: "src\\pages",
+    });
     expect(candidates).toEqual([
       {
         suggestedDomain: "compare-debug",
@@ -90,21 +84,15 @@ describe("buildDomainList", () => {
   });
 
   it("honours a non-default candidateSuffix", () => {
-    const { candidates } = buildDomainList(
-      manifest,
-      ["home_page.dart", "helpers.dart"],
-      { candidateSuffix: "_page.dart" },
-    );
-    expect(candidates).toEqual([
-      { suggestedDomain: "home_page", page: "home_page.dart" },
-    ]);
+    const { candidates } = buildDomainList(manifest, ["home_page.dart", "helpers.dart"], {
+      candidateSuffix: "_page.dart",
+    });
+    expect(candidates).toEqual([{ suggestedDomain: "home_page", page: "home_page.dart" }]);
   });
 });
 
 describe("formatDomainList", () => {
-  const registered = [
-    { id: "history", label: "生成履歴の閲覧", featureCount: 1 },
-  ];
+  const registered = [{ id: "history", label: "生成履歴の閲覧", featureCount: 1 }];
 
   it("shows the (none) line and no bootstrap hint when there are no candidates", () => {
     const out = formatDomainList({ registered, candidates: [] });
@@ -112,9 +100,7 @@ describe("formatDomainList", () => {
       "Registered domains (1) — targets for specproof-sync and specproof-bootstrap:",
     );
     expect(out).toContain("  history  生成履歴の閲覧  (features: 1)");
-    expect(out).toContain(
-      "Untracked bootstrap candidates (0) — pages with no traceability link:",
-    );
+    expect(out).toContain("Untracked bootstrap candidates (0) — pages with no traceability link:");
     expect(out).toContain("  (none)");
     expect(out).not.toContain("Bootstrap one with:");
   });

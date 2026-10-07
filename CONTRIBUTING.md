@@ -55,3 +55,11 @@ appropriate, add) an ADR under `docs/adr/`. Domain terminology lives in
 
 By participating, you agree to abide by our
 [Code of Conduct](./CODE_OF_CONDUCT.md).
+
+## 品質チェック
+
+`npm ci` の後、`npm run typecheck`、`npm run build`、`npm run lint`、
+`npm run format:check`、`npm test`、`npm run test:coverage` を実行する。
+整形は `npm run format`。CLI診断は英語、会話・新規説明文書は日本語とする。
+カバレッジ対象・閾値は [品質基準](docs/quality-gates.md) を参照。
+Playwright scaffold の lint も no-op ではなく Biome を実行する。

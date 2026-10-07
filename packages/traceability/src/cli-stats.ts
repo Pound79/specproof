@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdir } from "node:fs/promises";
+import { findFeatureFiles } from "./feature-files.js";
 import path from "node:path";
 import { parseScenarios } from "./feature-scan.js";
 import { readFileOrNull } from "./hash.js";
@@ -11,19 +11,11 @@ import { buildStats, formatStats, type FeatureScenarios } from "./stats.js";
 
 // Repo-relative feature paths to census: every *.feature under featuresDir when
 // configured, otherwise the manifest-registered features.
-const collectFeaturePaths = async (
-  config: TraceabilityConfig,
-): Promise<string[]> => {
+const collectFeaturePaths = async (config: TraceabilityConfig): Promise<string[]> => {
   const featuresDir = config.featuresDir;
   if (featuresDir) {
-    const absDir = resolveWithinRoot(config.repoRoot, featuresDir);
     try {
-      const entries = await readdir(absDir, { recursive: true });
-      return entries
-        .filter((entry) => entry.endsWith(".feature"))
-        .map((entry) =>
-          path.posix.join(featuresDir, entry.split(path.sep).join("/")),
-        );
+      return await findFeatureFiles(config.repoRoot, featuresDir);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== "ENOENT" && code !== "ENOTDIR") {
@@ -37,23 +29,19 @@ const collectFeaturePaths = async (
   const manifest = await loadManifest(config.manifestPath);
   return [
     ...new Set(
-      manifest.links.flatMap((link) =>
-        link.features.map((ref) => path.posix.normalize(ref.path)),
-      ),
+      manifest.links.flatMap((link) => link.features.map((ref) => path.posix.normalize(ref.path))),
     ),
   ];
 };
 
 const main = async (): Promise<void> => {
-  const { flags, manifest, root } = parseCliArgs(process.argv.slice(2));
+  const { flags, manifest, root } = parseCliArgs(process.argv.slice(2), "stats");
   const config = discoverConfig({ manifest, root });
   const featurePaths = await collectFeaturePaths(config);
 
   const features: FeatureScenarios[] = [];
   for (const relPath of featurePaths) {
-    const content = await readFileOrNull(
-      resolveWithinRoot(config.repoRoot, relPath),
-    );
+    const content = await readFileOrNull(resolveWithinRoot(config.repoRoot, relPath));
     if (content !== null) {
       features.push({ domain: relPath, scenarios: parseScenarios(content) });
     }

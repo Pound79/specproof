@@ -67,17 +67,13 @@ const WEB_BACKEND_MARKERS: readonly { file: string; label: string }[] = [
   { file: "mix.exs", label: "Elixir (mix.exs)" },
 ] as const;
 
-const allDeps = (
-  pkg: NonNullable<RepoSnapshot["packageJson"]>,
-): Record<string, string> => ({
+const allDeps = (pkg: NonNullable<RepoSnapshot["packageJson"]>): Record<string, string> => ({
   ...pkg.dependencies,
   ...pkg.devDependencies,
 });
 
-const hasAny = (
-  deps: Record<string, string>,
-  names: readonly string[],
-): string[] => names.filter((n) => n in deps);
+const hasAny = (deps: Record<string, string>, names: readonly string[]): string[] =>
+  names.filter((n) => n in deps);
 
 const hasWorkspaces = (workspaces?: Workspaces): boolean => {
   if (Array.isArray(workspaces)) {
@@ -88,13 +84,10 @@ const hasWorkspaces = (workspaces?: Workspaces): boolean => {
 
 const PNPM_WORKSPACE_FILE = "pnpm-workspace.yaml";
 
-const hasPnpmWorkspace = (rootFiles: string[]): boolean =>
-  rootFiles.includes(PNPM_WORKSPACE_FILE);
+const hasPnpmWorkspace = (rootFiles: string[]): boolean => rootFiles.includes(PNPM_WORKSPACE_FILE);
 
-const withMonorepoSignal = (
-  signals: string[],
-  isPnpmWorkspace: boolean,
-): string[] => (isPnpmWorkspace ? [...signals, PNPM_WORKSPACE_FILE] : signals);
+const withMonorepoSignal = (signals: string[], isPnpmWorkspace: boolean): string[] =>
+  isPnpmWorkspace ? [...signals, PNPM_WORKSPACE_FILE] : signals;
 
 const backendSignals = (rootFiles: string[]): string[] =>
   WEB_BACKEND_MARKERS.filter((m) => rootFiles.includes(m.file)).map(
@@ -125,8 +118,7 @@ const withBackendSignals = (
     candidate.adapter === "playwright"
       ? {
           ...candidate,
-          confidence:
-            candidate.confidence === "low" ? "medium" : candidate.confidence,
+          confidence: candidate.confidence === "low" ? "medium" : candidate.confidence,
           signals: [...candidate.signals, ...matches],
         }
       : candidate,
@@ -145,9 +137,7 @@ const AUTH_PROVIDER_PATTERNS: readonly {
 
 const ENV_SUFFIX_PATTERN = /^[A-Z0-9_]+_(LOCAL|DEV|STAGING|PROD)(?:_[A-Z0-9_]+)?$/;
 
-function detectEnvironmentHints(
-  keys: readonly string[] | undefined,
-): readonly EnvironmentHint[] {
+function detectEnvironmentHints(keys: readonly string[] | undefined): readonly EnvironmentHint[] {
   if (!keys || keys.length === 0) {
     return [];
   }
@@ -173,9 +163,8 @@ function detectEnvironmentHints(
 
   if (envNames.size > 0) {
     for (const name of envNames) {
-      const matchingProvider = providerSignals.find(
-        (p) =>
-          p.provider === "mock" ? name === "local" : name !== "local",
+      const matchingProvider = providerSignals.find((p) =>
+        p.provider === "mock" ? name === "local" : name !== "local",
       );
       hints.push({
         name,
@@ -191,18 +180,14 @@ function detectEnvironmentHints(
       hints.push({
         name: "local",
         authProvider: "mock",
-        signals: providerSignals
-          .filter((p) => p.provider === "mock")
-          .map((p) => p.label),
+        signals: providerSignals.filter((p) => p.provider === "mock").map((p) => p.label),
       });
     }
     if (nonMock) {
       hints.push({
         name: "dev",
         authProvider: nonMock.provider,
-        signals: providerSignals
-          .filter((p) => p.provider !== "mock")
-          .map((p) => p.label),
+        signals: providerSignals.filter((p) => p.provider !== "mock").map((p) => p.label),
       });
     }
   }
@@ -218,9 +203,7 @@ export function detectAdapter(snapshot: RepoSnapshot): DetectResult {
 
   hints.monorepo =
     isPnpmWorkspace ||
-    (snapshot.packageJson
-      ? hasWorkspaces(snapshot.packageJson.workspaces)
-      : false);
+    (snapshot.packageJson ? hasWorkspaces(snapshot.packageJson.workspaces) : false);
 
   if (snapshot.pubspecYaml?.hasFlutterSdk) {
     candidates.push({
@@ -275,6 +258,15 @@ export function detectAdapter(snapshot: RepoSnapshot): DetectResult {
   };
 }
 
+/** detect と init の推薦規則を共通化する。 */
+export const selectAdapterCandidate = (result: DetectResult): AdapterCandidate | undefined => {
+  const high = result.candidates.filter((candidate) => candidate.confidence === "high");
+  if (high.length === 1) return high[0];
+  if (high.length > 1) return undefined;
+  const medium = result.candidates.filter((candidate) => candidate.confidence === "medium");
+  return medium.length === 1 ? medium[0] : undefined;
+};
+
 const parseEnvExampleKeys = (text: string): readonly string[] =>
   text
     .split("\n")
@@ -304,15 +296,16 @@ export async function collectSnapshot(root: string): Promise<RepoSnapshot> {
   if (existsSync(pubspecPath)) {
     const text = readFileSync(pubspecPath, "utf-8");
     snapshot.pubspecYaml = {
-      hasFlutterSdk: /flutter:\s*\n\s+sdk:\s*flutter/m.test(text),
+      hasFlutterSdk:
+        /^[ \t]*flutter:[ \t]*(?:#.*)?\r?\n(?:[ \t]*(?:#.*)?\r?\n)*[ \t]+sdk:[ \t]*flutter[ \t]*(?:#.*)?$/m.test(
+          text,
+        ),
     };
   }
 
   const envExamplePath = path.join(root, ".env.example");
   if (existsSync(envExamplePath)) {
-    snapshot.envExampleKeys = parseEnvExampleKeys(
-      readFileSync(envExamplePath, "utf-8"),
-    );
+    snapshot.envExampleKeys = parseEnvExampleKeys(readFileSync(envExamplePath, "utf-8"));
   }
 
   return snapshot;

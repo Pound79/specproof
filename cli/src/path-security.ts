@@ -5,9 +5,7 @@ const isWithin = (root: string, candidate: string): boolean => {
   const relative = path.relative(root, candidate);
   return (
     relative === "" ||
-    (relative !== ".." &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative))
+    (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
   );
 };
 
@@ -16,10 +14,7 @@ const isWithin = (root: string, candidate: string): boolean => {
  * This keeps scaffold/setup writes inside the physical repository, including
  * when the final file does not exist yet.
  */
-export const assertSafeRepositoryWrite = (
-  repoRoot: string,
-  targetPath: string,
-): void => {
+export const assertSafeRepositoryWrite = (repoRoot: string, targetPath: string): void => {
   const lexicalRoot = path.resolve(repoRoot);
   const lexicalTarget = path.resolve(targetPath);
   if (!isWithin(lexicalRoot, lexicalTarget)) {
@@ -36,9 +31,7 @@ export const assertSafeRepositoryWrite = (
     try {
       const entry = lstatSync(current);
       if (entry.isSymbolicLink()) {
-        throw new Error(
-          `Refusing to write through symbolic link inside repository: ${current}`,
-        );
+        throw new Error(`Refusing to write through symbolic link inside repository: ${current}`);
       }
       deepestExisting = current;
     } catch (error) {
@@ -49,16 +42,11 @@ export const assertSafeRepositoryWrite = (
 
   const physicalAncestor = realpathSync(deepestExisting);
   if (!isWithin(physicalRoot, physicalAncestor)) {
-    throw new Error(
-      `Refusing to write outside the physical repository root: ${targetPath}`,
-    );
+    throw new Error(`Refusing to write outside the physical repository root: ${targetPath}`);
   }
 };
 
-export type SourceTreeExclude = (
-  name: string,
-  isDirectory: boolean,
-) => boolean;
+export type SourceTreeExclude = (name: string, isDirectory: boolean) => boolean;
 
 /** List regular files under a trusted source tree without following symlinks. */
 export const walkRegularFilesWithoutSymlinks = (

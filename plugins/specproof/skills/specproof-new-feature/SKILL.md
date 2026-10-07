@@ -12,7 +12,7 @@ description: Bootstrap a new BDD feature from a spec document section. Creates a
 
 ## 0. 設定の解決（最初に必ず実行）
 
-リポルートの `specproof.config.yaml` を読み、以下のすべての `{{config:...}}` トークンを
+リポルートの `specproof.config.yaml` を読み、以下の適用する adapter・手順に必要な `{{config:...}}` トークンを
 実値へ解決してから後続ステップを実行すること。
 
 ```
@@ -115,3 +115,13 @@ specproof init --adapter <framework>
   （例: `{{config:tags.admin}}` タグは admin プロジェクトのみが実行する想定になっている）
 - **環境タグの整合性**: 生成するシナリオのタグが `{{config:environments}}` の全エントリの
   `excludeTags` に含まれていないことを確認する（全除外=実行されない dead code）。
+
+## 設定解決の境界
+
+適用する adapter と手順が参照する設定だけを解決する。未設定の必須値・存在しない参照先は
+キー名と必要な編集を示して停止し、consumer 固有値を推測しない。
+
+`agents` は未設定時のインライン自己レビューという明示済み fallback を使用できる。
+`conventions.i18nLintPlugin: none` は専用 plugin がないという明示値であり、検査成功を意味しない。
+`examples` は説明用の例であり、実際の仕様・既存ファイルの存在を保証しない。
+Flutter の `projects` / `env` / `environments` は skill 用の宣言で、Dart runner へ自動注入されない。

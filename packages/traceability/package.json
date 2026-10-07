@@ -46,7 +46,8 @@
     "typecheck": "tsc --noEmit",
     "check": "tsx src/cli-check.ts",
     "update": "tsx src/cli-update.ts",
-    "list": "tsx src/cli-list.ts"
+    "list": "tsx src/cli-list.ts",
+    "test:coverage": "vitest run --coverage"
   },
   "engines": {
     "node": ">=24"

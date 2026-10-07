@@ -14,7 +14,7 @@ feature ファイルを生成・更新するときは、このガイドに厳密
    存在しない場合は **停止** し、ユーザーに次を伝える:
    > `specproof init --adapter <framework>` を実行して設定ファイルを作成してください。
 
-2. ファイルが存在する場合、以下のすべての `{{config:...}}` トークンをファイル内の対応フィールドの値に解決してからガイドの残りを適用する。
+2. ファイルが存在する場合、以下の適用する adapter・手順に必要な `{{config:...}}` トークンをファイル内の対応フィールドの値に解決してからガイドの残りを適用する。
    - `{{config:commands.traceabilityCheck}}` / `{{config:commands.traceabilityUpdate}}` など
      traceability CLI コマンドの実値もここで確定する。
    - マニフェストパス (`{{config:layout.manifest}}`), コマンド (`{{config:commands.*}}`),
@@ -84,3 +84,13 @@ feature ファイルを生成・更新するときは、このガイドに厳密
   非同期遷移の判定タイミングを `waitForURL` / `waitForLoadState` 等で明示する
   （操作直後の即時 green による silent pass を防ぐ）
 - mutation を避け、page object メソッドは小さく保つ
+
+## 設定解決の境界
+
+適用する adapter と手順が参照する設定だけを解決する。未設定の必須値・存在しない参照先は
+キー名と必要な編集を示して停止し、consumer 固有値を推測しない。
+
+`agents` は未設定時のインライン自己レビューという明示済み fallback を使用できる。
+`conventions.i18nLintPlugin: none` は専用 plugin がないという明示値であり、検査成功を意味しない。
+`examples` は説明用の例であり、実際の仕様・既存ファイルの存在を保証しない。
+Flutter の `projects` / `env` / `environments` は skill 用の宣言で、Dart runner へ自動注入されない。

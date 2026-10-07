@@ -1,4 +1,4 @@
-import { collectSnapshot, detectAdapter } from "./detect.js";
+import { collectSnapshot, detectAdapter, selectAdapterCandidate } from "./detect.js";
 
 export interface DetectOptions {
   json?: boolean;
@@ -15,25 +15,19 @@ export async function runDetect(opts: DetectOptions): Promise<void> {
   }
 
   if (result.candidates.length === 0) {
-    console.log(
-      "No framework detected. No pubspec.yaml (Flutter) or package.json found.",
-    );
-    console.log(
-      "Run: specproof init --adapter <playwright|flutter> to scaffold manually.",
-    );
+    console.log("No supported framework detected from the repository files.");
+    console.log("Run: specproof init --adapter <playwright|flutter> to scaffold manually.");
     return;
   }
 
   console.log("Detected adapter candidates:\n");
   for (const c of result.candidates) {
-    console.log(
-      `  ${c.adapter} (${c.confidence}) -> ${c.dir}`,
-    );
+    console.log(`  ${c.adapter} (${c.confidence}) -> ${c.dir}`);
     for (const s of c.signals) console.log(`    signal: ${s}`);
   }
 
   if (result.hints.monorepo) {
-    console.log("\n  Monorepo detected (npm workspaces).");
+    console.log("\n  Monorepo detected (workspace configuration).");
   }
 
   if (result.hints.environments.length > 0) {
@@ -44,15 +38,11 @@ export async function runDetect(opts: DetectOptions): Promise<void> {
     }
   }
 
-  const high = result.candidates.filter((c) => c.confidence === "high");
-  if (high.length === 1) {
-    console.log(
-      `\nRecommendation: specproof init --adapter ${high[0].adapter} --dir ${high[0].dir}`,
-    );
+  const picked = selectAdapterCandidate(result);
+  if (picked) {
+    console.log(`\nRecommendation: specproof init --adapter ${picked.adapter} --dir ${picked.dir}`);
   } else {
-    console.log(
-      "\nAmbiguous detection. Specify an adapter explicitly:",
-    );
+    console.log("\nDetection is inconclusive. Specify an adapter explicitly:");
     console.log("  specproof init --adapter <playwright|flutter>");
   }
 }
