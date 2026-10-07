@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises";
 import { readManifestFile } from "./manifest-io.js";
 import { parse, stringify } from "yaml";
 import { writeFileAtomic } from "./atomic-write.js";
@@ -219,5 +220,19 @@ export const saveManifest = async (
     original && source !== undefined
       ? replaceManifestHashes(source, original, manifest)
       : header + stringify(manifest);
-  await writeFileAtomic(manifestPath, text, source);
+  await writeFileAtomic(await writeTargetOf(manifestPath), text, source);
+};
+
+/**
+ * 読み込み側と同じく最終要素のリンクを辿り、実体を原子的に置き換える。
+ * リンク自体は残す。リンク切れはそのまま渡し、writer が通常ファイルでないとして拒否する。
+ * repo 外を指すリンクは CLI の設定解決（resolveWithinRoot）が先に拒否する。
+ */
+const writeTargetOf = async (manifestPath: string): Promise<string> => {
+  try {
+    return await realpath(manifestPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return manifestPath;
+    throw error;
+  }
 };
