@@ -12,6 +12,7 @@ import {
   type TraceabilityLink,
   type TraceabilityManifest,
 } from "./manifest.js";
+import path from "node:path";
 import { resolveWithinRoot } from "./resolve.js";
 import type { DriftSide } from "./check.js";
 import { createTaskLimiter, type RunTaskLimited } from "./concurrency.js";
@@ -137,10 +138,13 @@ export interface UpdateResult extends TraceabilityManifest {
 }
 
 export const updateManifestHashes = async (
-  manifestPath: string,
+  requestedManifestPath: string,
   repoRoot: string,
   options: UpdateOptions = {},
 ): Promise<UpdateResult> => {
+  // saveManifest は最終要素のリンクを辿って書くため、公開 API の入口でも
+  // manifest とそのリンク先が repo 内にあることを確かめる（相対パスは従来どおり cwd 基準）。
+  const manifestPath = resolveWithinRoot(repoRoot, path.resolve(requestedManifestPath));
   const manifest = await loadManifest(manifestPath);
   const runLimited = createTaskLimiter(MAX_CONCURRENT_FILE_READS);
   const { linkId, dryRun = false } = options;
@@ -160,7 +164,7 @@ export const updateManifestHashes = async (
   };
   const changes = results.flatMap((result) => result.changes);
   if (!dryRun && changes.length > 0) {
-    await saveManifest(manifestPath, updated, manifest);
+    await saveManifest(manifestPath, updated, manifest, repoRoot);
   }
   return { ...updated, changes };
 };

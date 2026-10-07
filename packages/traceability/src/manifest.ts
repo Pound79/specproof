@@ -1,7 +1,9 @@
+import { realpath } from "node:fs/promises";
 import { readManifestFile } from "./manifest-io.js";
 import { parse, stringify } from "yaml";
 import { writeFileAtomic } from "./atomic-write.js";
 import { replaceManifestHashes } from "./manifest-text.js";
+import { resolveWithinRoot } from "./resolve.js";
 
 export interface SpecRef {
   path: string;
@@ -202,6 +204,8 @@ export const saveManifest = async (
   manifestPath: string,
   manifest: TraceabilityManifest,
   original?: TraceabilityManifest,
+  /** 指定時は、リンク解決後の書込先を保存直前にも repo 内へ制限する。 */
+  repoRoot?: string,
 ): Promise<void> => {
   // 既存の writer の振る舞いを保ち、新しい criteria だけをファイル更新前に検査する。
   manifest.links.forEach((link, index) => {
@@ -219,5 +223,23 @@ export const saveManifest = async (
     original && source !== undefined
       ? replaceManifestHashes(source, original, manifest)
       : header + stringify(manifest);
-  await writeFileAtomic(manifestPath, text, source);
+  await writeFileAtomic(await writeTargetOf(manifestPath, repoRoot), text, source);
+};
+
+/**
+ * 読み込み側と同じく最終要素のリンクを辿り、実体を原子的に置き換える。
+ * リンク自体は残す。リンク切れはそのまま渡し、writer が通常ファイルでないとして拒否する。
+ * update は repoRoot を渡し、hash 計算中に外へ差し替わったリンクもここで拒否する。
+ * 検証した実体パスを writer に渡し、元のリンクを再び辿らせない。
+ */
+const writeTargetOf = async (manifestPath: string, repoRoot?: string): Promise<string> => {
+  let target: string;
+  try {
+    target = await realpath(manifestPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    target = manifestPath;
+  }
+  if (repoRoot !== undefined) resolveWithinRoot(repoRoot, target);
+  return target;
 };
