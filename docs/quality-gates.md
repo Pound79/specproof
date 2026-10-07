@@ -21,3 +21,10 @@ CLIの子プロセスによる機能試験はあるが、Vitestのcoverageに計
 リポジトリの型検査は TypeScript strict。lint は到達不能コード・debugger・曖昧な等価比較を検査する。
 Biome は3ルールを明示的に有効化し、formatter は引用符・セミコロン・字下げ・改行を統一する。
 生成済みのCLI配布物を使う試験があるため、テスト前に `npm run build` を行う。
+Vitest の worker は traceability で最大1、CLI で最大2とする。16コア環境の全体検査で
+大きい manifest の解析が既定の5秒を超えたため、検査内容と timeout を維持して
+並列数を制限する。concurrency の試験は各ケース内で従来どおり並列処理を検証する。
+総参照数の上限試験は20,001参照を維持し、境界と無関係なダミーパス・hashを最小化する。
+Node のスクリプト試験も `--test-concurrency=1` でファイルを順に実行する。
+シグナル後の復元試験は、Git の呼出を記録 stub に限定して外部 Git 環境に依存させない。
+終了コード・復元内容・後続処理の不実行・cleanup 回数は実際の終了経路で検証する。

@@ -35,6 +35,9 @@
     "postpack": "node -e \"const fs=require('node:fs');fs.rmSync('templates',{recursive:true,force:true});fs.rmSync('skills',{recursive:true,force:true})\"",
     "test:coverage": "vitest run --coverage"
   },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
   "devDependencies": {
     "@types/node": "^26.6.3",
     "typescript": "^7.0.2",

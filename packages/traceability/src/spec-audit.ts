@@ -1,5 +1,5 @@
 import path from "node:path";
-import { listHeadings, readFileOrNull } from "./hash.js";
+import { listHeadingCandidates, readFileOrNull, resolveHeadingReference } from "./hash.js";
 import { resolveWithinRoot } from "./resolve.js";
 import type { DriftWarning } from "./check.js";
 import type { TraceabilityManifest } from "./manifest.js";
@@ -73,9 +73,12 @@ export const auditSpecHeadings = async (
     }
 
     for (const level of levels) {
-      const headings = listHeadings(content, level);
+      const headings = listHeadingCandidates(content, level);
+      const resolvedRefs = refs
+        .filter((ref) => ref.path === relPath && ref.level === level)
+        .map((ref) => ({ ref, heading: resolveHeadingReference(headings, ref.heading) }));
       const registeredHeadings = new Set(
-        refs.filter((ref) => ref.path === relPath && ref.level === level).map((ref) => ref.heading),
+        resolvedRefs.flatMap(({ heading }) => (heading === undefined ? [] : [heading.text])),
       );
 
       for (const heading of headings) {
@@ -88,11 +91,9 @@ export const auditSpecHeadings = async (
       for (const heading of headings) {
         countByText.set(heading.text, (countByText.get(heading.text) ?? 0) + 1);
       }
-      for (const ref of refs) {
-        if (ref.path !== relPath || ref.level !== level) {
-          continue;
-        }
-        const count = countByText.get(ref.heading) ?? 0;
+      for (const { ref, heading } of resolvedRefs) {
+        // 旧表記で解決しても、同じ canonical 名を持つ全見出しの重複を検査する。
+        const count = heading === undefined ? 0 : (countByText.get(heading.text) ?? 0);
         if (count > 1) {
           warnings.push(duplicateHeadingWarning(ref.linkId, relPath, ref.heading, count));
         }

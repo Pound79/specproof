@@ -119,13 +119,25 @@ normalization existed: those refs will show as drifted on the next `check`.
 Run `check` to see what changed, review it, then `specproof-update` to
 re-bless.
 
-### Manifest comments are not preserved by `update`
+### ATX 見出しの互換性
 
-`specproof-update` rewrites the manifest YAML from a parsed in-memory
-object, not by patching the source text. Any hand-written comments in
-`traceability.yaml` will be dropped the next time `update` runs. Keep
-rationale/notes in the linked spec doc or a sibling comment file instead of
-inline in the manifest.
+見出し一覧は前後の空白と末尾の閉じ `#` を除いた CommonMark の見出し名を返す。
+旧版が返した `Account ##` のような表記も、既存 manifest の参照として読み取れる。
+文書内に旧表記の完全一致があればそれを優先し、なければ正規化した名前で照合する。
+たとえば `## Account ##` と `## Account ## ##` が共存するとき、旧参照 `Account ##`
+を後者へ黙って移動させない。重複見出しの検査は正規化した名前で行う。
+hash は文書中の実際のセクションから計算し、保存済みの基準を自動更新しない。
+
+### Manifest の保存と同時更新
+
+`specproof-update` は変更した hash の値だけを原文へ反映し、コメント・空行・引用符・
+未知の拡張キーを保持する。変更ゼロと `--dry-run` では保存しない。
+更新は同じディレクトリの一時ファイルを完成させてから rename し、途中失敗で元ファイルを
+破断させない。hash 以外まで変わる YAML alias は、安全に保存できないため拒否する。
+
+読込後の変更は保存前に検査するが、検査と rename は OS レベルの compare-and-swap
+ではない。同じ manifest への更新は順に実行する。異なる `--link-id` でも同時実行すると、
+両方が成功したまま一方の hash 更新が失われる可能性がある。
 
 ### Manifest の criteria
 
@@ -153,7 +165,9 @@ consumer 固有の ID 書式は consumer の設定が検査する。
 `saveManifest` も新しい criteria の契約だけを書込み前に検査し、不正なら既存ファイルを変えない。
 他の既存フィールドの形は従来どおり loader が検査する。
 load/update/save、全件更新、`--link-id`、`--dry-run` で criteria とオブジェクトの未知キーを
-保持する。dry-run はファイルの byte を変えない。YAML コメントの非保持は上記のとおり。
+保持する。dry-run はファイルの byte を変えない。update は YAML コメントと書式も保持する。
+低レベルの `saveManifest(path, manifest)` は新規 YAML を生成する。
+原文を保持した hash 更新には `loadManifest` の戻り値を第3引数の `original` に渡す。
 
 criteria は条件と参照 link の対応であり、シナリオ ID 台帳・実行済み GREEN の証跡ではない。
 hash と strict の検査は従来のまま行う。上の空参照の例は `check --strict` の empty-link に該当する。

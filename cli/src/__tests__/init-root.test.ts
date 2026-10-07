@@ -34,7 +34,8 @@ for (const [adapter, defaultDir] of [
         const config = readFileSync(path.join(repoRoot, "specproof.config.yaml"), "utf8");
         assert.ok(config.includes(`featuresDir: ${target}/features`));
         assert.ok(config.includes(`manifest: ${target}/traceability.yaml`));
-        assert.ok(config.includes(`generate: cd ${target} && echo generate`));
+        const cdTarget = target === "." ? "." : `./${target}`;
+        assert.ok(config.includes(`generate: cd ${cdTarget} && echo generate`));
         assert.ok(existsSync(path.resolve(repoRoot, target, "traceability.yaml")));
         assert.ok(existsSync(path.resolve(repoRoot, target, "features/example.feature")));
         assert.equal(result.layoutRewritten, target !== defaultDir);

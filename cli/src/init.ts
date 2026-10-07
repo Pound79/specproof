@@ -3,6 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectSnapshot, detectAdapter, selectAdapterCandidate } from "./detect.js";
 import { assertSafeRepositoryWrite, walkRegularFilesWithoutSymlinks } from "./path-security.js";
+import {
+  assertScaffoldDirectory,
+  rewriteScaffoldConfig,
+  shellCdCommand,
+} from "./scaffold-config.js";
 
 export type AgentType = "claude" | "codex" | "all";
 
@@ -83,6 +88,7 @@ export const isScaffoldExcluded = (name: string, isDirectory: boolean): boolean 
   (isDirectory ? SCAFFOLD_EXCLUDED_DIRS.has(name) : SCAFFOLD_EXCLUDED_FILES.has(name));
 
 const resolveTargetDir = (repoRoot: string, dir: string): string => {
+  assertScaffoldDirectory(dir);
   const resolved = path.resolve(repoRoot, dir);
   const relative = path.relative(repoRoot, resolved);
   if (
@@ -182,6 +188,7 @@ export function scaffoldTemplate(params: {
   force: boolean;
 }): ScaffoldResult {
   const { tplDir, repoRoot, e2eDir, templateDefaultDir, force } = params;
+  assertScaffoldDirectory(e2eDir);
   // リポジトリ直下は空文字ではなく「.」で表し、絶対パス化を防ぐ。
   const e2eRelPosix = path.relative(repoRoot, e2eDir).split(path.sep).join("/") || ".";
 
@@ -228,12 +235,12 @@ export function scaffoldTemplate(params: {
 
     if (isConfig) {
       const raw = readFileSync(path.join(tplDir, rel), "utf-8");
-      const content =
-        e2eRelPosix !== templateDefaultDir ? raw.split(templateDefaultDir).join(e2eRelPosix) : raw;
-      if (content !== raw) layoutRewritten = true;
+      const content = rewriteScaffoldConfig(raw, templateDefaultDir, e2eRelPosix);
+      if (e2eRelPosix !== templateDefaultDir && content !== raw) layoutRewritten = true;
       writeFileSync(dest, content);
     } else if (base === "biome.template.json") {
-      const config = JSON.parse(readFileSync(path.join(tplDir, rel), "utf8"));
+      const raw = readFileSync(path.join(tplDir, rel), "utf8");
+      let content = raw;
       let parent = path.resolve(e2eDir);
       const root = path.resolve(repoRoot);
       while (parent !== root && path.dirname(parent) !== parent) {
@@ -242,11 +249,16 @@ export function scaffoldTemplate(params: {
           existsSync(path.join(parent, "biome.json")) ||
           existsSync(path.join(parent, "biome.jsonc"))
         ) {
-          config.root = false;
+          // 固定テンプレートに root がないことを確かめ、既存の書式を保つ。
+          const config = JSON.parse(raw);
+          if (Object.hasOwn(config, "root") || !raw.startsWith("{\n")) {
+            throw new Error("Biome template must start with an object and omit root");
+          }
+          content = raw.replace("{\n", '{\n  "root": false,\n');
           break;
         }
       }
-      writeFileSync(dest, JSON.stringify(config, null, 2) + "\n");
+      writeFileSync(dest, content);
     } else {
       copyFileSync(path.join(tplDir, rel), dest);
     }
@@ -315,13 +327,13 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const manualSteps =
     adapter === "flutter"
       ? `  a. Edit specproof.config.yaml at the repo root.
-  b. cd ${e2eLabel} && flutter create --platforms=macos --project-name bdd_tests .
+  b. ${shellCdCommand(e2eLabel)} && flutter create --platforms=macos --project-name bdd_tests .
   c. flutter pub get && dart run build_runner build --delete-conflicting-outputs
   d. flutter test integration_test/gherkin_suite_test.dart -d macos
 
   See ${e2eLabel}/README.md for the verified Japanese-Gherkin recipe and gotchas.`
       : `  a. Edit specproof.config.yaml at the repo root.
-  b. cd ${e2eLabel} && npm install && npm run install:browsers
+  b. ${shellCdCommand(e2eLabel)} && npm install && npm run install:browsers
   c. Copy .env.example to .env and fill in credentials.
   d. npm run test:smoke`;
   console.log(`
