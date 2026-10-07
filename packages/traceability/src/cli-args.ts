@@ -27,6 +27,11 @@ export interface ParsedCliArgs {
   linkId?: string;
 }
 
+/** 引数の誤り。利用者が直す入力なので、スタックを出さずにメッセージだけを示す。 */
+export class CliUsageError extends Error {
+  override name = "CliUsageError";
+}
+
 // 次のオプションやヘルプ指定を値として飲み込まない。`-page.ts` のような単一ハイフンの値は通す。
 const looksLikeOption = (value: string): boolean => value.startsWith("--") || value === "-h";
 
@@ -40,7 +45,7 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (!allowed.has(arg)) {
-      throw new Error(`Unknown option or argument: ${arg}`);
+      throw new CliUsageError(`Unknown option or argument: ${arg}`);
     }
     const key = VALUE_OPTIONS[arg];
     if (key === undefined) {
@@ -49,7 +54,7 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
     }
     const value = argv[i + 1];
     if (value === undefined || value.length === 0 || looksLikeOption(value)) {
-      throw new Error(`${arg} requires a value`);
+      throw new CliUsageError(`${arg} requires a value`);
     }
     values[key] = value;
     i += 1;
@@ -65,7 +70,9 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
  */
 export const runCli = (name: string, main: () => Promise<void>): void => {
   main().catch((error: unknown) => {
-    console.error(`${name} failed:`, error);
+    // 想定外のエラーは調査用にスタックを残す。
+    if (error instanceof CliUsageError) console.error(`${name} failed: ${error.message}`);
+    else console.error(`${name} failed:`, error);
     process.exitCode = 2;
   });
 };
