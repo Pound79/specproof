@@ -81,5 +81,8 @@ $EDITOR ~/.config/git/private-terms.txt   # 1 行 1 語。空行と # で始ま�
 ```
 
 語彙の置き場所は環境変数 `SPECPROOF_PRIVATE_TERMS` でも指定できる。pre-commit は
-ステージした追加行・ファイル名・名義、commit-msg はメッセージ、pre-push は送る全コミットと
+ステージした各ファイルの内容・パス・名義、commit-msg はメッセージ、pre-push は送る全コミットと
 注釈付きタグを検査する。語彙ファイルが無いときは、省略した旨を表示して通す。
+
+フックはチェックアウト中のブランチにある `scripts/githooks` を実行する。`npm test` と同じく、
+信頼できないブランチでは中身を確認してから commit や push をする。
