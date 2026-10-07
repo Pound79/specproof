@@ -35,6 +35,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/methodology.md`, both READMEs and the Playwright / Flutter template
   READMEs now describe `specproof-sync` this way instead of as "reflect the
   implementation diff into the feature".
+- **既存の manifest に drift が出る場合がある。** spec 見出しの判定を CommonMark に
+  合わせた。字下げ（1〜3 個の空白）やタブ区切りの `##`、空の `##` 行が、節の終わりと
+  して扱われるようになった。そうした行が後ろにある節は、旧版とハッシュが変わる。
+  内容を確認してから `specproof-update` で bless し直す。登録済みの見出し文字列
+  （`Account ##` のような閉じ記号付きを含む）は、旧版と同じく解決する。
+- traceability CLI と `specproof` CLI は、未知の引数と値の欠落を処理前に拒否する。
+  `--stric` のような誤記で `--strict` が黙って無効になることはなくなった。
+  traceability CLI は終了コード 2、`specproof` CLI は 1 で止まる。
+  `--` で始まる値と `-h` は次のオプションとみなし、`-page.ts` のような値は受け付ける。
+  `specproof init --help` などは使い方を表示して終了する。
+- `layout.manifest`・`layout.pagesDir`・`layout.featuresDir` と `--manifest` は、
+  manifest の参照と同じく repo root の内側に限る。外を指す設定は拒否する。
+  symlink 経由の root と物理パスの manifest の組み合わせは同じ repo として扱う。
+- `layout.implGlobs` の `?` はワイルドカードではなくリテラル文字として扱う。
+  ワイルドカードを含まないファイルパスと `./` で始まるパターンも照合する。
+- `specproof-update` は変更が無いとき manifest を書き込まず、「更新した」とも
+  表示しない。変更時はハッシュの値だけを差し替え、コメント・引用符・未知キーを保つ。
+  一時ファイル経由で置き換え、実行中の手編集を検知したら書き込まずに止まる。
+- Playwright テンプレートに Biome を同梱し、`lint` と `format:check` を実際の
+  検査にした。両テンプレートの config に、skill が参照するキーを揃えた。
+
+### Fixed
+
+- `specproof init --dir .` が `cd  &&` や `/features` のような壊れた設定を
+  生成していた。設定の書き換えは値の範囲だけを差し替え、節見出しのコメントや
+  コメントアウトされた環境例の位置を変えない。
+- 日本語 Gherkin の `シナリオテンプレ` / `テンプレ` を集計する。`Scenario:` に
+  `Examples` を付けた場合も、展開後のケース数を数える。
+- repo root の探索で `git rev-parse` のフォールバックが働いていなかった。
+- feature の探索がディレクトリの symlink を辿り、repo 外を走査したりループで
+  同じファイルを重複して報告したりしていた。repo 外を指すリンクは中を読む前に
+  拒否する。`.feature` という名前のディレクトリはファイルとして扱わない。
+- symlink の manifest を `specproof-update` で更新できなかった。リンク先の実体を
+  更新し、リンクは残す。保存の直前にも、実体が repo 内にあることを確かめる。
+- 新規作成した manifest が所有者しか読めない権限（0600）になっていた。
+- GitHub annotation の値をエスケープする。
+- `specproof detect` と `init --adapter auto` の推奨を一致させ、pubspec の
+  コメント行や Flutter のプロジェクト名を正しく扱う。
+- drift-check workflow の sticky comment は、Actions bot が書いたものだけを更新する。
+- `scripts/release.sh` は INT/TERM で後続処理へ進まず、後始末を一度だけ最後まで行う。
+
+### Security
+
+- scaffold と npm の配布物から `.env*`・`.npmrc`・`playwright/.auth`・テスト生成物を
+  除外する。テンプレートの gitignore も `.env.*`（`.env.example` を除く）を無視する。
+- manifest は通常ファイルだけを読み、FIFO やデバイスを拒否する。
+- 推移的依存 `source-map-js` を監査指摘の修正版（1.2.2）へ更新した。
 
 ## [0.2.2] - 2026-09-02
 
