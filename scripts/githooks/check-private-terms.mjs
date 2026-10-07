@@ -6,10 +6,10 @@
 //
 // scripts/githooks の各フックから呼ぶ:
 //   staged                pre-commit: ステージした各ファイルの内容・パスと作者/committer の名義
-//   message <file>        commit-msg: コミットメッセージ（git の cleanup 設定に従う）
+//   message <file>        commit-msg: コミットメッセージ（cleanup 前の全文）
 //   push <remote name>    pre-push:   送る全コミットの名義・本文・変更ファイルの内容とパス、
-//                         注釈付きタグ。amend / rebase で引き継いだ名義や verbatim の
-//                         メッセージ、フックを迂回したコミットもここで止める最終関門。
+//                         送り先の ref 名とタグの参照先。amend / rebase で引き継いだ名義や
+//                         verbatim のメッセージ、フックを迂回したコミットもここで止める最終関門。
 //
 // 内容は diff の追加行ではなく、変更された blob 全体を読む。git が binary とみなす
 // テキスト（属性や NUL を含む UTF-16）、種別の変更、merge で持ち込んだ内容も漏らさない。
@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ZERO = /^0+$/;
 const GITLINK_MODE = "160000";
@@ -77,14 +78,6 @@ const git = (args) =>
 const gitBuffer = (args) =>
   execFileSync("git", args, { maxBuffer: 256 * 1024 * 1024 });
 
-const gitConfig = (key) => {
-  try {
-    return git(["config", "--get", key]).trim();
-  } catch {
-    return "";
-  }
-};
-
 // 検査対象は 1 件ずつ取り出して照合し、内容をためない（全履歴を送るときも
 // メモリが履歴の総量に比例して増えないようにする）。
 
@@ -106,22 +99,10 @@ function* stagedTargets() {
   yield* fileTargets(parseRawDiff(raw), "", new Set());
 }
 
-/** git が確実に捨てるコメント行だけを除き、scissors 以降（commit -v の diff）は見ない。 */
-const messageTargets = (file) => {
-  const lines = readFileSync(file, "utf8").split("\n");
-  const configured = gitConfig("core.commentChar");
-  const commentChar = configured && configured !== "auto" ? configured : "#";
-  // 既定の cleanup はエディタを開かない -m / -F では "whitespace" になり、コメント行も
-  // 記録される。フックからは編集の有無を知れないので、明示的に strip する設定のときだけ除く。
-  const cleanup = gitConfig("commit.cleanup");
-  const stripsComments = ["strip", "scissors"].includes(cleanup);
-  const scissors = lines.findIndex((line) =>
-    line.startsWith(`${commentChar} ------------------------ >8 ------------------------`),
-  );
-  return (scissors === -1 ? lines : lines.slice(0, scissors))
-    .filter((line) => !(stripsComments && line.startsWith(commentChar)))
-    .map((text) => ({ where: "コミットメッセージ", text }));
-};
+/** cleanup の実効値は CLI 引数でも上書きされるため、設定から捨てる行を推測しない。 */
+const messageTargets = (file) => [
+  { where: "コミットメッセージ", text: readFileSync(file, "utf8") },
+];
 
 function* commitTargets(sha, seenBlobs) {
   const label = `${sha.slice(0, 12)} `;
@@ -149,6 +130,43 @@ const hasCommit = (sha) => {
 const isConfiguredRemote = (name) =>
   name !== undefined && git(["remote"]).split("\n").includes(name);
 
+/** 注釈付きタグを最後まで辿り、内側の名義・本文・タグ名も検査する。 */
+function* peelTags(sha, label, seenTags) {
+  let object = sha;
+  let type = git(["cat-file", "-t", object]).trim();
+  while (type === "tag") {
+    const text = git(["cat-file", "-p", object]);
+    if (!seenTags.has(object)) {
+      seenTags.add(object);
+      yield { where: `${label} タグ ${object.slice(0, 12)}`, text };
+    }
+    const target = /^object ([0-9a-f]+)\n/.exec(text)?.[1];
+    if (!target) throw new Error("private-terms: invalid tag object");
+    object = target;
+    type = git(["cat-file", "-t", object]).trim();
+  }
+  return { object, type };
+}
+
+/** commit を指さないタグも、送られる tree のパスと blob 全体を検査する。 */
+function* nonCommitTargets(object, type, label, seenBlobs) {
+  if (type === "blob") {
+    yield* fileTargets([{ path: object, blob: object, gitlink: false }], label, seenBlobs);
+    return;
+  }
+  if (type !== "tree") throw new Error("private-terms: unsupported object type");
+  // -t は空ディレクトリの名前も含める。TAB/NUL で区切り、引用された表示名は使わない。
+  const entries = git(["ls-tree", "-r", "-t", "-z", "--full-tree", object])
+    .split("\0")
+    .filter(Boolean)
+    .map((entry) => {
+      const tab = entry.indexOf("\t");
+      const [, entryType, blob] = entry.slice(0, tab).split(" ");
+      return { path: entry.slice(tab + 1), blob, gitlink: entryType !== "blob" };
+    });
+  yield* fileTargets(entries, label, seenBlobs);
+}
+
 /**
  * pre-push の標準入力（ref ごとに "<local ref> <local sha> <remote ref> <remote sha>"）。
  * 送り先が既に持つコミットだけを除く。別のリモートにあるコミットは送り先には新しいので検査する。
@@ -156,11 +174,16 @@ const isConfiguredRemote = (name) =>
 function* pushTargets(stdin, remoteName) {
   const seenCommits = new Set();
   const seenBlobs = new Set();
+  const seenTags = new Set();
   for (const line of stdin.split("\n").filter((entry) => entry.trim().length > 0)) {
-    const [localRef, localSha, , remoteSha] = line.trim().split(/\s+/);
+    const [, localSha, remoteRef, remoteSha] = line.trim().split(/\s+/);
     if (!localSha || ZERO.test(localSha)) continue; // ref の削除
-    if (git(["cat-file", "-t", localSha]).trim() === "tag") {
-      yield { where: `タグ ${localRef}`, text: git(["cat-file", "-p", localSha]) };
+    // refspec で名前を変えて送る場合、公開されるのは local ref でなく remote ref。
+    yield { where: "送り先の ref 名", text: remoteRef };
+    const { object, type } = yield* peelTags(localSha, remoteRef, seenTags);
+    if (type !== "commit") {
+      yield* nonCommitTargets(object, type, `${remoteRef} `, seenBlobs);
+      continue;
     }
     const exclude =
       remoteSha && !ZERO.test(remoteSha) && hasCommit(remoteSha)
@@ -168,7 +191,7 @@ function* pushTargets(stdin, remoteName) {
         : isConfiguredRemote(remoteName)
           ? ["--not", `--remotes=${remoteName}`]
           : [];
-    const commits = git(["rev-list", localSha, ...exclude]).split("\n").filter(Boolean);
+    const commits = git(["rev-list", object, ...exclude]).split("\n").filter(Boolean);
     for (const sha of commits) {
       if (seenCommits.has(sha)) continue;
       seenCommits.add(sha);
@@ -212,4 +235,8 @@ const main = () => {
   return 1;
 };
 
-if (import.meta.main) process.exitCode = main();
+// import.meta.main の無い Node.js 24.0 / 24.1 でも、フックを黙って省略しない。
+const isMain =
+  import.meta.main ??
+  (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href);
+if (isMain) process.exitCode = main();

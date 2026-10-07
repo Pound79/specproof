@@ -184,7 +184,7 @@ test("commit-msg: 本文の語も、-F で残る '#' 行の語も記録しない
     assert.equal(tryCommit(repo, ["-F", message]).recorded, false);
   }));
 
-test("commit-msg: strip で捨てられる '#' 行と scissors 以降は検査しない", () =>
+test("commit-msg: strip 設定でも scissors 以降に残る語を記録しない", () =>
   sandbox((repo) => {
     repo.write("a.md", "x\n");
     repo.ok(["add", "."]);
@@ -194,7 +194,7 @@ test("commit-msg: strip で捨てられる '#' 行と scissors 以降は検査�
       message,
       "docs: add\n\n# secret-app\n# ------------------------ >8 ------------------------\n-secret-app\n",
     );
-    assert.equal(tryCommit(repo, ["-F", message]).recorded, true);
+    assert.equal(tryCommit(repo, ["-F", message]).recorded, false);
   }));
 
 test("語彙ファイルが無ければ検査を省略し、その旨を表示する", () =>

@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { lstatSync, readFileSync, readlinkSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { lstatSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { decodeContent } from "./githooks/check-private-terms.mjs";
 
 // このリポジトリは公開 OSS。手元の環境や私的な作業の痕跡を追跡ファイルに入れない。
 // 私的なプロジェクト名や本名はここに書くとそれ自体が公開されるため、この試験では扱わず、
@@ -71,7 +73,7 @@ const readText = (file) => {
   try {
     if (lstatSync(absolute).isSymbolicLink()) return readlinkSync(absolute);
     const bytes = readFileSync(absolute);
-    return bytes.includes(0) ? null : bytes.toString("utf8");
+    return decodeContent(bytes);
   } catch (error) {
     if (error.code === "ENOENT") return null;
     throw error;
@@ -161,4 +163,26 @@ test("検査規則は代表的な混入を検出し、例示用の表記は通�
   assert.ok(FORBIDDEN_PATHS[1].pattern.test("notes/release.local.md"));
   assert.ok(FORBIDDEN_PATHS[2].pattern.test("packages/e2e/.env.local"));
   assert.ok(!FORBIDDEN_PATHS[2].pattern.test("packages/e2e/.env.example"));
+});
+
+test("NUL を含む UTF-8 と BOM 付き UTF-16 も公開内容の検査から除外しない", () => {
+  const dir = mkdtempSync(join(tmpdir(), "public-content-"));
+  try {
+    const leak = `${path("/", "", "Users", "alice", "work")} ${["person", "company.co.jp"].join("@")}`;
+    const utf16 = Buffer.from(leak, "utf16le");
+    const cases = [
+      Buffer.from(`${leak}\0`, "utf8"),
+      Buffer.concat([Buffer.from([0xff, 0xfe]), utf16]),
+      Buffer.concat([Buffer.from([0xfe, 0xff]), Buffer.from(utf16).swap16()]),
+    ];
+    for (const [index, bytes] of cases.entries()) {
+      const file = join(dir, `${index}.txt`);
+      writeFileSync(file, bytes);
+      const text = readText(relative(repoRoot, file));
+      assert.notEqual(text, null, `encoding case ${index} must be scanned`);
+      assert.deepEqual(findIn(text).map(({ rule }) => rule), ["local-path", "email"]);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
