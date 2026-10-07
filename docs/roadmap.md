@@ -1,7 +1,6 @@
 # 現在の実装対象と残件
 
-S1/S2 はこの配布候補で実装済み。候補版は 0.3.0 で、npm 公開は未実施。
-公開版とアプリの固定版は 0.2.2 のままで、下流の固定版へ新しい保証を適用しない。
+S1/S2 は次の版 0.3.0 で実装済み。npm の公開版は 0.2.2 のままで、0.2.2 には新しい保証を適用しない。
 実行の入口は [AGENTS.md](../AGENTS.md)、CLI の現行保証は
 [traceability README](../packages/traceability/README.md)。静的集計は実行済み GREEN を認定しない。
 
@@ -23,24 +22,14 @@ S2 は省略・空配列を許容し、不正型・空文字・制御文字・�
 全件/単一 link 更新・dry-run で保持する。ID は不透明な非空文字列とし、AC / TC 等の形式を
 固定・正規化しない。consumer 固有の形式は consumer の設定が検査する。
 検証と writer の範囲は [traceability README](../packages/traceability/README.md#manifest-の-criteria) が正本。
-既存 hash/strict の保証は変更しない。S1/S2 の別 PR を統合した配布候補であり、
-npm 公開とアプリ package/lock の更新は後段の別工程である。
+既存 hash/strict の保証は変更しない。
 
-## 配布準備
+## 配布
 
-2026-10-04 の最新 main `fcce629482aa4855bcb947fbc09cc0a50d00b27b` から、
-version・型・全 workspace / script 試験・build・正式 pack・空 consumer の
-lock / npm ci / smoke を検証した。対象 SHA、tarball hash、内容照合と残条件は
-[D0-SP 公開準備](./release-readiness.md) を参照する。
-registry の latest と tag は引き続き `0.2.2` / `v0.2.2`。
-公開・tag 作成・下流アプリ の固定版更新と主 CI 再有効化は未実施であり、
-利用者の具体的な採択前に配布完了とは扱わない。
-
-同版 `0.3.0` 候補を従来 release script が拒否することを隔離 real npm で観測し、
-同版許容と全 workspace／lock の対象版照合へ修正した。
-公開確認拒否時の復元、main／既存 tag／未コミット変更の拒否は fixture で検証する。
-実公開と新しい exact SHA の配布検証は保留し、旧候補の pack 証拠を流用しない。
-詳細は [同版候補の release 経路](./release-readiness.md#同版候補の-release-経路) を参照する。
+公開は [RELEASING.md](../RELEASING.md) の手順で、`scripts/release.sh` から tag を push して
+Release workflow で行う。release script は同じ版の未公開候補も扱え、全 workspace と
+lock の版を照合する。公開確認を拒否したときの復元と、main 以外・既存 tag・未コミット変更の
+拒否は fixture で検証する。
 
 ## 採択済み未実装
 
