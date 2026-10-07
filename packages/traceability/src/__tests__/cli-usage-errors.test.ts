@@ -14,6 +14,7 @@ const run = (name: string, args: string[]) => {
   try {
     writeFileSync(path.join(root, "traceability.yaml"), "version: 1\nlinks: []\n");
     const result = spawnSync(process.execPath, [dist(name), "--root", root, ...args], {
+      cwd: root,
       encoding: "utf8",
       timeout: 10_000,
     });
@@ -42,5 +43,6 @@ test("想定外のエラーは調査用にスタックを残す", () => {
   const result = run("check", ["--manifest", "missing.yaml"]);
   assert.equal(result.status, 2);
   assert.match(result.stderr, /traceability check failed:/);
+  assert.match(result.stderr, /ENOENT/);
   assert.match(result.stderr, /\n\s+at /);
 });
