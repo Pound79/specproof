@@ -100,21 +100,20 @@ tags:
 environments:
   - name: local
     default: true
+    # TODO: replace this auth with the scheme your app uses for local
+    # development (mock, email-password, google, ...).
     auth:
       provider: none
       description: The bundled counter example has no authentication; replace for an authenticated application.
-    # TODO: set auth provider for local development
-    # auth:
-    #   provider: mock
-    #   description: "Mock auth for local development. No real IdP calls."
 
-    # TODO: uncomment and configure additional environments as needed
-    # - name: dev
-    #   dotenvFile: ".env.dev"
-    #   auth:
-    #     provider: google
-    #     description: "Firebase Auth (Google) — dev project."
-    #   excludeTags: []
+  # TODO: uncomment and configure additional environments as needed
+  # - name: dev
+  #   dotenvFile: ".env.dev"
+  #   auth:
+  #     provider: google
+  #     description: "Firebase Auth (Google) — dev project."
+  #   excludeTags: []
+
 strictUnregisteredImpl: false
 strictUnregisteredSpecHeadings: false
 conventions:

@@ -86,9 +86,9 @@ fixtures:
   examplePage: "packages/e2e/src/pages/ExamplePage.ts"
   # TODO: add additional page object fixtures here as your app grows
 
-  # ---------------------------------------------------------------------------
-  # tags: canonical Gherkin tag definitions
-  # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# tags: canonical Gherkin tag definitions
+# ---------------------------------------------------------------------------
 tags:
   slow: "@slow" # [required] slow scenarios (e.g. real network calls); excluded from smoke
   generate: "@generate" # [required] heavy generation flows; always pair with @slow
@@ -141,10 +141,10 @@ projects:
       - "features/example.feature"
       # TODO: add auth/login .feature files here
 
-      # ---------------------------------------------------------------------------
-      # env: logical names of environment variables (not their values)
-      # The runner reads process.env[<value>] at runtime.
-      # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# env: logical names of environment variables (not their values)
+# The runner reads process.env[<value>] at runtime.
+# ---------------------------------------------------------------------------
 env:
   baseUrl: "E2E_BASE_URL" # [required] application URL
   username: "E2E_USERNAME" # [optional] regular user — used for conditional checks
@@ -196,21 +196,20 @@ runner:
 environments:
   - name: local
     default: true
+    # TODO: replace this auth with the scheme your app uses for local
+    # development (mock, email-password, google, saml, ...).
     auth:
       provider: email-password
       description: Example username/password login; replace with the application authentication scheme.
-    # TODO: set auth provider for local development (mock, email-password, etc.)
-    # auth:
-    #   provider: mock
-    #   description: "Mock auth for local development. No real IdP calls."
 
-    # TODO: uncomment and configure additional environments as needed
-    # - name: dev
-    #   dotenvFile: ".env.dev"
-    #   auth:
-    #     provider: google
-    #     description: "Firebase Auth (Google) — dev project."
-    #   excludeTags: []
+  # TODO: uncomment and configure additional environments as needed
+  # - name: dev
+  #   dotenvFile: ".env.dev"
+  #   auth:
+  #     provider: google
+  #     description: "Firebase Auth (Google) — dev project."
+  #   excludeTags: []
+
 strictUnregisteredImpl: false
 strictUnregisteredSpecHeadings: false
 conventions:
