@@ -73,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   更新し、リンクは残す。保存の直前にも、実体が repo 内にあることを確かめる。
 - 新規作成した manifest が所有者しか読めない権限（0600）になっていた。
 - GitHub annotation の値をエスケープする。
+- traceability CLI の引数の誤りは、スタックトレースを付けずに 1 行で知らせる。
 - `specproof detect` と `init --adapter auto` の推奨を一致させ、pubspec の
   コメント行や Flutter のプロジェクト名を正しく扱う。
 - drift-check workflow の sticky comment は、Actions bot が書いたものだけを更新する。
