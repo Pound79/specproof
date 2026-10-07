@@ -82,6 +82,9 @@ test("語彙の読み込みと照合は大文字小文字と多バイト文字�
     "Taro Example",
   ]);
   assert.deepEqual(findTerms("これは内部案件です", terms), ["内部案件"]);
+  // macOS のファイル名などに現れる、濁点を分離した NFD 形でも検出する。
+  assert.deepEqual(findTerms("ガイド".normalize("NFD"), ["ガイド"]), ["ガイド"]);
+  assert.deepEqual(findTerms("ガイド", ["ガイド".normalize("NFD")]), ["ガイド".normalize("NFD")]);
   assert.deepEqual(findTerms("nothing private here", terms), []);
 });
 

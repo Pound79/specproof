@@ -32,10 +32,12 @@ export const parseTerms = (text) =>
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith("#"));
 
-/** text に含まれる語を返す。 */
+const normalize = (text) => text.normalize("NFC").toLowerCase();
+
+/** text に含まれる語を返す。NFC に揃え、濁点を分離した NFD 形なども同じ語として扱う。 */
 export const findTerms = (text, terms) => {
-  const haystack = text.toLowerCase();
-  return terms.filter((term) => haystack.includes(term.toLowerCase()));
+  const haystack = normalize(text);
+  return terms.filter((term) => haystack.includes(normalize(term)));
 };
 
 /** UTF-16 の BOM があれば復号し、それ以外は UTF-8 として読む（不正なバイトは置換される）。 */
@@ -83,30 +85,26 @@ const gitConfig = (key) => {
   }
 };
 
+// 検査対象は 1 件ずつ取り出して照合し、内容をためない（全履歴を送るときも
+// メモリが履歴の総量に比例して増えないようにする）。
+
 /** 変更されたファイルのパスと内容。同じ blob は一度だけ読む。 */
-const fileTargets = (entries, label, seenBlobs) => {
-  const targets = [];
+function* fileTargets(entries, label, seenBlobs) {
   for (const { path: file, blob, gitlink } of entries) {
-    targets.push({ where: `${label}ファイル名 ${file}`, text: file });
+    yield { where: `${label}ファイル名 ${file}`, text: file };
     if (gitlink || ZERO.test(blob) || seenBlobs.has(blob)) continue;
     seenBlobs.add(blob);
-    targets.push({
-      where: `${label}${file}`,
-      text: decodeContent(gitBuffer(["cat-file", "blob", blob])),
-    });
+    yield { where: `${label}${file}`, text: decodeContent(gitBuffer(["cat-file", "blob", blob])) };
   }
-  return targets;
-};
+}
 
-const stagedTargets = () => {
-  const targets = ["GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT"].map((variable) => ({
-    where: variable,
-    text: git(["var", variable]),
-  }));
+function* stagedTargets() {
+  for (const variable of ["GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT"]) {
+    yield { where: variable, text: git(["var", variable]) };
+  }
   const raw = git(["diff", "--cached", "--raw", "-z", "--no-abbrev", "--no-renames", CHANGED]);
-  targets.push(...fileTargets(parseRawDiff(raw), "", new Set()));
-  return targets;
-};
+  yield* fileTargets(parseRawDiff(raw), "", new Set());
+}
 
 /** git が確実に捨てるコメント行だけを除き、scissors 以降（commit -v の diff）は見ない。 */
 const messageTargets = (file) => {
@@ -125,22 +123,19 @@ const messageTargets = (file) => {
     .map((text) => ({ where: "コミットメッセージ", text }));
 };
 
-const commitTargets = (sha, seenBlobs) => {
+function* commitTargets(sha, seenBlobs) {
   const label = `${sha.slice(0, 12)} `;
-  const targets = [
-    {
-      where: `${label}の名義とメッセージ`,
-      text: git(["show", "-s", "--format=%an%n%ae%n%cn%n%ce%n%B", sha]),
-    },
-  ];
+  yield {
+    where: `${label}の名義とメッセージ`,
+    text: git(["show", "-s", "--format=%an%n%ae%n%cn%n%ce%n%B", sha]),
+  };
   // -m で merge は各親との差分を出す。merge で新たに持ち込んだ blob はどれかの親と異なる。
   const raw = git([
     "diff-tree", "-r", "-m", "--root", "--no-commit-id", "--raw", "-z", "--no-abbrev",
     "--no-renames", CHANGED, sha,
   ]);
-  targets.push(...fileTargets(parseRawDiff(raw), label, seenBlobs));
-  return targets;
-};
+  yield* fileTargets(parseRawDiff(raw), label, seenBlobs);
+}
 
 const hasCommit = (sha) => {
   try {
@@ -158,15 +153,14 @@ const isConfiguredRemote = (name) =>
  * pre-push の標準入力（ref ごとに "<local ref> <local sha> <remote ref> <remote sha>"）。
  * 送り先が既に持つコミットだけを除く。別のリモートにあるコミットは送り先には新しいので検査する。
  */
-const pushTargets = (stdin, remoteName) => {
-  const targets = [];
+function* pushTargets(stdin, remoteName) {
   const seenCommits = new Set();
   const seenBlobs = new Set();
   for (const line of stdin.split("\n").filter((entry) => entry.trim().length > 0)) {
     const [localRef, localSha, , remoteSha] = line.trim().split(/\s+/);
     if (!localSha || ZERO.test(localSha)) continue; // ref の削除
     if (git(["cat-file", "-t", localSha]).trim() === "tag") {
-      targets.push({ where: `タグ ${localRef}`, text: git(["cat-file", "-p", localSha]) });
+      yield { where: `タグ ${localRef}`, text: git(["cat-file", "-p", localSha]) };
     }
     const exclude =
       remoteSha && !ZERO.test(remoteSha) && hasCommit(remoteSha)
@@ -178,11 +172,10 @@ const pushTargets = (stdin, remoteName) => {
     for (const sha of commits) {
       if (seenCommits.has(sha)) continue;
       seenCommits.add(sha);
-      targets.push(...commitTargets(sha, seenBlobs));
+      yield* commitTargets(sha, seenBlobs);
     }
   }
-  return targets;
-};
+}
 
 const targetsFor = (mode, arg) => {
   if (mode === "staged") return stagedTargets();
@@ -208,12 +201,13 @@ const main = () => {
     process.stderr.write("usage: check-private-terms.mjs staged | message <file> | push <remote>\n");
     return 2;
   }
-  const hits = targets.flatMap(({ where, text }) =>
-    findTerms(text, terms).map((term) => `  ${where}: "${term}"`),
-  );
-  if (hits.length === 0) return 0;
+  const hits = new Set();
+  for (const { where, text } of targets) {
+    for (const term of findTerms(text, terms)) hits.add(`  ${where}: "${term}"`);
+  }
+  if (hits.size === 0) return 0;
   process.stderr.write(
-    `公開リポジトリに入れない語が含まれています（${file}）:\n${[...new Set(hits)].join("\n")}\n`,
+    `公開リポジトリに入れない語が含まれています（${file}）:\n${[...hits].join("\n")}\n`,
   );
   return 1;
 };
