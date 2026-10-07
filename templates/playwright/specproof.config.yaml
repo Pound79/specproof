@@ -28,9 +28,10 @@ language: en
 # commands: shell commands specproof invokes (run from the repo root)
 # ---------------------------------------------------------------------------
 commands:
-  # `specproof init` scaffolds this package at packages/e2e (repo root has no
-  # workspaces wiring), so every command must `cd` into it explicitly rather
-  # than relying on `npm run` resolving scripts from the repo root.
+  # `specproof init` scaffolds the e2e package into its own directory
+  # (layout.e2eRoot; the repo root has no workspaces wiring), so every command
+  # must `cd` into it explicitly rather than relying on `npm run` resolving
+  # scripts from the repo root.
   generate: "cd packages/e2e && npm run bddgen" # [required] generate glue code from .feature files
   typecheck: "cd packages/e2e && npm run typecheck" # [required] TypeScript type check
   lint: "cd packages/e2e && npm run lint" # [required] lint + format
@@ -69,7 +70,7 @@ layout:
     # TODO: replace these globs with paths that match your application's source
     # Also used by `specproof-check` to flag implementation files with no
     # linked spec/feature ("unregistered-impl"). Advisory by default (does
-    # not fail CI); set strictUnregisteredImpl: true above to harden it.
+    # not fail CI); set strictUnregisteredImpl: true (top-level) to harden it.
     - "src/**/*.ts"
     - "src/**/*.tsx"
   scratchDir: ".specproof/drafts" # [optional] temporary output for bootstrap drafts
