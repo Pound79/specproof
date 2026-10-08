@@ -84,7 +84,7 @@ describe("S1 と既存の理由lint境界", () => {
     ["Rule", "@manual"],
     ["Feature", "@todo"],
     ["Rule", "@todo"],
-  ])("従来の%sの%sはfixme/skip集計とlintを変えない", async (scope, tag) => {
+  ])("%sの%sは集計では継承し、理由コメントの検査範囲は変えない", async (scope, tag) => {
     const root = await makeRenamedTaxonomyRepo();
     const prefix = scope === "Feature" ? "" : "Feature: 条件\n";
     await writeFile(
@@ -105,7 +105,12 @@ describe("S1 と既存の理由lint境界", () => {
         skipTag: config.skipTag,
       },
     );
-    expect(stats.totals).toMatchObject({ fixme: 0, skip: 0, automated: 1 });
+    // runner は親のタグを継承して実行しないので、集計もそれに合わせる。
+    expect(stats.totals).toMatchObject(
+      tag === config.fixmeTag
+        ? { fixme: 1, skip: 0, automated: 0 }
+        : { fixme: 0, skip: 1, automated: 0 },
+    );
   });
 
   it("子で付け直したskipは親の理由で免除しない", async () => {

@@ -50,9 +50,15 @@ Outline は条件として1件、ケースは複数 Examples の全データ行�
   `@human` はエラーです。Examples 行の状態を条件全体へ投影できないためです。
 
 complete は状態タグなしという静的分類です。実行済み GREEN や正式な完了を示しません。
-fixme/skip とその設定値、Scenario自身の理由コメント検査、strict の fixme=0 は従来どおりです。
-旧 `tags` は Scenario 自身の直前タグを返し、fixme/skip の集計・lint 範囲を拡大しません。
-phase/verification は新しい `effectiveStateTags` を使用します。red-contract 単独は fixme 扱いしません。
+
+fixme/skip の集計は runner と同じく Gherkin のタグ継承に従い、`effectiveTags`
+（Feature・Rule・Scenario 自身・Examples のタグ。空行を挟んだタグも含む）で行います。
+Feature に付けた `@fixme` は配下の全シナリオを fixme と数え、strict の fixme=0 を満たしません。
+一部の Examples だけに付いた `@fixme` / `@skip` も、残件を見落とさないよう条件全体に数えます。
+両方が付いた条件は fixme として数えます。
+
+`tags` は Scenario 自身の直前タグを返し、理由コメントの検査はこの範囲だけで行います。
+phase/verification は `effectiveStateTags` を使用します。red-contract 単独は fixme 扱いしません。
 表示では従来の `TOTAL: N total / M automated / @fixme F / @skip S` 行を保持し、
 新しい統計を別行で表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring は失敗させます。
 [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)

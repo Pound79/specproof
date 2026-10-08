@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`specproof-stats` の fixme / skip の数が増える場合がある。** 集計を runner と同じく
+  Gherkin のタグ継承に従わせた。Feature・Rule・Examples に付けた `@fixme` / `@skip` と、
+  空行を挟んでシナリオに付けたタグも数える。従来は自身の直前タグだけを見ていたため、
+  Feature に `@fixme` があっても fixme=0 と判定し、`--strict` の完了条件を誤って満たした。
+  理由コメントの検査範囲は従来どおりシナリオ自身のタグに限る。
 - `specproof-sync` no longer updates a `.feature` to match the implementation
   when only the implementation changed and its observable behavior changed. It
   now stops, shows the implementation diff with the linked spec section, and
