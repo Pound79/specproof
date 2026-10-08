@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `implGlobs` の監査や strict の指定が黙って無効になった。キーの省略と空の値は従来どおり。
 - `specproof-check` は、登録済み feature への別名リンクを未登録と判定しない。登録済みと
   探索結果を実体で照合する。
+- `specproof-list` は、`./src/...` のような表記の impl 登録も正規化して照合し、登録済みの
+  ページを bootstrap 候補として表示しない。
 - `specproof-sync` no longer updates a `.feature` to match the implementation
   when only the implementation changed and its observable behavior changed. It
   now stops, shows the implementation diff with the linked spec section, and

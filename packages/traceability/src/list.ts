@@ -69,8 +69,9 @@ export const buildDomainList = (
     featureCount: link.features.length,
   }));
 
+  // 候補側は path.posix.join で正規化されるので、登録側も同じ規則で揃えて照合する。
   const referencedImpl = new Set(
-    manifest.links.flatMap((link) => link.impl.map((ref) => ref.path)),
+    manifest.links.flatMap((link) => link.impl.map((ref) => path.posix.normalize(ref.path))),
   );
 
   const candidates: DomainCandidate[] = pageFileNames

@@ -137,3 +137,35 @@ describe("formatDomainList", () => {
     expect(out).toContain("  (none)");
   });
 });
+
+describe("登録済みパスの表記揺れ", () => {
+  const manifestWith = (implPath: string): TraceabilityManifest => ({
+    version: 1,
+    links: [
+      {
+        id: "foo",
+        label: "Foo",
+        spec: [],
+        impl: [{ path: implPath, hash: "x" }],
+        features: [],
+      },
+    ],
+  });
+
+  it.each(["./src/pages/FooPage.tsx", "src/./pages/FooPage.tsx", "src/pages/../pages/FooPage.tsx"])(
+    "%s で登録したページを未登録の候補にしない",
+    (implPath) => {
+      const list = buildDomainList(manifestWith(implPath), ["FooPage.tsx"], {
+        pagesDir: "src/pages",
+      });
+      expect(list.candidates).toEqual([]);
+    },
+  );
+
+  it("pagesDir の表記揺れでも登録済みと照合する", () => {
+    const list = buildDomainList(manifestWith("src/pages/FooPage.tsx"), ["FooPage.tsx"], {
+      pagesDir: "./src/pages/",
+    });
+    expect(list.candidates).toEqual([]);
+  });
+});
