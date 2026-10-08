@@ -113,3 +113,89 @@ test("implement スキルは E2E 側と製品側の検証を取り違えない",
   assert.match(schema, /`productLint`/);
   assert.match(schema, /`productTypecheck`/);
 });
+
+// drift-check のコメント投稿スクリプトを、GitHub API を模したオブジェクトで実際に実行する。
+const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+const runCommentScript = async (adapter, { headSha, currentHeadSha, report, comments = [] }) => {
+  const workflow = parse(read(`templates/${adapter}/github-workflows/specproof-drift-check.yml`));
+  const step = workflow.jobs["drift-check"].steps.find((s) => s.name === "Comment on PR");
+  const calls = [];
+  const github = {
+    paginate: async () => comments,
+    rest: {
+      issues: {
+        listComments: {},
+        createComment: async (args) => calls.push(["create", args]),
+        updateComment: async (args) => calls.push(["update", args]),
+      },
+      pulls: { get: async () => ({ data: { head: { sha: currentHeadSha } } }) },
+    },
+  };
+  const context = {
+    repo: { owner: "o", repo: "r" },
+    payload: { pull_request: { number: 7, head: { sha: headSha } } },
+  };
+  const core = { warning() {}, notice() {}, info() {} };
+  const require = (name) => {
+    assert.equal(name, "fs");
+    return { readFileSync: () => JSON.stringify(report) };
+  };
+  await new AsyncFunction("require", "core", "github", "context", step.with.script)(
+    require,
+    core,
+    github,
+    context,
+  );
+  return calls;
+};
+
+const DRIFT = {
+  clean: false,
+  driftCount: 1,
+  driftLinkCount: 1,
+  entries: [{ linkId: "a", side: "spec", path: "docs/a.md", status: "changed" }],
+  warnings: [],
+  bothSidesChanged: [],
+};
+const CLEAN = { clean: true, driftCount: 0, driftLinkCount: 0, entries: [], warnings: [], bothSidesChanged: [] };
+const BOT_COMMENT = {
+  id: 1,
+  user: { type: "Bot", login: "github-actions[bot]" },
+  body: "<!-- specproof-drift-check -->\nold",
+};
+
+for (const adapter of ["playwright", "flutter"]) {
+  test(`${adapter}: drift-check は同じ PR の古い実行を取り消す`, () => {
+    const workflow = parse(read(`templates/${adapter}/github-workflows/specproof-drift-check.yml`));
+    assert.match(String(workflow.concurrency?.group), /github\.event\.pull_request\.number/);
+    assert.equal(workflow.concurrency?.["cancel-in-progress"], true);
+  });
+
+  test(`${adapter}: head が進んだ古い実行はコメントを書かない`, async () => {
+    for (const report of [DRIFT, CLEAN]) {
+      const calls = await runCommentScript(adapter, {
+        headSha: "a".repeat(40),
+        currentHeadSha: "b".repeat(40),
+        report,
+        comments: [BOT_COMMENT],
+      });
+      assert.deepEqual(calls, []);
+    }
+  });
+
+  test(`${adapter}: 最新の実行は検査したコミットを本文に示す`, async () => {
+    const sha = "c".repeat(40);
+    const created = await runCommentScript(adapter, { headSha: sha, currentHeadSha: sha, report: DRIFT });
+    assert.equal(created.length, 1);
+    assert.equal(created[0][0], "create");
+    assert.match(created[0][1].body, new RegExp(sha.slice(0, 7)));
+    const updated = await runCommentScript(adapter, {
+      headSha: sha,
+      currentHeadSha: sha,
+      report: CLEAN,
+      comments: [BOT_COMMENT],
+    });
+    assert.equal(updated[0][0], "update");
+    assert.match(updated[0][1].body, new RegExp(sha.slice(0, 7)));
+  });
+}

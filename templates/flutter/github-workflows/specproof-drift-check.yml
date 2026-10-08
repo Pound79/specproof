@@ -29,6 +29,12 @@ permissions:
   contents: read
   pull-requests: write # to upsert the drift-report comment
 
+# One run per PR: a newer push cancels the older run, so a slower run for an
+# older commit cannot finish last and overwrite the newer report.
+concurrency:
+  group: specproof-drift-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   drift-check:
     name: specproof-check --strict
@@ -83,6 +89,22 @@ jobs:
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
 
+            // Only the run for the PR's current head may write the report. A run for an
+            // older push (e.g. not yet cancelled) must not overwrite a newer result.
+            const headSha = context.payload.pull_request.head.sha;
+            const { data: currentPr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: issue_number,
+            });
+            if (currentPr.head.sha !== headSha) {
+              core.notice(
+                `specproof-drift-check: skipped the comment for ${headSha.slice(0, 7)}; the PR head is now ${currentPr.head.sha.slice(0, 7)}`,
+              );
+              return;
+            }
+            const checked = `Checked commit \`${headSha.slice(0, 7)}\`.`;
+
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,
               repo,
@@ -103,7 +125,7 @@ jobs:
                 owner,
                 repo,
                 comment_id: existing.id,
-                body: `${marker}\n### BDD drift check: clean\n\nNo drift or warnings detected on the latest push.`,
+                body: `${marker}\n### BDD drift check: clean\n\nNo drift or warnings detected.\n\n${checked}`,
               });
               return;
             }
@@ -168,7 +190,7 @@ jobs:
                 'If the change is already reflected, run `specproof-update` locally and commit the refreshed `traceability.yaml`.';
 
             const body =
-              `${marker}\n### ${title}\n\n${driftSummary}${warningSection}\n\n${remediation}`;
+              `${marker}\n### ${title}\n\n${driftSummary}${warningSection}\n\n${remediation}\n\n${checked}`;
 
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });

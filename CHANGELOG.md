@@ -93,6 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   テンプレートの既定値は E2E パッケージを検査する。E2E 側と製品側を分け、製品側は任意の
   `commands.productTypecheck` / `commands.productLint` で検査する。未設定なら推測で
   埋めず「製品側は未検証」と報告する。
+- drift-check の workflow は、同じ PR の古い実行を取り消し、コメントを書く直前に PR の
+  head と検査したコミットを照合する。遅れて終わった古い実行が、新しい結果のコメントを
+  上書きできた。コメントには検査したコミットを表示する。
 - `specproof init --dir .` が `cd  &&` や `/features` のような壊れた設定を
   生成していた。設定の書き換えは値の範囲だけを差し替え、節見出しのコメントや
   コメントアウトされた環境例の位置を変えない。
