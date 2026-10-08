@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import dotenv from "dotenv";
-import type { SpecproofConfig, EnvironmentProfile, ProjectConfig } from "./specproof-config";
+import type { SpecproofConfig, EnvironmentProfile } from "./specproof-config";
 
 // ---------------------------------------------------------------------------
 // Package root (used as base for dotenv file resolution)
@@ -38,16 +38,8 @@ export function loadDotenv(env: EnvironmentProfile): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface Credentials {
-  readonly username: string;
-  readonly password: string;
-  /** Set only when the app requires a forced password-change flow on first login. */
-  readonly newPassword?: string;
-}
+// 認証情報の判定は依存の無い auth-env.ts にある。既存の import 先を保つため再公開する。
+export { credentialsFor, missingCredentialEnv, type Credentials } from "./auth-env";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,29 +75,4 @@ export function shouldStartWebServer(): boolean {
  */
 export function resolveBaseUrl(cfg: SpecproofConfig): string {
   return trimmed(process.env[cfg.env.baseUrl]) ?? "http://localhost:5173";
-}
-
-/**
- * Reads the credentials for a project from the env var names listed in
- * p.credentialsEnv. Returns null when the names are missing or the values
- * are unset/empty.
- */
-export function credentialsFor(p: ProjectConfig): Credentials | null {
-  if (!p.credentialsEnv) {
-    return null;
-  }
-
-  const username = trimmed(process.env[p.credentialsEnv.username]);
-  const password = trimmed(process.env[p.credentialsEnv.password]);
-
-  if (username === undefined || password === undefined) {
-    return null;
-  }
-
-  const newPassword =
-    p.credentialsEnv.newPassword !== undefined
-      ? trimmed(process.env[p.credentialsEnv.newPassword])
-      : undefined;
-
-  return { username, password, newPassword };
 }

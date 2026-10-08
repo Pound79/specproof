@@ -83,6 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Playwright テンプレートの認証 setup は、選ばれた project の認証情報が足りないとき
+  skip せず失敗する。skip すると、依存する認証済み project が前回の storageState のまま
+  走った。パスワードと newPassword は前後の空白を削らずにそのまま渡す。
 - `specproof init --dir .` が `cd  &&` や `/features` のような壊れた設定を
   生成していた。設定の書き換えは値の範囲だけを差し替え、節見出しのコメントや
   コメントアウトされた環境例の位置を変えない。
