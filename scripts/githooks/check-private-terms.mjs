@@ -118,9 +118,13 @@ function* commitTargets(sha, seenBlobs) {
   yield* fileTargets(parseRawDiff(raw), label, seenBlobs);
 }
 
+/**
+ * 送り先の SHA が手元にあるか。履歴を書き換えた後の force push では無いのが正常なので、
+ * 存在確認の失敗を git のエラーとして表示しない（その場合は全体を検査する）。
+ */
 const hasCommit = (sha) => {
   try {
-    git(["cat-file", "-e", `${sha}^{commit}`]);
+    execFileSync("git", ["cat-file", "-e", `${sha}^{commit}`], { stdio: "ignore" });
     return true;
   } catch {
     return false;
