@@ -126,12 +126,18 @@ test("オーケストレータの報告も E2E 側と製品側の検証を分け
 
 // drift-check のコメント投稿スクリプトを、GitHub API を模したオブジェクトで実際に実行する。
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-const runCommentScript = async (adapter, { headSha, currentHeadSha, report, comments = [] }) => {
+const runCommentScript = async (
+  adapter,
+  { headSha, currentHeadSha, checkedSha = headSha, headAfterPagination, report, comments = [] },
+) => {
   const workflow = parse(read(`templates/${adapter}/github-workflows/specproof-drift-check.yml`));
   const step = workflow.jobs["drift-check"].steps.find((s) => s.name === "Comment on PR");
   const calls = [];
   const github = {
-    paginate: async () => comments,
+    paginate: async () => {
+      if (headAfterPagination !== undefined) currentHeadSha = headAfterPagination;
+      return comments;
+    },
     rest: {
       issues: {
         listComments: {},
@@ -142,6 +148,7 @@ const runCommentScript = async (adapter, { headSha, currentHeadSha, report, comm
     },
   };
   const context = {
+    sha: checkedSha,
     repo: { owner: "o", repo: "r" },
     payload: { pull_request: { number: 7, head: { sha: headSha } } },
   };
@@ -215,5 +222,35 @@ for (const adapter of ["playwright", "flutter"]) {
     const [[, { body }]] = await runCommentScript(adapter, { headSha: sha, currentHeadSha: sha, report: DRIFT });
     const checkedAt = body.indexOf(`Checked commit \`${sha.slice(0, 7)}\``);
     assert.ok(checkedAt !== -1 && checkedAt < body.indexOf("docs/a.md"), body);
+  });
+}
+
+for (const adapter of ["playwright", "flutter"]) {
+  test(`${adapter}: コメント探索中に head が進んだら作成も更新もしない`, async () => {
+    for (const [report, comments] of [[DRIFT, []], [DRIFT, [BOT_COMMENT]], [CLEAN, [BOT_COMMENT]]]) {
+      const calls = await runCommentScript(adapter, {
+        headSha: "a".repeat(40),
+        currentHeadSha: "a".repeat(40),
+        headAfterPagination: "b".repeat(40),
+        report,
+        comments,
+      });
+      assert.deepEqual(calls, []);
+    }
+  });
+
+  test(`${adapter}: 実際に検査した merge commit と PR head を区別する`, async () => {
+    for (const [report, comments] of [[DRIFT, []], [DRIFT, [BOT_COMMENT]], [CLEAN, [BOT_COMMENT]]]) {
+      const calls = await runCommentScript(adapter, {
+        headSha: "a".repeat(40),
+        currentHeadSha: "a".repeat(40),
+        checkedSha: "c".repeat(40),
+        report,
+        comments,
+      });
+      assert.equal(calls.length, 1);
+      assert.match(calls[0][1].body, /Checked commit `ccccccc` \(PR head `aaaaaaa`\)/);
+      assert.doesNotMatch(calls[0][1].body, /Checked commit `aaaaaaa`/);
+    }
   });
 }
