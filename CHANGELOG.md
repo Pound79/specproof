@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `featuresDir` が無いときに失敗する。`featuresDir` を集計する場合も、登録済み feature の
   実在を確かめる。従来は欠落したファイルを黙って集計から外し、その中の `@fixme` ごと
   消えて完了条件を満たした。`--json` は `missingFeatures` と `missingFeaturesDir` を出す。
+- **feature の scanner が Gherkin と同じ字句規則で読む。** `@smoke@fixme` のように空白なしで
+  続けたタグを 2 つのタグとして読み、タグ行の空白に続く `#` 以降をコメントとして除く。
+  英語・日本語以外の `# language:` を指定した feature は 0 件として通さず、`stats` と
+  `check` をファイル名付きのエラーで止める。従来は runner が skip するシナリオを
+  automated と数え、未対応言語の `@fixme` を見落とした。
 - **設定値の型の誤りがエラーになる。** traceability エンジンが読む `layout.*`・`tags.*`・
   `strictUnregistered*` に、型の違う値（`implGlobs` に文字列、`"true"` や `yes` の
   真偽値、空文字列、空白を含むタグなど）があると止まる。従来は未設定として扱い、

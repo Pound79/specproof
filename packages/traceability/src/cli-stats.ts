@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { findFeatureFiles } from "./feature-files.js";
 import path from "node:path";
-import { parseScenarios } from "./feature-scan.js";
+import { parseFeatureScenarios } from "./feature-scan.js";
 import { readFileOrNull } from "./hash.js";
 import { loadManifest, type TraceabilityManifest } from "./manifest.js";
 import { discoverConfig, type TraceabilityConfig } from "./config.js";
@@ -76,7 +76,7 @@ const main = async (): Promise<void> => {
   for (const relPath of paths) {
     const content = await read(relPath);
     if (content === null) missingFeatures.push(relPath);
-    else features.push({ domain: relPath, scenarios: parseScenarios(content) });
+    else features.push({ domain: relPath, scenarios: parseFeatureScenarios(relPath, content) });
   }
   // featuresDir の探索では、登録したのに消えた feature が見えない。登録分の実在も確かめる。
   const scanned = new Set(paths);

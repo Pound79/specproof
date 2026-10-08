@@ -10,7 +10,7 @@ import {
   readFileOrNull,
   SECTION_MISSING,
 } from "./hash.js";
-import { parseScenarios, type ScannedScenario } from "./feature-scan.js";
+import { parseFeatureScenarios, type ScannedScenario } from "./feature-scan.js";
 import { loadManifest, type TraceabilityLink, type TraceabilityManifest } from "./manifest.js";
 import { resolveWithinRoot } from "./resolve.js";
 import { DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG } from "./config.js";
@@ -254,7 +254,7 @@ const lintFeature = async (
   if (containsDraftMarker(content)) {
     warnings.push(unreviewedDraftWarning(target.relPath, target.linkId));
   }
-  for (const scenario of parseScenarios(content)) {
+  for (const scenario of parseFeatureScenarios(target.relPath, content)) {
     const tag = reasonRequiredTags.find((required) => scenario.tags.includes(required));
     if (tag !== undefined && !scenario.hasReasonComment) {
       warnings.push(missingSkipReasonWarning(target.relPath, scenario, tag, target.linkId));

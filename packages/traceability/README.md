@@ -64,7 +64,9 @@ Feature に付けた `@fixme` は配下の全シナリオを fixme と数え、s
 `tags` は Scenario 自身の直前タグを返し、理由コメントの検査はこの範囲だけで行います。
 phase/verification は `effectiveStateTags` を使用します。red-contract 単独は fixme 扱いしません。
 表示では従来の `TOTAL: N total / M automated / @fixme F / @skip S` 行を保持し、
-新しい統計を別行で表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring は失敗させます。
+新しい統計を別行で表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring と、それ以外の言語を
+`# language:` で指定した feature は失敗させます。タグ行は Gherkin と同じく、空白に続く `#` 以降を
+除いて `@` で区切ります（`@smoke@fixme` は 2 つのタグ）。
 [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
 で決めたシナリオ ID 台帳はまだ実装しておらず、この統計には含まれません。
 

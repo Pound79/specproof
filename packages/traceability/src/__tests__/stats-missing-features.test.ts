@@ -196,3 +196,19 @@ describe("欠落の報告", () => {
       },
     ));
 });
+
+describe("scanner が読めない feature", () => {
+  test("未対応の言語は 0 件として通さず、ファイルを示して止める", () =>
+    withRepo(
+      {
+        "traceability.yaml": manifestFor("features/fr.feature"),
+        "features/fr.feature": "# language: fr\nFonctionnalité: f\n  @fixme\n  Scénario: a\n",
+      },
+      MANIFEST_ONLY,
+      (root) => {
+        const result = stats(root, "--strict");
+        assert.equal(result.status, 2, result.stderr);
+        assert.match(result.stderr, /features\/fr\.feature.*Unsupported Gherkin language "fr"/);
+      },
+    ));
+});

@@ -28,6 +28,18 @@ const FEATURE_RE = /^(Feature|Business Need|Ability|フィーチャ|機能)\s*:/
 const RULE_RE = /^(Rule|ルール)\s*:/;
 const BACKGROUND_RE = /^(Background|背景)\s*:/;
 const EXAMPLES_RE = /^(Examples|Scenarios|例|サンプル)\s*:/;
+// Gherkin と同じ言語指定の書式。キーワードを持たない言語を読むと、全シナリオが 0 件に化ける。
+const LANGUAGE_RE = /^#\s*language\s*:\s*([a-zA-Z\-_]+)\s*$/;
+const SUPPORTED_LANGUAGES = new Set(["en", "ja"]);
+
+// Gherkin と同じく、空白に続く # 以降を除き "@" で区切る（"@a@b" は 2 つのタグ）。
+const splitTags = (line: string): string[] =>
+  line
+    .split(/\s#/, 1)[0]
+    .split(/\s+/)
+    .filter((token) => token.startsWith("@"))
+    .flatMap((token) => token.split("@").filter((name) => name !== ""))
+    .map((name) => `@${name}`);
 
 export const parseScenarios = (content: string): ScannedScenario[] => {
   const scenarios: ScannedScenario[] = [];
@@ -44,6 +56,8 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
   let examples = false;
   let tableHeader = false;
   let docstring: string | undefined;
+  // 言語指定は最初の要素より前のコメントだけが有効。
+  let inHeader = true;
 
   // 完成したシナリオだけを返却用配列に追加し、公開する要素は後で変更しない。
   const finishCurrent = (): void => {
@@ -81,7 +95,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       continue;
     }
     if (trimmed.startsWith("@")) {
-      const tags = trimmed.split(/\s+/).filter((tag) => tag.startsWith("@"));
+      const tags = splitTags(trimmed);
       pendingTags.push(...tags);
       pendingAllTags.push(...tags);
       pendingStateTags.push(
@@ -90,9 +104,14 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       continue;
     }
     if (trimmed.startsWith("#")) {
+      const language = inHeader ? trimmed.match(LANGUAGE_RE)?.[1] : undefined;
+      if (language !== undefined && !SUPPORTED_LANGUAGES.has(language)) {
+        throw new Error(`Unsupported Gherkin language "${language}" (the scanner reads en / ja)`);
+      }
       pendingComment = true;
       continue;
     }
+    inHeader = false;
     if (FEATURE_RE.test(trimmed)) {
       featureTags = pendingStateTags;
       featureAllTags = pendingAllTags;
@@ -151,4 +170,13 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
   }
   finishCurrent();
   return scenarios;
+};
+
+/** parseScenarios の失敗に、どの feature かを付ける。パスは改行を含みうるので JSON 文字列で示す。 */
+export const parseFeatureScenarios = (relPath: string, content: string): ScannedScenario[] => {
+  try {
+    return parseScenarios(content);
+  } catch (error) {
+    throw new Error(`${JSON.stringify(relPath)}: ${(error as Error).message}`);
+  }
 };
