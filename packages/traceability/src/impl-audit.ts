@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { globBaseDir, globToRegExp } from "./glob.js";
+import { globBaseDir, compileGlob } from "./glob.js";
 import { resolveWithinRoot } from "./resolve.js";
 import type { DriftWarning } from "./check.js";
 import type { TraceabilityManifest } from "./manifest.js";
@@ -48,11 +48,11 @@ export const findImplCandidates = async (
   const matched = new Set<string>();
   for (const pattern of implGlobs) {
     const baseDir = globBaseDir(pattern);
-    const regExp = globToRegExp(pattern);
+    const matcher = compileGlob(pattern);
     const relFiles = await walkFiles(resolveWithinRoot(repoRoot, baseDir));
     for (const relFile of relFiles) {
       const repoRelPath = baseDir === "." ? relFile : path.posix.join(baseDir, relFile);
-      if (regExp.test(repoRelPath)) {
+      if (matcher.test(repoRelPath)) {
         matched.add(repoRelPath);
       }
     }

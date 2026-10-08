@@ -113,6 +113,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   除外する。テンプレートの gitignore も `.env.*`（`.env.example` を除く）を無視する。
 - manifest は通常ファイルだけを読み、FIFO やデバイスを拒否する。
 - 推移的依存 `source-map-js` を監査指摘の修正版（1.2.2）へ更新した。
+- `layout.implGlobs` の照合を正規表現から計算量に上限のある方法に替えた。`*` の繰り返しと
+  末尾の不一致を組み合わせたパターンで、照合時間が爆発して CI を止められた。一致の意味は
+  従来と同じ。
+
 ## [0.2.2] - 2026-09-02
 
 ### Added

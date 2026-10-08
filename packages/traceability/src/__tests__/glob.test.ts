@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { globBaseDir, globToRegExp } from "../glob.js";
+import { globBaseDir, compileGlob } from "../glob.js";
 
-describe("globToRegExp", () => {
+describe("compileGlob", () => {
   it("matches a mid-pattern globstar with zero or more intermediate segments", () => {
-    const re = globToRegExp("src/**/*.ts");
+    const re = compileGlob("src/**/*.ts");
     expect(re.test("src/foo.ts")).toBe(true);
     expect(re.test("src/a/foo.ts")).toBe(true);
     expect(re.test("src/a/b/foo.ts")).toBe(true);
@@ -12,7 +12,7 @@ describe("globToRegExp", () => {
   });
 
   it("matches a leading globstar at any depth including the top level", () => {
-    const re = globToRegExp("**/*.feature");
+    const re = compileGlob("**/*.feature");
     expect(re.test("foo.feature")).toBe(true);
     expect(re.test("a/foo.feature")).toBe(true);
     expect(re.test("a/b/foo.feature")).toBe(true);
@@ -20,7 +20,7 @@ describe("globToRegExp", () => {
   });
 
   it("matches a trailing globstar covering everything under the prefix", () => {
-    const re = globToRegExp("foo/**");
+    const re = compileGlob("foo/**");
     expect(re.test("foo/a.ts")).toBe(true);
     expect(re.test("foo/a/b.ts")).toBe(true);
     expect(re.test("foo")).toBe(false);
@@ -28,13 +28,13 @@ describe("globToRegExp", () => {
   });
 
   it('supports a single "*" as a one-segment wildcard', () => {
-    const re = globToRegExp("src/*.ts");
+    const re = compileGlob("src/*.ts");
     expect(re.test("src/foo.ts")).toBe(true);
     expect(re.test("src/a/foo.ts")).toBe(false);
   });
 
   it("escapes regex-special characters in literal segments", () => {
-    const re = globToRegExp("src/a.b+c/*.ts");
+    const re = compileGlob("src/a.b+c/*.ts");
     expect(re.test("src/a.b+c/foo.ts")).toBe(true);
     expect(re.test("src/aXbXc/foo.ts")).toBe(false);
   });
