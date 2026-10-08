@@ -13,7 +13,16 @@ for (const adapter of ["playwright", "flutter"]) {
     const config = parse(read(`templates/${adapter}/specproof.config.yaml`));
     const missing = keys.filter((key) => {
       if (adapter !== "flutter" && key.startsWith("flutter.")) return false;
-      if (["agents.codeReviewer", "agents.securityReviewer", "implement.blastRadiusGlobs"].includes(key)) return false;
+      if (
+        [
+          "agents.codeReviewer",
+          "agents.securityReviewer",
+          "implement.blastRadiusGlobs",
+          "commands.productLint",
+          "commands.productTypecheck",
+        ].includes(key)
+      )
+        return false;
       const object = key.startsWith("auth.") ? { auth: config.environments[0].auth } : config;
       return key.split(".").reduce((value, part) => value?.[part], object) === undefined;
     });
@@ -83,4 +92,24 @@ test("Flutter の smoke は projects のタグ条件を runner へ実際に渡�
   assert.equal(define[1].replace(/^["']|["']$/g, ""), declared);
   assert.match(suite, /String\.fromEnvironment\('SPECPROOF_TAGS'\)/);
   assert.match(suite, /tagExpression:/);
+});
+
+test("implement スキルは E2E 側と製品側の検証を取り違えない", () => {
+  // テンプレートの commands.lint / typecheck は E2E パッケージを検査する。製品コードを変更する
+  // スキルがそれを製品側の検証と報告すると、製品側の lint / 型検査を確認せずに済ませてしまう。
+  const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
+  for (const adapter of ["playwright", "flutter"]) {
+    const config = parse(read(`templates/${adapter}/specproof.config.yaml`));
+    const e2eRoot = config.layout.e2eRoot;
+    for (const key of ["lint", "typecheck"]) {
+      assert.ok(config.commands[key].includes(`cd ${e2eRoot}`), `${adapter}: commands.${key}`);
+    }
+  }
+  assert.doesNotMatch(skill, /commands\.lint\}\}\s*#\s*製品/);
+  assert.match(skill, /\{\{config:commands\.productLint\}\}/);
+  assert.match(skill, /\{\{config:commands\.productTypecheck\}\}/);
+  assert.match(skill, /未設定なら[^\n]*未検証/);
+  const schema = read("docs/config-schema.md");
+  assert.match(schema, /`productLint`/);
+  assert.match(schema, /`productTypecheck`/);
 });

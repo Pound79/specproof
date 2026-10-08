@@ -11,6 +11,11 @@ commands:
   generate: "cd bdd_tests && dart run build_runner build --delete-conflicting-outputs"
   typecheck: "cd bdd_tests && flutter analyze"
   lint: "cd bdd_tests && dart format --set-exit-if-changed . && flutter analyze"
+  # [optional] product-code checks run by specproof-implement. typecheck / lint above
+  # check the e2e package (layout.e2eRoot) only; when these are unset, the skill
+  # reports the product side as "not verified" instead of guessing a command.
+  # productTypecheck: "flutter analyze"
+  # productLint: "dart format --set-exit-if-changed lib && flutter analyze"
   # headless run on macOS desktop; switch -d to an emulator/simulator/device id as needed.
   # SPECPROOF_TAGS is the Gherkin tag expression the suite passes to the runner
   # (keep it equal to projects[].tags). Omit the define to run every scenario.
