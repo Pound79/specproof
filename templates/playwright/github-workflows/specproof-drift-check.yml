@@ -121,7 +121,7 @@ jobs:
                 owner,
                 repo,
                 comment_id: existing.id,
-                body: `${marker}\n### BDD drift check: clean\n\nNo drift or warnings detected.\n\n${checked}`,
+                body: `${marker}\n### BDD drift check: clean\n\n${checked}\n\nNo drift or warnings detected.`,
               });
               return;
             }
@@ -185,8 +185,10 @@ jobs:
               : 'Run `/specproof-sync <link-id>` to bring the feature back in sync, then push again. ' +
                 'If the change is already reflected, run `specproof-update` locally and commit the refreshed `traceability.yaml`.';
 
+            // The checked commit goes before report-derived text, which an
+            // unclosed HTML comment or Markdown in a path could otherwise hide.
             const body =
-              `${marker}\n### ${title}\n\n${driftSummary}${warningSection}\n\n${remediation}\n\n${checked}`;
+              `${marker}\n### ${title}\n\n${checked}\n\n${driftSummary}${warningSection}\n\n${remediation}`;
 
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });

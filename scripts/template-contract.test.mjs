@@ -198,4 +198,12 @@ for (const adapter of ["playwright", "flutter"]) {
     assert.equal(updated[0][0], "update");
     assert.match(updated[0][1].body, new RegExp(sha.slice(0, 7)));
   });
+
+  test(`${adapter}: 検査したコミットは report 由来の文字列より前に示す`, async () => {
+    // report の文字列が閉じない HTML コメントなどで後続を隠しても、出所の行は残す。
+    const sha = "d".repeat(40);
+    const [[, { body }]] = await runCommentScript(adapter, { headSha: sha, currentHeadSha: sha, report: DRIFT });
+    const checkedAt = body.indexOf(`Checked commit \`${sha.slice(0, 7)}\``);
+    assert.ok(checkedAt !== -1 && checkedAt < body.indexOf("docs/a.md"), body);
+  });
 }
