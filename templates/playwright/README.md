@@ -127,7 +127,10 @@ All runner behaviour is derived from `specproof.config.yaml`:
 - **Projects** — one Playwright project per entry; `authed-admin` is skipped
   automatically when `E2E_ADMIN_USERNAME` is not set.
 - **Auth setup** — projects with `setup: true` run `auth.setup.ts` first and
-  load the saved storage state.
+  load the saved storage state. A selected project with missing credentials
+  (e.g. `E2E_ADMIN_USERNAME` set but `E2E_ADMIN_PASSWORD` empty) fails the
+  shared `setup` project, so every project that depends on it is not run;
+  set the missing variables or unset the conditional one.
 - **Language** — `forceAppLanguage` pins the app locale via `localStorage`
   before each scenario (configure `runner.i18nLocaleStorageKey`).
 - **Web server** — set `E2E_START_WEB_SERVER=true` and

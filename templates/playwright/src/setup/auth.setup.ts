@@ -17,6 +17,8 @@ import { saveAuthState } from "./saveAuthState";
  * A project that IS selected but lacks credentials fails instead of skipping.
  * A skipped setup would let its dependent project run with a stale storageState
  * left by an earlier run, without having authenticated in this run.
+ * All authenticated projects share the single "setup" project, so this failure
+ * also stops the other authenticated projects until the env vars are fixed.
  */
 
 const cfg = loadSpecproofConfig();
