@@ -61,7 +61,7 @@ const sandbox = (run, { terms = TERMS } = {}) => {
         cwd: remote,
         encoding: "utf8",
       }).stdout.trim();
-    run({ repoPath: repo, dir, git, ok, write, count, remoteHead });
+    run({ repoPath: repo, dir, env, git, ok, write, count, remoteHead });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -284,6 +284,35 @@ test("pre-push: merge で持ち込んだ語も送らない", () =>
     repo.ok(["commit", "-q", "--no-verify", "-m", "Merge side"]);
     assert.notEqual(repo.git(["push", "-q", "origin", "main"]).status, 0);
     assert.equal(repo.remoteHead(), before);
+  }));
+
+test("pre-push: 送り先の SHA を手元に持たない force push でも git のエラーを表示せず全体を検査する", () =>
+  sandbox((repo) => {
+    // 履歴を書き換えた後の force push では、送り先の旧 SHA が手元に無い。
+    const missing = "f".repeat(40);
+    const run = (body) => {
+      repo.write("a.md", body);
+      repo.ok(["add", "."]);
+      repo.ok(["commit", "-q", "--no-verify", "-m", "docs: update"]);
+      const head = repo.ok(["rev-parse", "HEAD"]);
+      return spawnSync(
+        process.execPath,
+        [path.join(hooks, "check-private-terms.mjs"), "push", "origin"],
+        {
+          cwd: repo.repoPath,
+          env: repo.env,
+          encoding: "utf8",
+          input: `refs/heads/main ${head} refs/heads/main ${missing}\n`,
+        },
+      );
+    };
+    const clean = run("public\n");
+    assert.equal(clean.status, 0, clean.stderr);
+    assert.equal(clean.stderr, "");
+    const leak = run("uses secret-app\n");
+    assert.equal(leak.status, 1);
+    assert.doesNotMatch(leak.stderr, /fatal:/);
+    assert.match(leak.stderr, /公開リポジトリに入れない語/);
   }));
 
 test("pre-push: 私的な語を含まないコミットとタグは送られる", () =>
