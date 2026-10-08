@@ -42,8 +42,10 @@ package.json に workspaces を注入しないため、`npm run <script>` を裸
 | キー | 要否 | playwright 例 |
 |---|---|---|
 | `generate` | required | `cd packages/e2e && npm run bddgen` |
-| `typecheck` | required | `cd packages/e2e && npm run typecheck` |
-| `lint` | required | `cd packages/e2e && npm run lint` |
+| `typecheck` | required | `cd packages/e2e && npm run typecheck`（E2E パッケージの型検査） |
+| `lint` | required | `cd packages/e2e && npm run lint`（E2E パッケージの lint） |
+| `productTypecheck` | optional | `npm run typecheck`（製品コードの型検査。未設定なら implement は「製品側は未検証」と報告する） |
+| `productLint` | optional | `npm run lint`（製品コードの lint。未設定時の扱いは同上） |
 | `smoke` | required | `cd packages/e2e && npm run test:smoke` |
 | `install` | optional<sup>+</sup> | `npm ci` |
 | `traceabilityUpdate` / `traceabilityCheck` / `traceabilityList` / `traceabilityStats` | optional | `npx -y -p @pound79/specproof-traceability specproof-*` |

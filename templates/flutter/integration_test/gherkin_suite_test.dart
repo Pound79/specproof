@@ -16,10 +16,15 @@ part 'gherkin_suite_test.g.dart';
 // runner, which trips "Can't call group() once tests have begun running" under
 // `flutter test`. We instead await the generated runner directly from an async
 // main so the declaration phase stays open until all group()s are declared.
+// Gherkin tag expression passed with --dart-define=SPECPROOF_TAGS=... (e.g. the
+// smoke command passes "not @slow"). Empty runs every scenario.
+const _tagExpression = String.fromEnvironment('SPECPROOF_TAGS');
+
 Future<void> main() async {
   final runner = _CustomGherkinIntegrationTestRunner(
     configuration: FlutterTestConfiguration(
       featureDefaultLanguage: 'ja',
+      tagExpression: _tagExpression.isEmpty ? null : _tagExpression,
       stepDefinitions: [
         AppIsRunning(),
         TapNamedButton(),

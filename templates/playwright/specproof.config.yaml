@@ -35,6 +35,11 @@ commands:
   generate: "cd packages/e2e && npm run bddgen" # [required] generate glue code from .feature files
   typecheck: "cd packages/e2e && npm run typecheck" # [required] TypeScript type check
   lint: "cd packages/e2e && npm run lint" # [required] lint + format
+  # [optional] product-code checks run by specproof-implement. typecheck / lint above
+  # check the e2e package only; when these are unset, the skill reports the product
+  # side as "not verified" instead of guessing a command.
+  # productTypecheck: "npm run typecheck"
+  # productLint: "npm run lint"
   smoke: "cd packages/e2e && npm run test:smoke" # [required] fast subset — excludes @slow, used in CI
   # [optional] traceability engine (framework-agnostic Node CLI): check / update /
   # list / stats. Works for any repo because it hashes file/section text. After

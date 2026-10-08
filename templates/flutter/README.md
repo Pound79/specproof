@@ -29,6 +29,10 @@
    flutter test integration_test/gherkin_suite_test.dart -d macos
    ```
 
+   上は全シナリオを実行する。`--dart-define=SPECPROOF_TAGS="not @slow"` のように Gherkin の
+   タグ式を渡すと、suite がそれを `FlutterTestConfiguration.tagExpression` に渡し、runner が
+   実行時に絞り込む。`commands.smoke` はこの形で `projects[].tags` と同じ式を渡す。
+
 4. **アプリの実画面をテストする場合**: `pubspec.yaml` でアプリへ `path: ..` 依存を追加し、`dependency_overrides: { uuid: ">=4.0.0 <5.0.0" }` を有効化。`appMainFunction` で実アプリの `main()` を起動。
 
 ## 必ず守る規約（実機検証で確定した落とし穴）

@@ -79,11 +79,16 @@ description: Implement production code (and pending step bodies / page-object me
    定数（既存規約）。上流 i18n source は `{{config:layout.i18nSource}}`。
 5. **高速検証ループ（緑確認）**:
    ```bash
-   {{config:commands.generate}}      # Gherkin ↔ step 対応
-   {{config:commands.typecheck}}
-   {{config:commands.lint}}          # 製品 impl 側。e2e は lint 対象外
-   {{config:commands.smoke}}         # 非{{config:tags.slow}} の対象シナリオ緑（{{config:env.baseUrl}} 等の env が必要）
+   {{config:commands.generate}}          # Gherkin ↔ step 対応
+   {{config:commands.typecheck}}         # E2E パッケージ（step／page object）の型検査
+   {{config:commands.lint}}              # E2E パッケージの lint
+   {{config:commands.productTypecheck}}  # 製品 impl の型検査（任意キー）
+   {{config:commands.productLint}}       # 製品 impl の lint（任意キー）
+   {{config:commands.smoke}}             # 非{{config:tags.slow}} の対象シナリオ緑（{{config:env.baseUrl}} 等の env が必要）
    ```
+   `commands.typecheck` / `commands.lint` は E2E パッケージを検査するもので、製品 impl の検証ではない。
+   `commands.productTypecheck` / `commands.productLint` が未設定なら、製品側のコマンドを推測で
+   埋めて実行せず、レポートに「製品側 typecheck / lint: 未検証（未設定）」と明記する。
    失敗は診断→修正、**自己修正は2回まで**。超えたら停止して報告。
    **env が無く `{{config:commands.smoke}}` が実行できない場合**: `{{config:commands.generate}}` +
    `{{config:commands.typecheck}}` まで通し、smoke は **SKIPPED(理由)** としてレポートに明記する
@@ -134,9 +139,11 @@ description: Implement production code (and pending step bodies / page-object me
 ## レポート様式（最終メッセージ内 Markdown）
 
 - 実装ファイル一覧（step／page object／`{{config:layout.textConstants}}`／製品 impl を区別）
-- 検証結果: bddgen（`{{config:commands.generate}}`）/ typecheck（`{{config:commands.typecheck}}`）/ lint（`{{config:commands.lint}}`）/
-  smoke（`{{config:commands.smoke}}`）を **PASS / FAIL / SKIPPED(理由)** で。**正直性契約**: env が無く
-  smoke 未実行なら green と偽らない。
+- 検証結果: bddgen（`{{config:commands.generate}}`）/ E2E typecheck（`{{config:commands.typecheck}}`）/
+  E2E lint（`{{config:commands.lint}}`）/ 製品 typecheck（`{{config:commands.productTypecheck}}`）/
+  製品 lint（`{{config:commands.productLint}}`）/ smoke（`{{config:commands.smoke}}`）を
+  **PASS / FAIL / SKIPPED(理由)** で。製品側のキーが未設定なら「未検証（未設定）」と書く。
+  **正直性契約**: env が無く smoke 未実行なら green と偽らない。E2E 側の検査を製品側の検証として報告しない。
 - gaming 自己点検（①④）: 4項目（ハードコード／テスト入力特例分岐／assertion 骨抜き／入力バリエーション）
   を項目別 OK/NG＋根拠1行で列挙。
 - レビュー実施形態: **独立エージェント**（`{{config:agents.codeReviewer}}` 等）による反証レビュー／

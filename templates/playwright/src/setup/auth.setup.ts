@@ -1,6 +1,6 @@
 import { test as setup } from "@playwright/test";
 import { loadSpecproofConfig, isConditionMet } from "../config/specproof-config";
-import { credentialsFor } from "../config/env";
+import { credentialsFor, missingCredentialEnv } from "../config/env";
 import { saveAuthState } from "./saveAuthState";
 
 /**
@@ -11,8 +11,14 @@ import { saveAuthState } from "./saveAuthState";
  * credentials and persists the browser session to `storageState`.
  *
  * Projects whose `conditional` expression is not met (e.g. the admin username
- * env var is unset) are skipped gracefully so the suite still runs with
- * whatever accounts ARE configured.
+ * env var is unset) are skipped gracefully: playwright.config.ts excludes the
+ * same projects, so the suite still runs with whatever accounts ARE configured.
+ *
+ * A project that IS selected but lacks credentials fails instead of skipping.
+ * A skipped setup would let its dependent project run with a stale storageState
+ * left by an earlier run, without having authenticated in this run.
+ * All authenticated projects share the single "setup" project, so this failure
+ * also stops the other authenticated projects until the env vars are fixed.
  */
 
 const cfg = loadSpecproofConfig();
@@ -30,13 +36,13 @@ for (const p of cfg.projects) {
       return;
     }
 
+    const missing = missingCredentialEnv(p);
     const creds = credentialsFor(p);
-    if (!creds) {
-      setup.skip(
-        true,
-        `Credentials for project "${p.name}" are not configured — set the env vars named in credentialsEnv`,
+    if (missing.length > 0 || !creds) {
+      throw new Error(
+        `Credentials for project "${p.name}" are missing: set ${missing.join(", ")}. ` +
+          "Failing here so the dependent project does not reuse a stale storageState.",
       );
-      return;
     }
 
     await saveAuthState(page, creds, p.storageState);

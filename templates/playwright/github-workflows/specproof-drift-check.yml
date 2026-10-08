@@ -25,6 +25,12 @@ permissions:
   contents: read
   pull-requests: write # to upsert the drift-report comment
 
+# One run per PR: a newer push cancels the older run, so a slower run for an
+# older commit cannot finish last and overwrite the newer report.
+concurrency:
+  group: specproof-drift-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   drift-check:
     name: specproof-check --strict
@@ -79,6 +85,10 @@ jobs:
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
 
+            const headSha = context.payload.pull_request.head.sha;
+            // pull_request checkout verifies the merge commit, not the PR head alone.
+            const checked = `Checked commit \`${context.sha.slice(0, 7)}\` (PR head \`${headSha.slice(0, 7)}\`).`;
+
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,
               repo,
@@ -89,17 +99,33 @@ jobs:
                 c.user.login === 'github-actions[bot]' && c.body?.startsWith(marker))
               .sort((a, b) => b.id - a.id)[0];
 
+            // 投稿対象の探索後、各書き込みの直前に head を照合する。
+            // コメントのページ取得中に head が進んだ実行も投稿しない。
+            const isCurrentHead = async () => {
+              const { data: currentPr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: issue_number,
+              });
+              if (currentPr.head.sha === headSha) return true;
+              core.notice(
+                `specproof-drift-check: skipped the comment for ${headSha.slice(0, 7)}; the PR head is now ${currentPr.head.sha.slice(0, 7)}`,
+              );
+              return false;
+            };
+
             const isClean = report.clean && report.warnings.length === 0;
 
             if (isClean) {
               // Nothing drifted and no prior comment to clear — stay silent
               // rather than adding a "clean" comment to every PR.
               if (!existing) return;
+              if (!(await isCurrentHead())) return;
               await github.rest.issues.updateComment({
                 owner,
                 repo,
                 comment_id: existing.id,
-                body: `${marker}\n### BDD drift check: clean\n\nNo drift or warnings detected on the latest push.`,
+                body: `${marker}\n### BDD drift check: clean\n\n${checked}\n\nNo drift or warnings detected.`,
               });
               return;
             }
@@ -163,9 +189,12 @@ jobs:
               : 'Run `/specproof-sync <link-id>` to bring the feature back in sync, then push again. ' +
                 'If the change is already reflected, run `specproof-update` locally and commit the refreshed `traceability.yaml`.';
 
+            // The checked commit goes before report-derived text, which an
+            // unclosed HTML comment or Markdown in a path could otherwise hide.
             const body =
-              `${marker}\n### ${title}\n\n${driftSummary}${warningSection}\n\n${remediation}`;
+              `${marker}\n### ${title}\n\n${checked}\n\n${driftSummary}${warningSection}\n\n${remediation}`;
 
+            if (!(await isCurrentHead())) return;
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
             } else {
