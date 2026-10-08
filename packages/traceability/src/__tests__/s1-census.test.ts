@@ -235,7 +235,7 @@ Feature: 理由の境界
     expect(scenario.hasReasonComment).toBe(false);
   });
 
-  it("既存tagsは自身だけ、新状態軸はFeature/Ruleから継承する", () => {
+  it("tags は自身だけ、集計と状態軸は Feature/Rule から継承する", () => {
     const [scenario] = parseScenarios(`@fixme @human
 Feature: 互換
  @red-contract
@@ -246,15 +246,16 @@ Feature: 互換
 `);
     expect(scenario.tags).toEqual(["@skip"]);
     expect(scenario.effectiveStateTags).toEqual(["@human", "@red-contract"]);
+    // Feature から継承した @fixme が、自身の @skip より優先される。
     expect(buildStats([{ domain: "互換.feature", scenarios: [scenario] }]).totals).toMatchObject({
-      fixme: 0,
-      skip: 1,
+      fixme: 1,
+      skip: 0,
       phase: { pending: 1 },
       verification: { human: 1 },
     });
   });
 
-  it("従来のfixme/skipは親タグを継承せず自身のタグで集計する", () => {
+  it("fixme/skip は親タグを継承して集計し、fixme=0 を誤って満たさない", () => {
     const content = `# 自動化の残件
 @todo
 Feature: 残件
@@ -265,7 +266,7 @@ Feature: 残件
       [{ domain: "features/demo.feature", scenarios: parseScenarios(content) }],
       { fixmeTag: "@todo", skipTag: "@manual" },
     );
-    expect(report.totals.fixme).toBe(0);
-    expect(report.fixmeClean).toBe(true);
+    expect(report.totals.fixme).toBe(1);
+    expect(report.fixmeClean).toBe(false);
   });
 });

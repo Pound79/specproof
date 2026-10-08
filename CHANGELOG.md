@@ -19,6 +19,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`specproof-stats` の fixme / skip の数が増える場合がある。** 集計を runner と同じく
+  Gherkin のタグ継承に従わせた。Feature・Rule・Examples に付けた `@fixme` / `@skip` と、
+  空行を挟んでシナリオに付けたタグも数える。従来は自身の直前タグだけを見ていたため、
+  Feature に `@fixme` があっても fixme=0 と判定し、`--strict` の完了条件を誤って満たした。
+  理由コメントの検査範囲は従来どおりシナリオ自身のタグに限る。
+- `specproof-stats --strict` は、manifest に登録した feature が読めないときと、設定した
+  `featuresDir` が無いときに失敗する。`featuresDir` を集計する場合も、登録済み feature の
+  実在を確かめる。従来は欠落したファイルを黙って集計から外し、その中の `@fixme` ごと
+  消えて完了条件を満たした。`--json` は `missingFeatures` と `missingFeaturesDir` を出す。
+- **feature の scanner が Gherkin と同じ字句規則で読む。** `@smoke@fixme` のように空白なしで
+  続けたタグを 2 つのタグとして読み、タグ行の空白に続く `#` 以降をコメントとして除く。
+  英語・日本語以外の `# language:` を指定した feature は 0 件として通さず、`stats` と
+  `check` をファイル名付きのエラーで止める。従来は runner が skip するシナリオを
+  automated と数え、未対応言語の `@fixme` を見落とした。
+- **設定値の型の誤りがエラーになる。** traceability エンジンが読む `layout.*`・`tags.*`・
+  `strictUnregistered*` に、型の違う値（`implGlobs` に文字列、`"true"` や `yes` の
+  真偽値、空文字列、空白を含むタグなど）があると止まる。従来は未設定として扱い、
+  `implGlobs` の監査や strict の指定が黙って無効になった。キーの省略と空の値は従来どおり。
+  エラーには実際に読んだ設定ファイル名を示し、タグの値は JSON 文字列で示す。
+- `specproof-check` は、登録済み feature への別名リンクを未登録と判定しない。登録済みと
+  探索結果を実体で照合する。
+- `specproof-list` は、`./src/...` のような表記の impl 登録も正規化して照合し、登録済みの
+  ページを bootstrap 候補として表示しない。
 - `specproof-sync` no longer updates a `.feature` to match the implementation
   when only the implementation changed and its observable behavior changed. It
   now stops, shows the implementation diff with the linked spec section, and

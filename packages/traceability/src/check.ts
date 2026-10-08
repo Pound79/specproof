@@ -1,4 +1,5 @@
 import { findFeatureFiles } from "./feature-files.js";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import {
   computeFileHash,
@@ -9,7 +10,7 @@ import {
   readFileOrNull,
   SECTION_MISSING,
 } from "./hash.js";
-import { parseScenarios, type ScannedScenario } from "./feature-scan.js";
+import { parseFeatureScenarios, type ScannedScenario } from "./feature-scan.js";
 import { loadManifest, type TraceabilityLink, type TraceabilityManifest } from "./manifest.js";
 import { resolveWithinRoot } from "./resolve.js";
 import { DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG } from "./config.js";
@@ -213,11 +214,26 @@ const collectFeatureTargets = async (
     }
     throw error;
   }
+  // 探索は実体で重複を除いた代表パスを返すので、登録済みかどうかも実体で照合する。
+  // 論理パスだけで比べると、登録済み feature への別名リンクを未登録と誤判定する。
+  const registeredReal = new Set(
+    registered.map((target) => realpathOrUndefined(repoRoot, target.relPath)).filter(Boolean),
+  );
   const scanned: FeatureTarget[] = entries
     .filter((relPath) => !seen.has(relPath))
+    .filter((relPath) => !registeredReal.has(realpathOrUndefined(repoRoot, relPath)))
     .map((relPath) => ({ relPath }));
 
   return [...registered, ...scanned];
+};
+
+/** repo 内で解決できるファイルの実体パス。欠落や repo 外は undefined（照合しない）。 */
+const realpathOrUndefined = (repoRoot: string, relPath: string): string | undefined => {
+  try {
+    return realpathSync(resolveWithinRoot(repoRoot, relPath));
+  } catch {
+    return undefined;
+  }
 };
 
 // Reads a feature file once and runs every content lint on it (draft marker +
@@ -238,7 +254,7 @@ const lintFeature = async (
   if (containsDraftMarker(content)) {
     warnings.push(unreviewedDraftWarning(target.relPath, target.linkId));
   }
-  for (const scenario of parseScenarios(content)) {
+  for (const scenario of parseFeatureScenarios(target.relPath, content)) {
     const tag = reasonRequiredTags.find((required) => scenario.tags.includes(required));
     if (tag !== undefined && !scenario.hasReasonComment) {
       warnings.push(missingSkipReasonWarning(target.relPath, scenario, tag, target.linkId));

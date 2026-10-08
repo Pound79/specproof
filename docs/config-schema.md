@@ -16,6 +16,12 @@ consumer リポのルートに置く 1 枚の設定ファイル。specproof-* sk
 
 ## トップレベルフィールド
 
+traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `featuresDir` /
+`candidateSuffix` / `implGlobs`、`tags.fixme` / `tags.skip`、2 つの `strict*`）は型を検証する。
+キーの省略と空の値は既定値を使い、値があるのに型が違う場合（`implGlobs` に文字列、
+`strictUnregisteredImpl: "true"`、空文字列、空白を含むタグなど）はエラーで止まる。
+設定したつもりの監査が、型違いで黙って無効になることを防ぐため。
+
 | フィールド | 要否 | 説明 |
 |---|---|---|
 | `adapter` | required | `playwright` \| `flutter`。framework 分岐キー。 |

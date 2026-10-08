@@ -148,14 +148,13 @@ describe("discoverConfig", () => {
     expect(config.implGlobs).toEqual(["src/**/*.ts", "lib/**/*.js"]);
   });
 
-  it("ignores layout.implGlobs when it is not an array of strings", async () => {
+  it("rejects layout.implGlobs when it is not an array of strings", async () => {
     const root = await makeTmp();
     await writeFile(
       path.join(root, "specproof.config.yaml"),
       "layout:\n  implGlobs: not-an-array\n",
     );
-    const config = discoverConfig({ root });
-    expect(config.implGlobs).toBeUndefined();
+    expect(() => discoverConfig({ root })).toThrow(/layout\.implGlobs must be an array/);
   });
 
   it("defaults strictUnregisteredImpl to false when omitted", async () => {
@@ -171,11 +170,10 @@ describe("discoverConfig", () => {
     expect(config.strictUnregisteredImpl).toBe(true);
   });
 
-  it("falls back to false when strictUnregisteredImpl is not a boolean", async () => {
+  it("rejects a strictUnregisteredImpl value that is not a boolean", async () => {
     const root = await makeTmp();
     await writeFile(path.join(root, "specproof.config.yaml"), "strictUnregisteredImpl: yes\n");
-    const config = discoverConfig({ root });
-    expect(config.strictUnregisteredImpl).toBe(false);
+    expect(() => discoverConfig({ root })).toThrow(/strictUnregisteredImpl must be true or false/);
   });
 
   it("defaults strictUnregisteredSpecHeadings to false when omitted", async () => {
@@ -194,14 +192,15 @@ describe("discoverConfig", () => {
     expect(config.strictUnregisteredSpecHeadings).toBe(true);
   });
 
-  it("falls back to false when strictUnregisteredSpecHeadings is not a boolean", async () => {
+  it("rejects a strictUnregisteredSpecHeadings value that is not a boolean", async () => {
     const root = await makeTmp();
     await writeFile(
       path.join(root, "specproof.config.yaml"),
       "strictUnregisteredSpecHeadings: yes\n",
     );
-    const config = discoverConfig({ root });
-    expect(config.strictUnregisteredSpecHeadings).toBe(false);
+    expect(() => discoverConfig({ root })).toThrow(
+      /strictUnregisteredSpecHeadings must be true or false/,
+    );
   });
 });
 

@@ -173,6 +173,19 @@ describe("checkDrift", () => {
     expect(loginDraftWarnings[0]?.linkId).toBe("login"); // registered side wins
   });
 
+  it("rejects a feature in an unsupported Gherkin language, naming the file", async () => {
+    await writeFile(
+      path.join(root, "features/login.feature"),
+      "# language: fr\nFonctionnalité: f\n\n@skip\nScénario: a\n",
+      "utf8",
+    );
+    await saveManifest(manifestPath, await buildManifest(root));
+
+    await expect(checkDrift(manifestPath, root, { featuresDir: "features" })).rejects.toThrow(
+      /features\/login\.feature.*Unsupported Gherkin language "fr"/,
+    );
+  });
+
   it("flags a @skip scenario that has no reason comment", async () => {
     await writeFile(
       path.join(root, "features/login.feature"),

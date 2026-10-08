@@ -46,11 +46,14 @@ export interface FeatureScenarios {
 // The fixme tag takes priority over the skip tag because fixme is the dimension
 // that gates "done" (it must reach 0); a scenario carrying both is counted as
 // fixme.
+// runner と同じく、Feature / Rule / Examples から継承したタグも含めて分類する。
+// 自身の直前タグだけで分類すると、runner が実行しないシナリオを automated と数える。
 const classify = (scenario: ScannedScenario, tags: StatsTags): "fixme" | "skip" | "automated" => {
-  if (scenario.tags.includes(tags.fixmeTag)) {
+  const effective = scenario.effectiveTags ?? scenario.tags;
+  if (effective.includes(tags.fixmeTag)) {
     return "fixme";
   }
-  if (scenario.tags.includes(tags.skipTag)) {
+  if (effective.includes(tags.skipTag)) {
     return "skip";
   }
   return "automated";
