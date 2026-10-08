@@ -74,6 +74,8 @@ export const compileGlob = (pattern: string): GlobMatcher => {
           }
         }
         reachable = next;
+        // どの位置にも届かなければ、残りのセグメントを見ても一致しない。
+        if (!reachable.includes(true)) return false;
       }
       return reachable[parts.length];
     },

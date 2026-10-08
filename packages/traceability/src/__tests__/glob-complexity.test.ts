@@ -45,3 +45,42 @@ describe("implGlobs の照合は計算量が爆発しない", () => {
     assert.deepEqual(JSON.parse(result.stdout), [`src/${"a".repeat(60)}b.ts`]);
   });
 });
+
+describe("implGlobs の量に上限を設ける", () => {
+  const run = (patterns: string[]) => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "glob-limits-"));
+    try {
+      mkdirSync(path.join(root, "src"));
+      writeFileSync(path.join(root, "src", "a.ts"), "export {};\n");
+      const script = `
+        const { findImplCandidates } = await import(${JSON.stringify(implAudit)});
+        const found = await findImplCandidates(${JSON.stringify(root)}, ${JSON.stringify(patterns)});
+        process.stdout.write(JSON.stringify(found));
+      `;
+      return spawnSync(process.execPath, ["--input-type=module", "-e", script], {
+        encoding: "utf8",
+        timeout: 5_000,
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+
+  test("長すぎるパターンは照合せずに止める", () => {
+    const result = run([`src/${"**/a/".repeat(300)}*.ts`]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /implGlobs/);
+  });
+
+  test("多すぎるパターンは照合せずに止める", () => {
+    const result = run(Array.from({ length: 300 }, (_, i) => `src/${i}/**/*.ts`));
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /implGlobs/);
+  });
+
+  test("重複したパターンは 1 つとして数え、結果は変わらない", () => {
+    const result = run(Array.from({ length: 1000 }, () => "src/**/*.ts"));
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), ["src/a.ts"]);
+  });
+});
