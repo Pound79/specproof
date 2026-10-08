@@ -70,29 +70,29 @@ const CONFIG_FILENAMES = ["specproof.config.yaml", "specproof.config.yml"];
 // deprecation warning to stderr so repos migrate at their own pace.
 const LEGACY_CONFIG_FILENAMES = ["bdd-kit.config.yaml", "bdd-kit.config.yml"];
 
+// 検証前の設定ファイル。値の型は readSection / readString などで確かめる。
 interface PartialConfigFile {
-  layout?: {
-    manifest?: unknown;
-    pagesDir?: unknown;
-    candidateSuffix?: unknown;
-    featuresDir?: unknown;
-    implGlobs?: unknown;
-  };
-  tags?: {
-    fixme?: unknown;
-    skip?: unknown;
-  };
+  layout?: unknown;
+  tags?: unknown;
   strictUnregisteredImpl?: unknown;
   strictUnregisteredSpecHeadings?: unknown;
 }
 
+const isMapping = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 const parseConfigFile = (file: string): PartialConfigFile => {
+  let parsed: unknown;
   try {
-    const parsed: unknown = parse(readFileSync(file, "utf8"));
-    return (parsed ?? {}) as PartialConfigFile;
+    parsed = parse(readFileSync(file, "utf8"));
   } catch (error) {
     throw new Error(`Failed to parse ${file}: ${(error as Error).message}`);
   }
+  if (parsed === null || parsed === undefined) return {};
+  if (!isMapping(parsed)) {
+    throw new Error(`${path.basename(file)}: the top level must be a YAML mapping`);
+  }
+  return parsed as PartialConfigFile;
 };
 
 const readConfigFile = (repoRoot: string): PartialConfigFile | null => {
@@ -112,22 +112,63 @@ const readConfigFile = (repoRoot: string): PartialConfigFile | null => {
   return null;
 };
 
-const asString = (value: unknown): string | undefined =>
-  typeof value === "string" && value.length > 0 ? value : undefined;
+// 設定したつもりの値が型違いで「未設定」に落ちると、監査が黙って無効になる。
+// キーの省略と空の値（null）は既定値を使い、値があるのに型が違えばキーを示して止める。
+const invalid = (key: string, expected: string, value: unknown): Error =>
+  new Error(
+    `specproof.config.yaml: ${key} must be ${expected} (got ${
+      Array.isArray(value) ? "array" : value === "" ? "empty string" : typeof value
+    })`,
+  );
 
-const asStringArray = (value: unknown): string[] | undefined =>
-  Array.isArray(value) && value.every((item) => typeof item === "string")
-    ? (value as string[])
-    : undefined;
+const isOmitted = (value: unknown): value is null | undefined =>
+  value === undefined || value === null;
 
-const asBoolean = (value: unknown, fallback: boolean): boolean =>
-  typeof value === "boolean" ? value : fallback;
+const readSection = (value: unknown, key: string): Record<string, unknown> => {
+  if (isOmitted(value)) return {};
+  if (!isMapping(value)) throw invalid(key, "a mapping", value);
+  return value;
+};
+
+const readString = (value: unknown, key: string): string | undefined => {
+  if (isOmitted(value)) return undefined;
+  if (typeof value !== "string" || value.length === 0) {
+    throw invalid(key, "a non-empty string", value);
+  }
+  return value;
+};
+
+const readStringArray = (value: unknown, key: string): string[] | undefined => {
+  if (isOmitted(value)) return undefined;
+  if (
+    !Array.isArray(value) ||
+    !value.every((item) => typeof item === "string" && item.length > 0)
+  ) {
+    throw invalid(key, "an array of non-empty strings", value);
+  }
+  return [...value];
+};
+
+const readBoolean = (value: unknown, key: string, fallback: boolean): boolean => {
+  if (isOmitted(value)) return fallback;
+  if (typeof value !== "boolean") throw invalid(key, "true or false", value);
+  return value;
+};
 
 // Gherkin tags always start with "@", and the feature scanner only keeps
 // "@"-prefixed tokens. A config value missing the "@" (e.g. "todo") would
 // silently never match a scanned tag and re-introduce the very false-green this
 // config plumbing fixes — so normalize it to the canonical "@todo" form here.
-const normalizeTag = (raw: string): string => (raw.startsWith("@") ? raw : `@${raw}`);
+// 空白を含むタグや "@" だけのタグは scanner が一致させられないので拒否する。
+const readTag = (value: unknown, key: string, fallback: string): string => {
+  const raw = readString(value, key);
+  if (raw === undefined) return fallback;
+  const tag = raw.startsWith("@") ? raw : `@${raw}`;
+  if (tag.length === 1 || /\s/.test(tag)) {
+    throw new Error(`specproof.config.yaml: ${key} must be a single Gherkin tag (got "${raw}")`);
+  }
+  return tag;
+};
 
 /**
  * Discovers the effective traceability config. Resolution order:
@@ -143,12 +184,14 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     ? path.resolve(overrides.root)
     : resolveRepoRoot(overrides.startDir);
 
-  const fileConfig = readConfigFile(repoRoot);
-  const fileManifest = asString(fileConfig?.layout?.manifest);
-  const filePagesDir = asString(fileConfig?.layout?.pagesDir);
-  const fileFeaturesDir = asString(fileConfig?.layout?.featuresDir);
-  const candidateSuffix =
-    overrides.candidateSuffix ?? asString(fileConfig?.layout?.candidateSuffix);
+  const fileConfig = readConfigFile(repoRoot) ?? {};
+  const layout = readSection(fileConfig.layout, "layout");
+  const tags = readSection(fileConfig.tags, "tags");
+  const fileManifest = readString(layout.manifest, "layout.manifest");
+  const filePagesDir = readString(layout.pagesDir, "layout.pagesDir");
+  const fileFeaturesDir = readString(layout.featuresDir, "layout.featuresDir");
+  const fileCandidateSuffix = readString(layout.candidateSuffix, "layout.candidateSuffix");
+  const candidateSuffix = overrides.candidateSuffix ?? fileCandidateSuffix;
 
   let manifestPath: string;
   if (overrides.manifest) {
@@ -166,14 +209,19 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
   const featuresDir = overrides.featuresDir ?? fileFeaturesDir;
   if (pagesDir !== undefined) resolveWithinRoot(repoRoot, pagesDir);
   if (featuresDir !== undefined) resolveWithinRoot(repoRoot, featuresDir);
-  const implGlobs = asStringArray(fileConfig?.layout?.implGlobs);
-  const strictUnregisteredImpl = asBoolean(fileConfig?.strictUnregisteredImpl, false);
-  const strictUnregisteredSpecHeadings = asBoolean(
-    fileConfig?.strictUnregisteredSpecHeadings,
+  const implGlobs = readStringArray(layout.implGlobs, "layout.implGlobs");
+  const strictUnregisteredImpl = readBoolean(
+    fileConfig.strictUnregisteredImpl,
+    "strictUnregisteredImpl",
     false,
   );
-  const fixmeTag = normalizeTag(asString(fileConfig?.tags?.fixme) ?? DEFAULT_FIXME_TAG);
-  const skipTag = normalizeTag(asString(fileConfig?.tags?.skip) ?? DEFAULT_SKIP_TAG);
+  const strictUnregisteredSpecHeadings = readBoolean(
+    fileConfig.strictUnregisteredSpecHeadings,
+    "strictUnregisteredSpecHeadings",
+    false,
+  );
+  const fixmeTag = readTag(tags.fixme, "tags.fixme", DEFAULT_FIXME_TAG);
+  const skipTag = readTag(tags.skip, "tags.skip", DEFAULT_SKIP_TAG);
   // Identical tags collapse the skip bucket into fixme (skip always 0) and
   // silently distort the done gate. Fail loudly rather than mis-report.
   if (fixmeTag === skipTag) {

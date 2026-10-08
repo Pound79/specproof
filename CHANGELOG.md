@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `specproof-stats --strict` は、manifest に登録した feature が読めないときと、設定した
   `featuresDir` が無いときに失敗する。従来は欠落したファイルを黙って集計から外し、
   その中の `@fixme` ごと消えて完了条件を満たした。`--json` は `missingFeatures` を出す。
+- **設定値の型の誤りがエラーになる。** traceability エンジンが読む `layout.*`・`tags.*`・
+  `strictUnregistered*` に、型の違う値（`implGlobs` に文字列、`"true"` や `yes` の
+  真偽値、空文字列、空白を含むタグなど）があると止まる。従来は未設定として扱い、
+  `implGlobs` の監査や strict の指定が黙って無効になった。キーの省略と空の値は従来どおり。
 - `specproof-sync` no longer updates a `.feature` to match the implementation
   when only the implementation changed and its observable behavior changed. It
   now stops, shows the implementation diff with the linked spec section, and
