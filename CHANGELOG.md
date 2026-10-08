@@ -120,6 +120,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `specproof.config.yaml` 自体にも manifest と同じ読み取りの境界を適用する。repo 外を指す
   symlink、通常ファイル以外（FIFO・ディレクトリ）、1 MiB を超えるファイルを拒否する。
   従来は FIFO で読み込みが止まり、リンク切れは設定なしとして既定値で動いた。
+- manifest の link `id` に改行などの制御文字・区切り文字を拒否する。id は check の報告と
+  PR コメントにそのまま出るため、見出しや行を偽装できた。
 
 ## [0.2.2] - 2026-09-02
 

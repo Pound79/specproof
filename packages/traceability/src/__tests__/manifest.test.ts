@@ -247,6 +247,20 @@ links:
     await expect(loadManifest(manifestPath)).rejects.toThrow(/impl\[0\].*path/i);
   });
 
+  it.each(["a\nb", "a\u0000b", "a\u2028b"])(
+    "rejects a link id with control or separator characters (%j)",
+    async (id) => {
+      await writeManifest(
+        JSON.stringify({
+          version: 1,
+          links: [{ id, label: "Login", spec: [], impl: [], features: [] }],
+        }),
+      );
+
+      await expect(loadManifest(manifestPath)).rejects.toThrow(/control or separator/);
+    },
+  );
+
   it("rejects an excessively long link id", async () => {
     await writeManifest(
       JSON.stringify({
