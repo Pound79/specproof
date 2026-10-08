@@ -212,13 +212,14 @@ const configReaders = (source: string) => {
   // "@"-prefixed tokens. A config value missing the "@" (e.g. "todo") would
   // silently never match a scanned tag and re-introduce the very false-green this
   // config plumbing fixes — so normalize it to the canonical "@todo" form here.
-  // 空白を含むタグや "@" だけのタグは scanner が一致させられないので拒否する。
+  // 空白、空の名前、途中の "@" は単一タグとして一致しないので拒否する。
+  // scanner は "@a@b" を 2 タグに分けるため、そのまま許すと完了 gate が抜ける。
   // 値は JSON 文字列で示し、改行で CI のログ行（annotation）を偽装させない。
   const readTag = (value: unknown, key: string, fallback: string): string => {
     const raw = readString(value, key);
     if (raw === undefined) return fallback;
     const tag = raw.startsWith("@") ? raw : `@${raw}`;
-    if (tag.length === 1 || /\s/.test(tag)) {
+    if (!/^@[^@\s]+$/.test(tag)) {
       throw new Error(
         `${source}: ${key} must be a single Gherkin tag (got ${JSON.stringify(raw)})`,
       );
