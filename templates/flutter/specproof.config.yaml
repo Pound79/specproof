@@ -12,7 +12,9 @@ commands:
   typecheck: "cd bdd_tests && flutter analyze"
   lint: "cd bdd_tests && dart format --set-exit-if-changed . && flutter analyze"
   # headless run on macOS desktop; switch -d to an emulator/simulator/device id as needed.
-  smoke: "cd bdd_tests && flutter test integration_test/gherkin_suite_test.dart -d macos"
+  # SPECPROOF_TAGS is the Gherkin tag expression the suite passes to the runner
+  # (keep it equal to projects[].tags). Omit the define to run every scenario.
+  smoke: "cd bdd_tests && flutter test integration_test/gherkin_suite_test.dart -d macos --dart-define=SPECPROOF_TAGS=\"not @slow\""
   install: "cd bdd_tests && flutter pub get"
   # traceability engine is the framework-agnostic Node CLI (check / update / list
   # / stats); it hashes the .feature text so it works for Dart repos too (run via

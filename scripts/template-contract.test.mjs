@@ -70,3 +70,17 @@ test("編集範囲の省略には対象ドメインに限定する明示済み f
   assert.match(skill, /implement\.blastRadiusGlobs` が未設定なら/);
   assert.ok(skill.includes("対象ドメインに対応する"));
 });
+
+test("Flutter の smoke は projects のタグ条件を runner へ実際に渡す", () => {
+  // 宣言だけでは flutter test の実行対象は変わらない。smoke の --dart-define が suite の入口で
+  // FlutterTestConfiguration.tagExpression に渡り、runner が実行時に絞り込む。
+  const config = parse(read("templates/flutter/specproof.config.yaml"));
+  const suite = read("templates/flutter/integration_test/gherkin_suite_test.dart");
+  const declared = config.projects[0].tags;
+  assert.ok(declared.includes(config.tags.slow), "projects のタグ条件が @slow を除外していない");
+  const define = config.commands.smoke.match(/--dart-define=SPECPROOF_TAGS=("[^"]*"|'[^']*'|\S+)/);
+  assert.ok(define, "smoke が SPECPROOF_TAGS を渡していない");
+  assert.equal(define[1].replace(/^["']|["']$/g, ""), declared);
+  assert.match(suite, /String\.fromEnvironment\('SPECPROOF_TAGS'\)/);
+  assert.match(suite, /tagExpression:/);
+});
