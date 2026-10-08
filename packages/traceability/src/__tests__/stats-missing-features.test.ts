@@ -134,3 +134,65 @@ describe("設定した featuresDir の欠落", () => {
       },
     ));
 });
+
+describe("featuresDir を設定したときの登録済み feature の欠落", () => {
+  const WITH_DIR = "layout:\n  manifest: traceability.yaml\n  featuresDir: features\n";
+
+  test("--strict は失敗させ、--json の missingFeatures に出す", () =>
+    withRepo(
+      {
+        "traceability.yaml": manifestFor("features/a.feature", "features/gone.feature"),
+        "features/a.feature": DONE,
+      },
+      WITH_DIR,
+      (root) => {
+        assert.equal(stats(root, "--strict").status, 1);
+        const report = JSON.parse(stats(root, "--json").stdout);
+        assert.deepEqual(report.missingFeatures, ["features/gone.feature"]);
+        assert.equal(report.totals.total, 1);
+      },
+    ));
+
+  test("featuresDir の外に登録した実在する feature は欠落扱いしない", () =>
+    withRepo(
+      {
+        "traceability.yaml": manifestFor("features/a.feature", "other/b.feature"),
+        "features/a.feature": DONE,
+        "other/b.feature": DONE,
+      },
+      WITH_DIR,
+      (root) => {
+        const result = stats(root, "--strict", "--json");
+        assert.equal(result.status, 0, result.stderr);
+        assert.deepEqual(JSON.parse(result.stdout).missingFeatures, []);
+      },
+    ));
+
+  test("manifest が無ければ従来どおり featuresDir だけを集計する", () =>
+    withRepo({ "features/a.feature": DONE }, WITH_DIR, (root) => {
+      const result = stats(root, "--strict", "--json");
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(JSON.parse(result.stdout).totals.total, 1);
+    }));
+});
+
+describe("欠落の報告", () => {
+  test("--json は欠落した featuresDir も示す", () =>
+    withRepo(
+      { "traceability.yaml": manifestFor("features/a.feature"), "features/a.feature": DONE },
+      "layout:\n  manifest: traceability.yaml\n  featuresDir: missing-dir\n",
+      (root) => {
+        assert.equal(JSON.parse(stats(root, "--json").stdout).missingFeaturesDir, "missing-dir");
+      },
+    ));
+
+  test("パスに含まれる改行は警告の行を分けない", () =>
+    withRepo(
+      { "traceability.yaml": manifestFor('"x\\n::error file=evil::INJECTED.feature"') },
+      MANIFEST_ONLY,
+      (root) => {
+        const result = stats(root);
+        assert.doesNotMatch(result.stderr, /^::error/m);
+      },
+    ));
+});

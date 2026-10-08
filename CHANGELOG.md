@@ -25,8 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Feature に `@fixme` があっても fixme=0 と判定し、`--strict` の完了条件を誤って満たした。
   理由コメントの検査範囲は従来どおりシナリオ自身のタグに限る。
 - `specproof-stats --strict` は、manifest に登録した feature が読めないときと、設定した
-  `featuresDir` が無いときに失敗する。従来は欠落したファイルを黙って集計から外し、
-  その中の `@fixme` ごと消えて完了条件を満たした。`--json` は `missingFeatures` を出す。
+  `featuresDir` が無いときに失敗する。`featuresDir` を集計する場合も、登録済み feature の
+  実在を確かめる。従来は欠落したファイルを黙って集計から外し、その中の `@fixme` ごと
+  消えて完了条件を満たした。`--json` は `missingFeatures` と `missingFeaturesDir` を出す。
 - **設定値の型の誤りがエラーになる。** traceability エンジンが読む `layout.*`・`tags.*`・
   `strictUnregistered*` に、型の違う値（`implGlobs` に文字列、`"true"` や `yes` の
   真偽値、空文字列、空白を含むタグなど）があると止まる。従来は未設定として扱い、

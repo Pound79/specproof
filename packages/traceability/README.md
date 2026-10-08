@@ -36,9 +36,10 @@ npx specproof-stats            # scenario census (automated / @fixme / @skip; --
   Pass `--dry-run` to preview the change list without writing the manifest.
 - **`stats`** produces a scenario census and, with `--strict`, enforces the
   "done" gate (`@fixme` must be 0). A manifest-registered feature that cannot be
-  read, or a configured `featuresDir` that does not exist, is reported (and listed
-  in `--json` as `missingFeatures`) and also fails `--strict`, because missing
-  input cannot prove that no `@fixme` remains.
+  read (checked whether or not `featuresDir` is scanned), or a configured
+  `featuresDir` that does not exist, is reported (listed in `--json` as
+  `missingFeatures` / `missingFeaturesDir`) and also fails `--strict`, because
+  missing input cannot prove that no `@fixme` remains.
 
 ### 静的な phase / verification とケース数
 
