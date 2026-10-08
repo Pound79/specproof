@@ -63,3 +63,36 @@ By participating, you agree to abide by our
 整形は `npm run format`。CLI診断は英語、会話・新規説明文書は日本語とする。
 カバレッジ対象・閾値は [品質基準](docs/quality-gates.md) を参照。
 Playwright scaffold の lint も no-op ではなく Biome を実行する。
+
+## 公開内容の検査
+
+このリポジトリは公開 OSS なので、私的な名前・手元の検証記録・マシン固有のパスを
+追跡しない（方針は [AGENTS.md](./AGENTS.md#公開リポジトリとしての規則)）。
+
+- `npm test` の `scripts/public-content.test.mjs` が、マシン固有のパス、許可していない
+  メールアドレス、`docs/evidence/`・`*.local.md`・見本以外の dotenv を検出する。CI でも走る。
+- 私的な名前はリポジトリに書くと公開されるため、clone ごとに次のフックを有効にし、
+  語彙をリポジトリの外に置く。
+
+```bash
+git config core.hooksPath scripts/githooks
+mkdir -p ~/.config/git
+$EDITOR ~/.config/git/private-terms.txt   # 1 行 1 語。空行と # で始まる行は無視
+```
+
+語彙の置き場所は環境変数 `SPECPROOF_PRIVATE_TERMS` でも指定できる。pre-commit は
+ステージした各ファイルの内容・パス・名義、commit-msg はメッセージの全文を検査する。
+pre-push は送り先の ref 名、送る全コミット、多段の注釈付きタグとその参照先を検査する。
+commit を介さず tree や blob を指すタグも対象にし、ref の削除は妨げない。
+語彙ファイルが無いときは、省略した旨を表示して通す。
+
+commit-msg は、実効の cleanup を設定値だけでは確定できないため、コメント行や scissors
+以降も安全側で検査する。削除予定のコメントや `git commit -v` の差分で拒否された場合は、
+私的な語を含めないメッセージファイルを用意して `git commit -F <file>` でコミットする。
+
+語彙の照合は大文字小文字を区別せず、Unicode を NFC に揃えて行う。CI とフックの内容検査は
+共通で UTF-8 か BOM 付きの UTF-16 として読み、NUL を理由にファイルを除外しない。
+BOM の無い UTF-16 や Shift_JIS のファイルにある語は検出できない。
+
+フックはチェックアウト中のブランチにある `scripts/githooks` を実行する。`npm test` と同じく、
+信頼できないブランチでは中身を確認してから commit や push をする。
