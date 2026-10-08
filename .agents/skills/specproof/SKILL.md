@@ -114,8 +114,11 @@ description: >
 ## 6. ハンドオフレポート（固定フォーマット・必ず出す）
 
 1. **やったこと** — scaffold・作成ドラフト・追加リンク（**provenance 明記**: draft か blessed か）。
-2. **到達した検証** — `{{config:commands.generate}}` / `{{config:commands.typecheck}}` /
-   `{{config:commands.lint}}` / `{{config:commands.smoke}}` を **PASS / FAIL / SKIPPED(理由)** で。
+2. **到達した検証** — `{{config:commands.generate}}` / E2E typecheck（`{{config:commands.typecheck}}`）/
+   E2E lint（`{{config:commands.lint}}`）/ `{{config:commands.smoke}}` を **PASS / FAIL / SKIPPED(理由)** で。
+   `typecheck` / `lint` は E2E パッケージだけの検査で、製品コードの検証ではない。specproof-implement の
+   結果を中継するときは、製品 typecheck（`{{config:commands.productTypecheck}}`）/ 製品 lint
+   （`{{config:commands.productLint}}`）を別行にし、未設定なら「製品側: 未検証（未設定）」と書く。
    **env が無く smoke 未実行なら green と偽らない**。
 3. **決めてほしいこと（裁定）** — 振る舞い矛盾の権威側・`@skip` の sign-off・adapter/mode 確認。
 4. **やってほしいこと（作業）** — `.env`/認証セットアップ・install・spec の WHY 加筆・`@fixme` の

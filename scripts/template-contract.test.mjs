@@ -114,6 +114,16 @@ test("implement スキルは E2E 側と製品側の検証を取り違えない",
   assert.match(schema, /`productTypecheck`/);
 });
 
+test("オーケストレータの報告も E2E 側と製品側の検証を分ける", () => {
+  // implement の結果を中継する上の層で、E2E の lint を製品側の検証として報告させない。
+  const skill = read("plugins/specproof/skills/specproof/SKILL.md");
+  const handoff = skill.slice(skill.indexOf("**到達した検証**"), skill.indexOf("**決めてほしいこと"));
+  assert.match(handoff, /E2E lint（`\{\{config:commands\.lint\}\}`）/);
+  assert.match(handoff, /\{\{config:commands\.productLint\}\}/);
+  assert.match(handoff, /\{\{config:commands\.productTypecheck\}\}/);
+  assert.match(handoff, /未設定なら[^\n]*未検証/);
+});
+
 // drift-check のコメント投稿スクリプトを、GitHub API を模したオブジェクトで実際に実行する。
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
 const runCommentScript = async (adapter, { headSha, currentHeadSha, report, comments = [] }) => {
