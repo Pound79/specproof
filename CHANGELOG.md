@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   空行を挟んでシナリオに付けたタグも数える。従来は自身の直前タグだけを見ていたため、
   Feature に `@fixme` があっても fixme=0 と判定し、`--strict` の完了条件を誤って満たした。
   理由コメントの検査範囲は従来どおりシナリオ自身のタグに限る。
+- `specproof-stats --strict` は、manifest に登録した feature が読めないときと、設定した
+  `featuresDir` が無いときに失敗する。従来は欠落したファイルを黙って集計から外し、
+  その中の `@fixme` ごと消えて完了条件を満たした。`--json` は `missingFeatures` を出す。
 - `specproof-sync` no longer updates a `.feature` to match the implementation
   when only the implementation changed and its observable behavior changed. It
   now stops, shows the implementation diff with the linked spec section, and
