@@ -63,7 +63,7 @@ package.json に workspaces を注入しないため、`npm run <script>` を裸
 | `i18nSource` | optional<sup>+</sup> | text.ts の上流 i18n source（`ja.yaml`） |
 | `manifest` | required | traceability manifest path |
 | `specDir` | required | 設計根拠 doc dir |
-| `implGlobs` | optional | `unregistered-impl` 検知（`specproof-check`）の対象を絞る glob リスト（`*` / `**` のみ対応の自前マッチャー）。**未設定時は検知自体を行わない**（opt-in）。 |
+| `implGlobs` | optional | `unregistered-impl` 検知（`specproof-check`）の対象を絞る glob リスト（`*` / `**` のみ対応の自前マッチャー）。**未設定時は検知自体を行わない**（opt-in）。重複を除いて最大 256 本、1 本あたり 1,024 文字まで。超えると照合前にエラーで止まる。 |
 | `scratchDir` / `testRunnerConfig` / `idiomGuide` | optional | 補助参照 |
 | `e2eReadme` | optional | E2E パッケージの README パス。specproof-bootstrap / specproof-implement skill が `{{config:layout.e2eReadme}}` として参照する。**同梱の playwright / flutter テンプレートはこのパスに実体の README.md を同梱済み**（変更起点別フロー・bootstrap 一度きりの規約・rationale doc 規約などの節を含む）。カスタムテンプレートを組む場合もこの節を持つ README を配置すること。 |
 

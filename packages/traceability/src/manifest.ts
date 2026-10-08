@@ -40,6 +40,7 @@ const MAX_LINKS = 10_000;
 const MAX_REFS_PER_LINK = 1_000;
 const MAX_TOTAL_REFS = 20_000;
 const MAX_ID_LENGTH = 256;
+const CONTROL_OR_SEPARATOR = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u;
 const MAX_LABEL_LENGTH = 1024;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -117,7 +118,7 @@ const assertCriteria = (value: unknown, where: string): void => {
     if (typeof id !== "string" || id.length === 0) {
       return fail(at, "criterion ID must be a non-empty string");
     }
-    if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u.test(id)) {
+    if (CONTROL_OR_SEPARATOR.test(id)) {
       fail(at, "criterion ID must not contain control or separator characters");
     }
     if (seen.has(id)) {
@@ -145,6 +146,9 @@ const assertManifestShape: (value: unknown) => asserts value is TraceabilityMani
     }
     if (typeof link.id !== "string" || link.id === "" || link.id.length > MAX_ID_LENGTH) {
       fail(where, `id must be a non-empty string of at most ${MAX_ID_LENGTH} characters`);
+    } else if (CONTROL_OR_SEPARATOR.test(link.id)) {
+      // id は check の報告と PR コメントにそのまま出る。改行で見出しや行を偽装させない。
+      fail(where, "id must not contain control or separator characters");
     }
     if (
       typeof link.label !== "string" ||

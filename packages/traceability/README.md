@@ -198,6 +198,7 @@ these limits:
 - links: 10,000
 - references: 1,000 per link and 20,000 total
 - path: 4,096 characters; id/hash: 256; label/heading: 1,024
+- link `id` must not contain control or separator characters (like criterion IDs)
 
 `specproof-check` and `specproof-update` preserve manifest order while limiting
 file reads to 32 concurrent operations. If a read fails, queued reads are

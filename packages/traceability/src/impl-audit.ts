@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { globBaseDir, globToRegExp } from "./glob.js";
+import { compileGlob, globBaseDir, type GlobMatcher } from "./glob.js";
 import { resolveWithinRoot } from "./resolve.js";
 import type { DriftWarning } from "./check.js";
 import type { TraceabilityManifest } from "./manifest.js";
@@ -38,6 +38,23 @@ const walkFiles = async (absDir: string): Promise<string[]> => {
   return files;
 };
 
+// implGlobs は PR で変更できる。照合はファイル数 × パターンの大きさに比例するので、
+// 実用の範囲を超える量は照合する前に止める。
+const MAX_IMPL_GLOBS = 256;
+const MAX_IMPL_GLOB_LENGTH = 1024;
+
+const assertGlobLimits = (patterns: string[]): void => {
+  if (patterns.length > MAX_IMPL_GLOBS) {
+    throw new Error(`layout.implGlobs: at most ${MAX_IMPL_GLOBS} distinct patterns are allowed`);
+  }
+  const tooLong = patterns.find((pattern) => pattern.length > MAX_IMPL_GLOB_LENGTH);
+  if (tooLong !== undefined) {
+    throw new Error(
+      `layout.implGlobs: a pattern must be at most ${MAX_IMPL_GLOB_LENGTH} characters (got ${tooLong.length})`,
+    );
+  }
+};
+
 // Every repo file matching any of `implGlobs`, as repo-relative POSIX paths,
 // deduped and sorted. Each pattern's walk is rooted at its longest literal
 // prefix (globBaseDir) so `src/**/*.ts` only walks `src/`, not the whole repo.
@@ -45,14 +62,20 @@ export const findImplCandidates = async (
   repoRoot: string,
   implGlobs: string[],
 ): Promise<string[]> => {
-  const matched = new Set<string>();
-  for (const pattern of implGlobs) {
+  const patterns = [...new Set(implGlobs)];
+  assertGlobLimits(patterns);
+  // 同じ base のパターンは 1 回の走査で照合する。
+  const byBaseDir = new Map<string, GlobMatcher[]>();
+  for (const pattern of patterns) {
     const baseDir = globBaseDir(pattern);
-    const regExp = globToRegExp(pattern);
+    byBaseDir.set(baseDir, [...(byBaseDir.get(baseDir) ?? []), compileGlob(pattern)]);
+  }
+  const matched = new Set<string>();
+  for (const [baseDir, matchers] of byBaseDir) {
     const relFiles = await walkFiles(resolveWithinRoot(repoRoot, baseDir));
     for (const relFile of relFiles) {
       const repoRelPath = baseDir === "." ? relFile : path.posix.join(baseDir, relFile);
-      if (regExp.test(repoRelPath)) {
+      if (matchers.some((matcher) => matcher.test(repoRelPath))) {
         matched.add(repoRelPath);
       }
     }

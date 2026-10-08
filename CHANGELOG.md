@@ -113,6 +113,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   除外する。テンプレートの gitignore も `.env.*`（`.env.example` を除く）を無視する。
 - manifest は通常ファイルだけを読み、FIFO やデバイスを拒否する。
 - 推移的依存 `source-map-js` を監査指摘の修正版（1.2.2）へ更新した。
+- `layout.implGlobs` の照合を正規表現から計算量に上限のある方法に替えた。`*` の繰り返しと
+  末尾の不一致を組み合わせたパターンで、照合時間が爆発して CI を止められた。一致の意味は
+  従来と同じ。あわせてパターンの数（重複を除き 256）と長さ（1024 文字）に上限を設け、
+  同じ base のパターンは 1 回の走査で照合する。
+- `specproof.config.yaml` 自体にも manifest と同じ読み取りの境界を適用する。repo 外を指す
+  symlink、通常ファイル以外（FIFO・ディレクトリ）、1 MiB を超えるファイルを拒否する。
+  従来は FIFO で読み込みが止まり、リンク切れは設定なしとして既定値で動いた。
+- manifest の link `id` に改行などの制御文字・区切り文字を拒否する。id は check の報告と
+  PR コメントにそのまま出るため、見出しや行を偽装できた。
+
 ## [0.2.2] - 2026-09-02
 
 ### Added

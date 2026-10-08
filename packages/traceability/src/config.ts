@@ -1,5 +1,5 @@
 import path from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from "node:fs";
 import { parse } from "yaml";
 import { resolveDefaultManifestPath, resolveRepoRoot } from "./paths.js";
 import { resolveWithinRoot } from "./resolve.js";
@@ -81,16 +81,63 @@ interface PartialConfigFile {
 const isMapping = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const parseConfigFile = (file: string): PartialConfigFile => {
+const MAX_CONFIG_BYTES = 1024 * 1024;
+
+/** symlink そのものも含めて、その名前の項目があるか（リンク切れも「ある」とみなす）。 */
+const entryExists = (file: string): boolean => {
+  try {
+    lstatSync(file);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return false;
+    throw error;
+  }
+};
+
+/**
+ * 設定ファイルは manifest や探索先の境界を決める入力なので、それ自体にも同じ境界を適用する。
+ * repo 内に解決でき、開いた記述子が通常ファイルで、上限以下の大きさのときだけ読む。
+ * FIFO は非ブロッキングで開いて待たずに拒否し、リンク切れを「設定なし」にしない。
+ */
+const readConfigText = (repoRoot: string, name: string): string => {
+  let file: string;
+  try {
+    file = resolveWithinRoot(repoRoot, name);
+  } catch {
+    throw new Error(`${name} is dangling or resolves outside the repository root.`);
+  }
+  const fd = openSync(file, constants.O_RDONLY | constants.O_NONBLOCK);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile()) throw new Error(`${name} must be a regular file`);
+    const tooLarge = (): Error => new Error(`${name} exceeds ${MAX_CONFIG_BYTES} bytes`);
+    if (stat.size > MAX_CONFIG_BYTES) throw tooLarge();
+    // 読み取り中に増えても上限を超えないよう、1 バイト余分に読んで判定する。
+    const buffer = Buffer.alloc(MAX_CONFIG_BYTES + 1);
+    let total = 0;
+    for (;;) {
+      const read = readSync(fd, buffer, total, buffer.length - total, null);
+      if (read === 0) break;
+      total += read;
+      if (total > MAX_CONFIG_BYTES) throw tooLarge();
+    }
+    return buffer.subarray(0, total).toString("utf8");
+  } finally {
+    closeSync(fd);
+  }
+};
+
+const parseConfigFile = (name: string, text: string): PartialConfigFile => {
   let parsed: unknown;
   try {
-    parsed = parse(readFileSync(file, "utf8"));
+    parsed = parse(text);
   } catch (error) {
-    throw new Error(`Failed to parse ${file}: ${(error as Error).message}`);
+    throw new Error(`Failed to parse ${name}: ${(error as Error).message}`);
   }
   if (parsed === null || parsed === undefined) return {};
   if (!isMapping(parsed)) {
-    throw new Error(`${path.basename(file)}: the top level must be a YAML mapping`);
+    throw new Error(`${name}: the top level must be a YAML mapping`);
   }
   return parsed as PartialConfigFile;
 };
@@ -103,16 +150,14 @@ interface ConfigSource {
 
 const readConfigFile = (repoRoot: string): ConfigSource | null => {
   for (const name of CONFIG_FILENAMES) {
-    const file = path.join(repoRoot, name);
-    if (existsSync(file)) {
-      return { name, config: parseConfigFile(file) };
+    if (entryExists(path.join(repoRoot, name))) {
+      return { name, config: parseConfigFile(name, readConfigText(repoRoot, name)) };
     }
   }
   for (const name of LEGACY_CONFIG_FILENAMES) {
-    const file = path.join(repoRoot, name);
-    if (existsSync(file)) {
+    if (entryExists(path.join(repoRoot, name))) {
       process.stderr.write(`${name} is deprecated; rename it to specproof.config.yaml\n`);
-      return { name, config: parseConfigFile(file) };
+      return { name, config: parseConfigFile(name, readConfigText(repoRoot, name)) };
     }
   }
   return null;
