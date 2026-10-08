@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `strictUnregistered*` に、型の違う値（`implGlobs` に文字列、`"true"` や `yes` の
   真偽値、空文字列、空白を含むタグなど）があると止まる。従来は未設定として扱い、
   `implGlobs` の監査や strict の指定が黙って無効になった。キーの省略と空の値は従来どおり。
+  エラーには実際に読んだ設定ファイル名を示し、タグの値は JSON 文字列で示す。
 - `specproof-check` は、登録済み feature への別名リンクを未登録と判定しない。登録済みと
   探索結果を実体で照合する。
 - `specproof-list` は、`./src/...` のような表記の impl 登録も正規化して照合し、登録済みの

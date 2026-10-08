@@ -95,79 +95,93 @@ const parseConfigFile = (file: string): PartialConfigFile => {
   return parsed as PartialConfigFile;
 };
 
-const readConfigFile = (repoRoot: string): PartialConfigFile | null => {
+interface ConfigSource {
+  /** エラーで示す、実際に読んだ設定ファイル名。 */
+  name: string;
+  config: PartialConfigFile;
+}
+
+const readConfigFile = (repoRoot: string): ConfigSource | null => {
   for (const name of CONFIG_FILENAMES) {
     const file = path.join(repoRoot, name);
     if (existsSync(file)) {
-      return parseConfigFile(file);
+      return { name, config: parseConfigFile(file) };
     }
   }
   for (const name of LEGACY_CONFIG_FILENAMES) {
     const file = path.join(repoRoot, name);
     if (existsSync(file)) {
       process.stderr.write(`${name} is deprecated; rename it to specproof.config.yaml\n`);
-      return parseConfigFile(file);
+      return { name, config: parseConfigFile(file) };
     }
   }
   return null;
 };
 
-// 設定したつもりの値が型違いで「未設定」に落ちると、監査が黙って無効になる。
-// キーの省略と空の値（null）は既定値を使い、値があるのに型が違えばキーを示して止める。
-const invalid = (key: string, expected: string, value: unknown): Error =>
-  new Error(
-    `specproof.config.yaml: ${key} must be ${expected} (got ${
-      Array.isArray(value) ? "array" : value === "" ? "empty string" : typeof value
-    })`,
-  );
-
 const isOmitted = (value: unknown): value is null | undefined =>
   value === undefined || value === null;
 
-const readSection = (value: unknown, key: string): Record<string, unknown> => {
-  if (isOmitted(value)) return {};
-  if (!isMapping(value)) throw invalid(key, "a mapping", value);
-  return value;
-};
+// 設定したつもりの値が型違いで「未設定」に落ちると、監査が黙って無効になる。
+// キーの省略と空の値（null）は既定値を使い、値があるのに型が違えばキーを示して止める。
+// エラーには実際に読んだファイル名を付ける。
+const configReaders = (source: string) => {
+  const invalid = (key: string, expected: string, value: unknown): Error =>
+    new Error(
+      `${source}: ${key} must be ${expected} (got ${
+        Array.isArray(value) ? "array" : value === "" ? "empty string" : typeof value
+      })`,
+    );
 
-const readString = (value: unknown, key: string): string | undefined => {
-  if (isOmitted(value)) return undefined;
-  if (typeof value !== "string" || value.length === 0) {
-    throw invalid(key, "a non-empty string", value);
-  }
-  return value;
-};
+  const readSection = (value: unknown, key: string): Record<string, unknown> => {
+    if (isOmitted(value)) return {};
+    if (!isMapping(value)) throw invalid(key, "a mapping", value);
+    return value;
+  };
 
-const readStringArray = (value: unknown, key: string): string[] | undefined => {
-  if (isOmitted(value)) return undefined;
-  if (
-    !Array.isArray(value) ||
-    !value.every((item) => typeof item === "string" && item.length > 0)
-  ) {
-    throw invalid(key, "an array of non-empty strings", value);
-  }
-  return [...value];
-};
+  const readString = (value: unknown, key: string): string | undefined => {
+    if (isOmitted(value)) return undefined;
+    if (typeof value !== "string" || value.length === 0) {
+      throw invalid(key, "a non-empty string", value);
+    }
+    return value;
+  };
 
-const readBoolean = (value: unknown, key: string, fallback: boolean): boolean => {
-  if (isOmitted(value)) return fallback;
-  if (typeof value !== "boolean") throw invalid(key, "true or false", value);
-  return value;
-};
+  const readStringArray = (value: unknown, key: string): string[] | undefined => {
+    if (isOmitted(value)) return undefined;
+    if (
+      !Array.isArray(value) ||
+      !value.every((item) => typeof item === "string" && item.length > 0)
+    ) {
+      throw invalid(key, "an array of non-empty strings", value);
+    }
+    return [...value];
+  };
 
-// Gherkin tags always start with "@", and the feature scanner only keeps
-// "@"-prefixed tokens. A config value missing the "@" (e.g. "todo") would
-// silently never match a scanned tag and re-introduce the very false-green this
-// config plumbing fixes — so normalize it to the canonical "@todo" form here.
-// 空白を含むタグや "@" だけのタグは scanner が一致させられないので拒否する。
-const readTag = (value: unknown, key: string, fallback: string): string => {
-  const raw = readString(value, key);
-  if (raw === undefined) return fallback;
-  const tag = raw.startsWith("@") ? raw : `@${raw}`;
-  if (tag.length === 1 || /\s/.test(tag)) {
-    throw new Error(`specproof.config.yaml: ${key} must be a single Gherkin tag (got "${raw}")`);
-  }
-  return tag;
+  const readBoolean = (value: unknown, key: string, fallback: boolean): boolean => {
+    if (isOmitted(value)) return fallback;
+    if (typeof value !== "boolean") throw invalid(key, "true or false", value);
+    return value;
+  };
+
+  // Gherkin tags always start with "@", and the feature scanner only keeps
+  // "@"-prefixed tokens. A config value missing the "@" (e.g. "todo") would
+  // silently never match a scanned tag and re-introduce the very false-green this
+  // config plumbing fixes — so normalize it to the canonical "@todo" form here.
+  // 空白を含むタグや "@" だけのタグは scanner が一致させられないので拒否する。
+  // 値は JSON 文字列で示し、改行で CI のログ行（annotation）を偽装させない。
+  const readTag = (value: unknown, key: string, fallback: string): string => {
+    const raw = readString(value, key);
+    if (raw === undefined) return fallback;
+    const tag = raw.startsWith("@") ? raw : `@${raw}`;
+    if (tag.length === 1 || /\s/.test(tag)) {
+      throw new Error(
+        `${source}: ${key} must be a single Gherkin tag (got ${JSON.stringify(raw)})`,
+      );
+    }
+    return tag;
+  };
+
+  return { readSection, readString, readStringArray, readBoolean, readTag };
 };
 
 /**
@@ -184,7 +198,11 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     ? path.resolve(overrides.root)
     : resolveRepoRoot(overrides.startDir);
 
-  const fileConfig = readConfigFile(repoRoot) ?? {};
+  const source = readConfigFile(repoRoot);
+  const fileConfig = source?.config ?? {};
+  const sourceName = source?.name ?? CONFIG_FILENAMES[0];
+  const { readSection, readString, readStringArray, readBoolean, readTag } =
+    configReaders(sourceName);
   const layout = readSection(fileConfig.layout, "layout");
   const tags = readSection(fileConfig.tags, "tags");
   const fileManifest = readString(layout.manifest, "layout.manifest");
@@ -226,7 +244,7 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
   // silently distort the done gate. Fail loudly rather than mis-report.
   if (fixmeTag === skipTag) {
     throw new Error(
-      `specproof.config.yaml: tags.fixme and tags.skip must differ; both resolve to "${fixmeTag}"`,
+      `${sourceName}: tags.fixme and tags.skip must differ; both resolve to ${JSON.stringify(fixmeTag)}`,
     );
   }
 

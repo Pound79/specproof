@@ -80,3 +80,33 @@ describe("省略と正しい値は従来どおり受け付ける", () => {
       expect(discoverConfig({ root }).fixmeTag).toBe("@fixme");
     }));
 });
+
+describe("エラーメッセージ", () => {
+  const withFile = (name: string, yaml: string, run: (root: string) => void): void => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "config-message-"));
+    try {
+      writeFileSync(path.join(root, name), yaml);
+      run(root);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+
+  it.each(["specproof.config.yml", "bdd-kit.config.yaml"])("実際に読んだ %s を示す", (name) =>
+    withFile(name, "layout:\n  manifest: [a]\n", (root) => {
+      expect(() => discoverConfig({ root })).toThrow(
+        new RegExp(`^${name.replace(/\./g, "\\.")}: `),
+      );
+    }),
+  );
+
+  it("タグの値に含まれる改行をそのまま出さない", () =>
+    withConfig('tags:\n  fixme: "x\\n::error file=evil::INJECTED"\n', (root) => {
+      expect(() => discoverConfig({ root })).toThrow(/tags\.fixme/);
+      try {
+        discoverConfig({ root });
+      } catch (error) {
+        expect((error as Error).message).not.toContain("\n");
+      }
+    }));
+});
