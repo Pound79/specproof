@@ -39,7 +39,9 @@ const physicalPathOf = (target: string): string => {
 
 /** repo 外・リンク切れ・確かめられないリンク先を、区別せずに同じ文言で拒否する。 */
 const outsideRootError = (refPath: string): Error =>
-  new Error(`Manifest path "${refPath}" is dangling or resolves outside the repository root.`);
+  new Error(
+    `Manifest path ${JSON.stringify(refPath)} is dangling or resolves outside the repository root.`,
+  );
 
 const physicalPathOrUndefined = (target: string): string | undefined => {
   try {

@@ -30,6 +30,7 @@ describe.skipIf(process.platform === "win32")("設定ファイルの読み取り
       writeFileSync(path.join(outside, CONFIG), "tags:\n  fixme: todo\n");
       symlinkSync(path.join(outside, CONFIG), path.join(root, CONFIG));
       expect(() => discoverConfig({ root })).toThrow(/outside the repository root/);
+      expect(() => discoverConfig({ root })).not.toThrow(/Manifest path/);
     }));
 
   it("リンク切れを「設定なし」として黙って既定値にしない", () =>

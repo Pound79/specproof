@@ -104,8 +104,8 @@ const readConfigText = (repoRoot: string, name: string): string => {
   let file: string;
   try {
     file = resolveWithinRoot(repoRoot, name);
-  } catch (error) {
-    throw new Error(`${name}: ${(error as Error).message}`);
+  } catch {
+    throw new Error(`${name} is dangling or resolves outside the repository root.`);
   }
   const fd = openSync(file, constants.O_RDONLY | constants.O_NONBLOCK);
   try {
