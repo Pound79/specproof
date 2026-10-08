@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `strictUnregistered*` に、型の違う値（`implGlobs` に文字列、`"true"` や `yes` の
   真偽値、空文字列、空白を含むタグなど）があると止まる。従来は未設定として扱い、
   `implGlobs` の監査や strict の指定が黙って無効になった。キーの省略と空の値は従来どおり。
+- `specproof-check` は、登録済み feature への別名リンクを未登録と判定しない。登録済みと
+  探索結果を実体で照合する。
 - `specproof-sync` no longer updates a `.feature` to match the implementation
   when only the implementation changed and its observable behavior changed. It
   now stops, shows the implementation diff with the linked spec section, and
