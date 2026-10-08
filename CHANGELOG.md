@@ -85,17 +85,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Playwright テンプレートの認証 setup は、選ばれた project の認証情報が足りないとき
   skip せず失敗する。skip すると、依存する認証済み project が前回の storageState のまま
-  走った。パスワードと newPassword は前後の空白を削らずにそのまま渡す。
+  走った。パスワードと newPassword は前後の空白を削らずにそのまま渡す。認証済み project は
+  共有の setup に依存するため、欠落があると他の認証済み project も実行されない。
 - Flutter テンプレートの `commands.smoke` が `not @slow` を runner に渡していなかった。
   suite の入口が `--dart-define=SPECPROOF_TAGS` のタグ式を `tagExpression` に渡し、
   smoke は `projects[].tags` と同じ式を渡す。
 - `specproof-implement` は `commands.lint` を製品コード側の lint と説明していたが、
   テンプレートの既定値は E2E パッケージを検査する。E2E 側と製品側を分け、製品側は任意の
   `commands.productTypecheck` / `commands.productLint` で検査する。未設定なら推測で
-  埋めず「製品側は未検証」と報告する。
+  埋めず「製品側は未検証」と報告する。オーケストレータ `specproof` の報告様式も同様に分ける。
 - drift-check の workflow は、同じ PR の古い実行を取り消し、コメントを書く直前に PR の
   head と検査したコミットを照合する。遅れて終わった古い実行が、新しい結果のコメントを
-  上書きできた。コメントには検査したコミットを表示する。
+  上書きできた。コメントには検査したコミットを、report 由来の文字列より前に表示する。
 - `specproof init --dir .` が `cd  &&` や `/features` のような壊れた設定を
   生成していた。設定の書き換えは値の範囲だけを差し替え、節見出しのコメントや
   コメントアウトされた環境例の位置を変えない。
