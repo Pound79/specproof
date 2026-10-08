@@ -55,8 +55,8 @@ fixme/skip とその設定値、Scenario自身の理由コメント検査、stri
 phase/verification は新しい `effectiveStateTags` を使用します。red-contract 単独は fixme 扱いしません。
 表示では従来の `TOTAL: N total / M automated / @fixme F / @skip S` 行を保持し、
 新しい統計を別行で表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring は失敗させます。
-シナリオ ID 台帳は [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
-の採択済み未実装契約で、この統計に追加していません。
+[ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
+で決めたシナリオ ID 台帳はまだ実装しておらず、この統計には含まれません。
 
 ### Structural warnings (`check`)
 
@@ -141,8 +141,7 @@ hash は文書中の実際のセクションから計算し、保存済みの基
 
 ### Manifest の criteria
 
-ソースの S2 契約では version 1 の各 `links[]` に `criteria?: string[]` を指定できる。
-既存の配布版 0.2.2 は未更新なので、下流でこの保証を使うには別工程の配布更新が必要。
+0.3.0 以降、version 1 の各 `links[]` に `criteria?: string[]` を指定できる。
 
 ```yaml
 version: 1
