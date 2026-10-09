@@ -34,10 +34,7 @@ describe("feature lint の入力値を保持する", () => {
 
   it("docstring の末尾空白を保持する", () => {
     expect(
-      lint(
-        scenario("a", "I submit:", doc(["value "])),
-        scenario("b", "I submit:", doc(["value"])),
-      ),
+      lint(scenario("a", "I submit:", doc(["value "])), scenario("b", "I submit:", doc(["value"]))),
     ).toEqual([]);
   });
 
@@ -60,9 +57,7 @@ describe("feature lint の入力値を保持する", () => {
   });
 
   it("docstring の空行を保持し、CRLF と LF のみを同一視する", () => {
-    const a = ["Feature: input", scenario("a", "I submit:", doc(["key", "", "value"]))].join(
-      "\n",
-    );
+    const a = ["Feature: input", scenario("a", "I submit:", doc(["key", "", "value"]))].join("\n");
     const b = a.replace("Scenario: a", "Scenario: b").replaceAll("\n", "\r\n");
     expect(
       lintFeatureSet([
