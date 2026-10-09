@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 生成ガイドに「ドラフトの点検」を追加した。bootstrap と new-feature は、書いた
+  シナリオの否定だけの確認・値の無い確認・統制できない前提をハンドオフレポートの
+  「決めてほしいこと」に提案として挙げる。点検はドラフトを書き換えず、採否は人が決める。
+
+### Changed
+
+- `specproof-sync` は、既存シナリオの確認を削る・弱める更新（確認を減らす変更）を
+  spec が明示していない限り行わず、変更の前後を示して停止する。skip / fixme の付与と
+  より緩い step への置き換えも含む。spec が明示している場合も変更の前後を報告に挙げる。
+- bootstrap・new-feature・sync は、`layout.idiomGuide` を設定していても「ドラフトの点検」を
+  `specproof-sync/prompts/system.md` から読む。
+
 ## [0.3.0] - 2026-10-07
 
 ### Added

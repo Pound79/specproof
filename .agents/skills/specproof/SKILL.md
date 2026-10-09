@@ -120,7 +120,9 @@ description: >
    結果を中継するときは、製品 typecheck（`{{config:commands.productTypecheck}}`）/ 製品 lint
    （`{{config:commands.productLint}}`）を別行にし、未設定なら「製品側: 未検証（未設定）」と書く。
    **env が無く smoke 未実行なら green と偽らない**。
-3. **決めてほしいこと（裁定）** — 振る舞い矛盾の権威側・`@skip` の sign-off・adapter/mode 確認。
+3. **決めてほしいこと（裁定）** — 振る舞い矛盾の権威側・`@skip` の sign-off・adapter/mode 確認・
+   ドラフトの点検で挙がった提案（`../specproof-sync/prompts/system.md` の「ドラフトの点検」。
+   採るかどうかを人が決める）。
 4. **やってほしいこと（作業）** — `.env`/認証セットアップ・install・spec の WHY 加筆・`@fixme` の
    自動化・testability backlog（作るべき seam）。
 5. **完了ダッシュボード** — `{{config:commands.traceabilityStats}}`（無ければ
