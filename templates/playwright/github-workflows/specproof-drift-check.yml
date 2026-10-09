@@ -145,9 +145,10 @@ jobs:
               .join('\n');
 
             // failsUnderStrict reflects each warning's kind (unregistered-impl
-            // / unregistered-spec-heading are advisory unless the repo opts
-            // in via strictUnregisteredImpl / strictUnregisteredSpecHeadings
-            // — see docs/config-schema.md). Treat a missing field (older
+            // / unregistered-spec-heading and the feature lint kinds are advisory
+            // unless the repo opts in via strictUnregisteredImpl /
+            // strictUnregisteredSpecHeadings / strictFeatureLint;
+            // possible-contradiction is always advisory — see docs/config-schema.md). Treat a missing field (older
             // specproof-check) as hard so unknown warning kinds never get
             // silently buried in the collapsed section.
             const hardWarnings = report.warnings.filter((w) => w.failsUnderStrict !== false);

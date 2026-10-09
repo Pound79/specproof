@@ -35,6 +35,12 @@ export interface IsCheckFailureOptions {
    *  scan to already-registered files still produces false positives — this
    *  stays warn-only under --strict unless a repo explicitly opts in. */
   strictUnregisteredSpecHeadings?: boolean;
+  /** Opt-in hard enforcement for missing-then, step-order, duplicate-scenario-name
+   *  and duplicate-scenario under
+   *  --strict (config `strictFeatureLint`). Off by default so existing suites
+   *  that have such scenarios keep passing until a repo opts in.
+   *  possible-contradiction never escalates: it is a candidate a human judges. */
+  strictFeatureLint?: boolean;
 }
 
 // Per-kind strict-escalation decision, shared by isCheckFailure (the actual
@@ -55,6 +61,17 @@ export const warningFailsUnderStrict = (
   }
   if (kind === "unregistered-spec-heading") {
     return options.strictUnregisteredSpecHeadings === true;
+  }
+  if (
+    kind === "missing-then" ||
+    kind === "step-order" ||
+    kind === "duplicate-scenario-name" ||
+    kind === "duplicate-scenario"
+  ) {
+    return options.strictFeatureLint === true;
+  }
+  if (kind === "possible-contradiction") {
+    return false;
   }
   return true;
 };
@@ -103,19 +120,24 @@ export interface DisplayWarnings {
   hiddenCount: number;
 }
 
-const UNREGISTERED_IMPL_DISPLAY_LIMIT = 20;
+// Advisory kinds that can fire many times on a real suite are capped so they
+// do not push the other warnings (and GitHub's per-step annotation budget)
+// out of view. The full list stays available in --json.
+const DISPLAY_LIMITS: Partial<Record<DriftWarning["kind"], number>> = {
+  "unregistered-impl": 20,
+  "possible-contradiction": 10,
+};
 
 export const selectWarningsForDisplay = (warnings: DriftWarning[]): DisplayWarnings => {
-  const implWarnings = warnings.filter((warning) => warning.kind === "unregistered-impl");
-  if (implWarnings.length <= UNREGISTERED_IMPL_DISPLAY_LIMIT) {
-    return { shown: warnings, hiddenCount: 0 };
-  }
-  const hiddenCount = implWarnings.length - UNREGISTERED_IMPL_DISPLAY_LIMIT;
-  const truncatedImpl = implWarnings.slice(0, UNREGISTERED_IMPL_DISPLAY_LIMIT);
-  const shown = warnings.filter(
-    (warning) => warning.kind !== "unregistered-impl" || truncatedImpl.includes(warning),
-  );
-  return { shown, hiddenCount };
+  const seen = new Map<DriftWarning["kind"], number>();
+  const shown = warnings.filter((warning) => {
+    const limit = DISPLAY_LIMITS[warning.kind];
+    if (limit === undefined) return true;
+    const count = (seen.get(warning.kind) ?? 0) + 1;
+    seen.set(warning.kind, count);
+    return count <= limit;
+  });
+  return { shown, hiddenCount: warnings.length - shown.length };
 };
 
 export const toGithubAnnotation = (entry: DriftEntry): string => {

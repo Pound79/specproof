@@ -383,6 +383,11 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 | `unregistered-spec-heading` | なし | マニフェストに 1 件以上 spec 参照がある markdown ファイル内で、未登録の見出しが見つかった |
 | `unregistered-impl` | なし | `layout.implGlobs` にマッチするが、どのリンクの `impl[]` にも登録されていない実装ファイル（`implGlobs` 未設定時は検知自体を行わない） |
 | `duplicate-heading` | あり | 登録済み見出しが同一ファイル内に複数回出現し、セクションハッシュが一意に定まらない |
+| `missing-then` | 登録済み feature ならあり | 確認（Then / ならば）が 1 つも無いシナリオ。何も確かめずに通る |
+| `duplicate-scenario` | 登録済み feature ならあり | 背景が同じで、step の並び（表・docstring の引数を含む）も先のシナリオと同じ（名前・ファイルは問わない） |
+| `step-order` | 登録済み feature ならあり | 前提・操作・確認の順番が戻る step（かつ・しかしは直前の種類として読む） |
+| `duplicate-scenario-name` | 登録済み feature ならあり | 同じ feature ファイル・同じ Rule の中で名前が同じシナリオ |
+| `possible-contradiction` | 登録済み feature ならあり | 前提と操作が先のシナリオと同じで、確認だけが違う。矛盾の候補で、判断は人がする |
 
 `unregistered-impl` と `unregistered-spec-heading` は、`--strict` を付けても既定では失敗扱いに
 ならない。`specproof.config.yaml` の `strictUnregisteredImpl: true` / `strictUnregisteredSpecHeadings: true`
@@ -391,6 +396,14 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 `unregistered-spec-heading` は「登録済み spec ファイルに限定」しても、1 つの doc に複数ドメインの
 見出しと意図的にリンクしない見出し（改訂履歴・用語集・非 behavior 節）が同居する実運用では誤検知に
 なりうるための opt-in（ADR 0004: ハード強制は誤検知しない不変条件のみ）。
+
+`missing-then`・`step-order`・`duplicate-scenario-name`・`duplicate-scenario` も既定では `--strict` で失敗させず、`strictFeatureLint: true` で
+opt-in する（既存のスイートに該当シナリオがあっても、直すまで CI を止めないため）。
+`possible-contradiction` は、確認を意図して分けたシナリオでも出るので、`true` でも失敗させない。
+外部の Gherkin linter は同梱しない。利用者のプロジェクトに実行時の依存を増やさないよう、必要な検査は
+specproof-check に持つ。Scenario Outline は値が行ごとに変わるので重複と矛盾の比較から外す。
+`*` や「かつ」だけで書いたシナリオは step の種類が分からないので、確認の有無と順番を判定しない。
+自動化しない印（`tags.fixme` / `tags.skip`）の付いたシナリオは、確認が無くても `missing-then` にしない。
 
 ---
 

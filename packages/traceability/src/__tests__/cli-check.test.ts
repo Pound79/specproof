@@ -320,6 +320,21 @@ describe("attachFailsUnderStrict", () => {
   });
 });
 
+describe("selectWarningsForDisplay の矛盾の候補", () => {
+  it("possible-contradiction は上限を超えた分を隠し、ほかの warning は全部出す", () => {
+    const contradictions = Array.from({ length: 30 }, (_, i) => ({
+      kind: "possible-contradiction" as const,
+      path: "a.feature",
+      message: `c${i}`,
+    }));
+    const hard = { kind: "missing-then" as const, path: "a.feature", message: "m" };
+    const result = selectWarningsForDisplay([...contradictions, hard]);
+    expect(result.shown.filter((w) => w.kind === "possible-contradiction")).toHaveLength(10);
+    expect(result.shown).toContain(hard);
+    expect(result.hiddenCount).toBe(20);
+  });
+});
+
 describe("selectWarningsForDisplay", () => {
   const implWarning = (index: number): DriftWarning => ({
     kind: "unregistered-impl",
