@@ -94,7 +94,8 @@ impl から生成した feature は「**今こう動いている**」の読め�
        1行コメント（`# ...`）が必須**（無いと `{{config:commands.traceabilityCheck}}` が `missing-reason` を出す）。
        Feature・Rule・Examples ではなくシナリオ自身に付け、`@red-contract` と同じシナリオに併用しない。
      壊れたテスト・不安定なテストを一時的に止めるタグは無い。直るまで赤のままにする。
-     `@fixme` / `@skip` と playwright-bdd の `@fail` は退役したので付けない（`retired-tag` になり `--strict` で失敗する）。
+     runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（`@skip` / `@fixme` / playwright-bdd の `@fail`）は使えない
+     （付いていると `disallowed-tag` になり `--strict` で失敗する）。
      **環境限定シナリオ**: 特定の認証プロバイダや外部サービスに依存するシナリオ（例: Google OAuth
      同意画面、実メール送信）は上の状態タグではなく、環境タグ（例: `@google-auth`）を付ける。
      該当環境の `{{config:environments}}` エントリの `excludeTags` にそのタグが含まれていれば

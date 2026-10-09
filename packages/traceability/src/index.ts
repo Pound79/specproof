@@ -38,7 +38,7 @@ export { resolveRepoRoot, resolveDefaultManifestPath } from "./paths.js";
 export {
   discoverConfig,
   OUT_OF_SCOPE_TAG,
-  RETIRED_TAGS,
+  DISALLOWED_TAGS,
   type TraceabilityConfig,
   type DiscoverConfigOverrides,
 } from "./config.js";

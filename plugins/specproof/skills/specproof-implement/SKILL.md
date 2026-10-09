@@ -134,7 +134,7 @@ description: Implement production code (and pending step bodies / page-object me
 - **③ 状態タグの変更を提案（適用せず）** — 現状自動で緑にできない観測仕様は、`@red-contract` のまま RED で残すか、
   人が確かめる `@human`、受け入れ条件から外す `@out-of-scope`（理由コメント必須）への変更を理由付きで
   提案する（specproof-bootstrap の3択と整合）。タグは自分で書き換えず、適用せず提案する。テストを一時的に止める提案はしない（そのためのタグは無く、
-  `@fixme` / `@skip` / `@fail` は退役した）。
+  `@skip` / `@fixme` / `@fail` は使えない）。
 - **④ 部分実装＋残りを pending 明示** — 緑化できたシナリオは進捗として残し、残りは未完/
   なぜ止まったかを明記。pending step の stub body には `{{config:conventions.pendingStubBody}}` を使う。
 

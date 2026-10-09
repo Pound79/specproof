@@ -53,11 +53,11 @@ export interface DiscoverConfigOverrides {
   startDir?: string;
 }
 
-// 退役したタグ。実装待ちは @red-contract、人が確かめる条件は @human、
+// runner がシナリオを止めたり、失敗を想定扱いにしたりするタグ。実装待ちは @red-contract、人が確かめる条件は @human、
 // 受け入れ条件から外すものは @out-of-scope（理由コメント必須）で表す。
-// feature に残っていれば check が retired-tag を出し、stats は完了にしない。
+// feature に付いていれば check が disallowed-tag を出し、stats は完了にしない。
 // @fail は playwright-bdd が「失敗を想定どおり」として扱う印で、落ちるテストを黙らせられるので同じく扱う。
-export const RETIRED_TAGS: readonly string[] = Object.freeze(["@fixme", "@skip", "@fail"]);
+export const DISALLOWED_TAGS: readonly string[] = Object.freeze(["@fixme", "@skip", "@fail"]);
 
 // 受け入れ条件から外す宣言。理由コメントを必須にする。
 export const OUT_OF_SCOPE_TAG = "@out-of-scope";
@@ -229,7 +229,18 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
   const sourceName = source?.name ?? CONFIG_FILENAMES[0];
   const { readSection, readString, readStringArray, readBoolean } = configReaders(sourceName);
   const layout = readSection(fileConfig.layout, "layout");
+  // tags.* は runner 側の設定（slow など）で、この engine は読まない。ただし tags.fixme /
+  // tags.skip は、実行を止めるタグに別名を付ける設定として書かれうる。別名は DISALLOWED_TAGS
+  // で検出できず、止まったシナリオが黙って完了扱いになるので、書かれていたら失敗させる。
+  // 値は出さない（改行で CI のログ行を偽装させない）。
   const tags = readSection(fileConfig.tags, "tags");
+  for (const key of ["fixme", "skip"]) {
+    if (tags[key] !== undefined) {
+      throw new Error(
+        `${sourceName}: tags.${key} is not supported — tags that switch scenarios off cannot be used. Remove it and tag those scenarios with @red-contract (not implemented yet), @human (checked by a person) or @out-of-scope (excluded, with a reason comment).`,
+      );
+    }
+  }
   const fileManifest = readString(layout.manifest, "layout.manifest");
   const filePagesDir = readString(layout.pagesDir, "layout.pagesDir");
   const fileFeaturesDir = readString(layout.featuresDir, "layout.featuresDir");
@@ -264,15 +275,6 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     false,
   );
   const strictFeatureLint = readBoolean(fileConfig.strictFeatureLint, "strictFeatureLint", false);
-  // 退役したキーを黙って無視すると、利用者は古い完了判定が効いていると思い込む。
-  for (const key of ["fixme", "skip"]) {
-    if (tags[key] !== undefined) {
-      throw new Error(
-        `${sourceName}: tags.${key} is retired — remove it. Use @red-contract (not implemented yet), @human (checked by a person) or @out-of-scope (excluded, with a reason comment) instead.`,
-      );
-    }
-  }
-
   return {
     repoRoot,
     manifestPath,

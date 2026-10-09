@@ -86,8 +86,8 @@ bootstrap と new-feature は、ドラフトを書き終えたら、各シナリ
 | `@out-of-scope`              | 受け入れ条件に含めない。E2E では実行しない。直前に理由の1行コメント（`# ...`）必須 |
 
 状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、設定では変えない。
-壊れた・不安定なシナリオを一時的に止めるタグは無い。`@fixme` / `@skip` と playwright-bdd の `@fail`
-（失敗を期待する修飾）は退役したので付けない（`specproof-check` が `retired-tag` を出す）。特定の環境だけで
+壊れた・不安定なシナリオを一時的に止めるタグは無い。runner がシナリオを止めたり失敗を想定扱いにしたりするタグ
+（`@skip` / `@fixme` / playwright-bdd の `@fail`）は使えない（付いていると `specproof-check` が `disallowed-tag` を出す）。特定の環境だけで
 動くシナリオは環境タグと `environments[].excludeTags`（単一のタグだけ。状態タグは書けない）で表す。
 `@red-contract` はテンプレートの絞り込みでは除外しないが、`projects[].tags`・`--grep` などの絞り込みには従う。
 コマンドラインの `--grep-invert @red-contract` は使わない（テンプレートでは止められない）。

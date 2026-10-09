@@ -32,7 +32,7 @@ const makeRepo = async (): Promise<string> => {
       "機能: デモ",
       "",
       "@fixme",
-      "シナリオ: 退役タグが残る",
+      "シナリオ: 使えないタグが残る",
       "  前提 何かがある",
       "",
       "@out-of-scope",
@@ -58,11 +58,11 @@ afterEach(async () => {
 });
 
 describe("config → checkDrift の配線（cli-check の経路）", () => {
-  it("設定の featuresDir 配下で退役タグと理由なしの @out-of-scope を検出する", async () => {
+  it("設定の featuresDir 配下で使えないタグと理由なしの @out-of-scope を検出する", async () => {
     const root = await makeRepo();
     const report = await checkWithConfig(root);
 
-    expect(kinds(report, "retired-tag").map((w) => w.path)).toEqual(["features/demo.feature"]);
+    expect(kinds(report, "disallowed-tag").map((w) => w.path)).toEqual(["features/demo.feature"]);
     expect(kinds(report, "missing-reason").map((w) => w.path)).toEqual(["features/demo.feature"]);
   });
 });
@@ -86,7 +86,7 @@ describe("集計の継承と理由lintの境界", () => {
         { domain: "features/demo.feature", scenarios: parseScenarios(content ?? "") },
       ]);
       // runner は親のタグを継承するので、集計もそれに合わせる。
-      expect(stats.totals).toMatchObject({ total: 1, outOfScope: 1, retired: 0 });
+      expect(stats.totals).toMatchObject({ total: 1, outOfScope: 1, disallowed: 0 });
     },
   );
 
@@ -95,23 +95,26 @@ describe("集計の継承と理由lintの境界", () => {
     ["Rule", "@fixme"],
     ["Feature", "@skip"],
     ["Rule", "@skip"],
-  ])("%sの%sは継承して retired-tag にし、集計でも退役タグとして数える", async (scope, tag) => {
-    const root = await makeRepo();
-    const prefix = scope === "Feature" ? "" : "Feature: 条件\n";
-    await writeFile(
-      path.join(root, "features/demo.feature"),
-      `${prefix}# 旧来の理由\n${tag}\n${scope}: 対象範囲\nScenario: 条件\n Given 条件\n`,
-    );
-    const report = await checkWithConfig(root);
-    expect(kinds(report, "retired-tag")).toHaveLength(1);
-    expect(kinds(report, "retired-tag")[0]?.message).toContain(tag);
-    const content = await readFileOrNull(path.join(root, "features/demo.feature"));
-    const stats = buildStats([
-      { domain: "features/demo.feature", scenarios: parseScenarios(content ?? "") },
-    ]);
-    expect(stats.totals).toMatchObject({ total: 1, retired: 1 });
-    expect(stats.done).toBe(false);
-  });
+  ])(
+    "%sの%sは継承して disallowed-tag にし、集計でも使えないタグとして数える",
+    async (scope, tag) => {
+      const root = await makeRepo();
+      const prefix = scope === "Feature" ? "" : "Feature: 条件\n";
+      await writeFile(
+        path.join(root, "features/demo.feature"),
+        `${prefix}# 旧来の理由\n${tag}\n${scope}: 対象範囲\nScenario: 条件\n Given 条件\n`,
+      );
+      const report = await checkWithConfig(root);
+      expect(kinds(report, "disallowed-tag")).toHaveLength(1);
+      expect(kinds(report, "disallowed-tag")[0]?.message).toContain(tag);
+      const content = await readFileOrNull(path.join(root, "features/demo.feature"));
+      const stats = buildStats([
+        { domain: "features/demo.feature", scenarios: parseScenarios(content ?? "") },
+      ]);
+      expect(stats.totals).toMatchObject({ total: 1, disallowed: 1 });
+      expect(stats.done).toBe(false);
+    },
+  );
 
   it("子で付け直した@out-of-scopeは親の理由で免除しない", async () => {
     const root = await makeRepo();
@@ -135,7 +138,7 @@ describe("集計の継承と理由lintの境界", () => {
 });
 
 describe("config → buildStats の配線（cli-stats の経路）", () => {
-  it("退役タグが残れば done にしない", async () => {
+  it("使えないタグが残れば done にしない", async () => {
     const root = await makeRepo();
     const config = discoverConfig({ root });
 
@@ -149,7 +152,7 @@ describe("config → buildStats の配線（cli-stats の経路）", () => {
     // cli-stats.ts と同じ呼び方。
     const report = buildStats(features);
 
-    expect(report.totals).toMatchObject({ total: 2, retired: 1, outOfScope: 1 });
+    expect(report.totals).toMatchObject({ total: 2, disallowed: 1, outOfScope: 1 });
     expect(report.done).toBe(false);
   });
 });

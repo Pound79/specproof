@@ -79,7 +79,7 @@ describe("3リポジトリの共通 native 材料を静的scannerで読む", () 
       phase: { draft: 0, pending: 1, complete: 2 },
       verification: { machine: 3, human: 0 },
       outOfScope: 0,
-      retired: 0,
+      disallowed: 0,
     });
     expect(stats.domains.map((row) => [row.domain, row.total, row.cases, row.phase])).toEqual([
       ["english", 2, 4, { draft: 0, pending: 1, complete: 1 }],

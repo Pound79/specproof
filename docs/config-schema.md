@@ -21,7 +21,6 @@ traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `fea
 キーの省略と空の値は既定値を使い、値があるのに型が違う場合（`implGlobs` に文字列、
 `strictUnregisteredImpl: "true"`、空文字列など）はエラーで止まる。
 設定したつもりの監査が、型違いで黙って無効になることを防ぐため。
-退役した `tags.fixme` / `tags.skip` は値に関わらずエラーで止まる（下記 `tags` を参照）。
 
 | フィールド | 要否 | 説明 |
 |---|---|---|
@@ -81,7 +80,7 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 
 | ブロック | 要否 | 要点 |
 |---|---|---|
-| `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、ここでは設定しない。`tags.fixme` / `tags.skip` は退役し、書くと traceability エンジンが「retired」のエラーで止まる（[ADR 0009](./adr/0009-retire-fixme-skip.md)）。 |
+| `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、ここでは設定しない。実行を止めるタグに別名を付ける設定になるので、`tags.fixme` / `tags.skip` を書くと読み込みが失敗する（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。 |
 | `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。`tags` には状態タグに触れる式と括弧の対応が取れていない式を書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `env` | required（baseUrl） | 環境変数の論理名。`adminUsername`<sup>+</sup> は authed-admin の条件判定。 |
 | `environments[]` | required（1エントリ以上） | 実行環境プロファイル。環境別の auth / dotenv / excludeTags を宣言。詳細は後述。 |

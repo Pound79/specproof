@@ -7,16 +7,16 @@ import { isCheckFailure } from "../cli-check-format.js";
 import { discoverConfig } from "../config.js";
 import { parseScenarios } from "../feature-scan.js";
 import { buildStats, formatStats } from "../stats.js";
-import { RETIRED_TAGS } from "../index.js";
+import { DISALLOWED_TAGS } from "../index.js";
 
-// @fixme / @skip は退役した。実装待ちは @red-contract、人が確かめる条件は @human、
+// 実行を止めるタグ（@fixme / @skip / @fail）は使えない。実装待ちは @red-contract、人が確かめる条件は @human、
 // 受け入れ条件から外すものは @out-of-scope（理由コメント必須）で表す。
 
 const feature = (lines: string[]): string => ["Feature: f", ...lines].join("\n");
 
-describe("退役タグ", () => {
-  it("公開する退役タグは @fixme・@skip と、失敗を想定扱いにする @fail", () => {
-    expect(RETIRED_TAGS).toEqual(["@fixme", "@skip", "@fail"]);
+describe("使えないタグ", () => {
+  it("使えないタグは @fixme・@skip と、失敗を想定扱いにする @fail", () => {
+    expect(DISALLOWED_TAGS).toEqual(["@fixme", "@skip", "@fail"]);
   });
 });
 
@@ -43,20 +43,20 @@ describe("buildStats", () => {
     ]),
   );
 
-  it("実装待ち・人の確認・対象外・退役タグを数える", () => {
+  it("実装待ち・人の確認・対象外・使えないタグを数える", () => {
     const report = buildStats([{ domain: "a.feature", scenarios }]);
     expect(report.totals).toMatchObject({
       total: 4,
       phase: { draft: 0, pending: 1, complete: 3 },
       verification: { machine: 3, human: 1 },
       outOfScope: 1,
-      retired: 1,
+      disallowed: 1,
     });
     expect(report.totals).not.toHaveProperty("fixme");
     expect(report.totals).not.toHaveProperty("skip");
   });
 
-  it("完了は実装待ち 0 かつ退役タグ 0", () => {
+  it("完了は実装待ち 0 かつ使えないタグ 0", () => {
     expect(buildStats([{ domain: "a.feature", scenarios }]).done).toBe(false);
     const clean = parseScenarios(feature(["  Scenario: s", "    When a", "    Then b"]));
     expect(buildStats([{ domain: "b.feature", scenarios: clean }]).done).toBe(true);
@@ -70,7 +70,7 @@ describe("buildStats", () => {
     const text = formatStats(buildStats([{ domain: "a.feature", scenarios }]));
     expect(text).toContain("out-of-scope 1");
     expect(text).toContain("@red-contract remaining: 1");
-    expect(text).toMatch(/retired tags.*1/);
+    expect(text).toMatch(/tags that switch scenarios off.*1/);
     expect(text).not.toMatch(/@fixme \d/);
   });
 });
@@ -78,19 +78,19 @@ describe("buildStats", () => {
 describe("設定", () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(path.join(os.tmpdir(), "retired-config-"));
+    root = await mkdtemp(path.join(os.tmpdir(), "disallowed-config-"));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
   });
 
   for (const key of ["fixme", "skip"]) {
-    it(`tags.${key} を書いた設定は、退役を知らせて失敗する`, async () => {
+    it(`tags.${key} を書いた設定は読み込みで失敗する（別名にした実行を止めるタグを見逃さない）`, async () => {
       await writeFile(
         path.join(root, "specproof.config.yaml"),
-        `layout:\n  manifest: traceability.yaml\ntags:\n  ${key}: "@${key}"\n`,
+        `layout:\n  manifest: traceability.yaml\ntags:\n  ${key}: "@wip"\n`,
       );
-      expect(() => discoverConfig({ root })).toThrow(/tags\.(fixme|skip).*retired/);
+      expect(() => discoverConfig({ root })).toThrow(new RegExp(`tags\\.${key} is not supported`));
     });
   }
 
@@ -106,7 +106,7 @@ describe("設定", () => {
 describe("checkDrift", () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(path.join(os.tmpdir(), "retired-check-"));
+    root = await mkdtemp(path.join(os.tmpdir(), "disallowed-check-"));
     await mkdir(path.join(root, "features"));
     await writeFile(
       path.join(root, "traceability.yaml"),
@@ -136,16 +136,16 @@ describe("checkDrift", () => {
     return report;
   };
 
-  it("@fixme / @skip（継承を含む）を retired-tag にし、--strict で失敗させる", async () => {
+  it("@fixme / @skip（継承を含む）を disallowed-tag にし、--strict で失敗させる", async () => {
     const report = await warningsFor(
       ["@skip", "Feature: f", "  # reason: x", "  Scenario: s", "    When a", "    Then b"].join(
         "\n",
       ),
     );
-    const retired = report.warnings.filter((warning) => warning.kind === "retired-tag");
-    expect(retired).toHaveLength(1);
-    expect(retired[0].message).toMatch(/@red-contract|@human|@out-of-scope/);
-    expect(isCheckFailure({ ...report, clean: true, warnings: retired }, true)).toBe(true);
+    const disallowed = report.warnings.filter((warning) => warning.kind === "disallowed-tag");
+    expect(disallowed).toHaveLength(1);
+    expect(disallowed[0].message).toMatch(/@red-contract|@human|@out-of-scope/);
+    expect(isCheckFailure({ ...report, clean: true, warnings: disallowed }, true)).toBe(true);
   });
 
   it("理由コメントの無い @out-of-scope を missing-reason にする", async () => {
@@ -245,9 +245,9 @@ describe("checkDrift の @out-of-scope と missing-then", () => {
     }
   });
 
-  it("@fail（失敗を想定扱いにする）も retired-tag にする", async () => {
+  it("@fail（失敗を想定扱いにする）も disallowed-tag にする", async () => {
     expect(
       await kindsFor(feature(["  @fail", "  Scenario: s", "    When a", "    Then b"])),
-    ).toContain("retired-tag");
+    ).toContain("disallowed-tag");
   });
 });

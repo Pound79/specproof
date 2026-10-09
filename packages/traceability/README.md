@@ -30,13 +30,13 @@ npx specproof-stats            # scenario census (phase / verification / out-of-
 - **`check`** compares the current spec/impl/feature hashes against the blessed
   baseline and reports drift per link. `--strict` also fails on unreviewed draft
   markers, all-empty links, `@out-of-scope` scenarios without a reason comment
-  (or with `@out-of-scope` inherited from Feature / Rule / Examples), retired `@fixme` /
+  (or with `@out-of-scope` inherited from Feature / Rule / Examples), disallowed `@fixme` /
   `@skip` / `@fail` tags, and the structural warnings below
   (`unregistered-impl` and `unregistered-spec-heading` excepted — see below).
 - **`update`** re-blesses the manifest hashes after you've reconciled a change.
   Pass `--dry-run` to preview the change list without writing the manifest.
 - **`stats`** produces a scenario census and, with `--strict`, enforces the
-  static half of the "done" gate: no `@red-contract` and no retired `@fixme` /
+  static half of the "done" gate: no `@red-contract` and no disallowed `@fixme` /
   `@skip` / `@fail` may remain. A manifest-registered feature that cannot be
   read (checked whether or not `featuresDir` is scanned), or a configured
   `featuresDir` that does not exist, is reported (listed in `--json` as
@@ -53,11 +53,12 @@ specproof (a team checklist, or an external tool that handles acceptance
 criteria).
 
 The state tags (`@draft` / `@red-contract` / `@human` / `@out-of-scope`) are
-fixed. The config keys `tags.fixme` / `tags.skip` are retired: if
-`specproof.config.yaml` still sets either, every command stops with a
-"retired" error. There is no tag that switches a broken or flaky test off; it
-stays red until fixed. playwright-bdd's `@fail` (expected failure) is retired
-for the same reason, since it makes a failing test pass.
+fixed. There is no tag that switches a broken or flaky test off; it stays red
+until fixed. Tags that make the runner skip a scenario or treat its failure as
+expected (`@skip` / `@fixme` / playwright-bdd's `@fail`) cannot be used: `check`
+reports them as `disallowed-tag` and `stats --strict` fails. A config that sets
+`tags.fixme` / `tags.skip` (an alias for such a tag) fails to load, so an
+aliased tag cannot slip past these checks.
 
 `@out-of-scope` must be on the scenario itself, with its own reason comment:
 inherited from Feature / Rule / Examples it is reported as `missing-reason`,
@@ -84,9 +85,9 @@ it, since it hides pending conditions and makes the run look green.
 ### 静的な phase / verification とケース数
 
 `stats` の各 domain と totals は `total`（条件数）、`cases`、`phase: { draft, pending, complete }`、
-`verification: { machine, human }`、`outOfScope`、`retired` を返します。
-レポート全体の `done` は `@red-contract`（pending）と退役タグがともに 0 件のとき `true` です。
-以前の `automated` / `fixme` / `skip` / `fixmeClean` / `fixmeTag` / `skipTag` は廃止しました。
+`verification: { machine, human }`、`outOfScope`、`disallowed` を返します。
+`disallowed` は使えないタグ（`@skip` / `@fixme` / `@fail`）が付いた条件の数です。
+レポート全体の `done` は `@red-contract`（pending）と使えないタグがともに 0 件のとき `true` です。
 Outline は条件として1件、ケースは複数 Examples の全データ行を合計します。通常 Scenario は1ケースです。
 
 - phase: `@draft` は draft、`@red-contract` は pending、状態タグなしは complete。
@@ -97,17 +98,17 @@ Outline は条件として1件、ケースは複数 Examples の全データ行�
 
 complete は状態タグなしという静的分類です。実行済み GREEN や正式な完了を示しません。
 
-`outOfScope` と `retired` は runner と同じく Gherkin のタグ継承に従い、`effectiveTags`
+`outOfScope` と `disallowed` は runner と同じく Gherkin のタグ継承に従い、`effectiveTags`
 （Feature・Rule・Scenario 自身・Examples のタグ。空行を挟んだタグも含む）で数えます。
-Feature に付けた `@fixme` は配下の全シナリオを retired と数え、strict を満たしません。
-一部の Examples だけに付いた退役タグも、残件を見落とさないよう条件全体に数えます。
+Feature に付けた `@fixme` は配下の全シナリオを disallowed と数え、strict を満たしません。
+一部の Examples だけに付いた使えないタグも、残件を見落とさないよう条件全体に数えます。
 `@out-of-scope` の条件も `total` と phase/verification には含まれます。`done` の判定には影響しません。
 
 `tags` は Scenario 自身の直前タグを返し、`@out-of-scope` の理由コメントの検査はこの範囲だけで
 行います（理由コメントは、空行を挟まずシナリオの直前にある `# ...` 行）。
 phase/verification は `effectiveStateTags` を使用します。
 表示は domain ごとと TOTAL の 1 行ずつ（`N conditions / C cases; phase: ...; verification: ...;
-out-of-scope O`）で、続けて `@red-contract` の残数、退役タグが残っていればその件数を表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring と、それ以外の言語を
+out-of-scope O`）で、続けて `@red-contract` の残数、使えないタグが残っていれば `tags that switch scenarios off (@fixme / @skip / @fail) remaining: N` で始まる行を表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring と、それ以外の言語を
 `# language:` で指定した feature は失敗させます。タグ行は Gherkin と同じく、空白に続く `#` 以降を
 除いて `@` で区切ります（`@smoke@human` は 2 つのタグ）。
 [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
@@ -124,7 +125,7 @@ failing unless `--strict` is passed:
 | `empty-link` | a link whose `spec`/`impl`/`features` are all empty |
 | `unreviewed-draft` | a feature still carries the specproof bootstrap draft marker |
 | `missing-reason` | an `@out-of-scope` scenario has no reason comment (its own tags only), or `@out-of-scope` is inherited from Feature / Rule / Examples — put `@out-of-scope` on each scenario with a reason comment |
-| `retired-tag` | a scenario carries a retired tag (`@fixme` / `@skip` / `@fail`), including one inherited from Feature / Rule / Examples |
+| `disallowed-tag` | a scenario carries a tag that makes the runner skip it or expect its failure (`@fixme` / `@skip` / `@fail`), including one inherited from Feature / Rule / Examples |
 | `unregistered-feature` | a `.feature` file under `featuresDir` that no link registers |
 | `unregistered-spec-heading` | a heading in an already-referenced spec file that no link registers |
 | `unregistered-impl` | a file matching `layout.implGlobs` that no link's `impl[]` registers |

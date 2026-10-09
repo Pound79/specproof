@@ -89,15 +89,15 @@ _Avoid_: 手動テスト, skip
 `missing-reason`、Examples に付けると `specproof-stats` も拒否する。`@red-contract` との併用も `specproof-stats` がエラーにする。
 _Avoid_: skip, 除外（環境タグによる除外と紛らわしい）
 
-**退役タグ（@fixme / @skip / @fail）**:
-以前の「後で自動化する」「当面自動化しない」の印と、playwright-bdd の「失敗を期待する」修飾（`@fail`）。
-どれも落ちる条件を黙らせて完了に見せられる。退役し、残っていれば `specproof-check` が `retired-tag`、`specproof-stats --strict` が失敗を返す。
-壊れたテストを一時的に止める代わりのタグは無く、直るまで赤のままにする（ADR 0009）。
+**使えないタグ（@skip / @fixme / @fail）**:
+runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（playwright-bdd の `@fail` は失敗を期待する修飾）。
+どれも落ちる条件を黙らせて完了に見せられるので使えない。付いていると `specproof-check` が `disallowed-tag` を出し、
+`specproof-stats --strict` が失敗する。壊れたテストを一時的に止めるタグは無く、直るまで赤のままにする（理由は ADR 0009）。
 
 **Done（完了定義）**:
 受け入れ対象（`@out-of-scope` と `@draft` を除く）のすべての条件が、実行して GREEN か、人の確認記録が
-ある `@human` であり、`@red-contract` と退役タグが 0 件の状態。`specproof-stats --strict` が見るのは
-静的な半分（`@red-contract` と退役タグが 0 件）だけで、それも CI に組み込んだリポジトリでしか止まらない
+ある `@human` であり、`@red-contract` と使えないタグが 0 件の状態。`specproof-stats --strict` が見るのは
+静的な半分（`@red-contract` と使えないタグが 0 件）だけで、それも CI に組み込んだリポジトリでしか止まらない
 （drift-check のワークフローテンプレートは実行しない）。`@human` の確認記録は specproof の外で持つ。
 _Avoid_: 全 green, zero-skip
 

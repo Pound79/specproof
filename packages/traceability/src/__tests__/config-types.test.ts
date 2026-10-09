@@ -90,13 +90,14 @@ describe("エラーメッセージ", () => {
     }),
   );
 
-  it("退役したタグ設定の値に含まれる改行をそのまま出さない", () =>
+  it("使えないタグ設定のエラーに、設定の値（改行を含む）を出さない", () =>
     withConfig('tags:\n  fixme: "x\\n::error file=evil::INJECTED"\n', (root) => {
-      expect(() => discoverConfig({ root })).toThrow(/tags\.fixme.*retired/);
+      expect(() => discoverConfig({ root })).toThrow(/tags\.fixme is not supported/);
       try {
         discoverConfig({ root });
       } catch (error) {
         expect((error as Error).message).not.toContain("\n");
+        expect((error as Error).message).not.toContain("INJECTED");
       }
     }));
 });

@@ -5,7 +5,7 @@ import { test } from "node:test";
 
 // 実行しない条件（草案・人が確認・受け入れ対象外）を、どのテンプレートの runner も実行しない。
 // @red-contract は実装待ちとして実行し、落ちるのを観測し続けるので、除外に入れない。
-// テストを一時的に止めるためのタグ（旧 @fixme / @skip）は持たない。
+// テストを一時的に止める手段は持たない。
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const NEVER_RUN = ["@draft", "@human", "@out-of-scope"];
 
@@ -25,7 +25,7 @@ test("Flutter テンプレートは草案・人の確認・対象外を常に実
   assert.match(suite, /_tagExpression\.isEmpty \? _neverRun : '\(\$_tagExpression\) and \$_neverRun'/);
 });
 
-test("テンプレートの設定は退役した tags.fixme / tags.skip を持たない", () => {
+test("テンプレートの設定は実行を止めるタグの設定（tags.fixme / tags.skip）を持たない", () => {
   for (const adapter of ["playwright", "flutter"]) {
     const config = read(`templates/${adapter}/specproof.config.yaml`);
     assert.doesNotMatch(config, /^\s*(fixme|skip):/m, adapter);

@@ -3,12 +3,12 @@ import { parseScenarios } from "../feature-scan.js";
 import { buildStats } from "../stats.js";
 
 // Gherkin のタグは Feature / Rule / Examples から配下へ継承され、runner は継承したタグでも
-// 同じように扱う。静的集計が自身の直前タグしか見ないと、退役タグや @out-of-scope が残る
+// 同じように扱う。静的集計が自身の直前タグしか見ないと、使えないタグや @out-of-scope が残る
 // シナリオを見落とし、完了条件を誤って満たす。
 const census = (content: string) =>
   buildStats([{ domain: "features/demo.feature", scenarios: parseScenarios(content) }]).totals;
 
-describe("退役タグと対象外の集計はタグの継承に従う", () => {
+describe("使えないタグと対象外の集計はタグの継承に従う", () => {
   it("Feature の @fixme を配下の全シナリオに適用する", () => {
     const totals = census(`@fixme
 Feature: 未完成
@@ -17,7 +17,7 @@ Feature: 未完成
   Scenario: 二つ目
     Given 条件
 `);
-    expect(totals).toMatchObject({ total: 2, retired: 2 });
+    expect(totals).toMatchObject({ total: 2, disallowed: 2 });
   });
 
   it("Feature の @fixme があれば done にしない", () => {
@@ -40,7 +40,7 @@ Feature: 未完成
     Scenario: 対象外
       Given 条件
 `);
-    expect(totals).toMatchObject({ total: 2, retired: 1 });
+    expect(totals).toMatchObject({ total: 2, disallowed: 1 });
   });
 
   it("Rule の @out-of-scope はその Rule の配下だけに適用する", () => {
@@ -68,10 +68,10 @@ Feature: 未完成
   Scenario: 離れたタグ
     Given 条件
 `);
-    expect(totals).toMatchObject({ retired: 1 });
+    expect(totals).toMatchObject({ disallowed: 1 });
   });
 
-  it("Outline の一部の Examples だけが @fixme でも、退役タグとして数える", () => {
+  it("Outline の一部の Examples だけが @fixme でも、使えないタグとして数える", () => {
     const totals = census(`Feature: 例
   Scenario Outline: 条件
     Given <値>
@@ -83,12 +83,12 @@ Feature: 未完成
       | 値 |
       | 2 |
 `);
-    expect(totals).toMatchObject({ total: 1, retired: 1, cases: 2 });
+    expect(totals).toMatchObject({ total: 1, disallowed: 1, cases: 2 });
   });
 
   it("継承した @skip と自身の @fixme が重なっても 1 条件として数える", () => {
     const totals = census("@skip\nFeature: 重複\n  @fixme\n  Scenario: 条件\n    Given 条件\n");
-    expect(totals).toMatchObject({ total: 1, retired: 1 });
+    expect(totals).toMatchObject({ total: 1, disallowed: 1 });
   });
 
   it("次の Feature 要素へタグを持ち越さない", () => {
@@ -99,7 +99,7 @@ Feature: 未完成
   Scenario: 完成
     Given 条件
 `);
-    expect(totals).toMatchObject({ total: 2, retired: 1 });
+    expect(totals).toMatchObject({ total: 2, disallowed: 1 });
   });
 });
 

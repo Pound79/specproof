@@ -160,9 +160,9 @@ runner のテンプレートは `@draft` / `@human` / `@out-of-scope` を常に�
 E2E を緑に見せることになるので、使わない。
 
 壊れたテスト・不安定なテストを一時的に止める手段は**用意しない**。直るまで赤のままにする。
-止める印があると、落ちる条件を黙らせて完了に見せられるため。`@fixme` / `@skip` は退役し、feature に残っていれば
-`specproof-check` が `retired-tag` を出す（[ADR 0009](./adr/0009-retire-fixme-skip.md)）。playwright-bdd の `@fail`
-（失敗を期待する修飾）も、落ちるテストを GREEN に見せるので同じく `retired-tag` になる。
+止める印があると、落ちる条件を黙らせて完了に見せられるため（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。
+runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（`@skip` / `@fixme` / playwright-bdd の `@fail`）は使えない。
+付いていると `specproof-check` が `disallowed-tag` を出し、`specproof-stats --strict` が失敗する。
 
 **バケット B の下位種別 — 環境条件付き（B-env）**: 観測可能かつ自動化可能だが**特定の実行環境
 でのみ**再現できる振る舞い（実 Google OAuth 同意画面・実メール送信など）は、状態タグではなく
@@ -173,9 +173,9 @@ E2E を緑に見せることになるので、使わない。
 ### 完了の定義
 
 > **Done = 受け入れ対象（`@out-of-scope` と `@draft` を除く）のすべての条件が、実行して GREEN か、
-> 人の確認記録がある `@human` であり、`@red-contract` と退役タグが 0 件。**
+> 人の確認記録がある `@human` であり、`@red-contract` と使えないタグ（`@skip` / `@fixme` / `@fail`）が 0 件。**
 
-`specproof-stats --strict` が機械的に確かめるのは静的な半分（`@red-contract` 0 件・退役タグ 0 件・
+`specproof-stats --strict` が機械的に確かめるのは静的な半分（`@red-contract` 0 件・使えないタグ 0 件・
 読めない feature が無い）だけ。GREEN は実行結果を、`@human` の確認は記録を別に見る。
 
 - この判定でマージを止められるのは、`specproof-stats --strict` を CI に組み込んだリポジトリだけ。
@@ -440,7 +440,7 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 | `empty-link` | あり | spec/impl/features が全空のリンク（追跡対象なし） |
 | `unreviewed-draft` | 登録済み feature ならあり | feature がまだ specproof のドラフトマーカーを含んでいる（査読前） |
 | `missing-reason` | 登録済み feature ならあり | `@out-of-scope` のシナリオに理由コメントが無い。または `@out-of-scope` を Feature・Rule・Examples から継承している（シナリオごとに付け直し、理由コメントを書く） |
-| `retired-tag` | 登録済み feature ならあり | 退役した `@fixme` / `@skip` / `@fail` が付いている（Feature・Rule・Examples からの継承を含む） |
+| `disallowed-tag` | 登録済み feature ならあり | runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（`@skip` / `@fixme` / `@fail`）が付いている（Feature・Rule・Examples からの継承を含む） |
 | `unregistered-feature` | なし | `featuresDir` 配下に存在するが、どのリンクの `features[]` にも登録されていない `.feature` ファイル |
 | `unregistered-spec-heading` | なし | マニフェストに 1 件以上 spec 参照がある markdown ファイル内で、未登録の見出しが見つかった |
 | `unregistered-impl` | なし | `layout.implGlobs` にマッチするが、どのリンクの `impl[]` にも登録されていない実装ファイル（`implGlobs` 未設定時は検知自体を行わない） |

@@ -241,7 +241,7 @@ describe("warningFailsUnderStrict", () => {
     "empty-link",
     "unreviewed-draft",
     "missing-reason",
-    "retired-tag",
+    "disallowed-tag",
     "unregistered-feature",
     "duplicate-heading",
   ])("always escalates %s, with or without options", (kind) => {

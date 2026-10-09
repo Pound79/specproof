@@ -47,17 +47,17 @@ test('S1: JSON と表示が一致し、残った red-contract は strict で失�
   assert.match(strict.stdout, /@red-contract remaining: 1/);
 });
 
-test('S1: 実装待ちも退役タグも無ければ strict に成功する', async () => {
+test('S1: 実装待ちも実行を止めるタグも無ければ strict に成功する', async () => {
   const run = await runStats('Feature: 条件\nScenario: 完了\n Given 条件\n Then 結果\n', ['--strict']);
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /@red-contract is 0/);
 });
 
-test('S1: 退役した fixme / skip / fail が残れば strict で失敗する', async () => {
+test('S1: 実行を止める fixme / skip / fail が付いていれば strict で失敗する', async () => {
   for (const tag of ['@fixme', '@skip', '@fail']) {
     const run = await runStats(`Feature: 条件\n${tag}\nScenario: 残件\n Given 条件\n`, ['--strict']);
     assert.equal(run.status, 1, run.stderr);
-    assert.match(run.stdout, /retired tags \(@fixme \/ @skip \/ @fail\) remaining: 1/);
+    assert.match(run.stdout, /tags that switch scenarios off \(@fixme \/ @skip \/ @fail\) remaining: 1/);
   }
 });
 

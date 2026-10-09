@@ -131,8 +131,8 @@ description: >
    実装・`@human` の確認と記録・testability backlog（`@human` を自動化するために作るべき seam）。
 5. **完了ダッシュボード** — `{{config:commands.traceabilityStats}}`（無ければ
    `npx -y -p @pound79/specproof-traceability specproof-stats`）で条件数 / phase（draft・pending・complete）/
-   verification（machine・human）/ `@out-of-scope` / 退役タグの残数を集計。`@red-contract`(→0) と
-   退役タグ(→0) が静的な完了条件。green は実行が要り、`@human` は人の確認記録（specproof の外で持つ）が要る点を明示。
+   verification（machine・human）/ `@out-of-scope` / 使えないタグ（`@skip` / `@fixme` / `@fail`）の残数を集計。`@red-contract`(→0) と
+   使えないタグ(→0) が静的な完了条件。green は実行が要り、`@human` は人の確認記録（specproof の外で持つ）が要る点を明示。
    この条件でマージが止まるのは `specproof-stats --strict` を CI に組み込んだ場合だけ（drift-check の
    ワークフローテンプレートは実行しない）なので、組み込んでいなければその旨も書く。
 6. **次の一手** — 次に打つ単一コマンド。

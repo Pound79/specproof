@@ -89,7 +89,7 @@ describe("discoverConfig", () => {
     expect(config.candidateSuffix).toBe("_page.dart");
   });
 
-  it("tags を省略した設定は退役タグの設定項目を持たない", async () => {
+  it("設定はタグ名の設定項目（fixmeTag / skipTag）を持たない", async () => {
     const root = await makeTmp();
     await writeFile(
       path.join(root, "specproof.config.yaml"),

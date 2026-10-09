@@ -13,7 +13,7 @@ import {
 import { parseFeatureScenarios, type ScannedScenario } from "./feature-scan.js";
 import { loadManifest, type TraceabilityLink, type TraceabilityManifest } from "./manifest.js";
 import { resolveWithinRoot } from "./resolve.js";
-import { OUT_OF_SCOPE_TAG, RETIRED_TAGS } from "./config.js";
+import { OUT_OF_SCOPE_TAG, DISALLOWED_TAGS } from "./config.js";
 import { auditUnregisteredImpl } from "./impl-audit.js";
 import { auditSpecHeadings } from "./spec-audit.js";
 import { lintFeatureSet, type FeatureLintKind, type FeatureSource } from "./feature-lint.js";
@@ -42,7 +42,7 @@ export interface DriftWarning {
     | "empty-link"
     | "unreviewed-draft"
     | "missing-reason"
-    | "retired-tag"
+    | "disallowed-tag"
     | "unregistered-feature"
     | "unregistered-spec-heading"
     | "unregistered-impl"
@@ -176,8 +176,8 @@ const missingReasonWarning = (
     linkId,
   );
 
-// 退役した @fixme / @skip。runner が黙って実行しないので、残すと条件が確かめられないまま残る。
-const retiredTagWarning = (
+// runner が実行を止める・失敗を想定扱いにするタグ。付いていると条件が確かめられないまま残る。
+const disallowedTagWarning = (
   featurePath: string,
   scenario: ScannedScenario,
   tag: string,
@@ -185,9 +185,9 @@ const retiredTagWarning = (
 ): DriftWarning =>
   withLink(
     {
-      kind: "retired-tag",
+      kind: "disallowed-tag",
       path: featurePath,
-      message: `scenario "${scenario.name}" (${featurePath}:${scenario.line}) carries the retired tag ${tag} — remove it and use @red-contract (not implemented yet), @human (checked by a person) or ${OUT_OF_SCOPE_TAG} (excluded, with a reason comment)`,
+      message: `scenario "${scenario.name}" (${featurePath}:${scenario.line}) carries ${tag}, which makes the runner skip or mute it — switching a scenario off is not allowed; remove it and use @red-contract (not implemented yet), @human (checked by a person) or ${OUT_OF_SCOPE_TAG} (excluded, with a reason comment)`,
     },
     linkId,
   );
@@ -288,11 +288,11 @@ const lintFeature = async (
       );
     }
     // runner と同じく、Feature / Rule / Examples から継承したタグも見る。
-    const retired = (scenario.effectiveTags ?? scenario.tags).find((tag) =>
-      RETIRED_TAGS.includes(tag),
+    const disallowed = (scenario.effectiveTags ?? scenario.tags).find((tag) =>
+      DISALLOWED_TAGS.includes(tag),
     );
-    if (retired !== undefined) {
-      warnings.push(retiredTagWarning(target.relPath, scenario, retired, target.linkId));
+    if (disallowed !== undefined) {
+      warnings.push(disallowedTagWarning(target.relPath, scenario, disallowed, target.linkId));
     }
   }
   return { warnings, source: { path: target.relPath, content } };
@@ -300,7 +300,7 @@ const lintFeature = async (
 
 export interface CheckDriftOptions {
   /** Repo-relative features dir. When set, every *.feature in it is linted
-   *  (draft marker, retired tags, @out-of-scope reasons, feature lint) —
+   *  (draft marker, disallowed tags, @out-of-scope reasons, feature lint) —
    *  catching files copied in but not registered in the manifest. */
   featuresDir?: string;
   /** Glob patterns (self-implemented matcher; `*` and `**` only) identifying

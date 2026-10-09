@@ -98,7 +98,7 @@ const main = async (): Promise<void> => {
   }
 
   // Read-only by default. Under --strict, an outstanding @red-contract or a
-  // retired @fixme / @skip fails the run so a "done" gate can be wired into CI.
+  // disallowed @fixme / @skip / @fail fails the run so a "done" gate can be wired into CI.
   // 検査対象が欠けた状態は、残件 0 件とは判断できないので同じく失敗させる。
   const incomplete = missingFeatures.length > 0 || missingFeaturesDir !== undefined;
   if (flags.has("--strict") && (!report.done || incomplete)) {

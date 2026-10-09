@@ -237,7 +237,7 @@ describe("checkDrift", () => {
     expect(report.warnings.filter((warning) => warning.kind === "missing-reason")).toEqual([]);
   });
 
-  it("理由コメントがあっても @fixme / @skip は retired-tag にし、先に見つかったタグを名指す", async () => {
+  it("理由コメントがあっても @fixme / @skip は disallowed-tag にし、先に見つかったタグを名指す", async () => {
     await writeFile(
       path.join(root, "features/login.feature"),
       [
@@ -246,7 +246,7 @@ describe("checkDrift", () => {
         "",
         "# 旧来の理由コメント",
         "@fixme @skip",
-        "シナリオ: 両方の退役タグ",
+        "シナリオ: 両方の使えないタグ",
         "  前提 未ログイン状態である",
       ].join("\n"),
       "utf8",
@@ -257,10 +257,10 @@ describe("checkDrift", () => {
       featuresDir: "features",
     });
 
-    const retired = report.warnings.filter((w) => w.kind === "retired-tag");
-    expect(retired).toHaveLength(1);
-    expect(retired[0]).toMatchObject({ path: "features/login.feature", linkId: "login" });
-    expect(retired[0]?.message).toContain("@fixme");
+    const disallowed = report.warnings.filter((w) => w.kind === "disallowed-tag");
+    expect(disallowed).toHaveLength(1);
+    expect(disallowed[0]).toMatchObject({ path: "features/login.feature", linkId: "login" });
+    expect(disallowed[0]?.message).toContain("@fixme");
     expect(report.warnings.filter((w) => w.kind === "missing-reason")).toEqual([]);
   });
 

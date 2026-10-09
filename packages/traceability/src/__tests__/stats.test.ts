@@ -10,7 +10,7 @@ const scenario = (tags: string[]): ScannedScenario => ({
 });
 
 describe("buildStats", () => {
-  it("ドメインごとに対象外と退役タグを数え、TOTAL に合算する", () => {
+  it("ドメインごとに対象外と使えないタグを数え、TOTAL に合算する", () => {
     const features: FeatureScenarios[] = [
       {
         domain: "features/a.feature",
@@ -28,24 +28,24 @@ describe("buildStats", () => {
       domain: "features/a.feature",
       total: 3,
       outOfScope: 0,
-      retired: 1,
+      disallowed: 1,
     });
     expect(report.domains[1]).toMatchObject({
       domain: "features/b.feature",
       total: 2,
       outOfScope: 1,
-      retired: 1, // @fixme と @skip が重なっても 1 条件として数える
+      disallowed: 1, // @fixme と @skip が重なっても 1 条件として数える
     });
     expect(report.totals).toMatchObject({
       domain: "TOTAL",
       total: 5,
       outOfScope: 1,
-      retired: 2,
+      disallowed: 2,
     });
     expect(report.done).toBe(false);
   });
 
-  it("実装待ちも退役タグも無ければ done にする（対象外は妨げない）", () => {
+  it("実装待ちも使えないタグも無ければ done にする（対象外は妨げない）", () => {
     const report = buildStats([
       {
         domain: "features/a.feature",
@@ -57,7 +57,7 @@ describe("buildStats", () => {
     expect(report.totals).toMatchObject({
       total: 3,
       outOfScope: 1,
-      retired: 0,
+      disallowed: 0,
       verification: { machine: 2, human: 1 },
     });
   });
@@ -78,11 +78,11 @@ describe("formatStats", () => {
       "features/a.feature: 3 conditions / 3 cases; phase: draft 0 / pending 1 / complete 2",
     );
     expect(out).toContain("@red-contract remaining: 1");
-    expect(out).toContain("retired tags (@fixme / @skip / @fail) remaining: 1");
+    expect(out).toContain("tags that switch scenarios off (@fixme / @skip / @fail) remaining: 1");
     expect(out).toContain("GREEN requires running");
   });
 
-  it("残件が無ければ完了の行を出し、退役タグの行は出さない", () => {
+  it("残件が無ければ完了の行を出し、使えないタグの行は出さない", () => {
     const out = formatStats(
       buildStats([
         {
@@ -94,6 +94,6 @@ describe("formatStats", () => {
 
     expect(out).toContain("@red-contract is 0");
     expect(out).toContain("out-of-scope 1");
-    expect(out).not.toContain("retired tags");
+    expect(out).not.toContain("tags that switch scenarios off");
   });
 });

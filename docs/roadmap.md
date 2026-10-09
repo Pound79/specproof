@@ -16,9 +16,8 @@ verification は `@human`→human、それ以外→machine。complete は静的�
 Feature/Rule からの状態タグ継承・不正な併記、
 JSON と表示の一致を検査する。
 
-`@fixme` / `@skip` は猶予期間なしで退役した（[ADR 0009](./adr/0009-retire-fixme-skip.md)）。
-従来の automated/fixme/skip 集計と `TOTAL: N total / M automated ...` 行は廃止し、
-`--strict` は `@red-contract` と退役タグが 0 件であることを完了条件にする。
+`--strict` は `@red-contract` と、シナリオを止めたり失敗を想定扱いにしたりするタグ（`@fixme` / `@skip` / `@fail`）が
+0 件であることを完了条件にする（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。
 
 S2 は省略・空配列を許容し、不正型・空文字・制御文字・同一 link 内の重複を拒否する。
 同じ条件 ID を複数 link に置ける多対多を維持し、未知キーも load/update/save と

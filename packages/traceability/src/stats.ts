@@ -1,5 +1,5 @@
 import type { ScannedScenario } from "./feature-scan.js";
-import { OUT_OF_SCOPE_TAG, RETIRED_TAGS } from "./config.js";
+import { OUT_OF_SCOPE_TAG, DISALLOWED_TAGS } from "./config.js";
 
 // A static scenario census per domain (feature file). Whether a scenario is
 // actually GREEN is a runner concern this static engine cannot know.
@@ -12,15 +12,15 @@ export interface DomainStats {
   verification: { machine: number; human: number };
   /** @out-of-scope（受け入れ条件から外す宣言）の付いた条件。 */
   outOfScope: number;
-  /** 退役した @fixme / @skip が（継承を含めて）付いたままの条件。 */
-  retired: number;
+  /** @fixme / @skip / @fail（実行を止めるタグ）が継承を含めて付いた条件。 */
+  disallowed: number;
 }
 
 export interface StatsReport {
   domains: DomainStats[];
   totals: DomainStats;
   // The static half of the done definition: no @red-contract (not implemented
-  // yet) remains and no retired tag is left. GREEN runs and human
+  // yet) remains and no disallowed tag is left. GREEN runs and human
   // confirmation records are outside this static engine.
   done: boolean;
 }
@@ -37,7 +37,7 @@ const emptyStats = (domain: string): DomainStats => ({
   phase: { draft: 0, pending: 0, complete: 0 },
   verification: { machine: 0, human: 0 },
   outOfScope: 0,
-  retired: 0,
+  disallowed: 0,
 });
 
 const statsFor = (domain: string, scenarios: ScannedScenario[]): DomainStats => {
@@ -79,7 +79,8 @@ const statsFor = (domain: string, scenarios: ScannedScenario[]): DomainStats => 
       phase: { ...stats.phase, [phase]: stats.phase[phase] + 1 },
       verification: { ...stats.verification, [verification]: stats.verification[verification] + 1 },
       outOfScope: stats.outOfScope + (effective.includes(OUT_OF_SCOPE_TAG) ? 1 : 0),
-      retired: stats.retired + (effective.some((tag) => RETIRED_TAGS.includes(tag)) ? 1 : 0),
+      disallowed:
+        stats.disallowed + (effective.some((tag) => DISALLOWED_TAGS.includes(tag)) ? 1 : 0),
     };
   }, emptyStats(domain));
 };
@@ -101,11 +102,11 @@ export const buildStats = (features: FeatureScenarios[]): StatsReport => {
         human: acc.verification.human + domain.verification.human,
       },
       outOfScope: acc.outOfScope + domain.outOfScope,
-      retired: acc.retired + domain.retired,
+      disallowed: acc.disallowed + domain.disallowed,
     }),
     emptyStats("TOTAL"),
   );
-  return { domains, totals, done: totals.phase.pending === 0 && totals.retired === 0 };
+  return { domains, totals, done: totals.phase.pending === 0 && totals.disallowed === 0 };
 };
 
 export const formatStats = (report: StatsReport): string => {
@@ -117,11 +118,11 @@ export const formatStats = (report: StatsReport): string => {
     totals.phase.pending === 0
       ? '@red-contract is 0 — the static half of "done" is met. GREEN runs and human confirmation records are still needed.'
       : `@red-contract remaining: ${totals.phase.pending} — implement them to reach done.`;
-  const retiredLine =
-    totals.retired === 0
+  const disallowedLine =
+    totals.disallowed === 0
       ? []
       : [
-          `retired tags (@fixme / @skip / @fail) remaining: ${totals.retired} — remove them; use @red-contract, @human or @out-of-scope instead.`,
+          `tags that switch scenarios off (@fixme / @skip / @fail) remaining: ${totals.disallowed} — remove them; use @red-contract, @human or @out-of-scope instead.`,
         ];
 
   return [
@@ -132,6 +133,6 @@ export const formatStats = (report: StatsReport): string => {
     row(totals),
     "",
     pendingLine,
-    ...retiredLine,
+    ...disallowedLine,
   ].join("\n");
 };

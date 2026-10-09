@@ -248,9 +248,9 @@ Feature: 互換
 `);
     expect(scenario.tags).toEqual(["@slow"]);
     expect(scenario.effectiveStateTags).toEqual(["@human", "@red-contract"]);
-    // Feature から継承した @fixme も退役タグとして数える。
+    // Feature から継承した @fixme も使えないタグとして数える。
     expect(buildStats([{ domain: "互換.feature", scenarios: [scenario] }]).totals).toMatchObject({
-      retired: 1,
+      disallowed: 1,
       outOfScope: 0,
       phase: { pending: 1 },
       verification: { human: 1 },
