@@ -33,12 +33,12 @@ describe("parseScenarios", () => {
     const content = [
       "機能: 例",
       "",
-      "# メール確認コードが要るため自動化しない",
-      "@skip",
+      "# メール確認コードが要るため受け入れ条件から外す",
+      "@out-of-scope",
       "シナリオ: リセット完了",
       "  前提 未ログイン",
       "",
-      "@skip",
+      "@out-of-scope",
       "シナリオ: 理由なし",
       "  前提 未ログイン",
     ].join("\n");
@@ -47,11 +47,11 @@ describe("parseScenarios", () => {
 
     expect(scenarios).toHaveLength(2);
     expect(scenarios[0]).toMatchObject({
-      tags: ["@skip"],
+      tags: ["@out-of-scope"],
       hasReasonComment: true,
     });
     expect(scenarios[1]).toMatchObject({
-      tags: ["@skip"],
+      tags: ["@out-of-scope"],
       hasReasonComment: false,
     });
   });

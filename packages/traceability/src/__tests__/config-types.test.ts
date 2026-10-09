@@ -31,10 +31,6 @@ describe("型の誤った設定値を拒否する", () => {
     ["layout:\n  candidateSuffix: 1\n", /layout\.candidateSuffix/],
     ["layout: features\n", /layout/],
     ["tags: fixme\n", /tags/],
-    ['tags:\n  fixme: "@to do"\n', /tags\.fixme/],
-    ['tags:\n  fixme: ""\n', /tags\.fixme/],
-    ['tags:\n  skip: "@"\n', /tags\.skip/],
-    ['tags:\n  skip: ["@skip"]\n', /tags\.skip/],
     ["- just\n- a list\n", /mapping/],
   ])("%s", (yaml, message) =>
     withConfig(yaml, (root) => {
@@ -49,10 +45,9 @@ describe("省略と正しい値は従来どおり受け付ける", () => {
       const config = discoverConfig({ root });
       expect(config.implGlobs).toBeUndefined();
       expect(config.strictUnregisteredImpl).toBe(false);
-      expect(config.fixmeTag).toBe("@fixme");
     }));
 
-  it("正しい型の値を読み、@ の無いタグは補う", () =>
+  it("正しい型の値を読む", () =>
     withConfig(
       [
         "layout:",
@@ -60,9 +55,6 @@ describe("省略と正しい値は従来どおり受け付ける", () => {
         '  implGlobs: ["src/**/*.ts"]',
         "strictUnregisteredImpl: true",
         "strictUnregisteredSpecHeadings: false",
-        "tags:",
-        "  fixme: todo",
-        '  skip: "@manual"',
         "",
       ].join("\n"),
       (root) => {
@@ -70,14 +62,12 @@ describe("省略と正しい値は従来どおり受け付ける", () => {
         expect(config.featuresDir).toBe("features");
         expect(config.implGlobs).toEqual(["src/**/*.ts"]);
         expect(config.strictUnregisteredImpl).toBe(true);
-        expect(config.fixmeTag).toBe("@todo");
-        expect(config.skipTag).toBe("@manual");
       },
     ));
 
   it("空の設定ファイルは既定値で動く", () =>
     withConfig("", (root) => {
-      expect(discoverConfig({ root }).fixmeTag).toBe("@fixme");
+      expect(discoverConfig({ root }).implGlobs).toBeUndefined();
     }));
 });
 
@@ -100,9 +90,9 @@ describe("エラーメッセージ", () => {
     }),
   );
 
-  it("タグの値に含まれる改行をそのまま出さない", () =>
+  it("退役したタグ設定の値に含まれる改行をそのまま出さない", () =>
     withConfig('tags:\n  fixme: "x\\n::error file=evil::INJECTED"\n', (root) => {
-      expect(() => discoverConfig({ root })).toThrow(/tags\.fixme/);
+      expect(() => discoverConfig({ root })).toThrow(/tags\.fixme.*retired/);
       try {
         discoverConfig({ root });
       } catch (error) {

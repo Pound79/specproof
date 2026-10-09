@@ -99,7 +99,9 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       pendingTags.push(...tags);
       pendingAllTags.push(...tags);
       pendingStateTags.push(
-        ...tags.filter((tag) => ["@draft", "@red-contract", "@human"].includes(tag)),
+        ...tags.filter((tag) =>
+          ["@draft", "@red-contract", "@human", "@out-of-scope"].includes(tag),
+        ),
       );
       continue;
     }

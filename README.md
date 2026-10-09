@@ -87,8 +87,9 @@ Every decision that matters is yours. The AI proposes; you approve.
   implementation-independent, so the same suite must stay green on the new
   stack — before, during, and after the migration.
 - **Contract and acceptance work.** `traceability.yaml` is machine-checkable
-  evidence of spec coverage; `@skip` sign-offs document what is intentionally
-  out of automation scope; the scenario census (`specproof-stats --strict`)
+  evidence of spec coverage; `@out-of-scope` with its required reason comment
+  documents what is intentionally excluded from acceptance, and `@human` marks
+  what a person checks; the scenario census (`specproof-stats --strict`)
   is a done gate you can put in an acceptance checklist.
 
 ## Two ways to work

@@ -29,9 +29,14 @@
    flutter test integration_test/gherkin_suite_test.dart -d macos
    ```
 
-   上は全シナリオを実行する。`--dart-define=SPECPROOF_TAGS="not @slow"` のように Gherkin の
-   タグ式を渡すと、suite がそれを `FlutterTestConfiguration.tagExpression` に渡し、runner が
-   実行時に絞り込む。`commands.smoke` はこの形で `projects[].tags` と同じ式を渡す。
+   上は実行対象のシナリオをすべて実行する。`@draft` / `@human` / `@out-of-scope` はどの指定でも実行しない。
+   `@red-contract` はテンプレートの絞り込みでは除外せず、選ばれたものは実装されるまで RED のまま残る。ただし
+   `SPECPROOF_TAGS` による絞り込み（`not @slow` など）には従う。`@red-contract @human` は `@human` なので実行せず、
+   人が確かめてタグを外すまで実装待ちとして残る。`--dart-define=SPECPROOF_TAGS="not @slow"` のように
+   Gherkin のタグ式を渡すと、suite がそれを上の除外と組み合わせて `FlutterTestConfiguration.tagExpression` に渡し、
+   runner が実行時に絞り込む。`commands.smoke` はこの形で `projects[].tags` と同じ式を渡す。
+   状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）に触れる `SPECPROOF_TAGS`（例: `not @red-contract`）と、
+   括弧の対応が取れていない `SPECPROOF_TAGS` は suite が拒否する。実装待ちの条件を外して E2E を緑に見せないため。
 
 4. **アプリの実画面をテストする場合**: `pubspec.yaml` でアプリへ `path: ..` 依存を追加し、`dependency_overrides: { uuid: ">=4.0.0 <5.0.0" }` を有効化。`appMainFunction` で実アプリの `main()` を起動。
 
@@ -86,7 +91,8 @@ specproof-* skill は `{{config:layout.e2eReadme}}` としてこのファイル�
 ### 仕様の置き場所 と 「テストが難しい ≠ 観測不能」
 
 振る舞いは「自動化の難易度」ではなく「ユーザーが観測可能か」で仕分ける: 観測可能なら
-`.feature` に残す（自動化が難しければ `@fixme`/`@skip` + 理由コメント）。観測不能
+`.feature` に残す（自動化が難しければ `@red-contract` / `@human`、受け入れ条件に含めないなら
+`@out-of-scope` + 理由コメント）。観測不能
 （ステータスコード契約・内部定数・非機能要件など）だけを rationale doc へ回す。
 「テストが難しい」だけを理由に rationale へ逃がさない。
 

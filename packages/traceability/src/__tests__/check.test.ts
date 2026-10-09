@@ -176,7 +176,7 @@ describe("checkDrift", () => {
   it("rejects a feature in an unsupported Gherkin language, naming the file", async () => {
     await writeFile(
       path.join(root, "features/login.feature"),
-      "# language: fr\nFonctionnalité: f\n\n@skip\nScénario: a\n",
+      "# language: fr\nFonctionnalité: f\n\n@out-of-scope\nScénario: a\n",
       "utf8",
     );
     await saveManifest(manifestPath, await buildManifest(root));
@@ -186,15 +186,15 @@ describe("checkDrift", () => {
     );
   });
 
-  it("flags a @skip scenario that has no reason comment", async () => {
+  it("理由コメントの無い @out-of-scope シナリオを missing-reason にする", async () => {
     await writeFile(
       path.join(root, "features/login.feature"),
       [
         "# language: ja",
         "機能: ログイン",
         "",
-        "@skip",
-        "シナリオ: 理由なしスキップ",
+        "@out-of-scope",
+        "シナリオ: 理由なし対象外",
         "  前提 未ログイン状態である",
       ].join("\n"),
       "utf8",
@@ -207,22 +207,22 @@ describe("checkDrift", () => {
 
     expect(report.warnings).toContainEqual(
       expect.objectContaining({
-        kind: "missing-skip-reason",
+        kind: "missing-reason",
         path: "features/login.feature",
         linkId: "login",
       }),
     );
   });
 
-  it("does not flag a @skip scenario that has a reason comment", async () => {
+  it("理由コメントのある @out-of-scope シナリオは missing-reason にしない", async () => {
     await writeFile(
       path.join(root, "features/login.feature"),
       [
         "# language: ja",
         "機能: ログイン",
         "",
-        "# メール確認コードが要るため当面自動化しない",
-        "@skip",
+        "# メール確認コードが要るため今回の受け入れ条件から外す",
+        "@out-of-scope",
         "シナリオ: リセット完了",
         "  前提 未ログイン状態である",
       ].join("\n"),
@@ -234,18 +234,19 @@ describe("checkDrift", () => {
       featuresDir: "features",
     });
 
-    expect(report.warnings.filter((warning) => warning.kind === "missing-skip-reason")).toEqual([]);
+    expect(report.warnings.filter((warning) => warning.kind === "missing-reason")).toEqual([]);
   });
 
-  it("names @fixme (not @skip) when a reason-less scenario carries both", async () => {
+  it("理由コメントがあっても @fixme / @skip は retired-tag にし、先に見つかったタグを名指す", async () => {
     await writeFile(
       path.join(root, "features/login.feature"),
       [
         "# language: ja",
         "機能: ログイン",
         "",
+        "# 旧来の理由コメント",
         "@fixme @skip",
-        "シナリオ: 両方タグだが理由なし",
+        "シナリオ: 両方の退役タグ",
         "  前提 未ログイン状態である",
       ].join("\n"),
       "utf8",
@@ -256,84 +257,11 @@ describe("checkDrift", () => {
       featuresDir: "features",
     });
 
-    const warning = report.warnings.find((w) => w.kind === "missing-skip-reason");
-    expect(warning?.message).toContain("@fixme");
-  });
-
-  it("flags a reason-less custom skip tag when the taxonomy is renamed", async () => {
-    await writeFile(
-      path.join(root, "features/login.feature"),
-      [
-        "# language: ja",
-        "機能: ログイン",
-        "",
-        "@manual",
-        "シナリオ: 理由なし手動",
-        "  前提 未ログイン状態である",
-      ].join("\n"),
-      "utf8",
-    );
-    await saveManifest(manifestPath, await buildManifest(root));
-
-    const report = await checkDrift(manifestPath, root, {
-      featuresDir: "features",
-      reasonRequiredTags: ["@todo", "@manual"],
-    });
-
-    expect(report.warnings).toContainEqual(
-      expect.objectContaining({
-        kind: "missing-skip-reason",
-        path: "features/login.feature",
-        linkId: "login",
-      }),
-    );
-  });
-
-  it("does not flag the default @skip once the taxonomy is renamed away from it", async () => {
-    await writeFile(
-      path.join(root, "features/login.feature"),
-      [
-        "# language: ja",
-        "機能: ログイン",
-        "",
-        "@skip",
-        "シナリオ: 旧タグだが理由なし",
-        "  前提 未ログイン状態である",
-      ].join("\n"),
-      "utf8",
-    );
-    await saveManifest(manifestPath, await buildManifest(root));
-
-    const report = await checkDrift(manifestPath, root, {
-      featuresDir: "features",
-      reasonRequiredTags: ["@todo", "@manual"],
-    });
-
-    expect(report.warnings.filter((w) => w.kind === "missing-skip-reason")).toEqual([]);
-  });
-
-  it("names the custom fixme tag (first in priority) over the skip tag", async () => {
-    await writeFile(
-      path.join(root, "features/login.feature"),
-      [
-        "# language: ja",
-        "機能: ログイン",
-        "",
-        "@todo @manual",
-        "シナリオ: 両方タグだが理由なし",
-        "  前提 未ログイン状態である",
-      ].join("\n"),
-      "utf8",
-    );
-    await saveManifest(manifestPath, await buildManifest(root));
-
-    const report = await checkDrift(manifestPath, root, {
-      featuresDir: "features",
-      reasonRequiredTags: ["@todo", "@manual"],
-    });
-
-    const warning = report.warnings.find((w) => w.kind === "missing-skip-reason");
-    expect(warning?.message).toContain("@todo");
+    const retired = report.warnings.filter((w) => w.kind === "retired-tag");
+    expect(retired).toHaveLength(1);
+    expect(retired[0]).toMatchObject({ path: "features/login.feature", linkId: "login" });
+    expect(retired[0]?.message).toContain("@fixme");
+    expect(report.warnings.filter((w) => w.kind === "missing-reason")).toEqual([]);
   });
 
   it("reports impl drift when an implementation file changes", async () => {

@@ -45,7 +45,8 @@ jobs:
           node-version: 24
 
       # --strict escalates structural warnings (unreviewed draft markers,
-      # missing @fixme/@skip reason comments, empty links) to failures, not
+      # retired @fixme/@skip/@fail tags, @out-of-scope without a reason comment,
+      # empty links) to failures, not
       # just hash drift. --json is captured to drift-report.json for the
       # comment step below; --github-annotations writes "::warning
       # file=...::" lines to this step's own log (stderr), independent of the

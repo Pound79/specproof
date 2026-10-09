@@ -344,20 +344,22 @@ describe("誤検知を避ける", () => {
 
   it("除外タグ（継承を含む）の付いたシナリオは missing-then にしない", () => {
     const content = [
-      "@skip",
+      "@out-of-scope",
       "Feature: f",
       "  # reason: external system",
       "  Scenario: parked",
       "    Given something",
     ].join("\n");
-    const other = ["Feature: g", "  @fixme", "  Scenario: later", "    Given other"].join("\n");
+    const other = ["Feature: g", "  @out-of-scope", "  Scenario: later", "    Given other"].join(
+      "\n",
+    );
     expect(
       lintFeatureSet(
         [
           { path: "a.feature", content },
           { path: "b.feature", content: other },
         ],
-        { exemptTags: ["@fixme", "@skip"] },
+        { exemptTags: ["@out-of-scope"] },
       ),
     ).toEqual([]);
   });

@@ -47,14 +47,19 @@ const setupProject = needsSetup
 // playwright-bdd skips those scenarios at the runner level.
 // ---------------------------------------------------------------------------
 
+// Scenarios the E2E runner never executes, in every environment: @draft (not
+// decided yet), @human (a person checks it) and @out-of-scope (excluded from
+// the acceptance criteria). @red-contract is NOT here: it runs and stays red
+// until implemented. There is deliberately no tag to switch a test off.
+const NEVER_RUN_TAGS = ["@draft", "@human", "@out-of-scope"];
+
 function mergeExcludeTags(
   projectTags: string | undefined,
   env: ReturnType<typeof resolveActiveEnvironment>,
-): string | undefined {
-  if (!env.excludeTags || env.excludeTags.length === 0) {
-    return projectTags || undefined;
-  }
-  const exclusion = env.excludeTags.map((t) => `not ${t}`).join(" and ");
+): string {
+  const exclusion = [...NEVER_RUN_TAGS, ...(env.excludeTags ?? [])]
+    .map((t) => `not ${t}`)
+    .join(" and ");
   if (!projectTags) {
     return exclusion;
   }
@@ -76,8 +81,8 @@ const appProjects = cfg.projects.flatMap((p) => {
         name: p.name,
         features: p.features,
         steps: STEPS,
-        // Pass tags only when the project defines a filter; undefined means
-        // "run all scenarios" (defineBddProject treats undefined correctly).
+        // Always a filter: @draft / @human / @out-of-scope never run, and the
+        // project's own filter and the environment's excludeTags are added.
         tags: effectiveTags,
       }),
       use: {

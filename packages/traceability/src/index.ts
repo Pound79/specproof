@@ -28,7 +28,6 @@ export {
   formatStats,
   type DomainStats,
   type StatsReport,
-  type StatsTags,
   type FeatureScenarios,
 } from "./stats.js";
 
@@ -38,8 +37,8 @@ export { resolveRepoRoot, resolveDefaultManifestPath } from "./paths.js";
 
 export {
   discoverConfig,
-  DEFAULT_FIXME_TAG,
-  DEFAULT_SKIP_TAG,
+  OUT_OF_SCOPE_TAG,
+  RETIRED_TAGS,
   type TraceabilityConfig,
   type DiscoverConfigOverrides,
 } from "./config.js";

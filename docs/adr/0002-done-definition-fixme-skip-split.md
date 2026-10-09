@@ -1,5 +1,7 @@
 # 完了定義と @fixme / @skip の意味的分離
 
+> Superseded by [ADR 0009](./0009-retire-fixme-skip.md)（`@fixme` / `@skip` は退役した）。
+
 greenfield の素朴な「完了 = 全 feature が green」は、観測可能だが決定論化できないバケット B
 （実プロジェクトで約 4 割）と衝突し、到達不能になる。バケット B のシナリオは観測可能なので
 `.feature` に残すが、確認コードのメール受信・共有環境への破壊的操作・実 OAuth 同意画面など

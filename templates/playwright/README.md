@@ -70,7 +70,24 @@ npm run test:smoke
 ```
 
 This generates glue code with `bddgen`, then runs all scenarios that are
-**not** tagged `@slow`.
+**not** tagged `@slow`. Whatever you select, `@draft` / `@human` /
+`@out-of-scope` scenarios never run. The template's own filters never exclude
+`@red-contract`, so selected `@red-contract` scenarios run and stay RED until
+implemented. Positive selection still applies to them: a project's `tags`
+filter (such as `@admin`), a command-line `--grep`, or this command's
+`--grep-invert @slow` selects among `@red-contract` scenarios like any other.
+`@red-contract @human` (implementation pending, verified by a person) does not
+run, because `@human` never runs; it stays pending until a person confirms it
+and removes the tag.
+
+`environments[].excludeTags` in `specproof.config.yaml` accepts only single
+tags (`/^@[^@\s()]+$/`, e.g. `@google-auth`). The config loader in
+`playwright.config.ts` rejects tag expressions and state tags (`@draft`,
+`@red-contract`, `@human`, `@out-of-scope`) there, and rejects a
+`projects[].tags` expression that mentions a state tag or has unbalanced
+parentheses, so `@red-contract` cannot be filtered out through the config to
+make the run look green. A command-line `--grep-invert @red-contract` cannot be
+blocked by the template: do not use it.
 
 ---
 
@@ -185,8 +202,9 @@ existing scenarios are never deleted.
 ### 仕様の置き場所 と 「テストが難しい ≠ 観測不能」
 
 Classify a behavior by whether it is **user-observable**, not by how hard it
-is to automate: observable → keep it in `.feature` (tag `@fixme`/`@skip` with
-a one-line reason if automation is hard); not observable (status-code
+is to automate: observable → keep it in `.feature` (if automation is hard, tag it
+`@red-contract` to automate later, `@human` for a person to check, or
+`@out-of-scope` with a one-line reason comment); not observable (status-code
 contracts, internal constants, non-functional requirements) → rationale doc
 only. Do not move something to the rationale doc merely because it's hard to
 test.

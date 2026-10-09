@@ -131,8 +131,10 @@ description: Implement production code (and pending step bodies / page-object me
 - **② spec/rationale 不足を列挙** — 黒箱で埋まらない内部契約・定数・スコア重みを「要人間
   追記」として提示。該当する典型例は `{{config:examples.internalConstants}}` を参照せよ
   （プロジェクト固有の内部定数一覧が定義されている）。
-- **③ `{{config:tags.fixme}}`/`{{config:tags.skip}}` 化を提案** — 現状自動で緑にできない観測仕様は理由付きで格下げ提案
-  （specproof-bootstrap の3択と整合）。
+- **③ 状態タグの変更を提案（適用せず）** — 現状自動で緑にできない観測仕様は、`@red-contract` のまま RED で残すか、
+  人が確かめる `@human`、受け入れ条件から外す `@out-of-scope`（理由コメント必須）への変更を理由付きで
+  提案する（specproof-bootstrap の3択と整合）。タグは自分で書き換えず、適用せず提案する。テストを一時的に止める提案はしない（そのためのタグは無く、
+  `@fixme` / `@skip` / `@fail` は退役した）。
 - **④ 部分実装＋残りを pending 明示** — 緑化できたシナリオは進捗として残し、残りは未完/
   なぜ止まったかを明記。pending step の stub body には `{{config:conventions.pendingStubBody}}` を使う。
 
@@ -144,24 +146,29 @@ description: Implement production code (and pending step bodies / page-object me
   製品 lint（`{{config:commands.productLint}}`）/ smoke（`{{config:commands.smoke}}`）を
   **PASS / FAIL / SKIPPED(理由)** で。製品側のキーが未設定なら「未検証（未設定）」と書く。
   **正直性契約**: env が無く smoke 未実行なら green と偽らない。E2E 側の検査を製品側の検証として報告しない。
+  smoke の FAIL は「FAIL（想定どおりの RED: @red-contract N 件）」と「FAIL（実際の失敗: M 件）」を分けて書く。
 - gaming 自己点検（①④）: 4項目（ハードコード／テスト入力特例分岐／assertion 骨抜き／入力バリエーション）
   を項目別 OK/NG＋根拠1行で列挙。
 - レビュー実施形態: **独立エージェント**（`{{config:agents.codeReviewer}}` 等）による反証レビュー／
   **自己レビューのみ（独立レビュー未実施）** のいずれかを必ず明記し、指摘と対応を記載。
 - `{{config:tags.slow}}`/`{{config:tags.generate}}`: 「実装済み・未実行」リスト
 - エスカレーション（あれば①〜④）
-- 残: **impl 側 drift の bless**（製品 impl は traceability 追跡対象）・コミット・full run は人間
+- 残: **impl 側 drift の bless**（製品 impl は traceability 追跡対象）・緑化したシナリオの `@red-contract` を
+  外すこと（feature の変更）・コミット・full run は人間
 
 ## Safety rules
 
 - **方向の不変条件**: `impl → feature` 再生成をしない。**feature 本文を黙って書き換えない**
   （修正は escalation ① の提案のみ）。
+- **状態タグを変えない**: 既存シナリオの `@red-contract` / `@human` / `@draft` / `@out-of-scope` を付けたり
+  外したり付け替えたりしない。緑化したシナリオの `@red-contract` を外すことも含め、変更は escalation ③ や
+  レポートの「残」で提案し、人が行う。状態タグを変えて落ちるシナリオを実行から外すのは gaming と同じ扱い。
 - **独立性**: feature と impl を同一パスで共著しない（前提＝人著の RED feature）。
 - **gaming 禁止**: ハードコード・テスト入力特例・assertion 骨抜きをしない。
 - **blast radius**: 対象ドメインの範囲（`{{config:implement.blastRadiusGlobs}}`）に限定。横断/共有
   ファイルは**停止して提案のみ**。`implement.blastRadiusGlobs` が未設定なら、対象ドメインに対応する
   `{{config:layout.implGlobs}}` のファイル群を保守的な既定スコープとする。
-- **自己修正2回上限**、超えたら停止報告。**テストが落ちた状態でコミットしない**。`{{config:tags.slow}}`
+- **自己修正2回上限**、超えたら停止報告。**テストが落ちた状態でコミットしない**（`@red-contract` のシナリオの RED は想定どおり。それ以外の失敗は 1 件でもコミットを止める）。`{{config:tags.slow}}`
   未実行を明示。
 - `{{config:layout.stepFileExt}}` ファイルに `{{config:language}}` テキストを直接書かない（UI 文字列は `{{config:layout.textConstants}}` 定数）。
 - **人間ゲート省略不可**（コミット/bless は人間）。製品コードは `{{config:agents.securityReviewer}}` 必須。

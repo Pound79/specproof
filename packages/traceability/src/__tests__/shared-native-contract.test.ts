@@ -75,19 +75,18 @@ describe("3リポジトリの共通 native 材料を静的scannerで読む", () 
     expect(stats.totals).toEqual({
       domain: "TOTAL",
       total: 3,
-      automated: 3,
-      fixme: 0,
-      skip: 0,
       cases: 5,
       phase: { draft: 0, pending: 1, complete: 2 },
       verification: { machine: 3, human: 0 },
+      outOfScope: 0,
+      retired: 0,
     });
     expect(stats.domains.map((row) => [row.domain, row.total, row.cases, row.phase])).toEqual([
       ["english", 2, 4, { draft: 0, pending: 1, complete: 1 }],
       ["japanese", 1, 1, { draft: 0, pending: 0, complete: 1 }],
     ]);
     expect(formatStats(stats)).toContain("3 conditions / 5 cases");
-    expect(formatStats(stats)).toContain("GREEN requires an actual suite run");
+    expect(formatStats(stats)).toContain("GREEN requires running the suite");
   });
 
   it("共通材料のExamples状態タグを条件全体へ投影しない", () => {

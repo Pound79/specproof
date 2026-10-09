@@ -119,13 +119,21 @@ description: >
    `typecheck` / `lint` は E2E パッケージだけの検査で、製品コードの検証ではない。specproof-implement の
    結果を中継するときは、製品 typecheck（`{{config:commands.productTypecheck}}`）/ 製品 lint
    （`{{config:commands.productLint}}`）を別行にし、未設定なら「製品側: 未検証（未設定）」と書く。
-   **env が無く smoke 未実行なら green と偽らない**。
-3. **決めてほしいこと（裁定）** — 振る舞い矛盾の権威側・`@skip` の sign-off・adapter/mode 確認。
-4. **やってほしいこと（作業）** — `.env`/認証セットアップ・install・spec の WHY 加筆・`@fixme` の
-   自動化・testability backlog（作るべき seam）。
+   **env が無く smoke 未実行なら green と偽らない**。smoke の FAIL は想定どおりの RED と実際の失敗を分けて書く:
+   `@red-contract` のシナリオだけが落ちたなら「FAIL（想定どおりの RED: @red-contract N 件）」、
+   それ以外のシナリオが落ちたなら「FAIL（実際の失敗: M 件）」とし、両方あれば両方を書く。
+   想定どおりの RED だけのときも PASS とは書かない。
+3. **決めてほしいこと（裁定）** — 振る舞い矛盾の権威側・`@out-of-scope` とその理由の承認・
+   `@draft`（状態タグ。`# specproof: draft` マーカーとは別）を作るか（`@red-contract` に付け替えるか）・
+   adapter/mode 確認。
+4. **やってほしいこと（作業）** — `.env`/認証セットアップ・install・spec の WHY 加筆・`@red-contract` の
+   実装・`@human` の確認と記録・testability backlog（`@human` を自動化するために作るべき seam）。
 5. **完了ダッシュボード** — `{{config:commands.traceabilityStats}}`（無ければ
-   `npx -y -p @pound79/specproof-traceability specproof-stats`）で green-候補 / `@fixme`(→0) /
-   `@skip`(要 sign-off) を集計（green は実行が要る点を明示）。
+   `npx -y -p @pound79/specproof-traceability specproof-stats`）で条件数 / phase（draft・pending・complete）/
+   verification（machine・human）/ `@out-of-scope` / 退役タグの残数を集計。`@red-contract`(→0) と
+   退役タグ(→0) が静的な完了条件。green は実行が要り、`@human` は人の確認記録（specproof の外で持つ）が要る点を明示。
+   この条件でマージが止まるのは `specproof-stats --strict` を CI に組み込んだ場合だけ（drift-check の
+   ワークフローテンプレートは実行しない）なので、組み込んでいなければその旨も書く。
 6. **次の一手** — 次に打つ単一コマンド。
 
 ## 7. 継続サイクル（導入後）
@@ -139,7 +147,10 @@ description: >
 - 重い副作用（`npm install` / `flutter create` / テスト実行）は自動実行せず案内する。
 - 検出が曖昧なら必ず 1 問確認（推測着手しない）。
 - 不可逆作業（bless・implement）はドメイン毎にゲート。`# specproof: draft` 残存 feature は実装しない。
-- テストが落ちた状態でコミットしない。`{{config:tags.slow}}` 未実行は明示。
+- テストが落ちた状態でコミットしない。`@red-contract` のシナリオの RED は想定どおりでコミットを止めないが、
+  それ以外の失敗は 1 件でもコミットを止める。`{{config:tags.slow}}` 未実行は明示。
+- 既存シナリオの状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）を付けたり外したり
+  付け替えたりしない。変更は裁定（§6 の 3・4）として提案し、人が行う。
 - コミット / bless は人間。製品コードは `{{config:agents.securityReviewer}}` レビュー必須。
 
 ## 設定解決の境界

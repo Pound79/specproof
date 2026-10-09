@@ -18,7 +18,6 @@ const main = async (): Promise<void> => {
   const config = discoverConfig({ manifest, root });
   const report = await checkDrift(config.manifestPath, config.repoRoot, {
     featuresDir: config.featuresDir,
-    reasonRequiredTags: [config.fixmeTag, config.skipTag],
     implGlobs: config.implGlobs,
   });
   const strict = flags.has("--strict");

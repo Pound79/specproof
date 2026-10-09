@@ -16,6 +16,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   （`possible-contradiction`、矛盾の候補）を warning に出す。Examples を持つシナリオは
   重複と矛盾の比較から外し、表と docstring の引数は step の一部として比べる。`--strict` で失敗させるのは `strictFeatureLint: true` のときの
   前 4 つだけで、矛盾の候補は失敗させない。
+- `specproof-check` が `retired-tag`（`@fixme` / `@skip` / `@fail` が継承を含めて付いた
+  シナリオ）と `missing-reason`（理由コメントの無い `@out-of-scope`、または Feature / Rule /
+  Examples から継承した `@out-of-scope`）を warning に出す。どちらも `--strict` で失敗する。
+  `@fail` は playwright-bdd が失敗を想定どおりとして扱う印で、落ちるテストを黙らせられるため
+  同じく扱う。
+
+### Removed
+
+- **`@fixme` / `@skip` を退役した（移行期間なし）。** 実装待ちは `@red-contract`（実行して
+  落ちるのを観測し続ける）、人が確かめる条件は `@human`、受け入れ条件から外すものは
+  `@out-of-scope`（理由コメント必須）で表す。テストを一時的に止めるタグは持たない
+  （直すまで red のまま）。ADR 0009 が ADR 0002 を置き換える。
+- 設定の `tags.fixme` / `tags.skip` を削除した。書いてあると設定の読み込みが失敗する。
+- 公開 API の `DEFAULT_FIXME_TAG` / `DEFAULT_SKIP_TAG`、`StatsTags`、
+  `CheckDriftOptions.reasonRequiredTags`、warning の `missing-skip-reason` を削除した。
+  代わりに `RETIRED_TAGS` と `OUT_OF_SCOPE_TAG` を公開する。
+
+### Changed
+
+- **`specproof-stats --strict` の完了条件が変わる。** `@red-contract` が 1 件でも残っているか、
+  退役タグが残っていれば失敗する（従来は `@fixme` が 0 なら成功し、`@red-contract` は
+  数えなかった）。JSON から `automated` / `fixme` / `skip` / `fixmeClean` / `fixmeTag` /
+  `skipTag` を除き、`outOfScope` / `retired` / `done` を加えた。表示の行も変わる。
+- テンプレートの runner（Playwright・Flutter）は `@draft` / `@human` / `@out-of-scope` の
+  シナリオを常に実行しない（`@red-contract` に `@human` を併記した条件も実行しない）。
+  Playwright テンプレートは `environments[].excludeTags` に状態タグや単一タグでない値が
+  あるとき、`projects[].tags` が状態タグを含むか括弧が釣り合わないときに設定の読み込みで
+  失敗する。Flutter テンプレートは状態タグを含むか括弧が釣り合わない `SPECPROOF_TAGS` を
+  拒否する。
+- `specproof-stats` は Examples に付けた `@out-of-scope` と、`@out-of-scope` と
+  `@red-contract` の併記を拒否する（実行しないのに完了を止めるため）。
 
 ## [0.3.0] - 2026-10-07
 

@@ -58,8 +58,19 @@ feature ファイルを生成・更新するときは、このガイドに厳密
 | `{{config:tags.generate}}`   | ドメイン固有の重い生成処理を実際に実行する（常に `{{config:tags.slow}}` と併用）  |
 | `{{config:tags.admin}}`      | 管理者ユーザー（`{{config:projects}}` の admin プロジェクト）で実行               |
 | `{{config:tags.user}}`       | 一般ユーザーで実行（admin との対比シナリオに付与）                                |
-| `{{config:tags.fixme}}`      | 後で自動化する意図あり。シナリオは feature に残す。理由コメント必須               |
-| `{{config:tags.skip}}`       | 当面自動化しない。シナリオは feature に残す。rationale リンクをコメントで添える   |
+| `@draft`                     | 作るか未定の草案。E2E では実行しない。完了判定に数えない                          |
+| `@red-contract`              | 実装待ち。`@human` が付いていなければ E2E で実行し、落ちるのを観測し続ける。`@human` と併記した場合は実装待ちのまま人が確かめ、E2E では実行しない。残っている間は完了にならない |
+| `@human`                     | 人が確かめて記録する。E2E では実行しない                                          |
+| `@out-of-scope`              | 受け入れ条件に含めない。E2E では実行しない。直前に理由の1行コメント（`# ...`）必須 |
+
+状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、設定では変えない。
+壊れた・不安定なシナリオを一時的に止めるタグは無い。`@fixme` / `@skip` と playwright-bdd の `@fail`
+（失敗を期待する修飾）は退役したので付けない（`specproof-check` が `retired-tag` を出す）。特定の環境だけで
+動くシナリオは環境タグと `environments[].excludeTags`（単一のタグだけ。状態タグは書けない）で表す。
+`@red-contract` はテンプレートの絞り込みでは除外しないが、`projects[].tags`・`--grep` などの絞り込みには従う。
+コマンドラインの `--grep-invert @red-contract` は使わない（テンプレートでは止められない）。
+`@out-of-scope` は Feature・Rule・Examples ではなくシナリオ自身に付け、`@red-contract` と併用しない。
+既存シナリオの状態タグは人の確認なしに付け外し・付け替えをしない（変更案として提示する）。
 
 ---
 

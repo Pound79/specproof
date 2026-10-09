@@ -81,7 +81,8 @@ config を書く必要も、scaffold を実行する必要も、フラグを覚�
   振る舞いを characterization test として写し取る。feature は実装非依存なので、
   移行先のスタックでも同じスイートが green であり続けることを要求できる。
 - **受託・検収のエビデンス。** `traceability.yaml` は仕様網羅の機械検証可能な証跡。
-  `@skip` の sign-off は「意図的に自動化対象外とした合意」の記録。シナリオ集計
+  理由コメント付きの `@out-of-scope` は「意図的に受け入れ対象外とした合意」の記録、
+  `@human` は人が確かめる条件の印。シナリオ集計
   (`specproof-stats --strict`)は検収チェックリストに載せられる done gate になる。
 
 ## 2 つの導入モード

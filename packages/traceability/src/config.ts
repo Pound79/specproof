@@ -15,12 +15,6 @@ export interface TraceabilityConfig {
   candidateSuffix?: string;
   /** Repo-relative features directory; scanned for unreviewed draft markers. */
   featuresDir?: string;
-  /** Gherkin tag for scenarios awaiting automation; gates "done" (must reach 0)
-   *  and requires a reason comment. From `tags.fixme`; defaults to "@fixme". */
-  fixmeTag: string;
-  /** Gherkin tag for intentionally-excluded scenarios; requires a reason
-   *  comment. From `tags.skip`; defaults to "@skip". */
-  skipTag: string;
   /** Glob patterns (from `layout.implGlobs`) identifying implementation files
    *  that should be registered in some link's impl[]. Undefined (not an empty
    *  array) when the config omits it, so the engine can skip the audit
@@ -59,14 +53,14 @@ export interface DiscoverConfigOverrides {
   startDir?: string;
 }
 
-// Canonical reason-required tags. Repos that rename them via `tags.fixme` /
-// `tags.skip` in specproof.config.yaml keep the same intent; these are the
-// values used when the config omits them (back-compat with the pre-config
-// behaviour and the engine's standalone API). Single source of truth —
-// `stats.ts` and `check.ts` import these instead of re-declaring their own
-// literals (the drift these constants now fix).
-export const DEFAULT_FIXME_TAG = "@fixme";
-export const DEFAULT_SKIP_TAG = "@skip";
+// 退役したタグ。実装待ちは @red-contract、人が確かめる条件は @human、
+// 受け入れ条件から外すものは @out-of-scope（理由コメント必須）で表す。
+// feature に残っていれば check が retired-tag を出し、stats は完了にしない。
+// @fail は playwright-bdd が「失敗を想定どおり」として扱う印で、落ちるテストを黙らせられるので同じく扱う。
+export const RETIRED_TAGS: readonly string[] = Object.freeze(["@fixme", "@skip", "@fail"]);
+
+// 受け入れ条件から外す宣言。理由コメントを必須にする。
+export const OUT_OF_SCOPE_TAG = "@out-of-scope";
 
 const CONFIG_FILENAMES = ["specproof.config.yaml", "specproof.config.yml"];
 
@@ -213,26 +207,7 @@ const configReaders = (source: string) => {
     return value;
   };
 
-  // Gherkin tags always start with "@", and the feature scanner only keeps
-  // "@"-prefixed tokens. A config value missing the "@" (e.g. "todo") would
-  // silently never match a scanned tag and re-introduce the very false-green this
-  // config plumbing fixes — so normalize it to the canonical "@todo" form here.
-  // 空白、空の名前、途中の "@" は単一タグとして一致しないので拒否する。
-  // scanner は "@a@b" を 2 タグに分けるため、そのまま許すと完了 gate が抜ける。
-  // 値は JSON 文字列で示し、改行で CI のログ行（annotation）を偽装させない。
-  const readTag = (value: unknown, key: string, fallback: string): string => {
-    const raw = readString(value, key);
-    if (raw === undefined) return fallback;
-    const tag = raw.startsWith("@") ? raw : `@${raw}`;
-    if (!/^@[^@\s]+$/.test(tag)) {
-      throw new Error(
-        `${source}: ${key} must be a single Gherkin tag (got ${JSON.stringify(raw)})`,
-      );
-    }
-    return tag;
-  };
-
-  return { readSection, readString, readStringArray, readBoolean, readTag };
+  return { readSection, readString, readStringArray, readBoolean };
 };
 
 /**
@@ -240,7 +215,7 @@ const configReaders = (source: string) => {
  *   1. Explicit overrides (--root / --manifest / --pages-dir) win.
  *   2. `layout.*` / `tags.*` fields from specproof.config.yaml (or the
  *      deprecated bdd-kit.config.yaml) at the repo root.
- *   3. Conventional defaults (`traceability.yaml`, "@fixme" / "@skip").
+ *   3. Conventional defaults (`traceability.yaml`).
  *
  * Synchronous because `resolveRepoRoot` may shell out to `git rev-parse`.
  */
@@ -252,8 +227,7 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
   const source = readConfigFile(repoRoot);
   const fileConfig = source?.config ?? {};
   const sourceName = source?.name ?? CONFIG_FILENAMES[0];
-  const { readSection, readString, readStringArray, readBoolean, readTag } =
-    configReaders(sourceName);
+  const { readSection, readString, readStringArray, readBoolean } = configReaders(sourceName);
   const layout = readSection(fileConfig.layout, "layout");
   const tags = readSection(fileConfig.tags, "tags");
   const fileManifest = readString(layout.manifest, "layout.manifest");
@@ -290,14 +264,13 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     false,
   );
   const strictFeatureLint = readBoolean(fileConfig.strictFeatureLint, "strictFeatureLint", false);
-  const fixmeTag = readTag(tags.fixme, "tags.fixme", DEFAULT_FIXME_TAG);
-  const skipTag = readTag(tags.skip, "tags.skip", DEFAULT_SKIP_TAG);
-  // Identical tags collapse the skip bucket into fixme (skip always 0) and
-  // silently distort the done gate. Fail loudly rather than mis-report.
-  if (fixmeTag === skipTag) {
-    throw new Error(
-      `${sourceName}: tags.fixme and tags.skip must differ; both resolve to ${JSON.stringify(fixmeTag)}`,
-    );
+  // 退役したキーを黙って無視すると、利用者は古い完了判定が効いていると思い込む。
+  for (const key of ["fixme", "skip"]) {
+    if (tags[key] !== undefined) {
+      throw new Error(
+        `${sourceName}: tags.${key} is retired — remove it. Use @red-contract (not implemented yet), @human (checked by a person) or @out-of-scope (excluded, with a reason comment) instead.`,
+      );
+    }
   }
 
   return {
@@ -306,8 +279,6 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     pagesDir,
     candidateSuffix,
     featuresDir,
-    fixmeTag,
-    skipTag,
     implGlobs,
     strictUnregisteredImpl,
     strictUnregisteredSpecHeadings,

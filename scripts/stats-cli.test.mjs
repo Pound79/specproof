@@ -28,28 +28,37 @@ const runStats = async (feature, flags) => {
   return result;
 };
 
-test('S1: red-contract は strict に成功し JSON と表示が一致する', async () => {
+test('S1: JSON と表示が一致し、残った red-contract は strict で失敗する', async () => {
   const feature = 'Feature: 条件\n@red-contract @human\nScenario: 未実装\n Given 条件\n';
-  const json = await runStats(feature, ['--strict', '--json']);
+  const json = await runStats(feature, ['--json']);
   assert.equal(json.status, 0, json.stderr);
   const report = JSON.parse(json.stdout);
   assert.equal(report.totals.total, 1);
   assert.equal(report.totals.cases, 1);
-  assert.equal(report.totals.fixme, 0);
+  assert.equal(report.done, false);
+  assert.equal(report.totals.fixme, undefined);
   assert.deepEqual(report.totals.phase, { draft: 0, pending: 1, complete: 0 });
   assert.deepEqual(report.totals.verification, { machine: 0, human: 1 });
-  const text = await runStats(feature, ['--strict']);
+  const text = await runStats(feature, []);
   assert.equal(text.status, 0, text.stderr);
-  assert.match(text.stdout, /TOTAL: 1 total \/ 1 automated \/ @fixme 0 \/ @skip 0/);
-  assert.match(text.stdout, /1 conditions \/ 1 cases/);
-  assert.match(text.stdout, /draft 0 \/ pending 1 \/ complete 0/);
-  assert.match(text.stdout, /machine 0 \/ human 1/);
+  assert.match(text.stdout, /TOTAL: 1 conditions \/ 1 cases; phase: draft 0 \/ pending 1 \/ complete 0; verification: machine 0 \/ human 1; out-of-scope 0/);
+  const strict = await runStats(feature, ['--strict']);
+  assert.equal(strict.status, 1, strict.stderr);
+  assert.match(strict.stdout, /@red-contract remaining: 1/);
 });
 
-test('S1: 従来の fixme は strict で失敗する', async () => {
-  const run = await runStats('Feature: 条件\n@fixme\nScenario: 残件\n Given 条件\n', ['--strict']);
-  assert.equal(run.status, 1, run.stderr);
-  assert.match(run.stdout, /@fixme remaining: 1/);
+test('S1: 実装待ちも退役タグも無ければ strict に成功する', async () => {
+  const run = await runStats('Feature: 条件\nScenario: 完了\n Given 条件\n Then 結果\n', ['--strict']);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /@red-contract is 0/);
+});
+
+test('S1: 退役した fixme / skip / fail が残れば strict で失敗する', async () => {
+  for (const tag of ['@fixme', '@skip', '@fail']) {
+    const run = await runStats(`Feature: 条件\n${tag}\nScenario: 残件\n Given 条件\n`, ['--strict']);
+    assert.equal(run.status, 1, run.stderr);
+    assert.match(run.stdout, /retired tags \(@fixme \/ @skip \/ @fail\) remaining: 1/);
+  }
 });
 
 test('S1: 不正な状態併記は JSON 成功や候補0件にしない', async () => {

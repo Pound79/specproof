@@ -24,49 +24,92 @@ All commands auto-discover `specproof.config.yaml` / `traceability.yaml` from th
 npx specproof-check --json     # detect drift (exit non-zero on drift; --strict for lint gates)
 npx specproof-update           # bless current hashes (single link: --link-id <id>)
 npx specproof-list             # registered domains + bootstrap candidates
-npx specproof-stats            # scenario census (automated / @fixme / @skip; --strict for done gate)
+npx specproof-stats            # scenario census (phase / verification / out-of-scope; --strict for done gate)
 ```
 
 - **`check`** compares the current spec/impl/feature hashes against the blessed
   baseline and reports drift per link. `--strict` also fails on unreviewed draft
-  markers, all-empty links, missing `@skip` / `@fixme` reason comments, and the
-  structural warnings below (`unregistered-impl` and `unregistered-spec-heading`
-  excepted — see below).
+  markers, all-empty links, `@out-of-scope` scenarios without a reason comment
+  (or with `@out-of-scope` inherited from Feature / Rule / Examples), retired `@fixme` /
+  `@skip` / `@fail` tags, and the structural warnings below
+  (`unregistered-impl` and `unregistered-spec-heading` excepted — see below).
 - **`update`** re-blesses the manifest hashes after you've reconciled a change.
   Pass `--dry-run` to preview the change list without writing the manifest.
 - **`stats`** produces a scenario census and, with `--strict`, enforces the
-  "done" gate (`@fixme` must be 0). A manifest-registered feature that cannot be
+  static half of the "done" gate: no `@red-contract` and no retired `@fixme` /
+  `@skip` / `@fail` may remain. A manifest-registered feature that cannot be
   read (checked whether or not `featuresDir` is scanned), or a configured
   `featuresDir` that does not exist, is reported (listed in `--json` as
   `missingFeatures` / `missingFeaturesDir`) and also fails `--strict`, because
-  missing input cannot prove that no `@fixme` remains.
+  missing input cannot prove that no `@red-contract` remains. GREEN runs and
+  human confirmation of `@human` scenarios are outside this static gate.
+
+The done gate only blocks anything where `specproof-stats --strict` is wired
+into CI. The bundled drift-check workflow templates run `specproof-check
+--strict`, not `specproof-stats --strict`; add the latter to your CI to enforce
+done. `@human` scenarios are only counted: completing them needs human
+confirmation records, which specproof does not keep — keep them outside
+specproof (a team checklist, or an external tool that handles acceptance
+criteria).
+
+The state tags (`@draft` / `@red-contract` / `@human` / `@out-of-scope`) are
+fixed. The config keys `tags.fixme` / `tags.skip` are retired: if
+`specproof.config.yaml` still sets either, every command stops with a
+"retired" error. There is no tag that switches a broken or flaky test off; it
+stays red until fixed. playwright-bdd's `@fail` (expected failure) is retired
+for the same reason, since it makes a failing test pass.
+
+`@out-of-scope` must be on the scenario itself, with its own reason comment:
+inherited from Feature / Rule / Examples it is reported as `missing-reason`,
+and on Examples `stats` also rejects it like the other state tags. `stats` also rejects a
+scenario that carries both `@out-of-scope` and `@red-contract`.
+
+The runner templates always exclude `@draft` / `@human` / `@out-of-scope` and
+never exclude `@red-contract` through their own filters. Positive selection
+still applies to `@red-contract` scenarios: a project's `tags` filter (such as
+`@admin`), a command-line `--grep`, or the smoke command's
+`--grep-invert @slow` selects among them like any other scenario.
+`@red-contract @human` (implementation pending, verified by a person) is valid
+and is not run by E2E, because `@human` never runs; it stays pending until a
+person confirms it and removes the tag.
+
+The Playwright template's config loader rejects an `environments[].excludeTags`
+entry that is not a single tag (`/^@[^@\s()]+$/`) or that is a state tag, and a
+`projects[].tags` expression that mentions a state tag or has unbalanced
+parentheses. The Flutter template refuses a `SPECPROOF_TAGS` expression that
+mentions any state tag or has unbalanced parentheses. A command-line
+`--grep-invert @red-contract` cannot be blocked by the templates: do not use
+it, since it hides pending conditions and makes the run look green.
 
 ### 静的な phase / verification とケース数
 
-`stats` の各 domain と totals は従来の `total`（条件数）、automated/fixme/skip に加えて、
-`cases`、`phase: { draft, pending, complete }`、`verification: { machine, human }` を返します。
+`stats` の各 domain と totals は `total`（条件数）、`cases`、`phase: { draft, pending, complete }`、
+`verification: { machine, human }`、`outOfScope`、`retired` を返します。
+レポート全体の `done` は `@red-contract`（pending）と退役タグがともに 0 件のとき `true` です。
+以前の `automated` / `fixme` / `skip` / `fixmeClean` / `fixmeTag` / `skipTag` は廃止しました。
 Outline は条件として1件、ケースは複数 Examples の全データ行を合計します。通常 Scenario は1ケースです。
 
 - phase: `@draft` は draft、`@red-contract` は pending、状態タグなしは complete。
 - verification: `@human` は human、その他は machine。phase と別軸です。
 - phase/verification の状態タグだけを Feature/Rule から継承し、次の Rule には前の Rule の状態を持ち越しません。
-- 継承を含む `@draft` と `@red-contract` の併記、Examples の `@draft` / `@red-contract` /
-  `@human` はエラーです。Examples 行の状態を条件全体へ投影できないためです。
+- 継承を含む `@draft` と `@red-contract` の併記、同じシナリオでの `@out-of-scope` と `@red-contract` の併記、
+  Examples の `@draft` / `@red-contract` / `@human` / `@out-of-scope` はエラーです。Examples 行の状態を条件全体へ投影できないためです。
 
 complete は状態タグなしという静的分類です。実行済み GREEN や正式な完了を示しません。
 
-fixme/skip の集計は runner と同じく Gherkin のタグ継承に従い、`effectiveTags`
-（Feature・Rule・Scenario 自身・Examples のタグ。空行を挟んだタグも含む）で行います。
-Feature に付けた `@fixme` は配下の全シナリオを fixme と数え、strict の fixme=0 を満たしません。
-一部の Examples だけに付いた `@fixme` / `@skip` も、残件を見落とさないよう条件全体に数えます。
-両方が付いた条件は fixme として数えます。
+`outOfScope` と `retired` は runner と同じく Gherkin のタグ継承に従い、`effectiveTags`
+（Feature・Rule・Scenario 自身・Examples のタグ。空行を挟んだタグも含む）で数えます。
+Feature に付けた `@fixme` は配下の全シナリオを retired と数え、strict を満たしません。
+一部の Examples だけに付いた退役タグも、残件を見落とさないよう条件全体に数えます。
+`@out-of-scope` の条件も `total` と phase/verification には含まれます。`done` の判定には影響しません。
 
-`tags` は Scenario 自身の直前タグを返し、理由コメントの検査はこの範囲だけで行います。
-phase/verification は `effectiveStateTags` を使用します。red-contract 単独は fixme 扱いしません。
-表示では従来の `TOTAL: N total / M automated / @fixme F / @skip S` 行を保持し、
-新しい統計を別行で表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring と、それ以外の言語を
+`tags` は Scenario 自身の直前タグを返し、`@out-of-scope` の理由コメントの検査はこの範囲だけで
+行います（理由コメントは、空行を挟まずシナリオの直前にある `# ...` 行）。
+phase/verification は `effectiveStateTags` を使用します。
+表示は domain ごとと TOTAL の 1 行ずつ（`N conditions / C cases; phase: ...; verification: ...;
+out-of-scope O`）で、続けて `@red-contract` の残数、退役タグが残っていればその件数を表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring と、それ以外の言語を
 `# language:` で指定した feature は失敗させます。タグ行は Gherkin と同じく、空白に続く `#` 以降を
-除いて `@` で区切ります（`@smoke@fixme` は 2 つのタグ）。
+除いて `@` で区切ります（`@smoke@human` は 2 つのタグ）。
 [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
 で決めたシナリオ ID 台帳はまだ実装しておらず、この統計には含まれません。
 
@@ -80,7 +123,8 @@ failing unless `--strict` is passed:
 |---|---|
 | `empty-link` | a link whose `spec`/`impl`/`features` are all empty |
 | `unreviewed-draft` | a feature still carries the specproof bootstrap draft marker |
-| `missing-skip-reason` | a `@fixme`/`@skip` scenario has no reason comment |
+| `missing-reason` | an `@out-of-scope` scenario has no reason comment (its own tags only), or `@out-of-scope` is inherited from Feature / Rule / Examples — put `@out-of-scope` on each scenario with a reason comment |
+| `retired-tag` | a scenario carries a retired tag (`@fixme` / `@skip` / `@fail`), including one inherited from Feature / Rule / Examples |
 | `unregistered-feature` | a `.feature` file under `featuresDir` that no link registers |
 | `unregistered-spec-heading` | a heading in an already-referenced spec file that no link registers |
 | `unregistered-impl` | a file matching `layout.implGlobs` that no link's `impl[]` registers |
@@ -110,8 +154,8 @@ scenarios may split assertions on purpose, so only a human can tell a real
 contradiction. Scenarios with Examples are left out of the duplicate and
 contradiction comparison, and so are Scenario Outlines. Scenarios written only
 with `*` / And / But steps are not checked for `missing-then` or `step-order`
-(their step types are unknown), and neither are scenarios carrying the
-`tags.fixme` / `tags.skip` tags for `missing-then`. At most 10
+(their step types are unknown), and `@out-of-scope` scenarios are not
+checked for `missing-then`. At most 10
 `possible-contradiction` warnings are printed; `--json` has them all.
 
 Because `unregistered-impl` / `unregistered-spec-heading` don't escalate
