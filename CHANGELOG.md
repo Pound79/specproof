@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Examples から継承した `@out-of-scope`）を warning に出す。どちらも `--strict` で失敗する。
   `@fail` は playwright-bdd が失敗を想定どおりとして扱う印で、落ちるテストを黙らせられるため
   同じく扱う。
+- 生成ガイドに「ドラフトの点検」を追加した。bootstrap と new-feature は、書いた
+  シナリオの否定だけの確認・値の無い確認・統制できない前提をハンドオフレポートの
+  「決めてほしいこと」に提案として挙げる。点検はドラフトを書き換えず、採否は人が決める。
 
 ### Removed
 
@@ -47,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   拒否する。
 - `specproof-stats` は Examples に付けた `@out-of-scope` と、`@out-of-scope` と
   `@red-contract` の併記を拒否する（実行しないのに完了を止めるため）。
+- `specproof-sync` は、既存シナリオの確認を削る・弱める更新（確認を減らす変更）を
+  spec が明示していない限り行わず、変更の前後を示して停止する。より緩い step への
+  置き換えと、既存シナリオの状態タグの付け替えも含む。spec が明示している場合も変更の
+  前後を報告に挙げる。
+- bootstrap・new-feature・sync は、`layout.idiomGuide` を設定していても「ドラフトの点検」を
+  `specproof-sync/prompts/system.md` から読む。
 
 ## [0.3.0] - 2026-10-07
 

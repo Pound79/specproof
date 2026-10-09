@@ -124,6 +124,61 @@ test("オーケストレータの報告も E2E 側と製品側の検証を分け
   assert.match(handoff, /未設定なら[^\n]*未検証/);
 });
 
+// start から end の手前までを切り出す。どちらかが見つからなければ失敗させ、
+// 「見つからずファイル全体を検査して通る」を防ぐ。
+const between = (text, start, end) => {
+  const from = text.indexOf(start);
+  assert.ok(from >= 0, `not found: ${start}`);
+  const to = text.indexOf(end, from + start.length);
+  assert.ok(to >= 0, `not found after ${start}: ${JSON.stringify(end)}`);
+  return text.slice(from, to);
+};
+
+test("生成ガイドがドラフトの点検 4 項目を持ち、点検は提案だけにする", () => {
+  // 条件の書き方の弱さ（否定だけの確認・値の無い確認など）を、人のレビュー任せにせず
+  // AI が提案として挙げる。提案に留め、feature 本文を黙って書き換えない。
+  const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
+  const section = between(guide, "## ドラフトの点検", "\n---");
+  // 各項目は、項目名と提案の要点が表の同じ行にあること（別の節の文言で通らないようにする）
+  const row = (name) => section.split("\n").find((line) => line.startsWith(`| ${name} |`)) ?? "";
+  assert.match(row("否定だけの確認"), /肯定で確かめる行/);
+  assert.match(row("否定だけの確認"), /消さずに残す/);
+  assert.match(row("値の無い確認"), /値を推測しない/);
+  assert.match(row("統制できない前提"), /`@human`（人が確かめて記録を残す）を提案/);
+  assert.match(row("確認を減らす変更"), /`@out-of-scope` に変える、`@red-contract` を外す/);
+  assert.match(row("確認を減らす変更"), /停止/);
+  assert.match(section, /点検の結果でドラフトを書き換えない/);
+  assert.match(section, /idiomGuide.*を設定していても/);
+});
+
+test("bootstrap と new-feature はドラフトの点検を報告の裁定に回し、書き換えない", () => {
+  const steps = {
+    "specproof-bootstrap": ["あわせて、`../specproof-sync/prompts/system.md`", "\n7. "],
+    "specproof-new-feature": ["7. 作成物の一覧", "\n## "],
+  };
+  for (const [name, [start, end]] of Object.entries(steps)) {
+    const step = between(read(`plugins/specproof/skills/${name}/SKILL.md`), start, end);
+    assert.match(step, /「ドラフトの点検」/, name);
+    assert.match(step, /「決めてほしいこと」に提案として並べる/, name);
+    assert.match(step, /書き換えない/, name);
+    assert.match(step, /idiomGuide.*を設定していても/, name);
+  }
+  const orchestrator = read("plugins/specproof/skills/specproof/SKILL.md");
+  assert.match(between(orchestrator, "**決めてほしいこと", "**やってほしいこと"), /ドラフトの点検/);
+});
+
+test("sync は spec の明示が無い確認を減らす変更を行わず停止する", () => {
+  const skill = read("plugins/specproof/skills/specproof-sync/SKILL.md");
+  const rule = between(between(skill, "### 3. Feature / steps の更新", "### 4. "), "6. **確認を減らす変更", "\n\n");
+  assert.match(rule, /spec が明示していない限り行わない/);
+  assert.match(rule, /feature \/ manifest を変更せずに停止/);
+  assert.match(rule, /`@out-of-scope` に変える/);
+  assert.match(between(skill, "| spec のみ changed", "\n"), /Step 3 の 6/);
+  const methodology = read("docs/methodology.md");
+  assert.match(between(methodology, "| spec のみ changed", "\n"), /確認を減らす更新は spec の明示が要る/);
+  assert.match(between(methodology, "### 既存シナリオを削除しない原則", "\n### "), /確認を減らす変更/);
+});
+
 // drift-check のコメント投稿スクリプトを、GitHub API を模したオブジェクトで実際に実行する。
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
 const runCommentScript = async (

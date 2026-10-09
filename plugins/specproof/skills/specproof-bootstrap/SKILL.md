@@ -133,6 +133,10 @@ impl から生成した feature は「**今こう動いている**」の読め�
    - 別エンドポイント／別ページの操作フロー
      観測可能なら feature に追加し（自動化が難しければ Step 3 に従い `@red-contract`/`@human`/`@out-of-scope`）、
      観測不能なら rationale doc へ回す。漏れを `coverageNotes` に残す。
+   あわせて、`../specproof-sync/prompts/system.md` の「ドラフトの点検」（否定だけの確認・値の無い確認・
+   統制できない前提。`{{config:layout.idiomGuide}}` を設定していても、この節はここを読む）を
+   全シナリオに当て、該当を報告の「決めてほしいこと」に提案として並べる。点検の結果で
+   ドラフトを書き換えない（採否は Step 7 の査読で人が決める）。
 7. **人間の査読ゲート（必須）**: ユーザーがドラフトを読み、意図を刻印（編集・取捨選択し、
    `# specproof: draft` マーカー行を削除）してから `{{config:layout.featuresDir}}/` へ移す。移したら新規 step 句のうち既存 steps で賄えないものを
    `specproof-new-feature` の Step 4 と同様に stub 化する（既存 `{{config:layout.stepsDir}}/*{{config:layout.stepFileSuffix}}` への追加を優先し、
