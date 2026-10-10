@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `specproof-check` が feature の中身を lint する。確認（Then）の無いシナリオ
+  （`missing-then`）、前提・操作・確認の順番が戻る step（`step-order`）、同じファイル内の
+  シナリオ名の重複（`duplicate-scenario-name`）、背景を含めた step の並びが同じシナリオ
+  （`duplicate-scenario`、名前とファイルは問わない）、前提と操作が同じで確認だけが違う組
+  （`possible-contradiction`、矛盾の候補）を warning に出す。Examples を持つシナリオは
+  重複と矛盾の比較から外し、表と docstring の引数は step の一部として比べる。`--strict` で失敗させるのは `strictFeatureLint: true` のときの
+  前 4 つだけで、矛盾の候補は失敗させない。
+
 - 生成ガイドに「ドラフトの点検」を追加した。bootstrap と new-feature は、書いた
   シナリオの否定だけの確認・値の無い確認・統制できない前提をハンドオフレポートの
   「決めてほしいこと」に提案として挙げる。点検はドラフトを書き換えず、採否は人が決める。
@@ -18,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `specproof-sync` は、既存シナリオの確認を削る・弱める更新（確認を減らす変更）を
   spec が明示していない限り行わず、変更の前後を示して停止する。skip / fixme の付与と
   より緩い step への置き換えも含む。spec が明示している場合も変更の前後を報告に挙げる。
+- sync は全対象リンクの削除・緩和を編集前に確認する。シナリオの削除にも spec の明示と
+  人間の裁定を要し、タグ継承による実行除外と Examples の行の削除も確認の削減に含める。
 - bootstrap・new-feature・sync は、`layout.idiomGuide` を設定していても「ドラフトの点検」を
   `specproof-sync/prompts/system.md` から読む。
 

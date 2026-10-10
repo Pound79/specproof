@@ -25,6 +25,7 @@ const main = async (): Promise<void> => {
   const strictOptions = {
     strictUnregisteredImpl: config.strictUnregisteredImpl,
     strictUnregisteredSpecHeadings: config.strictUnregisteredSpecHeadings,
+    strictFeatureLint: config.strictFeatureLint,
   };
   const { shown: shownWarnings, hiddenCount } = selectWarningsForDisplay(report.warnings);
 

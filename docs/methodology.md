@@ -183,14 +183,18 @@ drift 検知（`specproof-check`）の後、`specproof-sync` は次の決定表�
 ### 既存シナリオを削除しない原則
 
 `specproof-sync` は feature 更新時に既存シナリオを削除しない。
-仕様・実装上で機能が明示的に削除されていない限り、シナリオの消失は
-「テストが壊れたから消した」（silent failure）と区別できない。
+リンクされた spec が機能の削除を明示していない限り、シナリオの消失は
+「テストが壊れたから消した」（silent failure）と区別できない。実装の削除だけでは削除を許可しない。
 削除は仕様側の明示的な意図に紐付けて、人間の判断で行う。
+変更の前後と根拠の spec 節を報告と PR 本文に必ず挙げる。
 
 シナリオを残したまま確認だけを減らす変更（「ならば」「かつ」の行を削る、否定だけにする、
 具体的な値を外す、より緩い step に置き換える、既存シナリオに skip / fixme を付ける）も同じ扱いに
-する。`specproof-sync` はこの**確認を減らす変更**を、spec が明示していない限り行わず、停止して
-変更の前後を人に示す。spec が明示している場合も、変更の前後と根拠の spec 節を報告に挙げる。
+する。Feature / Rule / Examples からのタグ継承による実行除外と、Examples の行の削除も含む。
+`specproof-sync` はこの**確認を減らす変更**を、spec が明示していない限り行わず、停止して
+変更の前後を人に示す。spec が明示している場合も、変更の前後と根拠の spec 節を報告と PR 本文に挙げる。
+全対象リンクの変更案を編集前に確認し、削除・緩和の根拠が全件揃うまで
+feature / steps / page objects / manifest を変更しない。spec の根拠が無ければ加筆を求める。
 テストが通るように確認を緩めると、シナリオの削除と同じく回帰を見逃す。
 
 ### ドラフトの点検
@@ -312,7 +316,7 @@ SHA-256 ハッシュと共に記録する YAML ファイルである。
 他の 2 者が追随しているかを機械的に検証できなければ、E2E テストは「テストが存在するが
 仕様とずれている」というサイレントな不整合を生む。
 
-マニフェストに SHA-256 ハッシュを刻み込むことで、**AI を一切介さずに決定論的**に
+マニフェストに SHA-256 ハッシュを刻み込むことで、**AI を一切介さずに決定論的に**
 drift を検出できる。これがこの方法論全体を支える根幹の仕組みである。
 
 ### マニフェストのエントリ構造
@@ -397,6 +401,11 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 | `unregistered-spec-heading` | なし | マニフェストに 1 件以上 spec 参照がある markdown ファイル内で、未登録の見出しが見つかった |
 | `unregistered-impl` | なし | `layout.implGlobs` にマッチするが、どのリンクの `impl[]` にも登録されていない実装ファイル（`implGlobs` 未設定時は検知自体を行わない） |
 | `duplicate-heading` | あり | 登録済み見出しが同一ファイル内に複数回出現し、セクションハッシュが一意に定まらない |
+| `missing-then` | 登録済み feature ならあり | 確認（Then / ならば）が 1 つも無いシナリオ。何も確かめずに通る |
+| `duplicate-scenario` | 登録済み feature ならあり | 背景が同じで、step の並び（表・docstring の引数を含む）も先のシナリオと同じ（名前・ファイルは問わない） |
+| `step-order` | 登録済み feature ならあり | 前提・操作・確認の順番が戻る step（かつ・しかしは直前の種類として読む） |
+| `duplicate-scenario-name` | 登録済み feature ならあり | 同じ feature ファイル・同じ Rule の中で名前が同じシナリオ |
+| `possible-contradiction` | 登録済み feature ならあり | 前提と操作が先のシナリオと同じで、確認だけが違う。矛盾の候補で、判断は人がする |
 
 `unregistered-impl` と `unregistered-spec-heading` は、`--strict` を付けても既定では失敗扱いに
 ならない。`specproof.config.yaml` の `strictUnregisteredImpl: true` / `strictUnregisteredSpecHeadings: true`
@@ -405,6 +414,14 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 `unregistered-spec-heading` は「登録済み spec ファイルに限定」しても、1 つの doc に複数ドメインの
 見出しと意図的にリンクしない見出し（改訂履歴・用語集・非 behavior 節）が同居する実運用では誤検知に
 なりうるための opt-in（ADR 0004: ハード強制は誤検知しない不変条件のみ）。
+
+`missing-then`・`step-order`・`duplicate-scenario-name`・`duplicate-scenario` も既定では `--strict` で失敗させず、`strictFeatureLint: true` で
+opt-in する（既存のスイートに該当シナリオがあっても、直すまで CI を止めないため）。
+`possible-contradiction` は、確認を意図して分けたシナリオでも出るので、`true` でも失敗させない。
+外部の Gherkin linter は同梱しない。利用者のプロジェクトに実行時の依存を増やさないよう、必要な検査は
+specproof-check に持つ。Scenario Outline は値が行ごとに変わるので重複と矛盾の比較から外す。
+`*` や「かつ」だけで書いたシナリオは step の種類が分からないので、確認の有無と順番を判定しない。
+自動化しない印（`tags.fixme` / `tags.skip`）の付いたシナリオは、確認が無くても `missing-then` にしない。
 
 ---
 

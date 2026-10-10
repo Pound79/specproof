@@ -29,6 +29,7 @@ traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `fea
 | `bddGenTool` | required | 生成ツール名（ログ表示用、例 `bddgen`）。 |
 | `language` | required | Gherkin 方言（Cucumber i18n ロケール、例 `ja`）。キーワード集合はここから導出。 |
 | `strictUnregisteredImpl` | optional（既定 `false`） | `true` のとき、`unregistered-impl` 警告も他の warning と同様に `--strict` で失敗扱いになる。既定では `--strict` を付けても `unregistered-impl` は失敗させない（`layout.implGlobs` の粒度次第でノイズになりやすいための opt-in）。 |
+| `strictFeatureLint` | optional（既定 `false`） | `true` のとき、`missing-then`・`step-order`・`duplicate-scenario-name`・`duplicate-scenario` 警告を `--strict` で失敗扱いにする。既存のスイートを壊さないための opt-in。`possible-contradiction` は人が判断する候補なので、`true` でも失敗させない。 |
 | `strictUnregisteredSpecHeadings` | optional（既定 `false`） | `true` のとき、`unregistered-spec-heading` 警告も他の warning と同様に `--strict` で失敗扱いになる。既定では `--strict` を付けても失敗させない（登録済み spec ファイルに限定しても、改訂履歴・用語集などリンク対象外の見出しが同居する実運用でノイズになりやすいための opt-in）。 |
 
 ## commands
