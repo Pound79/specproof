@@ -22,12 +22,12 @@ export interface ScannedScenario {
   exampleTags?: string[][];
 }
 
-const SCENARIO_RE =
+export const SCENARIO_RE =
   /^(シナリオアウトライン|シナリオテンプレート|シナリオテンプレ|テンプレ|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:(.*)$/;
-const FEATURE_RE = /^(Feature|Business Need|Ability|フィーチャ|機能)\s*:/;
-const RULE_RE = /^(Rule|ルール)\s*:/;
-const BACKGROUND_RE = /^(Background|背景)\s*:/;
-const EXAMPLES_RE = /^(Examples|Scenarios|例|サンプル)\s*:/;
+export const FEATURE_RE = /^(Feature|Business Need|Ability|フィーチャ|機能)\s*:/;
+export const RULE_RE = /^(Rule|ルール)\s*:/;
+export const BACKGROUND_RE = /^(Background|背景)\s*:/;
+export const EXAMPLES_RE = /^(Examples|Scenarios|例|サンプル)\s*:/;
 // Gherkin と同じ言語指定の書式。キーワードを持たない言語を読むと、全シナリオが 0 件に化ける。
 const LANGUAGE_RE = /^#\s*language\s*:\s*([a-zA-Z\-_]+)\s*$/;
 const SUPPORTED_LANGUAGES = new Set(["en", "ja"]);

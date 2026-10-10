@@ -85,6 +85,11 @@ failing unless `--strict` is passed:
 | `unregistered-spec-heading` | a heading in an already-referenced spec file that no link registers |
 | `unregistered-impl` | a file matching `layout.implGlobs` that no link's `impl[]` registers |
 | `duplicate-heading` | a registered heading appears more than once in its spec file, making the section hash ambiguous |
+| `missing-then` | a scenario has no Then step, so it passes without checking anything |
+| `duplicate-scenario` | a scenario has the same Background and the same steps (table and docstring arguments included) as an earlier one, under any name and in any feature |
+| `step-order` | a step goes back to Given/When after a later keyword (And/But read as the previous keyword) |
+| `duplicate-scenario-name` | two scenarios in the same feature file and the same `Rule` share a name |
+| `possible-contradiction` | a scenario has the same Given/When as an earlier one but different Then steps — a candidate for a human to judge |
 
 `unregistered-impl` requires `layout.implGlobs` to be set (opt-in; unset means
 no scan at all), and it does **not** fail under `--strict` unless the config
@@ -97,6 +102,17 @@ scan to already-registered spec files still isn't false-positive-free in
 practice — a real spec doc often mixes several domains' headings with
 intentionally-unlinked sections (revision history, glossary, non-behavioral
 notes) in one file.
+
+`missing-then`, `step-order`, `duplicate-scenario-name` and `duplicate-scenario`
+do **not** fail under `--strict` by default; set `strictFeatureLint: true` to opt in, so existing suites keep
+passing until a repo fixes them. `possible-contradiction` never fails: two
+scenarios may split assertions on purpose, so only a human can tell a real
+contradiction. Scenarios with Examples are left out of the duplicate and
+contradiction comparison, and so are Scenario Outlines. Scenarios written only
+with `*` / And / But steps are not checked for `missing-then` or `step-order`
+(their step types are unknown), and neither are scenarios carrying the
+`tags.fixme` / `tags.skip` tags for `missing-then`. At most 10
+`possible-contradiction` warnings are printed; `--json` has them all.
 
 Because `unregistered-impl` / `unregistered-spec-heading` don't escalate
 under `--strict` without their opt-in flags, `check --json` annotates every

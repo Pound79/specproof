@@ -123,6 +123,9 @@ environments:
 
 strictUnregisteredImpl: false
 strictUnregisteredSpecHeadings: false
+# [optional] true makes --strict fail on the feature lint warnings
+# (missing-then / step-order / duplicate-scenario-name / duplicate-scenario).
+strictFeatureLint: false
 conventions:
   agentsDoc: AGENTS.md
   i18nLintPlugin: none

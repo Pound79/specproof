@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `specproof-check` が feature の中身を lint する。確認（Then）の無いシナリオ
+  （`missing-then`）、前提・操作・確認の順番が戻る step（`step-order`）、同じファイル内の
+  シナリオ名の重複（`duplicate-scenario-name`）、背景を含めた step の並びが同じシナリオ
+  （`duplicate-scenario`、名前とファイルは問わない）、前提と操作が同じで確認だけが違う組
+  （`possible-contradiction`、矛盾の候補）を warning に出す。Examples を持つシナリオは
+  重複と矛盾の比較から外し、表と docstring の引数は step の一部として比べる。`--strict` で失敗させるのは `strictFeatureLint: true` のときの
+  前 4 つだけで、矛盾の候補は失敗させない。
+
 ## [0.3.0] - 2026-10-07
 
 ### Added

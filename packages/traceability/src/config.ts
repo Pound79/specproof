@@ -38,6 +38,10 @@ export interface TraceabilityConfig {
    *  file, so this stays warn-only under --strict unless a repo explicitly
    *  opts in. */
   strictUnregisteredSpecHeadings: boolean;
+  /** Opt-in hard enforcement (top-level `strictFeatureLint`, default false)
+   *  making --strict fail on missing-then, step-order, duplicate-scenario-name
+   *  and duplicate-scenario warnings. */
+  strictFeatureLint: boolean;
 }
 
 export interface DiscoverConfigOverrides {
@@ -76,6 +80,7 @@ interface PartialConfigFile {
   tags?: unknown;
   strictUnregisteredImpl?: unknown;
   strictUnregisteredSpecHeadings?: unknown;
+  strictFeatureLint?: unknown;
 }
 
 const isMapping = (value: unknown): value is Record<string, unknown> =>
@@ -284,6 +289,7 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     "strictUnregisteredSpecHeadings",
     false,
   );
+  const strictFeatureLint = readBoolean(fileConfig.strictFeatureLint, "strictFeatureLint", false);
   const fixmeTag = readTag(tags.fixme, "tags.fixme", DEFAULT_FIXME_TAG);
   const skipTag = readTag(tags.skip, "tags.skip", DEFAULT_SKIP_TAG);
   // Identical tags collapse the skip bucket into fixme (skip always 0) and
@@ -305,5 +311,6 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     implGlobs,
     strictUnregisteredImpl,
     strictUnregisteredSpecHeadings,
+    strictFeatureLint,
   };
 };

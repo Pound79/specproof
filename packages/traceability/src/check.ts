@@ -16,6 +16,7 @@ import { resolveWithinRoot } from "./resolve.js";
 import { DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG } from "./config.js";
 import { auditUnregisteredImpl } from "./impl-audit.js";
 import { auditSpecHeadings } from "./spec-audit.js";
+import { lintFeatureSet, type FeatureLintKind, type FeatureSource } from "./feature-lint.js";
 import { createTaskLimiter, type RunTaskLimited } from "./concurrency.js";
 
 const MAX_CONCURRENT_FILE_READS = 32;
@@ -44,7 +45,8 @@ export interface DriftWarning {
     | "unregistered-feature"
     | "unregistered-spec-heading"
     | "unregistered-impl"
-    | "duplicate-heading";
+    | "duplicate-heading"
+    | FeatureLintKind;
   // The offending file path (the feature, for unreviewed-draft). Absent for
   // empty-link, where the link itself — not a file — is the subject.
   path?: string;
@@ -236,19 +238,20 @@ const realpathOrUndefined = (repoRoot: string, relPath: string): string | undefi
   }
 };
 
-// Reads a feature file once and runs every content lint on it (draft marker +
-// skip/fixme reason comments). Missing files are left to drift detection.
+// Reads a feature file once and runs the per-file lints on it (draft marker +
+// skip/fixme reason comments). Returns the content too, so the cross-file
+// feature lint can compare scenarios. Missing files are left to drift detection.
 const lintFeature = async (
   target: FeatureTarget,
   repoRoot: string,
   reasonRequiredTags: string[],
   runLimited: RunTaskLimited,
-): Promise<DriftWarning[]> => {
+): Promise<{ warnings: DriftWarning[]; source?: FeatureSource }> => {
   const content = await runLimited(() =>
     readFileOrNull(resolveWithinRoot(repoRoot, target.relPath)),
   );
   if (content === null) {
-    return [];
+    return { warnings: [] };
   }
   const warnings: DriftWarning[] = [];
   if (containsDraftMarker(content)) {
@@ -260,7 +263,7 @@ const lintFeature = async (
       warnings.push(missingSkipReasonWarning(target.relPath, scenario, tag, target.linkId));
     }
   }
-  return warnings;
+  return { warnings, source: { path: target.relPath, content } };
 };
 
 export interface CheckDriftOptions {
@@ -293,9 +296,25 @@ export const checkDrift = async (
   const driftLinkCount = new Set(entries.map((entry) => entry.linkId)).size;
 
   const targets = await collectFeatureTargets(manifest, repoRoot, options.featuresDir);
-  const featureWarningGroups = await Promise.all(
+  const featureResults = await Promise.all(
     targets.map((target) => lintFeature(target, repoRoot, reasonRequiredTags, runLimited)),
   );
+  const featureWarningGroups = featureResults.map((result) => result.warnings);
+  // 重複と矛盾の候補はファイルをまたいで比べるので、読めた feature をまとめて渡す。
+  // 同じ feature を複数の link が登録していることがある。最初の link を付ける。
+  const linkIdByPath = new Map<string, string | undefined>();
+  for (const target of targets) {
+    if (!linkIdByPath.has(target.relPath)) linkIdByPath.set(target.relPath, target.linkId);
+  }
+  const contentLintWarnings: DriftWarning[] = lintFeatureSet(
+    featureResults.flatMap((result) => (result.source === undefined ? [] : [result.source])),
+    // 自動化しない印（fixme / skip）のシナリオは、確認が無くても missing-then にしない。
+    { exemptTags: reasonRequiredTags },
+  ).map((finding) => {
+    const linkId = linkIdByPath.get(finding.path);
+    const base = { kind: finding.kind, path: finding.path, message: finding.message };
+    return linkId === undefined ? base : { linkId, ...base };
+  });
   const unregisteredFeatureWarnings = targets
     .filter((target) => target.linkId === undefined)
     .map((target) => unregisteredFeatureWarning(target.relPath));
@@ -306,6 +325,7 @@ export const checkDrift = async (
   const warnings = [
     ...manifest.links.filter(isEmptyLink).map(emptyLinkWarning),
     ...featureWarningGroups.flat(),
+    ...contentLintWarnings,
     ...unregisteredFeatureWarnings,
     ...specHeadingWarnings,
     ...implWarnings,
