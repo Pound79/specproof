@@ -14,8 +14,10 @@ S1/S2 は 0.3.0 で実装した。0.2.2 以前には含まれない。
 S1 は `@draft`→draft、`@red-contract`→pending、状態タグなし→complete。
 verification は `@human`→human、それ以外→machine。complete は静的分類であり GREEN ではない。
 Feature/Rule からの状態タグ継承・不正な併記、
-JSON と表示の一致を検査する。`@red-contract` を `@fixme` 扱いしない。
-従来の fixme/skip 集計、`--strict` の fixme=0、既存の `TOTAL` 行は互換を保つ。
+JSON と表示の一致を検査する。
+
+`--strict` は `@red-contract` と、シナリオを止めたり失敗を想定扱いにしたりするタグ（`@fixme` / `@skip` / `@fail`）が
+0 件であることを完了条件にする（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。
 
 S2 は省略・空配列を許容し、不正型・空文字・制御文字・同一 link 内の重複を拒否する。
 同じ条件 ID を複数 link に置ける多対多を維持し、未知キーも load/update/save と
@@ -39,7 +41,7 @@ run 結果・正式 GREEN・時系列・進捗 UI は別ツールの責務とい
 
 ## 従来の残件と未採択案
 
-- 未実装: fixme の最古日付・レビュー周期、`--adapter-dir`。
+- 未実装: `@red-contract` の最古日付・レビュー周期、`--adapter-dir`。
 - 未確認: 外部の本番 Playwright スイートでの dogfood 完了。
 - Flutter の現行実行入口・残件は [flutter-readiness](./flutter-readiness.md)。
   Patrol の native 操作・flavor 等の拡張キーは未採択案で、同梱 template/skill は読まない。

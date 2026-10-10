@@ -1,5 +1,8 @@
 # 不変条件を決定論 CLI の --strict enforcement 層で機械強制する
 
+> ADR 0009 で一部置き換え（[ADR 0009](./0009-retire-fixme-skip.md)）。`@fixme` / `@skip` は退役し、表の `@fixme` > 0 と理由コメントの行は、
+> `@red-contract` 0 件・退役タグ（`retired-tag`）0 件と、`@out-of-scope` の理由コメント（`missing-reason`）の検査に置き換わった。
+
 Q1〜Q6 で確立した不変条件（impl→feature→impl 禁止、@fixme/@skip 規律、done 定義など）は
 現状 doc のみで、自動「導入して」パイプライン + LLM の rubber-stamp が同居する世界では静かに腐る
 （監査 I14: `cp scratch/x.feature features/x.feature` で同語反復ループが CI 非検知で完成可能 /

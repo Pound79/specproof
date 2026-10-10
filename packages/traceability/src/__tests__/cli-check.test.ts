@@ -240,7 +240,8 @@ describe("warningFailsUnderStrict", () => {
   it.each<DriftWarning["kind"]>([
     "empty-link",
     "unreviewed-draft",
-    "missing-skip-reason",
+    "missing-reason",
+    "disallowed-tag",
     "unregistered-feature",
     "duplicate-heading",
   ])("always escalates %s, with or without options", (kind) => {

@@ -89,10 +89,7 @@ const main = async (): Promise<void> => {
     );
   }
 
-  const report = buildStats(features, {
-    fixmeTag: config.fixmeTag,
-    skipTag: config.skipTag,
-  });
+  const report = buildStats(features);
 
   if (flags.has("--json")) {
     console.log(JSON.stringify({ ...report, missingFeatures, missingFeaturesDir }, null, 2));
@@ -100,11 +97,11 @@ const main = async (): Promise<void> => {
     console.log(formatStats(report));
   }
 
-  // Read-only by default. Under --strict, an outstanding @fixme fails the run
-  // so a "done" gate can be wired into CI (ADR 0002: @fixme=0 is hard at done).
+  // Read-only by default. Under --strict, an outstanding @red-contract or a
+  // disallowed @fixme / @skip / @fail fails the run so a "done" gate can be wired into CI.
   // 検査対象が欠けた状態は、残件 0 件とは判断できないので同じく失敗させる。
   const incomplete = missingFeatures.length > 0 || missingFeaturesDir !== undefined;
-  if (flags.has("--strict") && (!report.fixmeClean || incomplete)) {
+  if (flags.has("--strict") && (!report.done || incomplete)) {
     process.exitCode = 1;
   }
 };

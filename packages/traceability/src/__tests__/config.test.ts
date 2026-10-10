@@ -89,47 +89,15 @@ describe("discoverConfig", () => {
     expect(config.candidateSuffix).toBe("_page.dart");
   });
 
-  it("defaults fixmeTag / skipTag to @fixme / @skip when tags are omitted", async () => {
+  it("設定はタグ名の設定項目（fixmeTag / skipTag）を持たない", async () => {
     const root = await makeTmp();
     await writeFile(
       path.join(root, "specproof.config.yaml"),
       "layout:\n  manifest: traceability.yaml\n",
     );
     const config = discoverConfig({ root });
-    expect(config.fixmeTag).toBe("@fixme");
-    expect(config.skipTag).toBe("@skip");
-  });
-
-  it("reads tags.fixme / tags.skip from specproof.config.yaml", async () => {
-    const root = await makeTmp();
-    await writeFile(
-      path.join(root, "specproof.config.yaml"),
-      "tags:\n  fixme: '@todo'\n  skip: '@manual'\n",
-    );
-    const config = discoverConfig({ root });
-    expect(config.fixmeTag).toBe("@todo");
-    expect(config.skipTag).toBe("@manual");
-  });
-
-  it("normalizes a tag missing the leading @ (else it never matches a scanned tag)", async () => {
-    const root = await makeTmp();
-    await writeFile(
-      path.join(root, "specproof.config.yaml"),
-      "tags:\n  fixme: todo\n  skip: manual\n",
-    );
-    const config = discoverConfig({ root });
-    expect(config.fixmeTag).toBe("@todo");
-    expect(config.skipTag).toBe("@manual");
-  });
-
-  it("throws when tags.fixme and tags.skip resolve to the same value", async () => {
-    const root = await makeTmp();
-    await writeFile(
-      path.join(root, "specproof.config.yaml"),
-      // "@todo" vs "todo" collide after normalization — the guard must catch it.
-      "tags:\n  fixme: '@todo'\n  skip: todo\n",
-    );
-    expect(() => discoverConfig({ root })).toThrow(/tags\.fixme and tags\.skip must differ/);
+    expect(config).not.toHaveProperty("fixmeTag");
+    expect(config).not.toHaveProperty("skipTag");
   });
 
   it("leaves implGlobs undefined when layout.implGlobs is omitted", async () => {

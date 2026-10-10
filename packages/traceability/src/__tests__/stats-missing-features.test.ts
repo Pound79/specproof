@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, test } from "vitest";
 
 // 登録済みの feature が読めないとき、その分の未実装シナリオごと集計から消える。
-// 欠落を「シナリオ 0 件」と区別しないと、--strict の fixme=0 を誤って満たす。
+// 欠落を「シナリオ 0 件」と区別しないと、--strict の完了判定を誤って満たす。
 const cli = fileURLToPath(new URL("../../dist/cli-stats.js", import.meta.url));
 
 const withRepo = (
@@ -202,7 +202,8 @@ describe("scanner が読めない feature", () => {
     withRepo(
       {
         "traceability.yaml": manifestFor("features/fr.feature"),
-        "features/fr.feature": "# language: fr\nFonctionnalité: f\n  @fixme\n  Scénario: a\n",
+        "features/fr.feature":
+          "# language: fr\nFonctionnalité: f\n  @red-contract\n  Scénario: a\n",
       },
       MANIFEST_ONLY,
       (root) => {

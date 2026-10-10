@@ -54,7 +54,7 @@ specproof が対応すべき 2 つのユースケース。入口 skill と「完
 
 **Brownfield 導入（catch-up）**:
 既に稼働中のプロダクトへ後付けで E2E を導入する経路。入口は bootstrap（impl→feature ドラフト）
-または spec 骨子抽出。目的は既存の観測可能な振る舞いのカバレッジ。skip 比率の高い状態から始まる。
+または spec 骨子抽出。目的は既存の観測可能な振る舞いのカバレッジ。`@red-contract` / `@human` の比率が高い状態から始まる。
 _Avoid_: 後付け, レトロフィット
 
 **Greenfield 導入（spec-first growth）**:
@@ -64,21 +64,45 @@ _Avoid_: 新規, TDD モード
 
 ## 完了とタグ
 
-**@fixme**:
-「いずれ自動化する意図のある TODO」。未自動化の宿題。**done 時点で 0 でなければならない**。
-_Avoid_: skip（@skip と混同しない）
+状態タグは固定で、設定では変えない。受け入れ条件を扱う外部のツールと同じ語彙で読めるようにするため。
 
-**@skip**:
-「意識的に自動化しない」シナリオ。理由＋自動化に必要な seam を記録する。done 時点でも残ってよいが、
-**1 件ずつ人間の sign-off が要る**。
-_Avoid_: fixme, 保留
+**@draft**:
+作るか未定の草案。E2E では実行せず、完了判定に数えない。`# specproof: draft` マーカー（未査読の
+bootstrap ドラフトの印）とは別物。
+_Avoid_: 保留
+
+**@red-contract**:
+実装待ちの条件。`@human` が付いていなければ E2E で実行し、落ちるのを観測し続ける。`@human` と併記した場合は
+実装待ちのまま人が確かめ、E2E では実行しない。1 件でも残れば完了しない。緑になったら（`@human` 併記なら人が
+確かめたら）人がタグを外す。runner のテンプレートの絞り込みでは除外しないが、プロジェクトの `tags`・`--grep`・
+smoke の `--grep-invert @slow` などの絞り込みには従う。コマンドラインの `--grep-invert @red-contract` は使わない。
+_Avoid_: fixme, TODO
+
+**@human**:
+人が確かめて記録する条件。E2E では実行しない。specproof 単体では件数だけを数え、
+確認記録を扱う外部のツールが、人の確認記録で完了にする。
+_Avoid_: 手動テスト, skip
+
+**@out-of-scope**:
+受け入れ条件に含めない宣言。E2E では実行せず、完了の判定に含めない（件数は別に数える）。直前に「なぜ外すか」の
+1 行コメントが必須（無いと `missing-reason`）。シナリオ自身に付ける。Feature・Rule・Examples からの継承は
+`missing-reason`、Examples に付けると `specproof-stats` も拒否する。`@red-contract` との併用も `specproof-stats` がエラーにする。
+_Avoid_: skip, 除外（環境タグによる除外と紛らわしい）
+
+**使えないタグ（@skip / @fixme / @fail）**:
+runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（playwright-bdd の `@fail` は失敗を期待する修飾）。
+どれも落ちる条件を黙らせて完了に見せられるので使えない。付いていると `specproof-check` が `disallowed-tag` を出し、
+`specproof-stats --strict` が失敗する。壊れたテストを一時的に止めるタグは無く、直るまで赤のままにする（理由は ADR 0009）。
 
 **Done（完了定義）**:
-すべての観測可能な振る舞いが「green」または「sign-off 済みの @skip」であり、かつ @fixme が 0 の状態。
-greenfield の到達可能なゴールライン。
+受け入れ対象（`@out-of-scope` と `@draft` を除く）のすべての条件が、実行して GREEN か、人の確認記録が
+ある `@human` であり、`@red-contract` と使えないタグが 0 件の状態。`specproof-stats --strict` が見るのは
+静的な半分（`@red-contract` と使えないタグが 0 件）だけで、それも CI に組み込んだリポジトリでしか止まらない
+（drift-check のワークフローテンプレートは実行しない）。`@human` の確認記録は specproof の外で持つ。
 _Avoid_: 全 green, zero-skip
 
 **Testability backlog**:
-greenfield において、@skip リストが示す「green に昇格させるために製品へ作るべき test seam」の一覧
-（メール捕捉・決定論クロック・失敗注入フック・冪等 teardown 等）。
-_Avoid_: skip リスト（意味を限定する）
+`@human` の条件を自動化するために製品へ作るべき test seam の一覧
+（メール捕捉・決定論クロック・失敗注入フック・冪等 teardown 等）。seam ができた条件は
+`@red-contract` に付け替えて自動化する。
+_Avoid_: human リスト（意味を限定する）

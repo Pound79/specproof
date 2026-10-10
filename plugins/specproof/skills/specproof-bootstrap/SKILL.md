@@ -1,6 +1,6 @@
 ---
 name: specproof-bootstrap
-description: Bootstrap a rich Gherkin .feature DRAFT from existing implementation (impl to feature) for a domain whose E2E coverage is thin or missing. Reads the UI page / lambda / existing feature+steps, enumerates user-observable behaviors as black-box scenarios, writes ALL observable specs into the feature (automating the deterministic ones, marking hard/low-value ones @fixme/@skip with a reason rather than dropping them), and carves only non-Gherkin specs (API status-code contracts, internal constants, non-functional) out to the rationale doc. Emits a draft to a scratch path for mandatory human review. One-time bootstrap only, NOT continuous regeneration. Use when an existing .feature is too thin and you want to expand coverage from current behavior. Do NOT use to auto-generate the "why" layer (design rationale) - that is human-authored, see the rationale doc convention.
+description: Bootstrap a rich Gherkin .feature DRAFT from existing implementation (impl to feature) for a domain whose E2E coverage is thin or missing. Reads the UI page / lambda / existing feature+steps, enumerates user-observable behaviors as black-box scenarios, writes ALL observable specs into the feature (automating the deterministic ones and tagging the rest @red-contract, @human or @out-of-scope with a reason rather than dropping them), and carves only non-Gherkin specs (API status-code contracts, internal constants, non-functional) out to the rationale doc. Emits a draft to a scratch path for mandatory human review. One-time bootstrap only, NOT continuous regeneration. Use when an existing .feature is too thin and you want to expand coverage from current behavior. Do NOT use to auto-generate the "why" layer (design rationale) - that is human-authored, see the rationale doc convention.
 ---
 
 # BDD Bootstrap (impl 起点で feature ドラフトを作る)
@@ -24,7 +24,8 @@ description: Bootstrap a rich Gherkin .feature DRAFT from existing implementatio
 - ドラフト出力先: `{{config:layout.scratchDir}}`
 - 生成・検証コマンド: `{{config:commands.generate}}` / `{{config:commands.typecheck}}` / `{{config:commands.smoke}}`
 - トレーサビリティコマンド: `{{config:commands.traceabilityUpdate}}` / `{{config:commands.traceabilityCheck}}` / `{{config:commands.traceabilityList}}`
-- タグ: `{{config:tags.slow}}` / `{{config:tags.generate}}` / `{{config:tags.admin}}` / `{{config:tags.user}}` / `{{config:tags.fixme}}` / `{{config:tags.skip}}`
+- タグ: `{{config:tags.slow}}` / `{{config:tags.generate}}` / `{{config:tags.admin}}` / `{{config:tags.user}}`
+- 状態タグ（固定・設定で変えない）: `@draft` / `@red-contract` / `@human` / `@out-of-scope`
 - ランナープロファイル: `{{config:projects}}`
 - 環境プロファイル: `{{config:environments}}`
 - fixture 名: `{{config:fixtures}}`
@@ -45,7 +46,7 @@ description: Bootstrap a rich Gherkin .feature DRAFT from existing implementatio
 - **権威の向き**: 正しい依存方向は feature → impl（仕様が実装を駆動）。bootstrap は
   その逆向きで、ゼロから初期化する初回の一回だけ許される。
 - **重力的収縮**: impl の素読で書けるのは平均的ハッピーパスだけ。人間が意図設計した
-  境界値・エラー経路・ロール分岐（`{{config:tags.user}}`/`{{config:tags.admin}}`・0件空状態・誤入力）・`{{config:tags.fixme}}`/`{{config:tags.skip}}`・
+  境界値・エラー経路・ロール分岐（`{{config:tags.user}}`/`{{config:tags.admin}}`・0件空状態・誤入力）・`@red-contract`/`@human`/`@out-of-scope` のシナリオ・
   rationale への WHY リンクが、再生成のたびに実装の平均像へ引き寄せられて静かに消える
   （テスト範囲の重力的収縮）。CI は green のままなので気づけない。
 
@@ -81,32 +82,37 @@ impl から生成した feature は「**今こう動いている**」の読め�
    `.feature` に書く**（テスト困難を理由に rationale へ逃がさない）。置き場所は3択:
    - **自動化する** — 決定的に再現でき、すぐ自動化できる: タグ無し（smoke 実行）または
      `{{config:tags.slow}}`（実バックエンド・smoke 除外）。
-   - **`.feature` に書くが skip する** — 観測可能な振る舞いだが、自動化が難しい（データを決定的に
-     用意できない・失敗注入 seam が無い・一過性で捉えにくい・環境依存）か、
-     現時点でテストする価値が低い場合: `{{config:tags.fixme}}`（後で自動化する意図あり）または `{{config:tags.skip}}`
-     （当面自動化しない）を付け、**必ず「なぜ skip か」を1行コメントで添える**。
+   - **`.feature` に書くが今は自動で確かめない** — 観測可能な振る舞いだが、自動化が難しい（データを
+     決定的に用意できない・失敗注入 seam が無い・一過性で捉えにくい・環境依存）場合。次のどれかを付ける:
+     - `@red-contract` — 自動化する。`@human` が付いていなければ E2E で実行し、落ちるのを観測し続ける。
+       `@human` と併記した場合は実装待ちのまま人が確かめ、E2E では実行しない。
+       step 句の**定義は必須**（{{config:bddGenTool}} は未定義 step を生成エラーにする）。
+       未実装の本体は `{{config:conventions.pendingStubBody}}` stub にする。
+     - `@human` — 人が確かめて記録する。E2E では実行しない。自動化に必要な seam は coverageNotes に
+       testability backlog として挙げる。
+     - `@out-of-scope` — 受け入れ条件に含めない。E2E では実行しない。**シナリオの直前に「なぜ外すか」の
+       1行コメント（`# ...`）が必須**（無いと `{{config:commands.traceabilityCheck}}` が `missing-reason` を出す）。
+       Feature・Rule・Examples ではなくシナリオ自身に付け、`@red-contract` と同じシナリオに併用しない。
+     壊れたテスト・不安定なテストを一時的に止めるタグは無い。直るまで赤のままにする。
+     runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（`@skip` / `@fixme` / playwright-bdd の `@fail`）は使えない
+     （付いていると `disallowed-tag` になり `--strict` で失敗する）。
      **環境限定シナリオ**: 特定の認証プロバイダや外部サービスに依存するシナリオ（例: Google OAuth
-     同意画面、実メール送信）は `{{config:tags.fixme}}`/`{{config:tags.skip}}` ではなく、環境タグ（例:
-     `@google-auth`）を付ける。該当環境の `{{config:environments}}` エントリの `excludeTags` に
-     そのタグが含まれていれば当該環境では自動 skip される（`{{config:tags.fixme}}` とは異なり、
-     対応環境では実行される）。
-     {{config:bddRunner}} が `test.fixme()`/`test.skip()` に変換し、レポートにタイトル付き skip と
-     して現れる＝未自動化の仕様が一覧で見える。skip シナリオも step 句の**定義は必須**
-     （{{config:bddGenTool}} は未定義 step を生成エラーにする）だが、body は実行されないので
-     `{{config:conventions.pendingStubBody}}` stub で足りる。
+     同意画面、実メール送信）は上の状態タグではなく、環境タグ（例: `@google-auth`）を付ける。
+     該当環境の `{{config:environments}}` エントリの `excludeTags` にそのタグが含まれていれば
+     当該環境では実行されない（`@human` とは異なり、対応環境では実行される）。
    - **rationale doc へ回す** — Gherkin の Given/When/Then に**乗らない**非 behavior のみ:
      API ステータスコード契約・内部ロジック/フォーマッタの定数（`{{config:examples.internalConstants}}` に
      例示されるような外部観測不能な値・スコア計算の正確性・タイブレーク順・内部フィルタ定数の除外結果など）・
      非機能要件・認可のステータスコード区別（UI 非可視）・内部データストアの状態・監査ログの書き込み・
      LLM 出力の言語品質。`coverageNotes` に「rationale 行き／理由」を残す。
      判断の核心は「**観測可能な振る舞いか**」であって「テストが簡単か」ではない。
-     観測可能なら難しくても `.feature`（skip 可）に置く。観測不能なら rationale。
+     観測可能なら難しくても `.feature`（状態タグ可）に置く。観測不能なら rationale。
      （`{{config:layout.e2eReadme}}`「仕様の置き場所」と「テストが難しい ≠ 観測不能」の落とし穴を参照）
 4. `../specproof-sync/prompts/system.md`（または `{{config:layout.idiomGuide}}` が指すガイド）の生成ガイドに従い、
    既存 `.feature` の文体に合わせてドラフトを書く。**既存 step 句を最大限再利用**し、新規が必要なものは
    別途列挙する。実 AI 生成等の重い処理を伴うシナリオには `{{config:tags.generate}} {{config:tags.slow}}`、
    管理者限定には `{{config:tags.admin}}`、Step 3 の
-   「書くが skip」に該当するシナリオには `{{config:tags.fixme}}` / `{{config:tags.skip}}`（理由コメント付き）を付ける。
+   「今は自動で確かめない」シナリオには `@red-contract` / `@human` / `@out-of-scope`（理由コメント付き）を付ける。
 5. **ドラフトはスクラッチに出す**（例 `{{config:layout.scratchDir}}/<domain>.feature`）。
    各ドラフトの先頭付近（`# language:` 行の直後）に **`# specproof: draft` マーカー行**
    （Gherkin コメント＝全 runner が無視）を入れる。これは「未査読ドラフト」の機械可読な印で、
@@ -116,17 +122,17 @@ impl から生成した feature は「**今こう動いている**」の読め�
    **既存 `{{config:layout.featuresDir}}/*.feature` を上書きしない。** あわせて
    「新規実装が必要な step 句」「再利用した step 句」「coverageNotes」を報告する。
    `coverageNotes` は別ファイルにせず**エージェントの最終レポート内の Markdown 箇条書き**とし、
-   各項目を「対象の振る舞い / 置き場所（自動化・`.feature`＋`{{config:tags.fixme}}`/`{{config:tags.skip}}`・
+   各項目を「対象の振る舞い / 置き場所（自動化・`.feature`＋`@red-contract`/`@human`/`@out-of-scope`・
    環境タグ（`@google-auth` 等）・rationale doc）/ 対象環境（どの `{{config:environments}}`
    エントリで実行/除外されるか）/ 理由」の1行で書く。
-   `.feature` に skip として残したものと rationale へ回したものを混同しない。
-   環境タグ付きシナリオは `{{config:tags.fixme}}` とは別カテゴリで報告する（環境タグは
-   対応環境では実行される点が `{{config:tags.fixme}}` と異なる）。
+   `.feature` に状態タグ付きで残したものと rationale へ回したものを混同しない。
+   環境タグ付きシナリオは状態タグとは別カテゴリで報告する（環境タグは
+   対応環境では実行される点が `@human` / `@out-of-scope` と異なる）。
 6. **bootstrap の盲点を自己点検する**（impl 読みで最も取りこぼしやすい層）:
    - 横断認可・セキュリティ契約（他ユーザーのリソースにアクセスすると forbidden/403 等）
    - API 契約バリデーション（リクエストサイズ・文字数上限などの境界）
    - 別エンドポイント／別ページの操作フロー
-     観測可能なら feature に追加し（自動化が難しければ Step 3 に従い `{{config:tags.fixme}}`/`{{config:tags.skip}}`）、
+     観測可能なら feature に追加し（自動化が難しければ Step 3 に従い `@red-contract`/`@human`/`@out-of-scope`）、
      観測不能なら rationale doc へ回す。漏れを `coverageNotes` に残す。
    あわせて、`../specproof-sync/prompts/system.md` の「ドラフトの点検」（否定だけの確認・値の無い確認・
    統制できない前提。`{{config:layout.idiomGuide}}` を設定していても、この節はここを読む）を
@@ -167,9 +173,13 @@ impl から生成した feature は「**今こう動いている**」の読め�
   マーカーを削除した後（未査読ドラフトの実装を構造的に防ぐ＝同語反復ファイアウォール）。
 - ブラックボックス厳守（内部実装詳細を step 文に出さない）。
 - `.{{config:layout.stepFileExt}}` に {{config:language}} テキストを直書きしない。UI 文字列は `{{config:layout.textConstants}}` の定数を使う（上流は `{{config:layout.i18nSource}}`）。
-- 人間の査読ゲートを省略しない。テストが落ちた状態でコミットしない。
+- 人間の査読ゲートを省略しない。テストが落ちた状態でコミットしない（`@red-contract` のシナリオが
+  RED なのは想定どおり。それ以外の失敗は残さない）。
 - **観測可能な仕様を「テストが難しい」だけの理由で rationale に逃がさない**。
-  `.feature` にシナリオとして書き、`{{config:tags.fixme}}`/`{{config:tags.skip}}`（理由コメント付き）で skip する。
+  `.feature` にシナリオとして書き、`@red-contract` / `@human` / `@out-of-scope`（理由コメント付き）のどれかを付ける。
+- 壊れた・不安定なシナリオを一時的に止めない（そのためのタグは無い）。`@fixme` / `@skip` / `@fail` は使わない。
+- 既存の `.feature` を読んで拡張するときも、既存シナリオの状態タグは書き換えない。変更が要ると考えたら、
+  ドラフトの査読時に人が判断できるよう coverageNotes に提案として書く。
   rationale 行きは Gherkin に乗らない非 behavior に限る（Step 3 の3択を参照）。
 - 「なぜ」を推測で書かない（rationale doc は人間が確定する）。
 - `{{config:layout.testRunnerConfig}}` の project 構成（`{{config:projects}}`）に

@@ -153,6 +153,8 @@ export function resolveActiveEnvironment(cfg: SpecproofConfig): EnvironmentProfi
       "specproof: environments[] must have at least 1 entry in specproof.config.yaml.",
     );
   }
+  for (const profile of profiles) assertExcludeTags(profile);
+  for (const project of cfg.projects ?? []) assertProjectTags(project);
 
   const envName = process.env.SPECPROOF_ENV?.trim();
   const legacyEnvName = process.env.BDD_KIT_ENV?.trim();
@@ -181,6 +183,90 @@ export function resolveActiveEnvironment(cfg: SpecproofConfig): EnvironmentProfi
   }
 
   return profiles.find((p) => p.default === true) ?? profiles[0];
+}
+
+// State tags decide whether a scenario runs at all. Allowing them in
+// excludeTags would let an environment silence @red-contract (not implemented
+// yet) or run @draft / @human / @out-of-scope, so they are rejected here. Each
+// entry must be a single tag so it cannot change the tag expression's meaning.
+const STATE_TAGS = ["@draft", "@red-contract", "@human", "@out-of-scope"];
+const SINGLE_TAG = /^@[^@\s()]+$/;
+
+function assertExcludeTags(profile: EnvironmentProfile): void {
+  for (const tag of profile.excludeTags ?? []) {
+    if (typeof tag !== "string" || !SINGLE_TAG.test(tag)) {
+      throw new Error(
+        `specproof: environments[${JSON.stringify(profile.name)}].excludeTags must list single tags like "@google-auth" (got ${JSON.stringify(tag)}).`,
+      );
+    }
+    if (STATE_TAGS.includes(tag)) {
+      throw new Error(
+        `specproof: environments[${JSON.stringify(profile.name)}].excludeTags cannot contain the state tag ${tag}; state tags decide whether a scenario runs and are not per-environment.`,
+      );
+    }
+  }
+}
+
+// projects[].tags is spliced into the same tag expression. A state tag there
+// could silence @red-contract or select @draft / @human / @out-of-scope, and an
+// unbalanced parenthesis could escape the "(...) and not @draft ..." wrapper.
+const STATE_TAG_IN_EXPRESSION = /@(draft|red-contract|human|out-of-scope)(?=$|[\s()])/;
+
+function hasBalancedParentheses(expression: string): boolean {
+  let depth = 0;
+  let escaped = false;
+  let tokenLength = 0;
+  let firstCharacter = "";
+  const append = (char: string): void => {
+    if (tokenLength === 0) firstCharacter = char;
+    tokenLength += 1;
+  };
+  const finishToken = (): boolean => {
+    // Cucumber は復号後の単独の "(" / ")" も演算子として読む。
+    // タグ内の括弧と区別し、runner と同じトークン境界で釣り合いを確認する。
+    if (tokenLength === 1) {
+      if (firstCharacter === "(") depth += 1;
+      if (firstCharacter === ")") depth -= 1;
+    }
+    tokenLength = 0;
+    return depth >= 0;
+  };
+  for (const char of expression) {
+    if (escaped) {
+      if (!"()\\".includes(char) && !/\s/.test(char)) return false;
+      append(char);
+      escaped = false;
+    } else if (char === "\\") {
+      escaped = true;
+    } else if (char === "(" || char === ")" || /\s/.test(char)) {
+      if (!finishToken()) return false;
+      if (char === "(") depth += 1;
+      if (char === ")") depth -= 1;
+      if (depth < 0) return false;
+    } else {
+      append(char);
+    }
+  }
+  // 末尾のバックスラッシュが、呼び出し側で足す閉じ括弧をエスケープしない。
+  return !escaped && finishToken() && depth === 0;
+}
+
+function assertProjectTags(project: ProjectConfig): void {
+  const tags = project.tags ?? "";
+  if (typeof tags !== "string") {
+    throw new Error(`specproof: projects[${JSON.stringify(project.name)}].tags must be a string.`);
+  }
+  const state = tags.match(STATE_TAG_IN_EXPRESSION);
+  if (state) {
+    throw new Error(
+      `specproof: projects[${JSON.stringify(project.name)}].tags cannot mention the state tag @${state[1]}; state tags decide whether a scenario runs.`,
+    );
+  }
+  if (!hasBalancedParentheses(tags)) {
+    throw new Error(
+      `specproof: projects[${JSON.stringify(project.name)}].tags has unbalanced parentheses or invalid escaping (got ${JSON.stringify(tags)}).`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -38,8 +38,9 @@ const checkWeakening = (skill) => {
   const rule = between(skill, "\n6. **確認を減らす変更", "\n### 4. ");
   assert.match(rule, /spec が明示していない限り行わない/);
   assert.match(rule, /feature \/ manifest を変更せずに停止/);
-  assert.match(rule, /\{\{config:tags\.skip\}\}/);
-  assert.match(rule, /\{\{config:tags\.fixme\}\}/);
+  for (const tag of ["@draft", "@red-contract", "@human", "@out-of-scope"]) {
+    assert.ok(rule.includes(`\`${tag}\``), tag);
+  }
   assert.match(rule, /Feature \/ Rule \/ Examples/);
   assert.match(rule, /継承/);
   assert.match(rule, /Examples の行を削る/);

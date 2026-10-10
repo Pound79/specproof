@@ -73,8 +73,11 @@ tags:
   generate: "@generate"
   admin: "@admin"
   user: "@user"
-  fixme: "@fixme" # bucket-B TODO: to automate later; done gate requires zero
-  skip: "@skip" # bucket-B: intentionally not automated; reason comment required
+  # State tags are fixed and not configurable: @draft (not decided yet),
+  # @red-contract (not implemented yet; runs and stays red), @human (checked by
+  # a person) and @out-of-scope (excluded; needs a reason comment). The runner
+  # never executes @draft / @human / @out-of-scope. Tags that switch scenarios
+  # off (@skip / @fixme / @fail) cannot be used.
 
 # ---------------------------------------------------------------------------
 # agents: review agents specproof-implement invokes (anti-gaming layer 2). [optional]

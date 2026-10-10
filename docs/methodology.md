@@ -77,7 +77,7 @@ BDD 方法論の最も重要な不変条件は次の一文に集約される。
 #### テスト範囲の重力的収縮
 
 実装の素読で機械的に生成できるのは平均的ハッピーパスだけである。人間が意図して設計した
-境界値・エラー経路・ロール分岐・`@fixme`/`@skip` シナリオ・rationale へのリンクは、
+境界値・エラー経路・ロール分岐・`@red-contract`/`@human`/`@out-of-scope` シナリオ・rationale へのリンクは、
 再生成のたびに「実装の平均像」に向かって静かに引き寄せられ消える。
 CI は green のままなのでカバレッジ縮小に気づけない。
 
@@ -108,7 +108,7 @@ bootstrap 後の変更はすべて feature-first（人間が `.feature` を先�
 
 ### 判断の核心
 
-> 観測可能 → 難しくても `.feature` に置く（自動化が難しければ skip タグ可）
+> 観測可能 → 難しくても `.feature` に置く（自動化が難しければ状態タグを付ける）
 > 観測不能 → rationale doc へ回す
 > **「テストが難しい ≠ 観測不能」の落とし穴に注意すること**
 
@@ -117,28 +117,72 @@ bootstrap 後の変更はすべて feature-first（人間が `.feature` を先�
 決定的に再現でき、すぐ自動化できる振る舞い。
 タグなし（smoke 実行対象）または `{{tag_slow}}`（実バックエンド呼び出しなど、smoke 除外）を付ける。
 
-### バケット B — `.feature` に書くが skip する
+### バケット B — `.feature` に書くが今は自動で確かめない
 
 観測可能な振る舞いだが、以下のいずれかに該当するもの:
 
 - 決定的なテストデータを用意できない
 - 失敗注入の seam がない（外部依存の強制失敗など）
 - 環境依存で CI で再現できない
-- 現時点でテストする価値が低い
 
-このケースでは **シナリオを feature から消さず**、`@fixme`（後で自動化する意図あり）または
-`@skip`（当面自動化しない）を付け、**必ず「なぜ skip か」を 1 行コメントで添える**。
+このケースでは **シナリオを feature から消さず**、次の状態タグのどれかを付ける。
+
+| 状態 | タグ | E2E で実行するか | 完了判定 |
+|---|---|---|---|
+| 草案（作るか未定） | `@draft` | しない | 数えない |
+| 実装待ち | `@red-contract` | `@human` が付いていなければする。実装されるまで落ちるのを観測し続ける。`@human` と併記した場合は実装待ちのまま人が確かめ、E2E では実行しない | 1 件でも残れば未完了 |
+| 人が確認 | `@human` | しない | 数える。specproof 単体では件数だけを出す。完了は人の確認記録で決まる（記録を扱うのは specproof の外） |
+| 受け入れ対象外 | `@out-of-scope` ＋理由の 1 行コメント（必須） | しない | 完了の判定に含めない（件数は別に数える） |
+| 特定の環境だけ | 環境タグ ＋ `environments[].excludeTags` | 該当する環境だけ | 変わらない |
+
+- いずれ自動化するなら `@red-contract`。step 句の**定義は必須**（`{{cmd_bddgen}}` は未定義 step を
+  生成エラーにする）で、未実装の本体は stub にして RED のまま残す。
+- 実装待ちで、実装後は人が確かめるなら `@red-contract @human`。E2E では実行せず（`@human` は実行しない）、
+  人が確かめてタグを外すまで実装待ちとして残る。
+- 人が確かめて記録するなら `@human`。自動化に必要な seam は testability backlog に挙げる。
+- 受け入れ条件に含めないなら `@out-of-scope`。シナリオの直前（空行を挟まない）に「なぜ外すか」の
+  `# ...` コメントを書く。`@out-of-scope` は**シナリオ自身に**付ける。Feature・Rule・Examples に付けて継承させると
+  理由がシナリオごとに書けないため `missing-reason` になる。Examples に付けた場合は、他の状態タグと同じく
+  `specproof-stats` も拒否する。同じシナリオに `@out-of-scope` と `@red-contract` を両方付けることも
+  `specproof-stats` がエラーにする。
+
+runner のテンプレートは `@draft` / `@human` / `@out-of-scope` を常に実行から外し、`@red-contract` は
+テンプレートの絞り込みでは除外しない。ただし `@red-contract` のシナリオも、プロジェクトの `tags`（`@admin` など）・
+コマンドラインの `--grep`・smoke コマンドの `--grep-invert @slow` といった絞り込みには従うので、そこで選ばれなかった
+ものは実行されない。`@human` と併記した `@red-contract` も実行しない。
+
+状態タグを実行の除外に流用することはできない。`environments[].excludeTags` には単一のタグ（`@` で始まり、
+空白・括弧・2 つ目の `@` を含まない）だけを書け、状態タグ（`@draft` / `@red-contract` / `@human` /
+`@out-of-scope`）を書くと Playwright テンプレートの設定読み込みが失敗する。Playwright の `projects[].tags` も、
+状態タグに触れる式や括弧の対応が取れていない式を書くと設定読み込みが失敗する。Flutter テンプレートは
+状態タグに触れる `SPECPROOF_TAGS` と、括弧の対応が取れていない `SPECPROOF_TAGS` を拒否する。
+コマンドラインで渡す `--grep-invert @red-contract` はテンプレートでは止められない。実装待ちの条件を外して
+E2E を緑に見せることになるので、使わない。
+
+壊れたテスト・不安定なテストを一時的に止める手段は**用意しない**。直るまで赤のままにする。
+止める印があると、落ちる条件を黙らせて完了に見せられるため（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。
+runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（`@skip` / `@fixme` / playwright-bdd の `@fail`）は使えない。
+付いていると `specproof-check` が `disallowed-tag` を出し、`specproof-stats --strict` が失敗する。
 
 **バケット B の下位種別 — 環境条件付き（B-env）**: 観測可能かつ自動化可能だが**特定の実行環境
-でのみ**再現できる振る舞い（実 Google OAuth 同意画面・実メール送信など）は、`@fixme`/`@skip` では
-なく**環境タグ**（例 `@google-auth`）を付ける。`specproof.config.yaml` の `environments[]` の
-`excludeTags` により対象外環境では自動 skip され、対応環境では実行される（`@fixme` と違い「永久に
-未自動化」ではない）。これは 3 軸（environments × projects × tags）の直交性で表現する。
+でのみ**再現できる振る舞い（実 Google OAuth 同意画面・実メール送信など）は、状態タグではなく
+**環境タグ**（例 `@google-auth`）を付ける。`specproof.config.yaml` の `environments[]` の
+`excludeTags` により対象外環境では実行されず、対応環境では実行される（`@human` と違い、
+人の確認に回すわけではない）。これは 3 軸（environments × projects × tags）の直交性で表現する。
 
-`{{bdd_runner}}` が `test.fixme()`/`test.skip()` 相当に変換することで、レポートには
-「タイトル付き skip として現れる」= 未自動化の仕様が一覧で見え続ける。
-skip シナリオも step 句の**定義は必須**（`{{cmd_bddgen}}` は未定義 step を生成エラーにする）。
-body は実行されないので stub で足りる。
+### 完了の定義
+
+> **Done = 受け入れ対象（`@out-of-scope` と `@draft` を除く）のすべての条件が、実行して GREEN か、
+> 人の確認記録がある `@human` であり、`@red-contract` と使えないタグ（`@skip` / `@fixme` / `@fail`）が 0 件。**
+
+`specproof-stats --strict` が機械的に確かめるのは静的な半分（`@red-contract` 0 件・使えないタグ 0 件・
+読めない feature が無い）だけ。GREEN は実行結果を、`@human` の確認は記録を別に見る。
+
+- この判定でマージを止められるのは、`specproof-stats --strict` を CI に組み込んだリポジトリだけ。
+  同梱の drift-check ワークフローテンプレートが実行するのは `specproof-check --strict` で、
+  `specproof-stats --strict` は実行しない。done を機械的に守るなら、利用側で CI に足す。
+- `@human` の完了には人の確認記録が要る。specproof は `@human` の件数を出すだけで、確認記録は持たない。
+  記録は specproof の外（チームのチェックリスト・受け入れ条件を扱う外部のツールなど）で管理する。
 
 ### バケット C — rationale doc へ回す
 
@@ -155,7 +199,7 @@ Gherkin の Given/When/Then に**乗らない非 behavior のみ**:
 
 「テストが難しい」という理由で観測可能な振る舞いを rationale に逃がすと、仕様としての
 記録場所が分散し、後から「この振る舞いはどこに書いてあるか」が追えなくなる。
-難しくても `.feature` に置いて skip することで、仕様の網羅性を feature ファイルで一元管理できる。
+難しくても `.feature` に置いて状態タグを付けることで、仕様の網羅性を feature ファイルで一元管理できる。
 
 ### rationale doc は自動生成しない
 
@@ -189,7 +233,8 @@ drift 検知（`specproof-check`）の後、`specproof-sync` は次の決定表�
 変更の前後と根拠の spec 節を報告と PR 本文に必ず挙げる。
 
 シナリオを残したまま確認だけを減らす変更（「ならば」「かつ」の行を削る、否定だけにする、
-具体的な値を外す、より緩い step に置き換える、既存シナリオに skip / fixme を付ける）も同じ扱いに
+具体的な値を外す、より緩い step に置き換える、既存シナリオの状態タグを `@human` / `@draft` /
+`@out-of-scope` に変えたり `@red-contract` を外したりして実行から外す）も同じ扱いに
 する。Feature / Rule / Examples からのタグ継承による実行除外と、Examples の行の削除も含む。
 `specproof-sync` はこの**確認を減らす変更**を、spec が明示していない限り行わず、停止して
 変更の前後を人に示す。spec が明示している場合も、変更の前後と根拠の spec 節を報告と PR 本文に挙げる。
@@ -300,6 +345,8 @@ bootstrap 完了後、すべての仕様変更は次の順序で行う:
 ### テストが落ちた状態でコミットしない
 
 すべてのスキルに共通するルール: **テストが落ちた状態でコミットしない**。
+例外は `@red-contract` のシナリオだけで、実装されるまでの RED は想定どおりの状態なのでコミットを止めない。
+それ以外の失敗（`@red-contract` でないシナリオの失敗・typecheck・lint・generate の失敗）は 1 件でもコミットを止める。
 `{{tag_slow}}` シナリオが未実行の場合は「未実行」を明示してからコミットする。
 
 ---
@@ -396,7 +443,8 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 |---|---|---|
 | `empty-link` | あり | spec/impl/features が全空のリンク（追跡対象なし） |
 | `unreviewed-draft` | 登録済み feature ならあり | feature がまだ specproof のドラフトマーカーを含んでいる（査読前） |
-| `missing-skip-reason` | 登録済み feature ならあり | `@fixme`/`@skip`（または renamed タグ）のシナリオに理由コメントが無い |
+| `missing-reason` | 登録済み feature ならあり | `@out-of-scope` のシナリオに理由コメントが無い。または `@out-of-scope` を Feature・Rule・Examples から継承している（シナリオごとに付け直し、理由コメントを書く） |
+| `disallowed-tag` | 登録済み feature ならあり | runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（`@skip` / `@fixme` / `@fail`）が付いている（Feature・Rule・Examples からの継承を含む） |
 | `unregistered-feature` | なし | `featuresDir` 配下に存在するが、どのリンクの `features[]` にも登録されていない `.feature` ファイル |
 | `unregistered-spec-heading` | なし | マニフェストに 1 件以上 spec 参照がある markdown ファイル内で、未登録の見出しが見つかった |
 | `unregistered-impl` | なし | `layout.implGlobs` にマッチするが、どのリンクの `impl[]` にも登録されていない実装ファイル（`implGlobs` 未設定時は検知自体を行わない） |
@@ -421,7 +469,7 @@ opt-in する（既存のスイートに該当シナリオがあっても、直�
 外部の Gherkin linter は同梱しない。利用者のプロジェクトに実行時の依存を増やさないよう、必要な検査は
 specproof-check に持つ。Scenario Outline は値が行ごとに変わるので重複と矛盾の比較から外す。
 `*` や「かつ」だけで書いたシナリオは step の種類が分からないので、確認の有無と順番を判定しない。
-自動化しない印（`tags.fixme` / `tags.skip`）の付いたシナリオは、確認が無くても `missing-then` にしない。
+`@out-of-scope` のシナリオは、確認が無くても `missing-then` にしない（`@human` / `@draft` は対象）。
 
 ---
 

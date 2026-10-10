@@ -65,6 +65,9 @@ specproof init --adapter <framework>
      キーワード集合は `{{config:language}}` から Cucumber i18n テーブル経由で導出する。
    - `機能:` ブロックに目的を散文で記述
    - happy path 2〜3 シナリオ + エラー系 1 シナリオを最低限カバー
+   - 新しいシナリオにはすべて `@red-contract`（実装待ち）を付ける。`@human` が付いていなければ E2E で実行し、実装が無いので落ちる
+     （RED）のが正しく、`@red-contract` が残っている間は完了にならない（`specproof-stats --strict`）。
+     `specproof-implement` で GREEN になったら、人がタグを外す
    - 実 AI 生成を伴うシナリオには `{{config:tags.generate}} {{config:tags.slow}}`、管理者限定には `{{config:tags.admin}}`
    - **環境固有シナリオのタグ付け**: 特定の認証プロバイダや外部サービスに依存するシナリオ
      （例: Google OAuth の同意画面、実メール送信の検証）には、対応する環境でのみ実行される

@@ -41,7 +41,8 @@ consumer リポジトリは `specproof.config.yaml` を 1 枚だけ配置する�
 ### 2.4 tags taxonomy（タグ分類体系）
 
 [tags の正本](./config-schema.md#tags--projects--env--environments--implement--git--agents--conventions--examples)。
-`fixme` / `skip` の設定値は理由 lint と静的 done gate にも使う。
+状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、adapter では変えない。
+理由 lint と静的 done gate はこの固定値で動く。
 
 ### 2.5 roles / projects（ランナープロファイル）
 

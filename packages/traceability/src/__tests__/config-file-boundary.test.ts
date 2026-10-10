@@ -27,7 +27,7 @@ const CONFIG = "specproof.config.yaml";
 describe.skipIf(process.platform === "win32")("設定ファイルの読み取り境界", () => {
   it("repo の外を指す symlink を拒否する", () =>
     withRepo((root, outside) => {
-      writeFileSync(path.join(outside, CONFIG), "tags:\n  fixme: todo\n");
+      writeFileSync(path.join(outside, CONFIG), "layout:\n  featuresDir: features\n");
       symlinkSync(path.join(outside, CONFIG), path.join(root, CONFIG));
       expect(() => discoverConfig({ root })).toThrow(/outside the repository root/);
       expect(() => discoverConfig({ root })).not.toThrow(/Manifest path/);
@@ -71,8 +71,8 @@ describe.skipIf(process.platform === "win32")("設定ファイルの読み取り
   it("repo 内の実体を指す symlink は従来どおり読む", () =>
     withRepo((root) => {
       mkdirSync(path.join(root, "config"));
-      writeFileSync(path.join(root, "config", "real.yaml"), "tags:\n  fixme: todo\n");
+      writeFileSync(path.join(root, "config", "real.yaml"), "layout:\n  featuresDir: features\n");
       symlinkSync("config/real.yaml", path.join(root, CONFIG));
-      expect(discoverConfig({ root }).fixmeTag).toBe("@todo");
+      expect(discoverConfig({ root }).featuresDir).toBe("features");
     }));
 });

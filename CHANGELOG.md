@@ -16,18 +16,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   （`possible-contradiction`、矛盾の候補）を warning に出す。Examples を持つシナリオは
   重複と矛盾の比較から外し、表と docstring の引数は step の一部として比べる。`--strict` で失敗させるのは `strictFeatureLint: true` のときの
   前 4 つだけで、矛盾の候補は失敗させない。
-
+- `specproof-check` が `disallowed-tag`（runner がシナリオを止めたり失敗を想定扱いにしたり
+  する `@fixme` / `@skip` / `@fail` が、継承を含めて付いたシナリオ）と `missing-reason`（理由コメントの無い `@out-of-scope`、または Feature / Rule /
+  Examples から継承した `@out-of-scope`）を warning に出す。どちらも `--strict` で失敗する。
 - 生成ガイドに「ドラフトの点検」を追加した。bootstrap と new-feature は、書いた
   シナリオの否定だけの確認・値の無い確認・統制できない前提をハンドオフレポートの
   「決めてほしいこと」に提案として挙げる。点検はドラフトを書き換えず、採否は人が決める。
 
+### Removed
+
+- **`@fixme` / `@skip` による完了判定と集計を削除した。** 実装待ちは `@red-contract`（実行して
+  落ちるのを観測し続ける）、人が確かめる条件は `@human`、受け入れ条件から外すものは
+  `@out-of-scope`（理由コメント必須）で表す。テストを一時的に止める手段は持たない。
+  理由は ADR 0009。
+- 設定の `tags.fixme` / `tags.skip` を削除した。書いてあると設定の読み込みが失敗する
+  （実行を止めるタグに別名を付けた設定を、黙って完了扱いにしないため）。
+- 公開 API の `DEFAULT_FIXME_TAG` / `DEFAULT_SKIP_TAG`、`StatsTags`、
+  `CheckDriftOptions.reasonRequiredTags`、warning の `missing-skip-reason` を削除した。
+  代わりに `DISALLOWED_TAGS` と `OUT_OF_SCOPE_TAG` を公開する。
+
 ### Changed
 
+- **`specproof-stats --strict` の完了条件が変わる。** `@red-contract` が 1 件でも残っているか、
+  `@fixme` / `@skip` / `@fail` が付いていれば失敗する（0.3.0 までは `@fixme` が 0 なら成功し、
+  `@red-contract` は数えなかった）。JSON から `automated` / `fixme` / `skip` / `fixmeClean` /
+  `fixmeTag` / `skipTag` を除き、`outOfScope` / `disallowed` / `done` を加えた。表示の行も変わる。
+- テンプレートの runner（Playwright・Flutter）は `@draft` / `@human` / `@out-of-scope` の
+  シナリオを常に実行しない（`@red-contract` に `@human` を併記した条件も実行しない）。
+  Playwright テンプレートは `environments[].excludeTags` に状態タグや単一タグでない値が
+  あるとき、`projects[].tags` が状態タグを含むか括弧が釣り合わないときに設定の読み込みで
+  失敗する。Flutter テンプレートは状態タグを含むか括弧が釣り合わない `SPECPROOF_TAGS` を
+  拒否する。
+- `specproof-stats` は Examples に付けた `@out-of-scope` と、`@out-of-scope` と
+  `@red-contract` の併記を拒否する（実行しないのに完了を止めるため）。
 - `specproof-sync` は、既存シナリオの確認を削る・弱める更新（確認を減らす変更）を
-  spec が明示していない限り行わず、変更の前後を示して停止する。skip / fixme の付与と
-  より緩い step への置き換えも含む。spec が明示している場合も変更の前後を報告に挙げる。
-- sync は全対象リンクの削除・緩和を編集前に確認する。シナリオの削除にも spec の明示と
-  人間の裁定を要し、タグ継承による実行除外と Examples の行の削除も確認の削減に含める。
+  spec が明示していない限り行わず、変更の前後を示して停止する。より緩い step への
+  置き換えと、既存シナリオの状態タグの付け替えも含む。spec が明示している場合も変更の
+  前後を報告に挙げる。
 - bootstrap・new-feature・sync は、`layout.idiomGuide` を設定していても「ドラフトの点検」を
   `specproof-sync/prompts/system.md` から読む。
 

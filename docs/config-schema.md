@@ -17,9 +17,9 @@ consumer リポのルートに置く 1 枚の設定ファイル。specproof-* sk
 ## トップレベルフィールド
 
 traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `featuresDir` /
-`candidateSuffix` / `implGlobs`、`tags.fixme` / `tags.skip`、2 つの `strict*`）は型を検証する。
+`candidateSuffix` / `implGlobs`、`strict*`）は型を検証する。
 キーの省略と空の値は既定値を使い、値があるのに型が違う場合（`implGlobs` に文字列、
-`strictUnregisteredImpl: "true"`、空文字列、空白を含むタグなど）はエラーで止まる。
+`strictUnregisteredImpl: "true"`、空文字列など）はエラーで止まる。
 設定したつもりの監査が、型違いで黙って無効になることを防ぐため。
 
 | フィールド | 要否 | 説明 |
@@ -80,8 +80,8 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 
 | ブロック | 要否 | 要点 |
 |---|---|---|
-| `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。fixme/skip は optional。`fixme` / `skip` は省略時 `@fixme` / `@skip`。traceability エンジンの理由コメント必須タグ（`specproof-check`）と done gate（`specproof-stats --strict` の @fixme=0 判定）にも使われるため、リネーム時はこの値で集計・lint される。`@` は省略可（自動補完）。 |
-| `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。 |
+| `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、ここでは設定しない。実行を止めるタグに別名を付ける設定になるので、`tags.fixme` / `tags.skip` を書くと読み込みが失敗する（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。 |
+| `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。`tags` には状態タグに触れる式と括弧の対応が取れていない式を書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `env` | required（baseUrl） | 環境変数の論理名。`adminUsername`<sup>+</sup> は authed-admin の条件判定。 |
 | `environments[]` | required（1エントリ以上） | 実行環境プロファイル。環境別の auth / dotenv / excludeTags を宣言。詳細は後述。 |
 | `implement`<sup>+</sup> | optional | `blastRadiusGlobs` = specproof-implement の編集許可スコープ（implGlobs とは別概念）。 |
@@ -125,7 +125,7 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 | `auth` | object | optional | この環境の認証設定。 |
 | `auth.provider` | string | optional | 認証プロバイダ識別子（`mock` / `google` / `email-password` / `saml` 等）。 |
 | `auth.description` | string | optional | 認証方式の人間向け説明。スキルがシナリオ実装時に参照する。 |
-| `excludeTags` | string[] | optional | この環境で除外するタグのリスト。ランナーがフィルタに使い、スキルが skip 判定に使う。 |
+| `excludeTags` | string[] | optional | この環境で除外するタグのリスト。ランナーがフィルタに使い、スキルが skip 判定に使う。各要素は単一のタグ（`/^@[^@\s()]+$/`）に限り、状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `envOverrides` | Record\<string, string\> | optional | dotenv 読み込み後に追加注入する環境変数。shell 既設定値は上書きしない。 |
 
 ### 例
@@ -167,6 +167,15 @@ tags            — シナリオ属性軸（@slow/@admin 等）  → ランナ�
 ```
 
 `excludeTags` は環境軸から tags 軸へのフィルタ。例: local 環境では `@google-auth` を除外。
+状態タグの扱いは環境によらず固定で、runner のテンプレートは `@draft` / `@human` / `@out-of-scope` を常に除外し、
+`@red-contract` はテンプレートの絞り込みでは除外しない。ただし `@red-contract` のシナリオも `projects[].tags`
+（`@admin` など）・コマンドラインの `--grep`・smoke コマンドの `--grep-invert @slow` といった絞り込みには従う。
+`@human` と併記した `@red-contract` は実装待ちのまま人が確かめ、E2E では実行しない。
+`excludeTags` に状態タグやタグ式（`not @x`・`@a and @b` など）を書くと、
+Playwright テンプレートの設定読み込みが失敗する（`@red-contract` を外して E2E を緑に見せないため）。
+`projects[].tags` も、状態タグに触れる式や括弧の対応が取れていない式を書くと設定読み込みが失敗する。
+Flutter テンプレートは同じ理由で、状態タグに触れる `SPECPROOF_TAGS` と括弧の対応が取れていない `SPECPROOF_TAGS` を拒否する。
+コマンドラインの `--grep-invert @red-contract` はテンプレートでは止められないので、使わない。
 `projects[].conditional` は認証ロール軸から env 軸へのフィルタ。例: admin 環境変数がなければスキップ。
 3 軸は独立に評価され、すべて通過したシナリオだけが実行対象になる。
 

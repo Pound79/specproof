@@ -144,8 +144,8 @@ test("生成ガイドがドラフトの点検 4 項目を持ち、点検は提�
   assert.match(row("否定だけの確認"), /肯定で確かめる行/);
   assert.match(row("否定だけの確認"), /消さずに残す/);
   assert.match(row("値の無い確認"), /値を推測しない/);
-  assert.match(row("統制できない前提"), /\{\{config:tags\.skip\}\}/);
-  assert.match(row("確認を減らす変更"), /\{\{config:tags\.fixme\}\}` を付ける/);
+  assert.match(row("統制できない前提"), /`@human`（人が確かめて記録を残す）を提案/);
+  assert.match(row("確認を減らす変更"), /`@out-of-scope` に変える、`@red-contract` を外す/);
   assert.match(row("確認を減らす変更"), /停止/);
   assert.match(section, /点検の結果でドラフトを書き換えない/);
   assert.match(section, /idiomGuide.*を設定していても/);
@@ -172,7 +172,7 @@ test("sync は spec の明示が無い確認を減らす変更を行わず停止
   const rule = between(between(skill, "### 3. Feature / steps の更新", "### 4. "), "6. **確認を減らす変更", "\n\n");
   assert.match(rule, /spec が明示していない限り行わない/);
   assert.match(rule, /feature \/ manifest を変更せずに停止/);
-  assert.match(rule, /\{\{config:tags\.skip\}\}/);
+  assert.match(rule, /`@out-of-scope` に変える/);
   assert.match(between(skill, "| spec のみ changed", "\n"), /Step 3 の 6/);
   const methodology = read("docs/methodology.md");
   assert.match(between(methodology, "| spec のみ changed", "\n"), /確認を減らす更新は spec の明示が要る/);

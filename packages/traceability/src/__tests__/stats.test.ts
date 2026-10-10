@@ -10,7 +10,7 @@ const scenario = (tags: string[]): ScannedScenario => ({
 });
 
 describe("buildStats", () => {
-  it("classifies scenarios into automated / fixme / skip per domain", () => {
+  it("ドメインごとに対象外と使えないタグを数え、TOTAL に合算する", () => {
     const features: FeatureScenarios[] = [
       {
         domain: "features/a.feature",
@@ -18,7 +18,7 @@ describe("buildStats", () => {
       },
       {
         domain: "features/b.feature",
-        scenarios: [scenario(["@skip"]), scenario(["@fixme", "@admin"])],
+        scenarios: [scenario(["@out-of-scope"]), scenario(["@fixme", "@skip"])],
       },
     ];
 
@@ -27,129 +27,73 @@ describe("buildStats", () => {
     expect(report.domains[0]).toMatchObject({
       domain: "features/a.feature",
       total: 3,
-      automated: 2, // tagless + @slow both count as automated
-      fixme: 1,
-      skip: 0,
+      outOfScope: 0,
+      disallowed: 1,
     });
     expect(report.domains[1]).toMatchObject({
       domain: "features/b.feature",
       total: 2,
-      automated: 0,
-      fixme: 1, // @fixme wins over @skip/@admin
-      skip: 1,
+      outOfScope: 1,
+      disallowed: 1, // @fixme と @skip が重なっても 1 条件として数える
     });
     expect(report.totals).toMatchObject({
       domain: "TOTAL",
       total: 5,
-      automated: 2,
-      fixme: 2,
-      skip: 1,
+      outOfScope: 1,
+      disallowed: 2,
     });
-    expect(report.fixmeClean).toBe(false);
+    expect(report.done).toBe(false);
   });
 
-  it("reports fixmeClean when no @fixme remain", () => {
+  it("実装待ちも使えないタグも無ければ done にする（対象外は妨げない）", () => {
     const report = buildStats([
       {
         domain: "features/a.feature",
-        scenarios: [scenario([]), scenario(["@skip"])],
+        scenarios: [scenario([]), scenario(["@out-of-scope"]), scenario(["@human"])],
       },
     ]);
 
-    expect(report.fixmeClean).toBe(true);
-    expect(report.totals).toMatchObject({
-      total: 2,
-      automated: 1,
-      skip: 1,
-      fixme: 0,
-    });
-  });
-
-  it("classifies by custom tags.fixme / tags.skip when supplied", () => {
-    const report = buildStats(
-      [
-        {
-          domain: "features/a.feature",
-          // @fixme/@skip must NOT be recognised once tags are renamed —
-          // otherwise the false-green this fix targets reappears.
-          scenarios: [scenario(["@todo"]), scenario(["@manual"]), scenario(["@fixme"])],
-        },
-      ],
-      { fixmeTag: "@todo", skipTag: "@manual" },
-    );
-
+    expect(report.done).toBe(true);
     expect(report.totals).toMatchObject({
       total: 3,
-      fixme: 1, // only @todo counts as fixme now
-      skip: 1, // only @manual counts as skip now
-      automated: 1, // the old @fixme is no longer reason-required → automated
+      outOfScope: 1,
+      disallowed: 0,
+      verification: { machine: 2, human: 1 },
     });
-    expect(report.fixmeClean).toBe(false); // an outstanding @todo blocks done
-    expect(report.fixmeTag).toBe("@todo");
-    expect(report.skipTag).toBe("@manual");
-  });
-
-  it("treats default @fixme as automated under a renamed taxonomy (no false green)", () => {
-    const report = buildStats(
-      [{ domain: "features/a.feature", scenarios: [scenario(["@fixme"])] }],
-      { fixmeTag: "@todo", skipTag: "@manual" },
-    );
-
-    // The whole point: a stray @fixme in a repo that renamed its tags is not a
-    // silently-counted "fixme" — it's an unrecognised tag, hence automated, and
-    // fixmeClean stays true only because no @todo remain.
-    expect(report.totals.fixme).toBe(0);
-    expect(report.totals.automated).toBe(1);
-    expect(report.fixmeClean).toBe(true);
   });
 });
 
 describe("formatStats", () => {
-  it("renders the census and a done line, honest that green needs a run", () => {
+  it("集計と残件の行を出し、GREEN は実行が要ると明示する", () => {
     const out = formatStats(
       buildStats([
         {
           domain: "features/a.feature",
-          scenarios: [scenario([]), scenario(["@fixme"])],
+          scenarios: [scenario([]), scenario(["@red-contract"]), scenario(["@fixme"])],
         },
       ]),
     );
 
-    expect(out).toContain("features/a.feature: 2 total / 1 automated / @fixme 1 / @skip 0");
-    expect(out).toContain("@fixme remaining: 1");
-    expect(out).toContain("GREEN still requires running");
+    expect(out).toContain(
+      "features/a.feature: 3 conditions / 3 cases; phase: draft 0 / pending 1 / complete 2",
+    );
+    expect(out).toContain("@red-contract remaining: 1");
+    expect(out).toContain("tags that switch scenarios off (@fixme / @skip / @fail) remaining: 1");
+    expect(out).toContain("GREEN requires running");
   });
 
-  it("renders the done-met line when no @fixme remain", () => {
+  it("残件が無ければ完了の行を出し、使えないタグの行は出さない", () => {
     const out = formatStats(
       buildStats([
         {
           domain: "features/a.feature",
-          scenarios: [scenario([]), scenario(["@skip"])],
+          scenarios: [scenario([]), scenario(["@out-of-scope"])],
         },
       ]),
     );
 
-    expect(out).toContain("@fixme is 0");
-  });
-
-  it("renders the repo's actual tag names, not the defaults", () => {
-    const out = formatStats(
-      buildStats(
-        [
-          {
-            domain: "features/a.feature",
-            scenarios: [scenario(["@todo"]), scenario(["@manual"])],
-          },
-        ],
-        { fixmeTag: "@todo", skipTag: "@manual" },
-      ),
-    );
-
-    expect(out).toContain("features/a.feature: 2 total / 0 automated / @todo 1 / @manual 1");
-    expect(out).toContain("@todo remaining: 1");
-    expect(out).toContain("demote to @manual");
-    expect(out).not.toContain("@fixme");
-    expect(out).not.toContain("@skip");
+    expect(out).toContain("@red-contract is 0");
+    expect(out).toContain("out-of-scope 1");
+    expect(out).not.toContain("tags that switch scenarios off");
   });
 });

@@ -103,7 +103,8 @@ feature / steps / page objects / manifest を変更しない。
    人間の裁定を得る。変更の前後と根拠の spec 節を報告と PR 本文に必ず挙げる。
 6. **確認を減らす変更は、spec が明示していない限り行わない。** シナリオを残したまま確認を減らす
    更新（ならば・かつの行を削る、否定だけにする、具体的な値を外す、より緩い step に置き換える、
-   既存シナリオに `{{config:tags.skip}}` / `{{config:tags.fixme}}` を付ける、Examples の行を削る）が対象。
+   既存シナリオの状態タグを付け替えて実行から外す: `@human` / `@draft` / `@out-of-scope` に変える、
+   `@red-contract` を外す、Examples の行を削る）が対象。
    Feature / Rule / Examples に付けたタグの継承で既存ケースが実行対象外になる変更も含む。
    spec がその削除・緩和を明示していなければ、feature / manifest を変更せずに停止し、変更の前後と
    根拠の spec 節を並べてユーザーに確認する。spec が明示している場合は進めてよいが、変更の前後と
@@ -151,7 +152,11 @@ feature / steps / page objects / manifest を変更しない。
   必要な定数を `{{config:layout.textConstants}}` に追加する
   (`{{config:layout.textConstants}}` は `{{config:layout.i18nSource}}` のミラー)。
 - steps / page objects のコメントは英語。
-- テストが落ちた状態でコミットしない。
+- テストが落ちた状態でコミットしない。`@red-contract` のシナリオの RED は想定どおりでコミットを止めないが、
+  それ以外の失敗は 1 件でもコミットを止める。
+- 既存シナリオの状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）を、人の確認なしに付けたり
+  外したり付け替えたりしない。spec の変更で状態を変えるべきだと判断したら、変更案として提示して止まる。
+  新しく足すシナリオには `@red-contract` を付けてよい（`@human` が付いていなければ E2E で実行し、実装待ちとして RED になる）。
 - 両側変更時の自動解決は禁止 (必ずユーザー確認)。
 - impl のみ changed で観測可能な振る舞いが変わった場合も、feature を実装に自動で合わせない (必ずユーザー確認)。
 - **ユーザー確認後であっても、impl の diff・現在内容を feature の期待値の生成元として使用しない。** 期待値は常に spec から導出する。実装に合わせ直すと実装の誤りまで期待値に取り込み、テストが実装の写しになる。

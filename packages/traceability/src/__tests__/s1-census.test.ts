@@ -108,7 +108,9 @@ describe("S1 静的統計", () => {
       verification: { machine: 4, human: 3 },
     });
     const output = formatStats(report);
-    expect(output.split("\n")).toContain("  TOTAL: 7 total / 7 automated / @fixme 0 / @skip 0");
+    expect(output.split("\n")).toContain(
+      "  TOTAL: 7 conditions / 9 cases; phase: draft 2 / pending 3 / complete 2; verification: machine 4 / human 3; out-of-scope 0",
+    );
     expect(output).toContain("7 conditions / 9 cases");
     expect(output).toContain("draft 2 / pending 3 / complete 2");
     expect(output).toContain("machine 4 / human 3");
@@ -213,23 +215,23 @@ Scenario Outline: 条件
     ).toMatchObject({ total: 1, cases: 3 });
   });
 
-  it("閉じていないdocstringで後続のfixmeを隠して成功しない", () => {
+  it("閉じていないdocstringで後続の実装待ちを隠して成功しない", () => {
     expect(() =>
       census(`Feature: 不正な本文
 Scenario: 条件
  Given 本文
   """
- @fixme
+ @red-contract
  Scenario: 残件
 `),
     ).toThrow(/docstring/);
   });
 
-  it("無関係なFeatureコメントでScenarioのfixme理由検査を迂回しない", () => {
+  it("無関係なFeatureコメントでScenarioの対象外理由検査を迂回しない", () => {
     const [scenario] = parseScenarios(`# Featureの一般説明
 Feature: 理由の境界
- @fixme
- Scenario: 理由なしの残件
+ @out-of-scope
+ Scenario: 理由なしの対象外
   Given 条件
 `);
     expect(scenario.hasReasonComment).toBe(false);
@@ -240,33 +242,18 @@ Feature: 理由の境界
 Feature: 互換
  @red-contract
  Rule: 状態
-  @skip
-  Scenario: 自身の除外
+  @slow
+  Scenario: 自身のタグ
    Given 条件
 `);
-    expect(scenario.tags).toEqual(["@skip"]);
+    expect(scenario.tags).toEqual(["@slow"]);
     expect(scenario.effectiveStateTags).toEqual(["@human", "@red-contract"]);
-    // Feature から継承した @fixme が、自身の @skip より優先される。
+    // Feature から継承した @fixme も使えないタグとして数える。
     expect(buildStats([{ domain: "互換.feature", scenarios: [scenario] }]).totals).toMatchObject({
-      fixme: 1,
-      skip: 0,
+      disallowed: 1,
+      outOfScope: 0,
       phase: { pending: 1 },
       verification: { human: 1 },
     });
-  });
-
-  it("fixme/skip は親タグを継承して集計し、fixme=0 を誤って満たさない", () => {
-    const content = `# 自動化の残件
-@todo
-Feature: 残件
- Scenario: 継承した残件
-  Given 条件
-`;
-    const report = buildStats(
-      [{ domain: "features/demo.feature", scenarios: parseScenarios(content) }],
-      { fixmeTag: "@todo", skipTag: "@manual" },
-    );
-    expect(report.totals.fixme).toBe(1);
-    expect(report.fixmeClean).toBe(false);
   });
 });

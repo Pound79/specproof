@@ -13,7 +13,7 @@ import {
 import { parseFeatureScenarios, type ScannedScenario } from "./feature-scan.js";
 import { loadManifest, type TraceabilityLink, type TraceabilityManifest } from "./manifest.js";
 import { resolveWithinRoot } from "./resolve.js";
-import { DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG } from "./config.js";
+import { OUT_OF_SCOPE_TAG, DISALLOWED_TAGS } from "./config.js";
 import { auditUnregisteredImpl } from "./impl-audit.js";
 import { auditSpecHeadings } from "./spec-audit.js";
 import { lintFeatureSet, type FeatureLintKind, type FeatureSource } from "./feature-lint.js";
@@ -41,7 +41,8 @@ export interface DriftWarning {
   kind:
     | "empty-link"
     | "unreviewed-draft"
-    | "missing-skip-reason"
+    | "missing-reason"
+    | "disallowed-tag"
     | "unregistered-feature"
     | "unregistered-spec-heading"
     | "unregistered-impl"
@@ -154,23 +155,42 @@ const unreviewedDraftWarning = (featurePath: string, linkId?: string): DriftWarn
     : { linkId, kind: "unreviewed-draft", path: featurePath, message };
 };
 
-// Tags whose scenarios must carry a one-line reason comment (the methodology
-// mandate), in priority order — the first match names the warning. Canonical
-// defaults; repos that rename these via `tags.fixme` / `tags.skip` pass their
-// own values through CheckDriftOptions.reasonRequiredTags.
-const DEFAULT_REASON_REQUIRED_TAGS = [DEFAULT_FIXME_TAG, DEFAULT_SKIP_TAG];
+const withLink = (warning: DriftWarning, linkId?: string): DriftWarning =>
+  linkId === undefined ? warning : { linkId, ...warning };
 
-const missingSkipReasonWarning = (
+// @out-of-scope は受け入れ条件から外す宣言なので、なぜ外すかの 1 行コメントを必須にする。
+const missingReasonWarning = (
+  featurePath: string,
+  scenario: ScannedScenario,
+  inherited: boolean,
+  linkId?: string,
+): DriftWarning =>
+  withLink(
+    {
+      kind: "missing-reason",
+      path: featurePath,
+      message: inherited
+        ? `scenario "${scenario.name}" (${featurePath}:${scenario.line}) inherits ${OUT_OF_SCOPE_TAG} from its Feature / Rule / Examples — put ${OUT_OF_SCOPE_TAG} on each scenario with a "# ..." reason line above it`
+        : `scenario "${scenario.name}" (${featurePath}:${scenario.line}) is tagged ${OUT_OF_SCOPE_TAG} without a reason comment — add a "# ..." line above it stating why it is excluded`,
+    },
+    linkId,
+  );
+
+// runner が実行を止める・失敗を想定扱いにするタグ。付いていると条件が確かめられないまま残る。
+const disallowedTagWarning = (
   featurePath: string,
   scenario: ScannedScenario,
   tag: string,
   linkId?: string,
-): DriftWarning => {
-  const message = `scenario "${scenario.name}" (${featurePath}:${scenario.line}) is tagged ${tag} without a reason comment — add a "# ..." line above it stating why it is not automated`;
-  return linkId === undefined
-    ? { kind: "missing-skip-reason", path: featurePath, message }
-    : { linkId, kind: "missing-skip-reason", path: featurePath, message };
-};
+): DriftWarning =>
+  withLink(
+    {
+      kind: "disallowed-tag",
+      path: featurePath,
+      message: `scenario "${scenario.name}" (${featurePath}:${scenario.line}) carries ${tag}, which makes the runner skip or mute it — switching a scenario off is not allowed; remove it and use @red-contract (not implemented yet), @human (checked by a person) or ${OUT_OF_SCOPE_TAG} (excluded, with a reason comment)`,
+    },
+    linkId,
+  );
 
 // A-1: a *.feature file physically present under featuresDir that no link's
 // features[] registers. No linkId — there is no link to attach the warning to.
@@ -244,7 +264,6 @@ const realpathOrUndefined = (repoRoot: string, relPath: string): string | undefi
 const lintFeature = async (
   target: FeatureTarget,
   repoRoot: string,
-  reasonRequiredTags: string[],
   runLimited: RunTaskLimited,
 ): Promise<{ warnings: DriftWarning[]; source?: FeatureSource }> => {
   const content = await runLimited(() =>
@@ -258,23 +277,32 @@ const lintFeature = async (
     warnings.push(unreviewedDraftWarning(target.relPath, target.linkId));
   }
   for (const scenario of parseFeatureScenarios(target.relPath, content)) {
-    const tag = reasonRequiredTags.find((required) => scenario.tags.includes(required));
-    if (tag !== undefined && !scenario.hasReasonComment) {
-      warnings.push(missingSkipReasonWarning(target.relPath, scenario, tag, target.linkId));
+    // @out-of-scope はシナリオ自身に付け、その直前に理由を書く。Feature / Rule / Examples から
+    // 継承した宣言は、理由の置き場所が定まらず一括で外せてしまうので、理由があっても警告する。
+    const ownOutOfScope = scenario.tags.includes(OUT_OF_SCOPE_TAG);
+    const inheritedOutOfScope =
+      !ownOutOfScope && (scenario.effectiveTags ?? []).includes(OUT_OF_SCOPE_TAG);
+    if ((ownOutOfScope && !scenario.hasReasonComment) || inheritedOutOfScope) {
+      warnings.push(
+        missingReasonWarning(target.relPath, scenario, inheritedOutOfScope, target.linkId),
+      );
+    }
+    // runner と同じく、Feature / Rule / Examples から継承したタグも見る。
+    const disallowed = (scenario.effectiveTags ?? scenario.tags).find((tag) =>
+      DISALLOWED_TAGS.includes(tag),
+    );
+    if (disallowed !== undefined) {
+      warnings.push(disallowedTagWarning(target.relPath, scenario, disallowed, target.linkId));
     }
   }
   return { warnings, source: { path: target.relPath, content } };
 };
 
 export interface CheckDriftOptions {
-  /** Repo-relative features dir. When set, every *.feature in it is linted for
-   *  the draft marker and skip/fixme reason comments — catching files copied in
-   *  but not registered in the manifest. */
+  /** Repo-relative features dir. When set, every *.feature in it is linted
+   *  (draft marker, disallowed tags, @out-of-scope reasons, feature lint) —
+   *  catching files copied in but not registered in the manifest. */
   featuresDir?: string;
-  /** Tags whose scenarios must carry a reason comment, in priority order (the
-   *  first match names the warning). Defaults to ["@fixme", "@skip"]; pass the
-   *  repo's `tags.fixme` / `tags.skip` to honour a custom tag taxonomy. */
-  reasonRequiredTags?: string[];
   /** Glob patterns (self-implemented matcher; `*` and `**` only) identifying
    *  implementation files that should be registered in some link's impl[].
    *  When unset, unregistered-impl auditing is skipped entirely (opt-in). */
@@ -286,7 +314,6 @@ export const checkDrift = async (
   repoRoot: string,
   options: CheckDriftOptions = {},
 ): Promise<DriftReport> => {
-  const reasonRequiredTags = options.reasonRequiredTags ?? DEFAULT_REASON_REQUIRED_TAGS;
   const manifest = await loadManifest(manifestPath);
   const runLimited = createTaskLimiter(MAX_CONCURRENT_FILE_READS);
   const entriesPerLink = await Promise.all(
@@ -297,7 +324,7 @@ export const checkDrift = async (
 
   const targets = await collectFeatureTargets(manifest, repoRoot, options.featuresDir);
   const featureResults = await Promise.all(
-    targets.map((target) => lintFeature(target, repoRoot, reasonRequiredTags, runLimited)),
+    targets.map((target) => lintFeature(target, repoRoot, runLimited)),
   );
   const featureWarningGroups = featureResults.map((result) => result.warnings);
   // 重複と矛盾の候補はファイルをまたいで比べるので、読めた feature をまとめて渡す。
@@ -308,8 +335,8 @@ export const checkDrift = async (
   }
   const contentLintWarnings: DriftWarning[] = lintFeatureSet(
     featureResults.flatMap((result) => (result.source === undefined ? [] : [result.source])),
-    // 自動化しない印（fixme / skip）のシナリオは、確認が無くても missing-then にしない。
-    { exemptTags: reasonRequiredTags },
+    // 受け入れ条件から外したシナリオは、確認が無くても missing-then にしない。
+    { exemptTags: [OUT_OF_SCOPE_TAG] },
   ).map((finding) => {
     const linkId = linkIdByPath.get(finding.path);
     const base = { kind: finding.kind, path: finding.path, message: finding.message };
