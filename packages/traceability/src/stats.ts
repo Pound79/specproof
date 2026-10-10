@@ -116,7 +116,9 @@ export const formatStats = (report: StatsReport): string => {
   const { totals } = report;
   const pendingLine =
     totals.phase.pending === 0
-      ? '@red-contract is 0 — the static half of "done" is met. GREEN runs and human confirmation records are still needed.'
+      ? report.done
+        ? '@red-contract is 0 — the static half of "done" is met. GREEN runs and human confirmation records are still needed.'
+        : '@red-contract is 0, but disallowed tags remain — the static half of "done" is not met.'
       : `@red-contract remaining: ${totals.phase.pending} — implement them to reach done.`;
   const disallowedLine =
     totals.disallowed === 0

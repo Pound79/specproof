@@ -214,12 +214,41 @@ const STATE_TAG_IN_EXPRESSION = /@(draft|red-contract|human|out-of-scope)(?=$|[\
 
 function hasBalancedParentheses(expression: string): boolean {
   let depth = 0;
+  let escaped = false;
+  let tokenLength = 0;
+  let firstCharacter = "";
+  const append = (char: string): void => {
+    if (tokenLength === 0) firstCharacter = char;
+    tokenLength += 1;
+  };
+  const finishToken = (): boolean => {
+    // Cucumber は復号後の単独の "(" / ")" も演算子として読む。
+    // タグ内の括弧と区別し、runner と同じトークン境界で釣り合いを確認する。
+    if (tokenLength === 1) {
+      if (firstCharacter === "(") depth += 1;
+      if (firstCharacter === ")") depth -= 1;
+    }
+    tokenLength = 0;
+    return depth >= 0;
+  };
   for (const char of expression) {
-    if (char === "(") depth += 1;
-    if (char === ")") depth -= 1;
-    if (depth < 0) return false;
+    if (escaped) {
+      if (!"()\\".includes(char) && !/\s/.test(char)) return false;
+      append(char);
+      escaped = false;
+    } else if (char === "\\") {
+      escaped = true;
+    } else if (char === "(" || char === ")" || /\s/.test(char)) {
+      if (!finishToken()) return false;
+      if (char === "(") depth += 1;
+      if (char === ")") depth -= 1;
+      if (depth < 0) return false;
+    } else {
+      append(char);
+    }
   }
-  return depth === 0;
+  // 末尾のバックスラッシュが、呼び出し側で足す閉じ括弧をエスケープしない。
+  return !escaped && finishToken() && depth === 0;
 }
 
 function assertProjectTags(project: ProjectConfig): void {
@@ -235,7 +264,7 @@ function assertProjectTags(project: ProjectConfig): void {
   }
   if (!hasBalancedParentheses(tags)) {
     throw new Error(
-      `specproof: projects[${JSON.stringify(project.name)}].tags has unbalanced parentheses (got ${JSON.stringify(tags)}).`,
+      `specproof: projects[${JSON.stringify(project.name)}].tags has unbalanced parentheses or invalid escaping (got ${JSON.stringify(tags)}).`,
     );
   }
 }
