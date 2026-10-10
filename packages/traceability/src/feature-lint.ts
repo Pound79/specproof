@@ -19,7 +19,7 @@ export type StepType = "given" | "when" | "then";
 
 export interface ParsedStep {
   type: StepType;
-  /** キーワードを除き、連続する空白を 1 つにした本文。 */
+  /** キーワードと前後の空白を除いた本文。引用符内などの空白は保持する。 */
   text: string;
   /** step に続く表の行と docstring の本文（無ければ空文字）。比較に含める。 */
   argument: string;
@@ -83,9 +83,44 @@ const matchStep = (trimmed: string): { kind: StepType | "continue"; text: string
     if (!trimmed.startsWith(keyword)) continue;
     const rest = trimmed.slice(keyword.length);
     if (needsSpace && !/^\s/.test(rest)) continue;
-    return { kind, text: rest.trim().replace(/\s+/g, " ") };
+    return { kind, text: rest.trim() };
   }
   return undefined;
+};
+
+// エスケープされていない | だけでセルを区切る。空白列を正規表現で探すと
+// セル内の長い空白列で二乗時間になるため、境界は一度だけ走査する。
+const tableArgument = (row: string): string => {
+  const cells: string[] = [];
+  let start = 1;
+  for (let index = 1; index < row.length; index += 1) {
+    if (row[index] === "\\") {
+      index += 1;
+    } else if (row[index] === "|") {
+      // 整形用空白を除いてから復号する。\n で渡すセル先頭・末尾の改行は残す。
+      const cell = row.slice(start, index).trim();
+      const value = cell.replace(/\\([\\|n])/g, (_, c: string) => (c === "n" ? "\n" : c));
+      cells.push(value);
+      start = index + 1;
+    }
+  }
+  return `table:${JSON.stringify(cells)}`;
+};
+
+interface DraftDocstring {
+  delimiter: string;
+  indent: number;
+  mediaType: string;
+  lines: string[];
+}
+
+// 開始区切りの字下げだけを除く。本文の相対インデント・末尾空白は入力値。
+const docstringLine = (line: string, docstring: DraftDocstring): string => {
+  const text = line.endsWith("\r") ? line.slice(0, -1) : line;
+  let start = 0;
+  while (start < docstring.indent && (text[start] === " " || text[start] === "\t")) start += 1;
+  const escapedDelimiter = [...docstring.delimiter].map((char) => `\\${char}`).join("");
+  return text.slice(start).split(escapedDelimiter).join(docstring.delimiter);
 };
 
 const OUTLINE_RE = /Outline|Template|アウトライン|テンプレ/;
@@ -122,7 +157,7 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
   let current: { name: string; line: number; rule: number; outline: boolean } | undefined;
   let currentSteps: DraftStep[] = [];
   let lastStep: DraftStep | undefined;
-  let docstring: string | undefined;
+  let docstring: DraftDocstring | undefined;
 
   const background = (): readonly ParsedStep[] => {
     sharedBackground ??= Object.freeze([...featureBackground, ...ruleBackground].map(freezeStep));
@@ -145,19 +180,28 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
   for (const [index, line] of content.split("\n").entries()) {
     const trimmed = line.trim();
     if (docstring !== undefined) {
-      if (trimmed === docstring) docstring = undefined;
-      else lastStep?.argument.push(trimmed);
+      if (trimmed === docstring.delimiter) {
+        lastStep?.argument.push(
+          `docstring:${JSON.stringify([docstring.mediaType, docstring.lines.join("\n")])}`,
+        );
+        docstring = undefined;
+      } else {
+        docstring.lines.push(docstringLine(line, docstring));
+      }
       continue;
     }
     const fence = trimmed.match(/^("""|```)/);
     if (fence) {
-      docstring = fence[1];
-      // 区切りの後ろの media type（"""json など）も引数の一部として比べる。
-      lastStep?.argument.push(trimmed);
+      docstring = {
+        delimiter: fence[1],
+        indent: line.length - line.trimStart().length,
+        mediaType: trimmed.slice(fence[1].length).trim(),
+        lines: [],
+      };
       continue;
     }
     if (trimmed.startsWith("|")) {
-      lastStep?.argument.push(trimmed.replace(/\s*\|\s*/g, "|"));
+      if (lastStep !== undefined) lastStep.argument.push(tableArgument(trimmed));
       continue;
     }
     if (trimmed === "" || trimmed.startsWith("#") || trimmed.startsWith("@")) {
@@ -234,8 +278,9 @@ const outOfOrderStep = (steps: readonly ParsedStep[]): ParsedStep | undefined =>
   return undefined;
 };
 
+// JSON の組で区切る。本文や引数の改行・NUL が step の境界に化けないようにする。
 const signature = (steps: readonly ParsedStep[]): string =>
-  steps.map((step) => `${step.type}:${step.text}\u0000${step.argument}`).join("\n");
+  JSON.stringify(steps.map((step) => [step.type, step.text, step.argument]));
 
 // 比較の鍵は全文でなく hash にする。背景の全文をシナリオごとに鍵へ入れると、
 // 背景の長さ × シナリオ数でメモリと時間が増える。
@@ -346,7 +391,7 @@ export const lintFeatureSet = (
       const exempt = (tags.get(scenario.line) ?? []).some((tag: string) =>
         exemptTags.includes(tag),
       );
-      if (!hasThen && typed && !exempt) {
+      if (!hasThen && (typed || scenario.steps.length === 0) && !exempt) {
         findings.push({
           kind: "missing-then",
           path: source.path,
