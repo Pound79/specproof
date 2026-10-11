@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -13,6 +13,8 @@ const end = source.indexOf('\nfor f in "${RELEASE_FILES[@]}"; do', start);
 assert.ok(start >= 0 && end > start, "release.sh の後始末ブロックが見つからない");
 const cleanup = source.slice(start, end).replace("cleanup() {", "original_cleanup() {");
 
+const retainSnapshot = (bin) => writeFileSync(path.join(bin, "rm"), '#!/bin/sh\nset -eu\nfor file in "$@"; do\ncase "$file" in -*) continue ;; esac\nmv "$file" "$file-retained"\ndone\n', { mode: 0o755 });
+
 for (const [signal, status] of [["INT", 130], ["TERM", 143]]) {
   for (const finalized of [false, true]) {
     test(`${signal}: finalized=${finalized} でも後続処理へ進まず一度だけ後始末する`, () => {
@@ -21,6 +23,7 @@ for (const [signal, status] of [["INT", 130], ["TERM", 143]]) {
         const bin = path.join(dir, "bin");
         const gitCalls = path.join(dir, "git-calls.txt");
         mkdirSync(bin);
+        retainSnapshot(bin);
         // Git 操作は記録に限定し、復元するファイルとシグナルは実物を使う。
         writeFileSync(path.join(bin, "git"), '#!/bin/sh\nprintf "%s\\n" "$@" >> "$SIGNAL_GIT_CALLS"\n', { mode: 0o755 });
         writeFileSync(path.join(dir, "release.txt"), "before\n");
@@ -31,6 +34,7 @@ cleanup() { echo cleanup >> cleanup-count.txt; original_cleanup; }
 cp -p release.txt "$SNAP_DIR/release.txt"
 echo "$SNAP_DIR" > snapshot-path.txt
 SNAPSHOT_TAKEN=true
+STAGING_STARTED=true
 printf 'changed\\n' > release.txt
 MUTATION_FINALIZED=${finalized}
 kill -s ${signal} "$$"
@@ -50,7 +54,7 @@ echo continued > continued.txt
         const snapshot = readFileSync(path.join(dir, "snapshot-path.txt"), "utf8").trim();
         assert.equal(existsSync(snapshot), false);
       } finally {
-        rmSync(dir, { recursive: true, force: true });
+        renameSync(dir, `${dir}-retained`);
       }
     });
   }
@@ -65,6 +69,7 @@ for (const [first, status] of [["INT", 130], ["TERM", 143]]) {
       try {
         const bin = path.join(dir, "bin");
         mkdirSync(bin);
+        retainSnapshot(bin);
         writeFileSync(
           path.join(bin, "git"),
           `#!/bin/sh\nprintf "%s\\n" "$@" >> git-calls.txt\nkill -s ${second} "$PPID"\nsleep 0.2\n`,
@@ -78,6 +83,7 @@ cleanup() { echo cleanup >> cleanup-count.txt; original_cleanup; echo done >> cl
 cp -p release.txt "$SNAP_DIR/release.txt"
 echo "$SNAP_DIR" > snapshot-path.txt
 SNAPSHOT_TAKEN=true
+STAGING_STARTED=true
 printf 'changed\\n' > release.txt
 kill -s ${first} "$$"
 echo continued > continued.txt
@@ -95,7 +101,7 @@ echo continued > continued.txt
         const snapshot = readFileSync(path.join(dir, "snapshot-path.txt"), "utf8").trim();
         assert.equal(existsSync(snapshot), false);
       } finally {
-        rmSync(dir, { recursive: true, force: true });
+        renameSync(dir, `${dir}-retained`);
       }
     });
   }

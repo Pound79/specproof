@@ -90,6 +90,10 @@ it, since it hides pending conditions and makes the run look green.
 レポート全体の `done` は `@red-contract`（pending）と使えないタグがともに 0 件のとき `true` です。
 Outline は条件として1件、ケースは複数 Examples の全データ行を合計します。通常 Scenario は1ケースです。
 
+同じ実体の feature を複数の link や repo 内のシンボリックリンク経由で登録しても、
+lint と census は一度だけ読み、最初の登録パスを表示します。
+manifest の各参照に保存した hash は、それぞれ独立に検査します。
+
 - phase: `@draft` は draft、`@red-contract` は pending、状態タグなしは complete。
 - verification: `@human` は human、その他は machine。phase と別軸です。
 - phase/verification の状態タグだけを Feature/Rule から継承し、次の Rule には前の Rule の状態を持ち越しません。

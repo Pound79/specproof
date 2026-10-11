@@ -1,4 +1,5 @@
 import { findFeatureFiles } from "./feature-files.js";
+import { uniqueFeatureTargets } from "./feature-identity.js";
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import {
@@ -206,20 +207,22 @@ interface FeatureTarget {
   linkId?: string;
 }
 
-// The full set of feature files to lint: every manifest-registered feature plus
-// every *.feature physically under featuresDir (so an unregistered draft copied
-// in is still caught — the ADR 0004 / specproof-bootstrap promise). Deduped by
-// repo-relative path; the registered entry (which carries a linkId) wins.
+// 登録済み feature と featuresDir 配下の未登録 feature を lint する。
+// 実体パスで重複を除き、最初の登録済みパスと linkId を報告に使う。
 const collectFeatureTargets = async (
   manifest: TraceabilityManifest,
   repoRoot: string,
   featuresDir: string | undefined,
 ): Promise<FeatureTarget[]> => {
-  const registered: FeatureTarget[] = manifest.links.flatMap((link) =>
-    link.features.map((ref) => ({
-      relPath: path.posix.normalize(ref.path),
-      linkId: link.id,
-    })),
+  const registered = uniqueFeatureTargets(
+    repoRoot,
+    manifest.links.flatMap((link) =>
+      link.features.map((ref) => ({
+        relPath: path.posix.normalize(ref.path),
+        linkId: link.id,
+      })),
+    ),
+    (target) => target.relPath,
   );
   const seen = new Set(registered.map((target) => target.relPath));
 

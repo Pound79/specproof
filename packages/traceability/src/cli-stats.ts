@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { findFeatureFiles } from "./feature-files.js";
+import { uniqueFeatureTargets } from "./feature-identity.js";
 import path from "node:path";
 import { parseFeatureScenarios } from "./feature-scan.js";
 import { readFileOrNull } from "./hash.js";
@@ -61,7 +62,11 @@ const collectFeaturePaths = async (config: TraceabilityConfig): Promise<FeatureS
   const registered = await loadRegisteredFeatures(config, found !== undefined);
   const missingFeaturesDir =
     config.featuresDir && found === undefined ? config.featuresDir : undefined;
-  return { paths: found ?? registered, registered, missingFeaturesDir };
+  return {
+    paths: uniqueFeatureTargets(config.repoRoot, found ?? registered, (relPath) => relPath),
+    registered,
+    missingFeaturesDir,
+  };
 };
 
 const main = async (): Promise<void> => {

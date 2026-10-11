@@ -190,23 +190,38 @@ done
 SNAP_DIR="$(mktemp -d)"
 SNAPSHOT_TAKEN=false
 MUTATION_FINALIZED=false
+STAGING_STARTED=false
 rollback_release_files() {
   [ "$SNAPSHOT_TAKEN" = true ] || return 0
   echo "==> Rolling back: restoring release files to their pre-release state" >&2
   for f in "${RELEASE_FILES[@]}"; do
     [ -e "$SNAP_DIR/$f" ] || continue
-    mkdir -p "$(dirname "$f")"
-    cp -p "$SNAP_DIR/$f" "$f"
+    mkdir -p "$(dirname "$f")" || return 1
+    cp -p "$SNAP_DIR/$f" "$f" || return 1
   done
-  # Drop anything we may have staged so the tree ends up exactly as we found it.
-  git reset -q -- "${RELEASE_FILES[@]}" 2>/dev/null || true
+  # 確認拒否など、release が stage する前の失敗では既存の index を触らない。
+  if [ "$STAGING_STARTED" = true ]; then
+    git reset -q -- "${RELEASE_FILES[@]}" || return 1
+    if [ -s "$SNAP_DIR/index.patch" ]; then
+      git apply --cached --binary --whitespace=nowarn "$SNAP_DIR/index.patch" || return 1
+    fi
+  fi
 }
 cleanup() {
+  local original_status=$?
   # 後始末中の 2 回目のシグナルで復元やスナップショット削除を中断させない。
   # 終了コードは最初に届いたシグナル（または元の失敗）のまま保たれる。
   trap '' INT TERM
-  [ "$MUTATION_FINALIZED" = true ] || rollback_release_files
+  if [ "$MUTATION_FINALIZED" != true ]; then
+    if ! rollback_release_files; then
+      echo "==> 復元に失敗しました。スナップショットを保持しています: $SNAP_DIR" >&2
+      echo "    対象ファイルと index.patch を確認してから手動で復旧してください。" >&2
+      [ "$original_status" -ne 0 ] || original_status=1
+      return "$original_status"
+    fi
+  fi
   rm -rf "$SNAP_DIR"
+  return "$original_status"
 }
 # シグナルは終了だけを担当し、後始末は EXIT で一度だけ実行する。
 trap cleanup EXIT
@@ -217,6 +232,9 @@ for f in "${RELEASE_FILES[@]}"; do
   mkdir -p "$SNAP_DIR/$(dirname "$f")"
   cp -p "$f" "$SNAP_DIR/$f"
 done
+# release 対象だけの既存 stage を保存し、対象外の並行 stage は復元時にも触らない。
+git diff --cached --binary --no-color --no-ext-diff --no-textconv \
+  --src-prefix=a/ --dst-prefix=b/ -- "${RELEASE_FILES[@]}" > "$SNAP_DIR/index.patch"
 SNAPSHOT_TAKEN=true
 
 # --- mutate: bump versions (package.json files + package-lock.json) ----------
@@ -377,6 +395,7 @@ fi
 # hard to re-run). --atomic = all refs succeed or none do.
 
 echo "==> Committing release"
+STAGING_STARTED=true
 git add -- "${RELEASE_FILES[@]}"
 git commit -m "chore: release $TAG"
 # Past this point the bump is captured in a commit; a later tag/push failure must

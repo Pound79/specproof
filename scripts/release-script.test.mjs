@@ -58,6 +58,7 @@ else if(a[0]==='rev-parse'&&a[1]==='--abbrev-ref') console.log(process.env.FIXTU
 else if(a[0]==='rev-parse') process.exit(process.env.FIXTURE_EXISTING_TAG==='local'?0:1);
 else if(a[0]==='ls-remote') process.exit(process.env.FIXTURE_EXISTING_TAG==='remote'?0:2);
 else if(a[0]==='status'&&process.env.FIXTURE_DIRTY==='true') console.log(' M cli/package.json');
+else if(a[0]==='diff'&&a[1]==='--cached'&&a[2]==='--binary') {}
 else if(a[0]==='diff'&&a[1]==='--name-only') {
  const lock=fs.readFileSync(process.env.FIXTURE_ROOT+'/package-lock.json','utf8');
  if(lock!==fs.readFileSync(process.env.FIXTURE_ROOT+'/initial-lock.json','utf8')) console.log('package-lock.json');
@@ -88,6 +89,8 @@ if(r.status===0&&process.env.FIXTURE_CORRUPT_LOCK) {
 }
 process.exit(r.status??92);
 `, { mode: 0o755 });
+  // cleanup の対象は試験中に削除せず、同じ場所の別名へ退避する。
+  writeFileSync(join(root, "bin/rm"), '#!/bin/sh\nset -eu\nfor file in "$@"; do\ncase "$file" in -*) continue ;; esac\nmv "$file" "$file-retained"\ndone\n', { mode: 0o755 });
   copyFileSync(join(root, "package-lock.json"), join(root, "initial-lock.json"));
   env.PATH = join(root, "bin") + ":" + process.env.PATH;
   const managed = ["package-lock.json", "cli/package.json", "packages/traceability/package.json", "CHANGELOG.md", ".claude-plugin/marketplace.json", "plugins/specproof/.claude-plugin/plugin.json", ...["playwright", "flutter"].flatMap((adapter) => [`templates/${adapter}/specproof.config.yaml`, `templates/${adapter}/github-workflows/specproof-drift-check.yml`])];
