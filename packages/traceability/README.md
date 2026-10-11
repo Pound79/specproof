@@ -91,7 +91,8 @@ it, since it hides pending conditions and makes the run look green.
 Outline は条件として1件、ケースは複数 Examples の全データ行を合計します。通常 Scenario は1ケースです。
 
 同じ実体の feature を複数の link や repo 内のシンボリックリンク経由で登録しても、
-lint と census は一度だけ読み、最初の登録パスを表示します。
+lint と census は一度だけ読み、最初の読取対象パスを表示します。
+census は `featuresDir` があれば探索順、無ければ manifest の登録順で選びます。
 manifest の各参照に保存した hash は、それぞれ独立に検査します。
 
 - phase: `@draft` は draft、`@red-contract` は pending、状態タグなしは complete。

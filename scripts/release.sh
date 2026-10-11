@@ -233,7 +233,7 @@ for f in "${RELEASE_FILES[@]}"; do
   cp -p "$f" "$SNAP_DIR/$f"
 done
 # release 対象だけの既存 stage を保存し、対象外の並行 stage は復元時にも触らない。
-git diff --cached --binary --no-color --no-ext-diff --no-textconv \
+git diff --cached --binary --unified=3 --no-color --no-ext-diff --no-textconv \
   --src-prefix=a/ --dst-prefix=b/ -- "${RELEASE_FILES[@]}" > "$SNAP_DIR/index.patch"
 SNAPSHOT_TAKEN=true
 

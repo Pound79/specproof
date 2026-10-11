@@ -44,7 +44,7 @@ const fixture = (staged, workingTree, commitFailure = false, parallelStage = fal
       write(`templates/${adapter}/${name}`, "command: npx @pound79/specproof-traceability@0.3.0\n");
     }
   }
-  write("CHANGELOG.md", INITIAL);
+  write("CHANGELOG.md", options.initialChangelog ?? INITIAL);
   write("unrelated.txt", "before\n");
   for (const name of ["release.sh", "check-versions.mjs"]) {
     mkdirSync(path.join(root, "scripts"), { recursive: true });
@@ -62,6 +62,7 @@ const fixture = (staged, workingTree, commitFailure = false, parallelStage = fal
   git("update-ref", "refs/heads/main", commit);
   if (options.color) git("config", "color.ui", "always");
   if (options.prefix) git("config", "diff.noprefix", "true");
+  if (options.context !== undefined) git("config", "diff.context", String(options.context));
   if (staged !== undefined) {
     write("CHANGELOG.md", staged);
     git("add", "CHANGELOG.md");
@@ -195,6 +196,18 @@ test("commit 失敗で release 対象の stage を復元しても、対象外の
 
 test("Git の色・prefix 設定があっても commit 失敗で部分 stage を復元する", () => {
   const f = fixture(STAGED, UNSTAGED, true, false, { color: true, prefix: true });
+  try {
+    const result = f.run();
+    f.assertRestored();
+    assert.equal(result.status, 1, result.stderr);
+  } finally { f.retain(); }
+});
+
+test("Git の diff.context=0 設定でも文中の部分 stage を復元する", () => {
+  const initial = `${INITIAL}\n- 後続の項目。\n\n## [0.2.0]\n\n- 以前の変更。\n`;
+  const staged = initial.replace("既存の内容", "ステージした内容");
+  const workingTree = staged.replace("後続の項目", "未ステージの後続項目");
+  const f = fixture(staged, workingTree, true, false, { context: 0, initialChangelog: initial });
   try {
     const result = f.run();
     f.assertRestored();
