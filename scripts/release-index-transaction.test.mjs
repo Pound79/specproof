@@ -60,6 +60,7 @@ printf 'parallel stage\\n' > unrelated.txt
 git add unrelated.txt
 cp .git/index before-rollback.index
 ${options.locked ? "printf 'other owner\\n' > .git/index.lock" : ""}
+${options.errexit === false ? "set +e" : ""}
 ${options.signal ? `kill -${options.signal} $$` : `exit ${options.status ?? 7}`}
 `);
   const env = { ...process.env, PATH: `${path.join(root, "bin")}${path.delimiter}${process.env.PATH}`, TMPDIR: path.join(root, "scratch space"), FAIL_COMMAND: options.fail ?? "" };
@@ -111,14 +112,17 @@ for (const fail of ["reset", "apply", "publish"]) {
   });
 }
 
-test("正常終了中の復元失敗は EXIT trap から非 0 で終了する", () => {
-  const f = fixture({ fail: "apply", status: 0 });
-  try {
-    const result = f.run();
-    assert.equal(result.status, 1, result.stderr);
-    f.assertUnchanged();
-  } finally { f.retain(); }
-});
+// return だけでも set -e により失敗する場合がある。無効時も明示的に失敗させる。
+for (const errexit of [true, false]) {
+  test(`正常終了中の復元失敗は非 0 で終了する: errexit=${errexit}`, () => {
+    const f = fixture({ fail: "apply", status: 0, errexit });
+    try {
+      const result = f.run();
+      assert.equal(result.status, 1, result.stderr);
+      f.assertUnchanged();
+    } finally { f.retain(); }
+  });
+}
 
 test("他プロセスの index.lock があれば本番 index とその lock を触らない", () => {
   const f = fixture({ locked: true });
