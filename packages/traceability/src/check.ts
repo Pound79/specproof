@@ -1,5 +1,5 @@
 import { findFeatureFiles } from "./feature-files.js";
-import { realpathSync } from "node:fs";
+import { uniqueFeatureTargets } from "./feature-identity.js";
 import path from "node:path";
 import {
   computeFileHash,
@@ -206,22 +206,23 @@ interface FeatureTarget {
   linkId?: string;
 }
 
-// The full set of feature files to lint: every manifest-registered feature plus
-// every *.feature physically under featuresDir (so an unregistered draft copied
-// in is still caught — the ADR 0004 / specproof-bootstrap promise). Deduped by
-// repo-relative path; the registered entry (which carries a linkId) wins.
+// 登録済み feature と featuresDir 配下の未登録 feature を lint する。
+// 実体パスで重複を除き、最初の登録済みパスと linkId を報告に使う。
 const collectFeatureTargets = async (
   manifest: TraceabilityManifest,
   repoRoot: string,
   featuresDir: string | undefined,
 ): Promise<FeatureTarget[]> => {
-  const registered: FeatureTarget[] = manifest.links.flatMap((link) =>
-    link.features.map((ref) => ({
-      relPath: path.posix.normalize(ref.path),
-      linkId: link.id,
-    })),
+  const registered = uniqueFeatureTargets(
+    repoRoot,
+    manifest.links.flatMap((link) =>
+      link.features.map((ref) => ({
+        relPath: path.posix.normalize(ref.path),
+        linkId: link.id,
+      })),
+    ),
+    (target) => target.relPath,
   );
-  const seen = new Set(registered.map((target) => target.relPath));
 
   if (featuresDir === undefined) {
     return registered;
@@ -236,26 +237,13 @@ const collectFeatureTargets = async (
     }
     throw error;
   }
-  // 探索は実体で重複を除いた代表パスを返すので、登録済みかどうかも実体で照合する。
-  // 論理パスだけで比べると、登録済み feature への別名リンクを未登録と誤判定する。
-  const registeredReal = new Set(
-    registered.map((target) => realpathOrUndefined(repoRoot, target.relPath)).filter(Boolean),
+  // 登録と探索を同じ規則で照合する。登録順を先に置き、別名だけの登録でも
+  // linkId を保持する。ENOENT / ENOTDIR 以外の実体解決エラーは握り潰さない。
+  return uniqueFeatureTargets<FeatureTarget>(
+    repoRoot,
+    [...registered, ...entries.map((relPath) => ({ relPath }))],
+    (target) => target.relPath,
   );
-  const scanned: FeatureTarget[] = entries
-    .filter((relPath) => !seen.has(relPath))
-    .filter((relPath) => !registeredReal.has(realpathOrUndefined(repoRoot, relPath)))
-    .map((relPath) => ({ relPath }));
-
-  return [...registered, ...scanned];
-};
-
-/** repo 内で解決できるファイルの実体パス。欠落や repo 外は undefined（照合しない）。 */
-const realpathOrUndefined = (repoRoot: string, relPath: string): string | undefined => {
-  try {
-    return realpathSync(resolveWithinRoot(repoRoot, relPath));
-  } catch {
-    return undefined;
-  }
 };
 
 // Reads a feature file once and runs the per-file lints on it (draft marker +

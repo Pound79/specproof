@@ -190,23 +190,55 @@ done
 SNAP_DIR="$(mktemp -d)"
 SNAPSHOT_TAKEN=false
 MUTATION_FINALIZED=false
+STAGING_STARTED=false
+# 本番 index の lock を取得してから最新の内容を複製する。対象外の並行 stage を
+# 保ち、reset / apply の両方が成功した場合だけ同じディレクトリで原子的に置換する。
+restore_release_index() (
+  local index_file index_lock
+  index_file="$(git rev-parse --path-format=absolute --git-path index)" || return 1
+  index_lock="${index_file}.lock"
+  (set -o noclobber; : > "$index_lock") 2>/dev/null || return 1
+  # 自分が取得できた lock だけを片付ける。失敗しても本番 index は変更しない。
+  trap 'rm -f -- "$index_lock"' EXIT
+  cp -p "$index_file" "$index_lock" || return 1
+  GIT_INDEX_FILE="$index_lock" git reset -q -- "${RELEASE_FILES[@]}" || return 1
+  if [ -s "$SNAP_DIR/index.patch" ]; then
+    GIT_INDEX_FILE="$index_lock" git apply --cached --binary --whitespace=nowarn \
+      "$SNAP_DIR/index.patch" || return 1
+  fi
+  mv -f -- "$index_lock" "$index_file" || return 1
+  trap - EXIT
+)
 rollback_release_files() {
   [ "$SNAPSHOT_TAKEN" = true ] || return 0
   echo "==> Rolling back: restoring release files to their pre-release state" >&2
   for f in "${RELEASE_FILES[@]}"; do
     [ -e "$SNAP_DIR/$f" ] || continue
-    mkdir -p "$(dirname "$f")"
-    cp -p "$SNAP_DIR/$f" "$f"
+    mkdir -p "$(dirname "$f")" || return 1
+    cp -p "$SNAP_DIR/$f" "$f" || return 1
   done
-  # Drop anything we may have staged so the tree ends up exactly as we found it.
-  git reset -q -- "${RELEASE_FILES[@]}" 2>/dev/null || true
+  # 確認拒否など、release が stage する前の失敗では既存の index を触らない。
+  if [ "$STAGING_STARTED" = true ]; then
+    restore_release_index || return 1
+  fi
 }
 cleanup() {
+  local original_status=$?
   # 後始末中の 2 回目のシグナルで復元やスナップショット削除を中断させない。
   # 終了コードは最初に届いたシグナル（または元の失敗）のまま保たれる。
   trap '' INT TERM
-  [ "$MUTATION_FINALIZED" = true ] || rollback_release_files
+  if [ "$MUTATION_FINALIZED" != true ]; then
+    if ! rollback_release_files; then
+      echo "==> 復元に失敗しました。スナップショットを保持しています: $SNAP_DIR" >&2
+      echo "    本番 index は復元開始前のままです（release の stage が残る場合があります）。" >&2
+      echo "    作業ファイルを snapshot と比較し、失敗原因を解消してから index を復旧してください:" >&2
+      printf '    bash %q\n' "$SNAP_DIR/restore-index.sh" >&2
+      [ "$original_status" -ne 0 ] || original_status=1
+      exit "$original_status"
+    fi
+  fi
   rm -rf "$SNAP_DIR"
+  return "$original_status"
 }
 # シグナルは終了だけを担当し、後始末は EXIT で一度だけ実行する。
 trap cleanup EXIT
@@ -217,6 +249,20 @@ for f in "${RELEASE_FILES[@]}"; do
   mkdir -p "$SNAP_DIR/$(dirname "$f")"
   cp -p "$f" "$SNAP_DIR/$f"
 done
+# release 対象だけの既存 stage を保存し、対象外の並行 stage は復元時にも触らない。
+git diff --cached --binary --unified=3 --no-color --no-ext-diff --no-textconv \
+  --src-prefix=a/ --dst-prefix=b/ -- "${RELEASE_FILES[@]}" > "$SNAP_DIR/index.patch"
+# 失敗時の手動復旧も同じトランザクションを使い、本番 index を先に reset しない。
+{
+  printf '#!/usr/bin/env bash\nset -euo pipefail\n'
+  printf 'cd -- %q\n' "$PWD"
+  printf 'SNAP_DIR=%q\n' "$SNAP_DIR"
+  printf 'RELEASE_FILES=('
+  printf ' %q' "${RELEASE_FILES[@]}"
+  printf ' )\n'
+  declare -f restore_release_index
+  printf 'restore_release_index\n'
+} > "$SNAP_DIR/restore-index.sh"
 SNAPSHOT_TAKEN=true
 
 # --- mutate: bump versions (package.json files + package-lock.json) ----------
@@ -377,6 +423,7 @@ fi
 # hard to re-run). --atomic = all refs succeed or none do.
 
 echo "==> Committing release"
+STAGING_STARTED=true
 git add -- "${RELEASE_FILES[@]}"
 git commit -m "chore: release $TAG"
 # Past this point the bump is captured in a commit; a later tag/push failure must

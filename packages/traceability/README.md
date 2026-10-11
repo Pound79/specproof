@@ -90,6 +90,16 @@ it, since it hides pending conditions and makes the run look green.
 レポート全体の `done` は `@red-contract`（pending）と使えないタグがともに 0 件のとき `true` です。
 Outline は条件として1件、ケースは複数 Examples の全データ行を合計します。通常 Scenario は1ケースです。
 
+同じ実体の feature を複数の link や repo 内のシンボリックリンク経由で登録しても、
+lint と census は、それぞれ同じ実体を一度だけ読みます。表示する代表パスの選択規則は異なります。
+`check` の lint は manifest の登録順で最初のパスを選び、その登録の `linkId` を警告に残します。
+未登録の実体だけを `featuresDir` の探索結果から追加します。
+`stats` の census は `featuresDir` があれば探索順、無ければ manifest の登録順で選びます。
+たとえば `features/alias.feature` だけを登録し、探索が同じ実体の `features/a.feature` を先に
+見つける場合、lint の警告パスは `features/alias.feature`、census の domain は `features/a.feature` です。
+別名を未登録や重複シナリオとは判定しません。
+manifest の各参照に保存した hash は、それぞれ独立に検査します。
+
 - phase: `@draft` は draft、`@red-contract` は pending、状態タグなしは complete。
 - verification: `@human` は human、その他は machine。phase と別軸です。
 - phase/verification の状態タグだけを Feature/Rule から継承し、次の Rule には前の Rule の状態を持ち越しません。
