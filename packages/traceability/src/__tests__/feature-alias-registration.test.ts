@@ -29,12 +29,15 @@ vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
   return {
     ...actual,
-    realpathSync: Object.assign((...args: Parameters<typeof actual.realpathSync>) => {
-      if (fault.error && fault.afterScan && args[0] === fault.target && --fault.remaining === 0) {
-        throw fault.error;
-      }
-      return actual.realpathSync(...args);
-    }, { native: actual.realpathSync.native }),
+    realpathSync: Object.assign(
+      (...args: Parameters<typeof actual.realpathSync>) => {
+        if (fault.error && fault.afterScan && args[0] === fault.target && --fault.remaining === 0) {
+          throw fault.error;
+        }
+        return actual.realpathSync(...args);
+      },
+      { native: actual.realpathSync.native },
+    ),
   };
 });
 afterEach(() => {
@@ -54,53 +57,81 @@ const withAliasOnly = async (
     await writeFile(path.join(root, "features/a.feature"), content);
     await symlink("a.feature", path.join(root, "features/alias.feature"));
     const hash = await computeFileHash(path.join(root, "features/a.feature"));
-    await writeFile(path.join(root, "traceability.yaml"), JSON.stringify({
-      version: 1,
-      links: [{
-        id: "alias-link", label: "表示", spec: [], impl: [],
-        features: [{ path: "features/alias.feature", hash }],
-      }],
-    }));
-    await writeFile(path.join(root, "specproof.config.yaml"),
-      `strictFeatureLint: true\n${featuresDir ? "layout:\n  featuresDir: features\n" : ""}`);
+    await writeFile(
+      path.join(root, "traceability.yaml"),
+      JSON.stringify({
+        version: 1,
+        links: [
+          {
+            id: "alias-link",
+            label: "表示",
+            spec: [],
+            impl: [],
+            features: [{ path: "features/alias.feature", hash }],
+          },
+        ],
+      }),
+    );
+    await writeFile(
+      path.join(root, "specproof.config.yaml"),
+      `strictFeatureLint: true\n${featuresDir ? "layout:\n  featuresDir: features\n" : ""}`,
+    );
     await run(root);
   } finally {
     await rename(root, `${root}-retained`);
   }
 };
 const cli = (root: string, command: "check" | "stats") => {
-  const result = spawnSync(process.execPath, [
-    "--import", "tsx", fileURLToPath(new URL(`../cli-${command}.ts`, import.meta.url)),
-    "--root", root, "--strict", "--json",
-  ], { encoding: "utf8", timeout: 10_000 });
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      fileURLToPath(new URL(`../cli-${command}.ts`, import.meta.url)),
+      "--root",
+      root,
+      "--strict",
+      "--json",
+    ],
+    { encoding: "utf8", timeout: 10_000 },
+  );
   expect(result.error).toBeUndefined();
   return result;
 };
 
 describe.skipIf(process.platform === "win32")("別名だけを登録した feature", () => {
-  it.each([undefined, "features"])("featuresDir=%s でも未登録・重複にせず strict を通す", async (featuresDir) =>
-    withAliasOnly(featuresDir, CONTENT, async (root) => {
-      const report = await checkDrift(path.join(root, "traceability.yaml"), root, { featuresDir });
-      expect(report.clean).toBe(true);
-      expect(report.warnings).toEqual([]);
-      const checked = cli(root, "check");
-      expect(checked.status, checked.stderr).toBe(0);
-      const counted = cli(root, "stats");
-      expect(counted.status, counted.stderr).toBe(0);
-      const census = JSON.parse(counted.stdout);
-      expect(census.totals.total).toBe(1);
-      expect(census.totals.cases).toBe(1);
-      expect(census.domains.map((domain: { domain: string }) => domain.domain)).toEqual([
-        featuresDir ? "features/a.feature" : "features/alias.feature",
-      ]);
-    }));
+  it.each([undefined, "features"])(
+    "featuresDir=%s でも未登録・重複にせず strict を通す",
+    async (featuresDir) =>
+      withAliasOnly(featuresDir, CONTENT, async (root) => {
+        const report = await checkDrift(path.join(root, "traceability.yaml"), root, {
+          featuresDir,
+        });
+        expect(report.clean).toBe(true);
+        expect(report.warnings).toEqual([]);
+        const checked = cli(root, "check");
+        expect(checked.status, checked.stderr).toBe(0);
+        const counted = cli(root, "stats");
+        expect(counted.status, counted.stderr).toBe(0);
+        const census = JSON.parse(counted.stdout);
+        expect(census.totals.total).toBe(1);
+        expect(census.totals.cases).toBe(1);
+        expect(census.domains.map((domain: { domain: string }) => domain.domain)).toEqual([
+          featuresDir ? "features/a.feature" : "features/alias.feature",
+        ]);
+      }),
+  );
 
   it("lint の警告は探索の代表パスでなく、登録した別名と linkId を使う", async () =>
     withAliasOnly("features", CONTENT.replace("    Then 一覧が表示される\n", ""), async (root) => {
       const result = cli(root, "check");
       expect(result.status, result.stderr).toBe(1);
       expect(JSON.parse(result.stdout).warnings).toEqual([
-        expect.objectContaining({ kind: "missing-then", path: "features/alias.feature", linkId: "alias-link" }),
+        expect.objectContaining({
+          kind: "missing-then",
+          path: "features/alias.feature",
+          linkId: "alias-link",
+        }),
       ]);
     }));
 
@@ -110,7 +141,9 @@ describe.skipIf(process.platform === "win32")("別名だけを登録した featu
       // resolveWithinRoot の実体確認の次に行う、照合用 realpath を失敗させる。
       fault.remaining = 2;
       fault.error = Object.assign(new Error("実体照合の失敗"), { code });
-      await expect(checkDrift(path.join(root, "traceability.yaml"), root, { featuresDir: "features" }))
-        .rejects.toBe(fault.error);
-    }));
+      await expect(
+        checkDrift(path.join(root, "traceability.yaml"), root, { featuresDir: "features" }),
+      ).rejects.toBe(fault.error);
+    }),
+  );
 });
