@@ -10,9 +10,8 @@ const isWithin = (root: string, candidate: string): boolean => {
 };
 
 /**
- * Reject a write target when an existing path component is a symbolic link.
- * This keeps scaffold/setup writes inside the physical repository, including
- * when the final file does not exist yet.
+ * 書込先のパスにある symlink を拒否する。書込直前には assertNotHardLinked も通す。
+ * 検査後に別プロセスがパスを差し替える競合への排他保証は行わない。
  */
 export const assertSafeRepositoryWrite = (repoRoot: string, targetPath: string): void => {
   const lexicalRoot = path.resolve(repoRoot);
@@ -43,6 +42,22 @@ export const assertSafeRepositoryWrite = (repoRoot: string, targetPath: string):
   const physicalAncestor = realpathSync(deepestExisting);
   if (!isWithin(physicalRoot, physicalAncestor)) {
     throw new Error(`Refusing to write outside the physical repository root: ${targetPath}`);
+  }
+};
+
+/**
+ * 他のパスと内容を共有する既存ファイルの hardlink を拒否する。
+ * realpath では共有先を判別できないため、書き込むと決まったファイルだけに使う。
+ */
+export const assertNotHardLinked = (targetPath: string): void => {
+  try {
+    const entry = lstatSync(targetPath);
+    if (entry.isFile() && entry.nlink > 1) {
+      throw new Error(`Refusing to write to file with multiple hard links: ${targetPath}`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
   }
 };
 

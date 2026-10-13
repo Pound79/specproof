@@ -2,7 +2,11 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectSnapshot, detectAdapter, selectAdapterCandidate } from "./detect.js";
-import { assertSafeRepositoryWrite, walkRegularFilesWithoutSymlinks } from "./path-security.js";
+import {
+  assertNotHardLinked,
+  assertSafeRepositoryWrite,
+  walkRegularFilesWithoutSymlinks,
+} from "./path-security.js";
 import {
   assertScaffoldDirectory,
   rewriteScaffoldConfig,
@@ -231,6 +235,7 @@ export function scaffoldTemplate(params: {
       continue;
     }
 
+    assertNotHardLinked(dest);
     mkdirSync(path.dirname(dest), { recursive: true });
 
     if (isConfig) {
