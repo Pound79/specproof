@@ -22,8 +22,9 @@ export interface ScannedScenario {
   exampleTags?: string[][];
 }
 
+// 物理行は LF で分割済み。名前の内部にある CR / Unicode 区切り文字は Gherkin と同じく残す。
 export const SCENARIO_RE =
-  /^(シナリオアウトライン|シナリオテンプレート|シナリオテンプレ|テンプレ|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:(.*)$/;
+  /^(シナリオアウトライン|シナリオテンプレート|シナリオテンプレ|テンプレ|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:([^\n]*)$/;
 export const FEATURE_RE = /^(Feature|Business Need|Ability|フィーチャ|機能)\s*:/;
 export const RULE_RE = /^(Rule|ルール)\s*:/;
 export const BACKGROUND_RE = /^(Background|背景)\s*:/;
