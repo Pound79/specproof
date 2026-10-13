@@ -10,13 +10,15 @@ import {
   BACKGROUND_RE,
   EXAMPLES_RE,
   FEATURE_RE,
+  headerLanguage,
   parseScenarios,
   RULE_RE,
   SCENARIO_RE,
 } from "./feature-scan.js";
 import { printable } from "./display-text.js";
+import { matchStep, type StepType } from "./step-keywords.js";
 
-export type StepType = "given" | "when" | "then";
+export type { StepType } from "./step-keywords.js";
 
 export interface ParsedStep {
   type: StepType;
@@ -57,37 +59,6 @@ export interface FeatureLintFinding {
   line: number;
   message: string;
 }
-
-// [キーワード, 種類, 本文との間に空白が要るか]。正規表現を使わず先頭一致と slice で読む
-// （(.*)$ 型の正規表現は、行の途中に単独の \r などがあると長い行で二乗時間になる）。
-const KEYWORDS: ReadonlyArray<readonly [string, StepType | "continue", boolean]> = [
-  ["Given", "given", true],
-  ["When", "when", true],
-  ["Then", "then", true],
-  ["And", "continue", true],
-  ["But", "continue", true],
-  ["*", "continue", true],
-  // 日本語のキーワードは本文との間に空白を要しない（Gherkin の ja 辞書）。
-  ["前提", "given", false],
-  ["もし", "when", false],
-  ["ならば", "then", false],
-  ["かつ", "continue", false],
-  ["且つ", "continue", false],
-  ["しかし", "continue", false],
-  ["但し", "continue", false],
-  ["ただし", "continue", false],
-  ["然し", "continue", false],
-];
-
-const matchStep = (trimmed: string): { kind: StepType | "continue"; text: string } | undefined => {
-  for (const [keyword, kind, needsSpace] of KEYWORDS) {
-    if (!trimmed.startsWith(keyword)) continue;
-    const rest = trimmed.slice(keyword.length);
-    if (needsSpace && !/^\s/.test(rest)) continue;
-    return { kind, text: rest.trim() };
-  }
-  return undefined;
-};
 
 // エスケープされていない | だけでセルを区切る。空白列を正規表現で探すと
 // セル内の長い空白列で二乗時間になるため、境界は一度だけ走査する。
@@ -159,6 +130,9 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
   let currentSteps: DraftStep[] = [];
   let lastStep: DraftStep | undefined;
   let docstring: DraftDocstring | undefined;
+  // 直前の意味のある行が Scenario / Background の step か。
+  let stepOpen = false;
+  const language = headerLanguage(content);
 
   const background = (): readonly ParsedStep[] => {
     sharedBackground ??= Object.freeze([...featureBackground, ...ruleBackground].map(freezeStep));
@@ -191,7 +165,8 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       }
       continue;
     }
-    const fence = trimmed.match(/^("""|```)/);
+    // Gherkin は step の直後（空行・コメントは挟める）だけで docstring を開く。他は説明文。
+    const fence = stepOpen ? trimmed.match(/^("""|```)/) : null;
     if (fence) {
       docstring = {
         delimiter: fence[1],
@@ -199,15 +174,16 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
         mediaType: trimmed.slice(fence[1].length).trim(),
         lines: [],
       };
+      stepOpen = false;
       continue;
     }
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+    stepOpen = false;
     if (trimmed.startsWith("|")) {
       if (lastStep !== undefined) lastStep.argument.push(tableArgument(trimmed));
       continue;
     }
-    if (trimmed === "" || trimmed.startsWith("#") || trimmed.startsWith("@")) {
-      continue;
-    }
+    if (trimmed.startsWith("@")) continue;
     if (FEATURE_RE.test(trimmed)) {
       finish();
       featureBackground = [];
@@ -250,12 +226,13 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       continue;
     }
     if (container === "none") continue;
-    const step = matchStep(trimmed);
+    const step = matchStep(line.trimStart(), language);
     if (step === undefined) continue; // シナリオ・背景の説明文
     const explicit = step.kind !== "continue";
     const type: StepType = explicit ? (step.kind as StepType) : (lastStep?.type ?? "given");
     const draft: DraftStep = { type, text: step.text, explicit, line: index + 1, argument: [] };
     lastStep = draft;
+    stepOpen = true;
     if (container === "scenario") {
       currentSteps.push(draft);
     } else {

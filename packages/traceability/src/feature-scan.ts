@@ -1,4 +1,6 @@
 // 英語・日本語の静的センサス用scanner。runnerの合否やシナリオIDは扱わない。
+import { matchStep, type StepLanguage } from "./step-keywords.js";
+
 export interface ScannedScenario {
   /** Scenario キーワードの1始まり行番号。 */
   line: number;
@@ -33,6 +35,22 @@ export const EXAMPLES_RE = /^(Examples|Scenarios|例|サンプル)\s*:/;
 const LANGUAGE_RE = /^#\s*language\s*:\s*([a-zA-Z\-_]+)\s*$/;
 const SUPPORTED_LANGUAGES = new Set(["en", "ja"]);
 
+/**
+ * 要素とタグより前にある最初の `# language:` で明示された言語。無い・未対応なら undefined。
+ * Gherkin と同じく、2 つ目以降の宣言はコメントとして扱う。
+ */
+export const headerLanguage = (content: string): StepLanguage | undefined => {
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed === "") continue;
+    if (!trimmed.startsWith("#")) return undefined;
+    const language = trimmed.match(LANGUAGE_RE)?.[1];
+    if (language !== undefined)
+      return language === "en" || language === "ja" ? language : undefined;
+  }
+  return undefined;
+};
+
 // Gherkin と同じく、空白に続く # 以降を除き "@" で区切る（"@a@b" は 2 つのタグ）。
 const splitTags = (line: string): string[] =>
   line
@@ -57,8 +75,13 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
   let examples = false;
   let tableHeader = false;
   let docstring: string | undefined;
+  // Scenario / Background の step を読める位置か、直前の意味のある行が step か。
+  let inSteps = false;
+  let stepOpen = false;
   // 言語指定は最初の要素より前のコメントだけが有効。
   let inHeader = true;
+  // step の判定は lint と同じ宣言を使う（Gherkin と同じく最初の宣言だけ）。
+  const language = headerLanguage(content);
 
   // 完成したシナリオだけを返却用配列に追加し、公開する要素は後で変更しない。
   const finishCurrent = (): void => {
@@ -82,9 +105,11 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       if (trimmed.startsWith(docstring)) docstring = undefined;
       continue;
     }
-    const fence = trimmed.match(/^("""|```)/);
+    // Gherkin は step の直後（空行・コメントは挟める）だけで docstring を開く。他は説明文。
+    const fence = stepOpen ? trimmed.match(/^("""|```)/) : null;
     if (fence) {
       docstring = fence[1];
+      stepOpen = false;
       examples = false;
       clearPreamble();
       continue;
@@ -97,6 +122,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       continue;
     }
     if (trimmed.startsWith("@")) {
+      stepOpen = false;
       const tags = splitTags(trimmed);
       pendingTags.push(...tags);
       pendingAllTags.push(...tags);
@@ -108,9 +134,9 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       continue;
     }
     if (trimmed.startsWith("#")) {
-      const language = inHeader ? trimmed.match(LANGUAGE_RE)?.[1] : undefined;
-      if (language !== undefined && !SUPPORTED_LANGUAGES.has(language)) {
-        throw new Error(`Unsupported Gherkin language "${language}" (the scanner reads en / ja)`);
+      const declared = inHeader ? trimmed.match(LANGUAGE_RE)?.[1] : undefined;
+      if (declared !== undefined && !SUPPORTED_LANGUAGES.has(declared)) {
+        throw new Error(`Unsupported Gherkin language "${declared}" (the scanner reads en / ja)`);
       }
       pendingComment = true;
       continue;
@@ -123,14 +149,17 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       ruleAllTags = [];
       finishCurrent();
       examples = false;
+      inSteps = false;
     } else if (RULE_RE.test(trimmed)) {
       ruleTags = pendingStateTags;
       ruleAllTags = pendingAllTags;
       finishCurrent();
       examples = false;
+      inSteps = false;
     } else if (BACKGROUND_RE.test(trimmed)) {
       finishCurrent();
       examples = false;
+      inSteps = true;
     } else {
       const match = trimmed.match(SCENARIO_RE);
       if (match) {
@@ -147,6 +176,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
           exampleTags: [],
         };
         examples = false;
+        inSteps = true;
       } else if (current && EXAMPLES_RE.test(trimmed)) {
         // Scenario というキーワードでも、Examples があれば行ごとに展開される。
         current = {
@@ -158,6 +188,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
         };
         examples = true;
         tableHeader = true;
+        inSteps = false;
       } else if (examples && trimmed.startsWith("|")) {
         if (tableHeader) tableHeader = false;
         else current = { ...current!, caseCount: (current!.caseCount ?? 0) + 1 };
@@ -167,6 +198,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
         examples = false;
       }
     }
+    stepOpen = inSteps && matchStep(line.trimStart(), language) !== undefined;
     clearPreamble();
   }
   if (docstring !== undefined) {

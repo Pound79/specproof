@@ -71,6 +71,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   閉じ行、区切り文字を含む Examples のセルによって、後続のシナリオや実行ケースが集計から
   消えなくなった。Gherkin と同じ判定に揃えたため、これまで `--strict` を通っていた feature が
   `@red-contract` や使えないタグで失敗することがある。
+- Feature・Rule・Background・Scenario・Examples の説明文にある `"""` や ``` を docstring の
+  開始と読まなくなった。Gherkin と同じく、Scenario / Background の step の直後だけで
+  docstring を開く。step は、英語ならキーワードの後に半角空白が続く行、日本語ならキーワードで
+  始まる行で、`# language:` で言語を明示したファイルではその言語のキーワードだけを使う。以前は
+  docstring の範囲がずれ、後続のシナリオが集計から消えて `--strict` を通ることがあった。
 - `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
   リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
   表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。
