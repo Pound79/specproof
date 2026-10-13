@@ -141,7 +141,11 @@ impl から生成した feature は「**今こう動いている**」の読め�
 7. **人間の査読ゲート（必須）**: ユーザーがドラフトを読み、意図を刻印（編集・取捨選択し、
    `# specproof: draft` マーカー行を削除）してから `{{config:layout.featuresDir}}/` へ移す。移したら新規 step 句のうち既存 steps で賄えないものを
    `specproof-new-feature` の Step 4 と同様に stub 化する（既存 `{{config:layout.stepsDir}}/*{{config:layout.stepFileSuffix}}` への追加を優先し、
-   未実装本体は `{{config:conventions.pendingStubBody}}`）。その後 pending step を実装し、検証:
+   未実装本体は `{{config:conventions.pendingStubBody}}`）。
+   [feature の登録と実行対象の確認](../specproof-new-feature/references/runner-registration.md) に従い、
+   移した feature を意図した project に登録する。既存の選択範囲を広げず、生成・実行一覧に
+   対象が現れることを確認する。その後 `specproof-implement` で RED を観測してから
+   pending step を実装し、検証する:
    ```bash
    {{config:commands.generate}}        # Gherkin と step の対応
    {{config:commands.typecheck}}

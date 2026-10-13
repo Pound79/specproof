@@ -99,6 +99,9 @@ specproof init --adapter <framework>
    ツールは `PENDING` を特別扱いしないため、仮 hash を入れた直後は意図的に
    drift が出るのが正常。追加後すぐ `{{config:commands.traceabilityUpdate}}` で実ハッシュに更新する。
 
+   [feature の登録と実行対象の確認](references/runner-registration.md) に従い、
+   意図した認証ロールの project に新規 feature を登録し、生成・実行一覧に対象が現れるまで確認する。
+
 6. 検証:
 
    ```bash

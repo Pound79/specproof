@@ -153,6 +153,16 @@ All runner behaviour is derived from `specproof.config.yaml`:
 - **Web server** — set `E2E_START_WEB_SERVER=true` and
   `runner.webServerCommand` to let Playwright start your dev server.
 
+### 新しい feature を追加するとき
+
+manifest の登録に加えて、`projects[].features` に意図した認証ロールの project だけを選び、
+新しいファイルのパスを追加する。パスは E2E パッケージ相対。既定は明示列挙なので、
+features ディレクトリへ置くだけでは生成・実行されない。既存の guest の認証専用範囲や
+タグ・環境条件を広げない。同じ feature に管理者シナリオがあっても、guest は `@admin` を
+除外する。`npm run bddgen` の後に
+`npx playwright test --list --project <project-name>` で対象シナリオを確認する。
+一覧に無ければ登録・`conditional`・タグ条件を確認し、未実行を GREEN と扱わない。
+
 ---
 
 ## Customising Page Objects

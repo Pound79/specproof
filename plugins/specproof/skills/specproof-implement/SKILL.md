@@ -62,6 +62,9 @@ description: Implement production code (and pending step bodies / page-object me
   なら「これが意図した spec か」を確認する。
 - **着手前に対象を実行して RED を確認**（既に緑なら「実装不要」で終了＝no-op 検出・gaming
   検出のベースライン確立）。
+- [feature の登録と実行対象の確認](../specproof-new-feature/references/runner-registration.md) に従い、
+  対象が生成・実行一覧に現れることを先に確認する。対象 0 件やタグ／環境による除外を
+  GREEN や「実装不要」と扱わず、登録漏れなら意図した project の設定変更案を提示する。
 - feature 差分だけでなく、traceability で結ばれた **spec/rationale doc・既存 impl パターン・
   既存 steps/page object・`{{config:layout.textConstants}}`** を読む（feature は黒箱で impl を underspecify する）。
 
