@@ -180,7 +180,7 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
   for (const [index, line] of content.split("\n").entries()) {
     const trimmed = line.trim();
     if (docstring !== undefined) {
-      if (trimmed === docstring.delimiter) {
+      if (trimmed.startsWith(docstring.delimiter)) {
         lastStep?.argument.push(
           `docstring:${JSON.stringify([docstring.mediaType, docstring.lines.join("\n")])}`,
         );

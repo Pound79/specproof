@@ -78,7 +78,8 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
   for (const [index, line] of content.split("\n").entries()) {
     const trimmed = line.trim();
     if (docstring !== undefined) {
-      if (trimmed === docstring) docstring = undefined;
+      // Gherkin と同じく、区切りで始まる行なら後続の文字があっても閉じる。
+      if (trimmed.startsWith(docstring)) docstring = undefined;
       continue;
     }
     const fence = trimmed.match(/^("""|```)/);
@@ -157,7 +158,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
         };
         examples = true;
         tableHeader = true;
-      } else if (examples && /^\|.*\|$/.test(trimmed)) {
+      } else if (examples && trimmed.startsWith("|")) {
         if (tableHeader) tableHeader = false;
         else current = { ...current!, caseCount: (current!.caseCount ?? 0) + 1 };
       } else if (examples && tableHeader) {
