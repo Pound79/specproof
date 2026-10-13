@@ -20,7 +20,7 @@
 #   5. bump generated consumer traceability pins to <version>
 #   6. stamp the CHANGELOG: [Unreleased] -> [<version>] - <date>, update compare links
 #   7. assert every version source agrees (scripts/check-versions.mjs)
-#   8. commit "chore: release v<version>"
+#   8. commit only the release files as "chore: release v<version>"
 #   9. create the tag, then push main + tag atomically  -> triggers npm publish
 #
 # Usage:
@@ -134,7 +134,7 @@ if [ "$DRY_RUN" = true ]; then
   echo "  - bump generated consumer traceability pins to $VERSION"
   echo "  - stamp CHANGELOG [Unreleased] -> [$VERSION] - $RELEASE_DATE (+ update compare links)"
   echo "  - node scripts/check-versions.mjs   (assert all version sources agree)"
-  echo "  - git commit -m \"chore: release $TAG\""
+  echo "  - git commit --only -m \"chore: release $TAG\" -- <release files>   (other staged files stay staged)"
   echo "  - git tag -a $TAG -m \"$TAG\""
   echo "  - git push --atomic origin main $TAG   (triggers npm publish)"
   exit 0
