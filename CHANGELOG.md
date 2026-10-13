@@ -55,6 +55,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   前後を報告に挙げる。
 - bootstrap・new-feature・sync は、`layout.idiomGuide` を設定していても「ドラフトの点検」を
   `specproof-sync/prompts/system.md` から読む。
+- Playwright テンプレートの guest project の既定タグを `not @admin and not @user` にした。
+  同じ feature にあるロール付きのシナリオを、認証なしの guest で実行しない。既存の
+  `specproof.config.yaml` は書き換わらないため、guest の `tags` を手で更新する。
+- new-feature・bootstrap は feature を `projects[].features` の意図した project に登録し、
+  `--list` の実行一覧に対象が現れることを確かめる。implement は着手前に同じ確認を行い、
+  登録漏れは設定変更案として示す。対象 0 件を GREEN や「実装不要」と扱わない。
 
 ## [0.3.0] - 2026-10-07
 
