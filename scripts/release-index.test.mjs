@@ -20,7 +20,7 @@ const INITIAL = "# Changelog\n\n## [Unreleased]\n\n- 既存の内容。\n";
 const STAGED = `${INITIAL}\n- ステージした変更。\n`;
 const UNSTAGED = `${STAGED}\n- 未ステージの変更。\n`;
 
-// Git index は隔離した実物を使い、release の外部操作はすべて stub に限定する。
+// Git index は隔離した実物を使い、公開操作はすべて stub に限定する。
 const fixture = (staged, workingTree, commitFailure = false, parallelStage = false, options = {}) => {
   const root = mkdtempSync(path.join(os.tmpdir(), "release-index-"));
   const write = (name, content) => {
@@ -76,8 +76,13 @@ printf '%s\\n' "$1" >> "$INDEX_FIXTURE_ROOT/git-calls.txt"
 case "$1" in
   pull) exit 0 ;;
   ls-remote) exit 2 ;;
-  commit) exit 1 ;;
-  tag|push) exit 94 ;;
+  commit)
+    [ "$INDEX_FIXTURE_COMMIT_SUCCESS" = "true" ] || exit 1
+    exec ${shellQuote(gitPath)} -c core.hooksPath=/dev/null -c commit.gpgSign=false \\
+      -c user.name=Pound79 -c user.email=fixture@example.com "$@" ;;
+  tag|push)
+    [ "$INDEX_FIXTURE_COMMIT_SUCCESS" = "true" ] && exit 0
+    exit 94 ;;
 esac
 if [ "$INDEX_FIXTURE_ROLLBACK_FAILURE" = "$1" ]; then exit 95; fi
 if [ "$1" = "--no-pager" ] && [ "$INDEX_FIXTURE_PARALLEL_STAGE" = "true" ]; then
@@ -103,7 +108,7 @@ exec ${shellQuote(gitPath)} "$@"
       const result = spawnSync("bash", ["scripts/release.sh", "0.3.0", "--skip-checks"], {
         cwd: root,
         encoding: "utf8",
-        input: commitFailure ? "y\n" : "n\n",
+        input: commitFailure || options.commitSuccess ? "y\n" : "n\n",
         timeout: 45_000,
         env: {
           ...process.env,
@@ -112,6 +117,7 @@ exec ${shellQuote(gitPath)} "$@"
           INDEX_FIXTURE_ROOT: root,
           INDEX_FIXTURE_PARALLEL_STAGE: String(parallelStage),
           INDEX_FIXTURE_ROLLBACK_FAILURE: options.rollbackFailure ?? "",
+          INDEX_FIXTURE_COMMIT_SUCCESS: String(options.commitSuccess ?? false),
         },
       });
       assert.ifError(result.error);
@@ -128,6 +134,16 @@ exec ${shellQuote(gitPath)} "$@"
       assert.equal(calls.some(command => ["tag", "push"].includes(command)), false);
     },
     retain() { renameSync(root, `${root}-retained`); },
+    assertCommittedOnlyRelease() {
+      assert.equal(git("show", "HEAD:unrelated.txt"), "before\n");
+      assert.equal(git("show", ":unrelated.txt"), "parallel stage\n");
+      assert.equal(git("diff", "--cached", "--name-only"), "unrelated.txt\n");
+      assert.match(git("show", "HEAD:CHANGELOG.md"), /## \[0\.3\.0\]/);
+      assert.equal(git("show", "HEAD:CHANGELOG.md"), readFileSync(path.join(root, "CHANGELOG.md"), "utf8"));
+      const files = git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").trim().split("\n");
+      assert.ok(files.includes("CHANGELOG.md"), files.join(", "));
+      assert.ok(!files.includes("unrelated.txt"), files.join(", "));
+    },
     assertSnapshotRetained(stderr) {
       // mktemp の既定置場は OS ごとに違うため、復旧案内の実際の場所を検証する。
       const match = stderr.match(/スナップショットを保持しています: (.+)$/m);
@@ -140,6 +156,22 @@ exec ${shellQuote(gitPath)} "$@"
     },
   };
 };
+
+for (const [name, staged, workingTree] of [
+  ["未ステージ", undefined, INITIAL],
+  ["部分 stage", STAGED, UNSTAGED],
+]) {
+  test(`release 成功時も対象外の並行 stage を commit せず保つ: ${name}`, () => {
+    const f = fixture(staged, workingTree, false, true, { commitSuccess: true });
+    try {
+      const result = f.run();
+      assert.equal(result.status, 0, result.stderr);
+      f.assertCommittedOnlyRelease();
+    } finally {
+      f.retain();
+    }
+  });
+}
 
 test("release の確認を拒否しても CHANGELOG の既存ステージを保つ", () => {
   const f = fixture(STAGED, STAGED);

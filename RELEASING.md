@@ -76,6 +76,10 @@ scripts/release.sh <version> [--yes] [--skip-checks] [--allow-empty-changelog] [
 The script refuses to run unless you are on `main`, the working tree is clean
 except for `CHANGELOG.md`, and the target tag does not already exist.
 
+リリース commit は版・CHANGELOG・同梱テンプレートなどの公開対象ファイルだけを含む。
+検証や確認待ちの間に別のファイルが stage されても、それを commit に含めず index に残す。
+失敗時も、公開対象の既存 stage と対象外の並行 stage を保持して復元する。
+
 差分・commit だけを準備して止める flag はない。`--dry-run` は計画表示のみで、
 公開確認を拒否すると差分を復元する。承諾後は commit → tag → atomic push と進み、
 公開 workflow を起動する。同版候補の受理は公開許可を代替しない。
