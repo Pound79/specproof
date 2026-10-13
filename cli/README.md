@@ -40,6 +40,10 @@ Requires Node.js **>= 24**.
 npx @pound79/specproof init --adapter playwright --dir 'e2e tests'
 ```
 
+`init` / `setup-agent` は、配置先の symlink と複数の hardlink を持つ既存ファイルを
+`--force` でも拒否する。hardlink の共有先がリポジトリ内か外かは判別せず、
+共有ファイルを上書きしない。別プロセスによる検査後のパス差し替えには排他を保証しない。
+
 ## Commands
 
 | Command | Description |

@@ -10,9 +10,8 @@ const isWithin = (root: string, candidate: string): boolean => {
 };
 
 /**
- * Reject a write target when an existing path component is a symbolic link.
- * This keeps scaffold/setup writes inside the physical repository, including
- * when the final file does not exist yet.
+ * 書込先の symlink と、他のパスと内容を共有する既存ファイルの hardlink を拒否する。
+ * 検査後に別プロセスがパスを差し替える競合への排他保証は行わない。
  */
 export const assertSafeRepositoryWrite = (repoRoot: string, targetPath: string): void => {
   const lexicalRoot = path.resolve(repoRoot);
@@ -32,6 +31,10 @@ export const assertSafeRepositoryWrite = (repoRoot: string, targetPath: string):
       const entry = lstatSync(current);
       if (entry.isSymbolicLink()) {
         throw new Error(`Refusing to write through symbolic link inside repository: ${current}`);
+      }
+      // realpath では hardlink の共有先を判別できないため、既存の最終ファイルで拒否する。
+      if (current === lexicalTarget && entry.isFile() && entry.nlink > 1) {
+        throw new Error(`Refusing to write to file with multiple hard links: ${current}`);
       }
       deepestExisting = current;
     } catch (error) {
