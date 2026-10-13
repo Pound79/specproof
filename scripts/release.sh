@@ -425,7 +425,8 @@ fi
 echo "==> Committing release"
 STAGING_STARTED=true
 git add -- "${RELEASE_FILES[@]}"
-git commit -m "chore: release $TAG"
+# 確認待ちの間に別の変更が stage されても、公開対象だけを commit する。
+git commit --only -m "chore: release $TAG" -- "${RELEASE_FILES[@]}"
 # Past this point the bump is captured in a commit; a later tag/push failure must
 # NOT roll the files back (they belong to the commit now — just re-run the push).
 MUTATION_FINALIZED=true
