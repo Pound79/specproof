@@ -22,8 +22,9 @@ export interface ScannedScenario {
   exampleTags?: string[][];
 }
 
+// 物理行は LF で分割済み。名前の内部にある CR / Unicode 区切り文字は Gherkin と同じく残す。
 export const SCENARIO_RE =
-  /^(シナリオアウトライン|シナリオテンプレート|シナリオテンプレ|テンプレ|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:(.*)$/;
+  /^(シナリオアウトライン|シナリオテンプレート|シナリオテンプレ|テンプレ|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:([^\n]*)$/;
 export const FEATURE_RE = /^(Feature|Business Need|Ability|フィーチャ|機能)\s*:/;
 export const RULE_RE = /^(Rule|ルール)\s*:/;
 export const BACKGROUND_RE = /^(Background|背景)\s*:/;
@@ -77,7 +78,8 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
   for (const [index, line] of content.split("\n").entries()) {
     const trimmed = line.trim();
     if (docstring !== undefined) {
-      if (trimmed === docstring) docstring = undefined;
+      // Gherkin と同じく、区切りで始まる行なら後続の文字があっても閉じる。
+      if (trimmed.startsWith(docstring)) docstring = undefined;
       continue;
     }
     const fence = trimmed.match(/^("""|```)/);
@@ -156,7 +158,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
         };
         examples = true;
         tableHeader = true;
-      } else if (examples && /^\|.*\|$/.test(trimmed)) {
+      } else if (examples && trimmed.startsWith("|")) {
         if (tableHeader) tableHeader = false;
         else current = { ...current!, caseCount: (current!.caseCount ?? 0) + 1 };
       } else if (examples && tableHeader) {
