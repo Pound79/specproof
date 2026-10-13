@@ -7,14 +7,17 @@ E2E は実行されない。既存 feature の本文・状態タグや、project
 
 1. `{{config:projects}}` と `{{config:layout.testRunnerConfig}}` を読み、対象の認証ロールを
    確認する。各 `projects[].features` は E2E パッケージ相対のパス／glob なので、対象 feature が
-   意図した project に含まれるか照合する。`@admin` は管理者 project に登録する。
+   意図した project に含まれるか照合する。feature 内のシナリオごとにタグを見て、実行させる
+   すべての project を決める。`{{config:tags.admin}}` とタグ無しのシナリオが混在するなら、
+   管理者 project と一般の認証 project の両方に登録する。
 2. 新規 feature が未登録なら、意図した project の `features` にそのファイルのパスだけを
    追記する。既存の明示列挙を全件 glob へ変えず、認証専用 guest の範囲を広げない。
-   `conditional`、`tags`、アクティブ環境の `excludeTags`、smoke の `@slow` 除外も確認する。
+   `conditional`、`tags`、アクティブ環境の `excludeTags`、smoke の `{{config:tags.slow}}` 除外も確認する。
    認証ロールや実行環境が不明なら、候補 project と変更案を示して停止する。
 3. `{{config:commands.generate}}` を実行し、E2E パッケージ内で、導入済み Playwright の
-   `npx playwright test --list --project <project-name>` を実行する。対象 feature と対象シナリオが
-   意図した project の一覧に現れることを確認する。生成コマンドの終了コードだけで済ませない。
+   `npx playwright test --list --project <project-name>` を登録した project ごとに実行する。
+   対象 feature のシナリオが、状態タグで実行しないもの（`@draft` / `@human` / `@out-of-scope`）を
+   除いて、いずれかの意図した project の一覧に現れることを確認する。生成コマンドの終了コードだけで済ませない。
 4. 対象が 0 件なら完了と扱わず、登録漏れ・未成立の `conditional`・タグによる除外を報告する。
    意図した除外は未実行と記載し、条件を緩めて実行させない。`specproof-implement` は実行対象を
    確認してから RED を観測する。未実行を GREEN や「実装不要」と報告しない。
