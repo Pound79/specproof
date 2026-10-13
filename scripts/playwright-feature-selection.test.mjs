@@ -35,9 +35,9 @@ const buildProjects = (config) => {
   return new Function("imports", script)(imports).projects;
 };
 
-test("guest の生成条件は管理者シナリオを除外し、認証状態を持たない", () => {
+test("guest の生成条件はロール付きシナリオを除外し、認証状態を持たない", () => {
   const guest = buildProjects(templateConfig()).find((project) => project.name === "guest");
-  assert.equal(guest.tags, "(not @admin) and not @draft and not @human and not @out-of-scope");
+  assert.equal(guest.tags, "(not @admin and not @user) and not @draft and not @human and not @out-of-scope");
   assert.deepEqual(guest.use.storageState, { cookies: [], origins: [] });
   assert.equal(guest.dependencies, undefined);
 });
@@ -56,7 +56,7 @@ test("明示した guest の feature 範囲と環境除外を広げずに維持�
   assert.deepEqual(guest.features, ["features/login.feature"]);
   assert.equal(
     guest.tags,
-    "(not @admin) and not @draft and not @human and not @out-of-scope and not @requires-real-smtp",
+    "(not @admin and not @user) and not @draft and not @human and not @out-of-scope and not @requires-real-smtp",
   );
   assert.deepEqual(
     projects.find((project) => project.name === "authed").features,

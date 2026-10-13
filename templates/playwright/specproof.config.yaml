@@ -143,8 +143,8 @@ projects:
 
   - name: "guest"
     # Unauthenticated — tests the login/auth flow itself
-    # 管理者専用シナリオは、同じ feature 内にあっても guest で実行しない。
-    tags: "not @admin"
+    # 認証ロール付きのシナリオは、同じ feature 内にあっても guest で実行しない。
+    tags: "not @admin and not @user"
     storageState: "" # empty string = no stored auth state (clean browser context)
     setup: false
     features:
