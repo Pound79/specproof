@@ -4,7 +4,9 @@ import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
 import {
   attachFailsUnderStrict,
+  describeBothSidesChanged,
   describeEntry,
+  describeLinkHeading,
   describeWarning,
   isCheckFailure,
   selectWarningsForDisplay,
@@ -57,7 +59,7 @@ const main = async (): Promise<void> => {
     const linkIds = [...new Set(report.entries.map((entry) => entry.linkId))];
     for (const linkId of linkIds) {
       const entries = report.entries.filter((entry) => entry.linkId === linkId);
-      console.log(`\nlink: ${linkId}`);
+      console.log(`\n${describeLinkHeading(linkId)}`);
       for (const entry of entries) {
         console.log(`  ${describeEntry(entry)}`);
       }
@@ -68,9 +70,7 @@ const main = async (): Promise<void> => {
   if (!flags.has("--json") && report.bothSidesChanged.length > 0) {
     console.log("");
     for (const linkId of report.bothSidesChanged) {
-      console.log(
-        `!! link "${linkId}": BOTH spec and impl changed — specproof-sync must stop and ask which side is authoritative`,
-      );
+      console.log(describeBothSidesChanged(linkId));
     }
   }
 

@@ -71,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   閉じ行、区切り文字を含む Examples のセルによって、後続のシナリオや実行ケースが集計から
   消えなくなった。Gherkin と同じ判定に揃えたため、これまで `--strict` を通っていた feature が
   `@red-contract` や使えないタグで失敗することがある。
+- `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
+  リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
+  表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。
 
 ## [0.3.0] - 2026-10-07
 

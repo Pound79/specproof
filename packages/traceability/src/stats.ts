@@ -1,5 +1,6 @@
 import type { ScannedScenario } from "./feature-scan.js";
 import { OUT_OF_SCOPE_TAG, DISALLOWED_TAGS } from "./config.js";
+import { printable } from "./display-text.js";
 
 // A static scenario census per domain (feature file). Whether a scenario is
 // actually GREEN is a runner concern this static engine cannot know.
@@ -111,7 +112,7 @@ export const buildStats = (features: FeatureScenarios[]): StatsReport => {
 
 export const formatStats = (report: StatsReport): string => {
   const row = (stats: DomainStats): string =>
-    `  ${stats.domain}: ${stats.total} conditions / ${stats.cases} cases; phase: draft ${stats.phase.draft} / pending ${stats.phase.pending} / complete ${stats.phase.complete}; verification: machine ${stats.verification.machine} / human ${stats.verification.human}; out-of-scope ${stats.outOfScope}`;
+    `  ${printable(stats.domain)}: ${stats.total} conditions / ${stats.cases} cases; phase: draft ${stats.phase.draft} / pending ${stats.phase.pending} / complete ${stats.phase.complete}; verification: machine ${stats.verification.machine} / human ${stats.verification.human}; out-of-scope ${stats.outOfScope}`;
 
   const { totals } = report;
   const pendingLine =

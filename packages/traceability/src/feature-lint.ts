@@ -14,6 +14,7 @@ import {
   RULE_RE,
   SCENARIO_RE,
 } from "./feature-scan.js";
+import { printable } from "./display-text.js";
 
 export type StepType = "given" | "when" | "then";
 
@@ -311,8 +312,8 @@ const MAX_QUOTED = 200;
 
 /** 報告に引用する本文。制御文字（ANSI エスケープ・単独の \r など）を落とし、長さを切る。 */
 const quote = (text: string): string => {
-  const printable = text.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, "?");
-  return printable.length > MAX_QUOTED ? `${printable.slice(0, MAX_QUOTED)}…` : printable;
+  const shown = printable(text);
+  return shown.length > MAX_QUOTED ? `${shown.slice(0, MAX_QUOTED)}…` : shown;
 };
 
 /** シナリオの行番号 → 継承を含むタグ。feature-scan と同じ規則で読む。読めなければ空。 */
