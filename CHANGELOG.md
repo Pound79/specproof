@@ -62,6 +62,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--list` の実行一覧に対象が現れることを確かめる。implement は着手前に同じ確認を行い、
   登録漏れは設定変更案として示す。対象 0 件を GREEN や「実装不要」と扱わない。
 
+### Fixed
+
+- `specproof init` / `setup-agent` は、`--force` で上書きする既存ファイルが複数の hardlink を
+  持つときに拒否する。共有先がリポジトリ外にあっても、そのファイルを書き換えない。
+  上書きしないファイルは従来どおり skip する。
+- feature の読み取りで、シナリオ名の単独 CR・U+2028・U+2029、後続の文字がある docstring の
+  閉じ行、区切り文字を含む Examples のセルによって、後続のシナリオや実行ケースが集計から
+  消えなくなった。Gherkin と同じ判定に揃えたため、これまで `--strict` を通っていた feature が
+  `@red-contract` や使えないタグで失敗することがある。
+
 ## [0.3.0] - 2026-10-07
 
 ### Added
