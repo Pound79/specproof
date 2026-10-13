@@ -1,7 +1,11 @@
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertSafeRepositoryWrite, walkRegularFilesWithoutSymlinks } from "./path-security.js";
+import {
+  assertNotHardLinked,
+  assertSafeRepositoryWrite,
+  walkRegularFilesWithoutSymlinks,
+} from "./path-security.js";
 
 export type SupportedAgent = "codex" | "claude";
 const SUPPORTED_AGENTS: readonly SupportedAgent[] = ["codex", "claude"];
@@ -67,6 +71,7 @@ const setupCodex = (repoRoot: string, force: boolean): string[] => {
       skipped.push(path.relative(repoRoot, dest));
       continue;
     }
+    assertNotHardLinked(dest);
     mkdirSync(path.dirname(dest), { recursive: true });
     copyFileSync(path.join(skillsSource, rel), dest);
     written.push(path.relative(repoRoot, dest));

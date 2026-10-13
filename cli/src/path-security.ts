@@ -10,7 +10,7 @@ const isWithin = (root: string, candidate: string): boolean => {
 };
 
 /**
- * 書込先の symlink と、他のパスと内容を共有する既存ファイルの hardlink を拒否する。
+ * 書込先のパスにある symlink を拒否する。書込直前には assertNotHardLinked も通す。
  * 検査後に別プロセスがパスを差し替える競合への排他保証は行わない。
  */
 export const assertSafeRepositoryWrite = (repoRoot: string, targetPath: string): void => {
@@ -32,10 +32,6 @@ export const assertSafeRepositoryWrite = (repoRoot: string, targetPath: string):
       if (entry.isSymbolicLink()) {
         throw new Error(`Refusing to write through symbolic link inside repository: ${current}`);
       }
-      // realpath では hardlink の共有先を判別できないため、既存の最終ファイルで拒否する。
-      if (current === lexicalTarget && entry.isFile() && entry.nlink > 1) {
-        throw new Error(`Refusing to write to file with multiple hard links: ${current}`);
-      }
       deepestExisting = current;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") break;
@@ -46,6 +42,22 @@ export const assertSafeRepositoryWrite = (repoRoot: string, targetPath: string):
   const physicalAncestor = realpathSync(deepestExisting);
   if (!isWithin(physicalRoot, physicalAncestor)) {
     throw new Error(`Refusing to write outside the physical repository root: ${targetPath}`);
+  }
+};
+
+/**
+ * 他のパスと内容を共有する既存ファイルの hardlink を拒否する。
+ * realpath では共有先を判別できないため、書き込むと決まったファイルだけに使う。
+ */
+export const assertNotHardLinked = (targetPath: string): void => {
+  try {
+    const entry = lstatSync(targetPath);
+    if (entry.isFile() && entry.nlink > 1) {
+      throw new Error(`Refusing to write to file with multiple hard links: ${targetPath}`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
   }
 };
 

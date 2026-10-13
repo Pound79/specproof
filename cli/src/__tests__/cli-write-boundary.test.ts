@@ -80,6 +80,18 @@ for (const entry of cases) {
       }));
   }
 
+  test(`${entry.name}: --force が無ければ hardlink を書き換えずに skip する`, () =>
+    withRepo((repo, outside) => {
+      const target = path.join(repo, entry.target);
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(outside, original);
+      linkSync(outside, target);
+
+      const result = invoke(repo, entry.args);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(readFileSync(outside, "utf8"), original);
+    }));
+
   test(`${entry.name}: 通常ファイルは --force の指定時だけ上書きする`, () =>
     withRepo((repo) => {
       const target = path.join(repo, entry.target);
@@ -95,3 +107,15 @@ for (const entry of cases) {
       assert.ok(readFileSync(target, "utf8").includes(entry.expected));
     }));
 }
+
+test("init の workflow ファイル: --force でも上書きしない hardlink は skip する", () =>
+  withRepo((repo, outside) => {
+    const target = path.join(repo, ".github/workflows/specproof-drift-check.yml");
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(outside, original);
+    linkSync(outside, target);
+
+    const result = invoke(repo, ["init", "--adapter", "playwright", "--dir", "e2e", "--force"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(outside, "utf8"), original);
+  }));
