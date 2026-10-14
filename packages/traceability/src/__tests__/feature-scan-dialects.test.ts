@@ -11,8 +11,12 @@ for (const keyword of [
   "Scenario Template",
 ]) {
   test(`${keyword} の fixme・理由・ケースを取りこぼさない`, () => {
+    // runner はファイルの言語のキーワードだけを読むので、Feature と Examples も同じ言語にする。
+    const [feature, step, examples] = /^[A-Za-z]/.test(keyword)
+      ? ["Feature", "Given", "Examples"]
+      : ["機能", "前提", "例"];
     const scanned = parseScenarios(
-      `機能: 集計\n@fixme\n${keyword}: 未実装\n  前提: <値>\n  例:\n    | 値 |\n    | 1 |\n    | 2 |\n    | 3 |\n`,
+      `${feature}: 集計\n@fixme\n${keyword}: 未実装\n  ${step} <値>\n  ${examples}:\n    | 値 |\n    | 1 |\n    | 2 |\n    | 3 |\n`,
     );
     assert.equal(scanned.length, 1);
     assert.equal(scanned[0].line, 3);
@@ -24,8 +28,10 @@ for (const keyword of [
 }
 for (const keyword of ["Scenario", "Example", "シナリオ"]) {
   test(`${keyword} も複数 Examples のデータ行数で集計する`, () => {
+    const [feature, step, examples] =
+      keyword === "シナリオ" ? ["機能", "前提", "例"] : ["Feature", "Given", "Examples"];
     const scanned = parseScenarios(
-      `Feature: counts\n${keyword}: rows\n  Given <value>\n  Examples: first\n    | value |\n    | 1 |\n    | 2 |\n  @human\n  Examples: second\n    | value |\n    | 3 |\n`,
+      `${feature}: counts\n${keyword}: rows\n  ${step} <value>\n  ${examples}: first\n    | value |\n    | 1 |\n    | 2 |\n  @human\n  ${examples}: second\n    | value |\n    | 3 |\n`,
     );
     assert.equal(scanned.length, 1);
     assert.equal(scanned[0].caseCount, 3);

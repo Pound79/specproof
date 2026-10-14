@@ -119,7 +119,9 @@ Feature に付けた `@fixme` は配下の全シナリオを disallowed と数�
 phase/verification は `effectiveStateTags` を使用します。
 表示は domain ごとと TOTAL の 1 行ずつ（`N conditions / C cases; phase: ...; verification: ...;
 out-of-scope O`）で、続けて `@red-contract` の残数、使えないタグが残っていれば `tags that switch scenarios off (@fixme / @skip / @fail) remaining: N` で始まる行を表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring と、それ以外の言語を
-`# language:` で指定した feature は失敗させます。タグ行は Gherkin と同じく、空白に続く `#` 以降を
+`# language:` で指定した feature は失敗させます。ファイルの言語は Feature 行のキーワードで決め、
+その言語のキーワードだけを要素と step として読みます（runner も自分の言語で Feature 行を読めた
+ときだけ解析するため）。タグ行は Gherkin と同じく、空白に続く `#` 以降を
 除いて `@` で区切ります（`@smoke@human` は 2 つのタグ）。
 [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
 で決めたシナリオ ID 台帳はまだ実装しておらず、この統計には含まれません。

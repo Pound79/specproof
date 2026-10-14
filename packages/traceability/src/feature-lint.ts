@@ -4,17 +4,9 @@
 //   - duplicate-scenario-name: 同じファイル・同じ Rule の中で名前が同じシナリオ
 //   - duplicate-scenario: 同じ背景で、step の並び（表・docstring の引数を含む）が同じシナリオ
 //   - possible-contradiction: 前提と操作が同じなのに確認だけが違うシナリオの組（候補）
-// runner の合否は扱わない。英語・日本語のキーワードを読む（feature-scan と同じ範囲）。
+// runner の合否は扱わない。ファイルの言語（英語・日本語）のキーワードを読む（feature-scan と同じ規則）。
 import { createHash } from "node:crypto";
-import {
-  BACKGROUND_RE,
-  EXAMPLES_RE,
-  FEATURE_RE,
-  featureLanguage,
-  parseScenarios,
-  RULE_RE,
-  SCENARIO_RE,
-} from "./feature-scan.js";
+import { elementPatterns, featureLanguage, parseScenarios } from "./feature-scan.js";
 import { printable } from "./display-text.js";
 import { matchStep, type StepType } from "./step-keywords.js";
 
@@ -133,6 +125,9 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
   // 直前の意味のある行が Scenario / Background の step か。
   let stepOpen = false;
   const language = featureLanguage(content);
+  const patterns = elementPatterns(language);
+  // 2 つ目以降の Feature 行は説明文（Gherkin は 1 ファイル 1 Feature）。
+  let featureSeen = false;
 
   const background = (): readonly ParsedStep[] => {
     sharedBackground ??= Object.freeze([...featureBackground, ...ruleBackground].map(freezeStep));
@@ -184,7 +179,8 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       continue;
     }
     if (trimmed.startsWith("@")) continue;
-    if (FEATURE_RE.test(trimmed)) {
+    if (!featureSeen && patterns.feature.test(trimmed)) {
+      featureSeen = true;
       finish();
       featureBackground = [];
       ruleBackground = [];
@@ -193,7 +189,7 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       container = "none";
       continue;
     }
-    if (RULE_RE.test(trimmed)) {
+    if (patterns.rule.test(trimmed)) {
       finish();
       ruleBackground = [];
       sharedBackground = undefined;
@@ -201,12 +197,12 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       container = "none";
       continue;
     }
-    if (BACKGROUND_RE.test(trimmed)) {
+    if (patterns.background.test(trimmed)) {
       finish();
       container = rule > 0 ? "rule-background" : "feature-background";
       continue;
     }
-    const scenario = trimmed.match(SCENARIO_RE);
+    const scenario = trimmed.match(patterns.scenario);
     if (scenario) {
       finish();
       current = {
@@ -218,7 +214,7 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       container = "scenario";
       continue;
     }
-    if (EXAMPLES_RE.test(trimmed)) {
+    if (patterns.examples.test(trimmed)) {
       if (current !== undefined) current = { ...current, outline: true };
       // Examples の後に step は来ない。表は値の行なので、step の引数にしない。
       container = "none";

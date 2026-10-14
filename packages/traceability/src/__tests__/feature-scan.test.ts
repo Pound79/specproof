@@ -2,31 +2,24 @@ import { describe, expect, it } from "vitest";
 import { parseScenarios } from "../feature-scan.js";
 
 describe("parseScenarios", () => {
-  it("extracts scenarios with their attached tags (en + ja keywords)", () => {
-    const content = [
-      "# language: ja",
-      "機能: 例",
-      "",
-      "  @admin",
-      "  シナリオ: 管理者が見える",
-      "    前提 ログイン済み",
-      "",
-      "  @slow @generate",
-      "  Scenario: english one",
-      "    Given a thing",
-    ].join("\n");
-
+  // runner はファイルの言語のキーワードだけを読むため、言語ごとのファイルで確かめる。
+  it.each([
+    [
+      "ja",
+      "# language: ja\n機能: 例\n\n  @admin\n  シナリオ: 管理者が見える\n    前提 ログイン済み\n",
+      "管理者が見える",
+      ["@admin"],
+    ],
+    [
+      "en",
+      "Feature: example\n\n  @slow @generate\n  Scenario: english one\n    Given a thing\n",
+      "english one",
+      ["@slow", "@generate"],
+    ],
+  ])("extracts scenarios with their attached tags (%s keywords)", (_, content, name, tags) => {
     const scenarios = parseScenarios(content);
-
-    expect(scenarios).toHaveLength(2);
-    expect(scenarios[0]).toMatchObject({
-      name: "管理者が見える",
-      tags: ["@admin"],
-    });
-    expect(scenarios[1]).toMatchObject({
-      name: "english one",
-      tags: ["@slow", "@generate"],
-    });
+    expect(scenarios).toHaveLength(1);
+    expect(scenarios[0]).toMatchObject({ name, tags });
   });
 
   it("marks hasReasonComment when a # comment precedes the scenario block", () => {

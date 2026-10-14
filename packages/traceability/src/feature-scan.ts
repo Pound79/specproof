@@ -24,19 +24,52 @@ export interface ScannedScenario {
   exampleTags?: string[][];
 }
 
+interface ElementPatterns {
+  feature: RegExp;
+  rule: RegExp;
+  background: RegExp;
+  /** 1 番目がキーワード、2 番目がタイトル。 */
+  scenario: RegExp;
+  examples: RegExp;
+}
+
+// runner はファイルの言語のキーワードだけを要素とし、キーワードの直後にコロンを要求する。
 // 物理行は LF で分割済み。名前の内部にある CR / Unicode 区切り文字は Gherkin と同じく残す。
-export const SCENARIO_RE =
-  /^(シナリオアウトライン|シナリオテンプレート|シナリオテンプレ|テンプレ|シナリオ|Scenario Outline|Scenario Template|Scenario|Example)\s*:([^\n]*)$/;
-export const FEATURE_RE = /^(Feature|Business Need|Ability|フィーチャ|機能)\s*:/;
-export const RULE_RE = /^(Rule|ルール)\s*:/;
-export const BACKGROUND_RE = /^(Background|背景)\s*:/;
-export const EXAMPLES_RE = /^(Examples|Scenarios|例|サンプル)\s*:/;
+const EN_SCENARIO = "Scenario Outline|Scenario Template|Scenario|Example";
+const JA_SCENARIO = "シナリオアウトライン|シナリオテンプレート|シナリオテンプレ|テンプレ|シナリオ";
+const ELEMENT_PATTERNS: Record<StepLanguage | "both", ElementPatterns> = {
+  en: {
+    feature: /^(Feature|Business Need|Ability):/,
+    rule: /^Rule:/,
+    background: /^Background:/,
+    scenario: new RegExp(`^(${EN_SCENARIO}):([^\\n]*)$`),
+    examples: /^(Examples|Scenarios):/,
+  },
+  ja: {
+    feature: /^(フィーチャ|機能):/,
+    // ja の Rule は Gherkin の版で異なる（旧版は Rule、現行は ルール）ため両方を読む。
+    rule: /^(Rule|ルール):/,
+    background: /^背景:/,
+    scenario: new RegExp(`^(${JA_SCENARIO}):([^\\n]*)$`),
+    examples: /^(例|サンプル):/,
+  },
+  // Feature 行が無く言語を決められないときは両方の言語を読む。
+  both: {
+    feature: /^(Feature|Business Need|Ability|フィーチャ|機能):/,
+    rule: /^(Rule|ルール):/,
+    background: /^(Background|背景):/,
+    scenario: new RegExp(`^(${JA_SCENARIO}|${EN_SCENARIO}):([^\\n]*)$`),
+    examples: /^(Examples|Scenarios|例|サンプル):/,
+  },
+};
+
+/** ファイルの言語（featureLanguage）の要素キーワード。決まらなければ両方の言語。 */
+export const elementPatterns = (language: StepLanguage | undefined): ElementPatterns =>
+  ELEMENT_PATTERNS[language ?? "both"];
+
 // Gherkin と同じ言語指定の書式。キーワードを持たない言語を読むと、全シナリオが 0 件に化ける。
 const LANGUAGE_RE = /^#\s*language\s*:\s*([a-zA-Z\-_]+)\s*$/;
 const SUPPORTED_LANGUAGES = new Set(["en", "ja"]);
-
-const EN_FEATURE_RE = /^(Feature|Business Need|Ability)\s*:/;
-const JA_FEATURE_RE = /^(フィーチャ|機能)\s*:/;
 
 /**
  * runner が読む言語を Feature 行のキーワードで決める。en と ja の Feature キーワードは重ならず、
@@ -48,8 +81,8 @@ export const featureLanguage = (content: string): StepLanguage | undefined => {
   for (const line of content.split("\n")) {
     const trimmed = line.trim();
     if (trimmed === "" || trimmed.startsWith("#") || trimmed.startsWith("@")) continue;
-    if (EN_FEATURE_RE.test(trimmed)) return "en";
-    if (JA_FEATURE_RE.test(trimmed)) return "ja";
+    if (ELEMENT_PATTERNS.en.feature.test(trimmed)) return "en";
+    if (ELEMENT_PATTERNS.ja.feature.test(trimmed)) return "ja";
     return undefined;
   }
   return undefined;
@@ -87,6 +120,9 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
   let inHeader = true;
   // step の判定は lint と同じ規則で決めた言語を使う。
   const language = featureLanguage(content);
+  const patterns = elementPatterns(language);
+  // 2 つ目以降の Feature 行は説明文（Gherkin は 1 ファイル 1 Feature）。
+  let featureSeen = false;
 
   // 完成したシナリオだけを返却用配列に追加し、公開する要素は後で変更しない。
   const finishCurrent = (): void => {
@@ -147,7 +183,8 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       continue;
     }
     inHeader = false;
-    if (FEATURE_RE.test(trimmed)) {
+    if (!featureSeen && patterns.feature.test(trimmed)) {
+      featureSeen = true;
       featureTags = pendingStateTags;
       featureAllTags = pendingAllTags;
       ruleTags = [];
@@ -155,18 +192,18 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       finishCurrent();
       examples = false;
       inSteps = false;
-    } else if (RULE_RE.test(trimmed)) {
+    } else if (patterns.rule.test(trimmed)) {
       ruleTags = pendingStateTags;
       ruleAllTags = pendingAllTags;
       finishCurrent();
       examples = false;
       inSteps = false;
-    } else if (BACKGROUND_RE.test(trimmed)) {
+    } else if (patterns.background.test(trimmed)) {
       finishCurrent();
       examples = false;
       inSteps = true;
     } else {
-      const match = trimmed.match(SCENARIO_RE);
+      const match = trimmed.match(patterns.scenario);
       if (match) {
         finishCurrent();
         const outline = /Outline|Template|アウトライン|テンプレ/.test(match[1]);
@@ -182,7 +219,7 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
         };
         examples = false;
         inSteps = true;
-      } else if (current && EXAMPLES_RE.test(trimmed)) {
+      } else if (current && patterns.examples.test(trimmed)) {
         // Scenario というキーワードでも、Examples があれば行ごとに展開される。
         current = {
           ...current,
