@@ -35,18 +35,22 @@ export const EXAMPLES_RE = /^(Examples|Scenarios|例|サンプル)\s*:/;
 const LANGUAGE_RE = /^#\s*language\s*:\s*([a-zA-Z\-_]+)\s*$/;
 const SUPPORTED_LANGUAGES = new Set(["en", "ja"]);
 
+const EN_FEATURE_RE = /^(Feature|Business Need|Ability)\s*:/;
+const JA_FEATURE_RE = /^(フィーチャ|機能)\s*:/;
+
 /**
- * 要素とタグより前にある最初の `# language:` で明示された言語。無い・未対応なら undefined。
- * Gherkin と同じく、2 つ目以降の宣言はコメントとして扱う。
+ * runner が読む言語を Feature 行のキーワードで決める。en と ja の Feature キーワードは重ならず、
+ * runner は自分の言語（宣言または既定）で Feature 行を読めたときだけ解析できる。`# language:` の
+ * 解釈（JS は先勝ち、Dart は後勝ちで書式も異なる）によらず、解析できるファイルでは runner と
+ * 同じ言語になる。Feature 行が無ければ undefined。
  */
-export const headerLanguage = (content: string): StepLanguage | undefined => {
+export const featureLanguage = (content: string): StepLanguage | undefined => {
   for (const line of content.split("\n")) {
     const trimmed = line.trim();
-    if (trimmed === "") continue;
-    if (!trimmed.startsWith("#")) return undefined;
-    const language = trimmed.match(LANGUAGE_RE)?.[1];
-    if (language !== undefined)
-      return language === "en" || language === "ja" ? language : undefined;
+    if (trimmed === "" || trimmed.startsWith("#") || trimmed.startsWith("@")) continue;
+    if (EN_FEATURE_RE.test(trimmed)) return "en";
+    if (JA_FEATURE_RE.test(trimmed)) return "ja";
+    return undefined;
   }
   return undefined;
 };
@@ -78,10 +82,11 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
   // Scenario / Background の step を読める位置か、直前の意味のある行が step か。
   let inSteps = false;
   let stepOpen = false;
-  // 言語指定は最初の要素より前のコメントだけが有効。
+  // 言語指定は最初の要素より前のコメントだけが有効。runner によってはタグの後や 2 つ目の
+  // 宣言も有効にするため、要素より前の宣言はすべて検査する（見逃すと 0 件に化ける）。
   let inHeader = true;
-  // step の判定は lint と同じ宣言を使う（Gherkin と同じく最初の宣言だけ）。
-  const language = headerLanguage(content);
+  // step の判定は lint と同じ規則で決めた言語を使う。
+  const language = featureLanguage(content);
 
   // 完成したシナリオだけを返却用配列に追加し、公開する要素は後で変更しない。
   const finishCurrent = (): void => {

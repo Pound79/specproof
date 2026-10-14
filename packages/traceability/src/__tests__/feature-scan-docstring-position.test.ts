@@ -5,7 +5,15 @@ import { buildStats } from "../stats.js";
 
 // Gherkin は Scenario / Background の step の直後だけで docstring を開く。
 // 説明文の区切りを docstring と読むと、後続の条件が黙って集計から消える。
-const descriptions = [
+interface DescriptionCase {
+  label: string;
+  content: string[];
+  names: string[];
+  /** hidden に効くタグ。既定は @red-contract と @skip。 */
+  tags?: string[];
+}
+
+const descriptions: DescriptionCase[] = [
   {
     label: "Feature の説明文",
     content: [
@@ -96,6 +104,50 @@ const descriptions = [
     ],
     names: ["a", "hidden"],
   },
+  // 言語の宣言が無ければ、runner は既定の言語で Feature 行を読めたときだけ解析できる。
+  // そのため Feature 行のキーワードの言語が runner の言語で、その言語の step だけが step になる。
+  {
+    label: "宣言の無い英語のファイルの日本語キーワードで始まる説明文",
+    content: [
+      "Feature: f",
+      "Scenario: a",
+      "  前提として",
+      '  """',
+      "@red-contract @skip",
+      "Scenario: hidden",
+      "  Given g",
+    ],
+    names: ["a", "hidden"],
+  },
+  {
+    label: "宣言の無い日本語のファイルの英語キーワードで始まる説明文",
+    content: [
+      "機能: f",
+      "シナリオ: a",
+      "  Given x",
+      '  """',
+      "@red-contract @skip",
+      "シナリオ: hidden",
+      "  前提 g",
+    ],
+    names: ["a", "hidden"],
+  },
+  {
+    label: "タグの後の宣言を使わず Feature 行で決まる日本語のファイル",
+    content: [
+      "@x",
+      "# language: en",
+      "機能: f",
+      "シナリオ: a",
+      "  Given x",
+      '  """',
+      "@red-contract @skip",
+      "シナリオ: hidden",
+      "  前提 g",
+    ],
+    names: ["a", "hidden"],
+    tags: ["@x", "@red-contract", "@skip"],
+  },
   // 言語を明示したファイルでは、その言語の step キーワードだけが step になる。
   {
     label: "en と明示したファイルの日本語キーワードで始まる説明文",
@@ -130,13 +182,12 @@ const descriptions = [
 describe("説明文にある docstring の区切り", () => {
   it.each(descriptions)(
     "$label では docstring を開かず、後続の条件を数える",
-    ({ content, names }) => {
+    ({ content, names, tags }) => {
       const scenarios = parseScenarios(content.join("\n"));
       expect(scenarios.map(({ name }) => name)).toEqual(names);
-      expect(scenarios.find(({ name }) => name === "hidden")?.effectiveTags).toEqual([
-        "@red-contract",
-        "@skip",
-      ]);
+      expect(scenarios.find(({ name }) => name === "hidden")?.effectiveTags).toEqual(
+        tags ?? ["@red-contract", "@skip"],
+      );
       expect(buildStats([{ domain: "f", scenarios }])).toMatchObject({
         totals: { phase: { pending: 1 }, disallowed: 1 },
         done: false,
@@ -171,15 +222,15 @@ describe("step の引数の docstring", () => {
     {
       label: "Background の step",
       content: [
-        "Feature: f",
-        "Background:",
+        "機能: f",
+        "背景:",
         "  もし g",
         "  ```",
-        "  Scenario: fake",
+        "  シナリオ: fake",
         "  ```",
         "@skip",
-        "Scenario: b",
-        "  Given g",
+        "シナリオ: b",
+        "  前提 g",
       ],
       names: ["b"],
     },
@@ -205,6 +256,50 @@ describe("step の引数の docstring", () => {
         "機能: f",
         "シナリオ: a",
         "  前提 g",
+        '  """',
+        "  シナリオ: fake",
+        '  """',
+      ],
+      names: ["a"],
+    },
+    {
+      label: "英語の Background の step",
+      content: [
+        "Feature: f",
+        "Background:",
+        "  Given g",
+        "  ```",
+        "  Scenario: fake",
+        "  ```",
+        "@skip",
+        "Scenario: b",
+        "  Given g",
+      ],
+      names: ["b"],
+    },
+    // Dart の gherkin は宣言を後勝ちで読み、`# language :` を宣言と見なさない。どの runner でも
+    // 解析できれば Feature 行の言語が使われた言語なので、宣言の解釈によらず step を判定できる。
+    {
+      label: "後の宣言が Feature 行と合う英語のファイルの step",
+      content: [
+        "# language: ja",
+        "# language: en",
+        "Feature: f",
+        "Scenario: a",
+        "  Given x",
+        '  """',
+        "  Scenario: fake",
+        '  """',
+      ],
+      names: ["a"],
+    },
+    {
+      label: "宣言でない言語コメントがある日本語のファイルの step",
+      content: [
+        "# language : en",
+        "機能: f",
+        "シナリオ: a",
+        "  前提 x",
         '  """',
         "  シナリオ: fake",
         '  """',

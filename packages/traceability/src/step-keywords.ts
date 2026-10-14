@@ -25,8 +25,8 @@ const KEYWORDS: ReadonlyArray<readonly [string, StepType | "continue", StepLangu
 
 /**
  * 行頭の空白だけを除いた行を受け取る（Gherkin と同じく行末は削らないので、本文が空の
- * "And " も step になる）。language は `# language:` で明示された言語。明示が無ければ
- * runner の既定言語が分からないため、両方の言語のキーワードを step とする。
+ * "And " も step になる）。language はファイルの言語（featureLanguage）。決まらなければ
+ * 両方の言語のキーワードを step とする。
  */
 export const matchStep = (
   lineStart: string,

@@ -74,8 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Feature・Rule・Background・Scenario・Examples の説明文にある `"""` や ``` を docstring の
   開始と読まなくなった。Gherkin と同じく、Scenario / Background の step の直後だけで
   docstring を開く。step は、英語ならキーワードの後に半角空白が続く行、日本語ならキーワードで
-  始まる行で、`# language:` で言語を明示したファイルではその言語のキーワードだけを使う。以前は
-  docstring の範囲がずれ、後続のシナリオが集計から消えて `--strict` を通ることがあった。
+  始まる行で、ファイルの言語のキーワードだけを使う。言語は Feature 行のキーワードで決める。
+  runner は自分の言語（`# language:` の宣言または既定）で Feature 行を読めたときだけ解析できる
+  ため、宣言の解釈が runner ごとに違っても、解析できるファイルでは runner と同じ言語になる。
+  以前は docstring の範囲がずれ、後続のシナリオが集計から消えて `--strict` を通ることがあった。
 - `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
   リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
   表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。

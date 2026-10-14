@@ -37,4 +37,14 @@ describe("# language: の扱い", () => {
     const text = "Feature: f\n# language: fr\nScenario: a\n  Given x\n";
     expect(parseScenarios(text)).toHaveLength(1);
   });
+
+  // Dart の gherkin はタグの後と 2 つ目以降の宣言も有効にする。見逃すと 0 件に化けるので止める。
+  it.each([
+    ["タグの後", "@x\n# language: fr\n"],
+    ["2 つ目", "# language: en\n# language: fr\n"],
+  ])("%sの未対応の宣言も 0 件にせず止める", (_, header) => {
+    expect(() => parseScenarios(`${header}Fonctionnalité: f\n`)).toThrow(
+      /Unsupported Gherkin language "fr"/,
+    );
+  });
 });

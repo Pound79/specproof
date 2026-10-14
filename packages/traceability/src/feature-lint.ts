@@ -10,7 +10,7 @@ import {
   BACKGROUND_RE,
   EXAMPLES_RE,
   FEATURE_RE,
-  headerLanguage,
+  featureLanguage,
   parseScenarios,
   RULE_RE,
   SCENARIO_RE,
@@ -132,7 +132,7 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
   let docstring: DraftDocstring | undefined;
   // 直前の意味のある行が Scenario / Background の step か。
   let stepOpen = false;
-  const language = headerLanguage(content);
+  const language = featureLanguage(content);
 
   const background = (): readonly ParsedStep[] => {
     sharedBackground ??= Object.freeze([...featureBackground, ...ruleBackground].map(freezeStep));
