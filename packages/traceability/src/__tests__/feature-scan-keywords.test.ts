@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseScenarioSteps } from "../feature-lint.js";
 import { parseScenarios } from "../feature-scan.js";
+import { buildStats } from "../stats.js";
 
 // runner はファイルの言語のキーワードだけを要素とし、キーワードの直後にコロンを要求する。
 // それ以外は説明文なので、要素と読むと後続の step で docstring を開き、条件が消える。
@@ -63,6 +64,41 @@ describe("ファイルの言語の要素キーワード", () => {
     const text = `Feature: f\nScenario Outline: a\n  Given <v>\nExamples:\n  ${line}\n  | v |\n  | 1 |\n  | 2 |\n`;
     expect(parseScenarios(text)).toMatchObject([{ name: "a", caseCount: 2 }]);
   });
+
+  // Scenario の説明文を要素と読むと、step の後の本物の docstring を開けない。本文を構文として
+  // 読み、閉じ区切りを開始区切りと取り違えて、後続の未完了の条件を読み飛ばす。
+  it.each(["機能: this line is description, not a Feature header", "Feature : x", "Rule : x"])(
+    "Scenario の説明文「%s」で後続の未完了の条件を落とさない",
+    (line) => {
+      const text = [
+        "# language: en",
+        "Feature: f",
+        "Scenario: real",
+        `  ${line}`,
+        "  Given a document",
+        '    """',
+        "    Scenario: fake",
+        "      Given a fake step",
+        '    """',
+        "  Then ok",
+        "",
+        "@red-contract @skip",
+        "Scenario: hidden",
+        "  Given another document",
+        '    """',
+        "    text",
+        '    """',
+        "  Then not implemented",
+      ].join("\n");
+      const scenarios = parseScenarios(text);
+      expect(scenarios.map(({ name }) => name)).toEqual(["real", "hidden"]);
+      expect(buildStats([{ domain: "f", scenarios }])).toMatchObject({
+        totals: { phase: { pending: 1 }, disallowed: 1 },
+        done: false,
+      });
+      expect(parseScenarioSteps(text).map(({ name }) => name)).toEqual(["real", "hidden"]);
+    },
+  );
 
   it.each([
     ["英語", "Feature: f\nScenario Outline: a\n  Given <v>\nExamples:\n  | v |\n  | 1 |\n"],
