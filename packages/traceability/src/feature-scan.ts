@@ -68,7 +68,8 @@ export const elementPatterns = (language: StepLanguage | undefined): ElementPatt
   ELEMENT_PATTERNS[language ?? "both"];
 
 // Gherkin と同じ言語指定の書式。キーワードを持たない言語を読むと、全シナリオが 0 件に化ける。
-const LANGUAGE_RE = /^#\s*language\s*:\s*([a-zA-Z\-_]+)\s*$/;
+// Dart の gherkin は大文字小文字を区別しないため、`# Language:` も宣言として検査する。
+const LANGUAGE_RE = /^#\s*language\s*:\s*([a-zA-Z\-_]+)\s*$/i;
 const SUPPORTED_LANGUAGES = new Set(["en", "ja"]);
 
 /**

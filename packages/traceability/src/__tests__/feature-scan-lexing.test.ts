@@ -38,6 +38,13 @@ describe("# language: の扱い", () => {
     expect(parseScenarios(text)).toHaveLength(1);
   });
 
+  // Dart の gherkin は宣言を大文字小文字を区別せずに読む。見逃すと 0 件に化けるので止める。
+  it("大文字の Language で書いた未対応の宣言も止める", () => {
+    expect(() => parseScenarios("# Language: fr\nFonctionnalité: f\n")).toThrow(
+      /Unsupported Gherkin language "fr"/,
+    );
+  });
+
   // Dart の gherkin はタグの後と 2 つ目以降の宣言も有効にする。見逃すと 0 件に化けるので止める。
   it.each([
     ["タグの後", "@x\n# language: fr\n"],
