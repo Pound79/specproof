@@ -173,11 +173,12 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       continue;
     }
     if (trimmed === "" || trimmed.startsWith("#")) continue;
-    stepOpen = false;
+    // 表の行は step の引数。step の表の後も docstring を開ける（Gherkin は両方を付けられる）。
     if (trimmed.startsWith("|")) {
       if (lastStep !== undefined) lastStep.argument.push(tableArgument(trimmed));
       continue;
     }
+    stepOpen = false;
     if (trimmed.startsWith("@")) continue;
     if (!featureSeen && patterns.feature.test(trimmed)) {
       featureSeen = true;

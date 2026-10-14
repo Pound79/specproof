@@ -72,9 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   消えなくなった。Gherkin と同じ判定に揃えたため、これまで `--strict` を通っていた feature が
   `@red-contract` や使えないタグで失敗することがある。
 - Feature・Rule・Background・Scenario・Examples の説明文にある `"""` や ``` を docstring の
-  開始と読まなくなった。Gherkin と同じく、Scenario / Background の step の直後だけで
-  docstring を開く。step は、英語ならキーワードの後に半角空白が続く行、日本語ならキーワードで
-  始まる行で、ファイルの言語のキーワードだけを使う。言語は Feature 行のキーワードで決める。
+  開始と読まなくなった。Gherkin と同じく、Scenario / Background の step の直後（その step の表の
+  後を含む）だけで docstring を開く。step は、英語ならキーワードの後に半角空白が続く行、日本語なら
+  キーワードで始まる行で、ファイルの言語のキーワードだけを使う。言語は Feature 行のキーワードで
+  決める。
   runner は自分の言語（`# language:` の宣言または既定）で Feature 行を読めたときだけ解析できる
   ため、宣言の解釈が runner ごとに違っても、解析できるファイルでは runner と同じ言語になる。
   以前は docstring の範囲がずれ、後続のシナリオが集計から消えて `--strict` を通ることがあった。

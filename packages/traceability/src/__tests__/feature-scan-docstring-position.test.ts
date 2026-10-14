@@ -346,6 +346,38 @@ describe("step の引数の docstring", () => {
     expect(parseScenarioSteps(content.join("\n")).map(({ name }) => name)).toEqual(names);
   });
 
+  // 現行の Gherkin は 1 つの step に表と docstring の両方を付けられる。表の後の区切りも
+  // docstring として開かないと、本文を構文として読み、後続の未完了の条件を読み飛ばす。
+  it("step の表の後の docstring を開き、後続の未完了の条件を数える", () => {
+    const text = [
+      "Feature: f",
+      "Scenario: a",
+      "  Given g",
+      "    | x |",
+      "",
+      "    # c",
+      '    """',
+      "    Given y",
+      '    """',
+      "@red-contract @skip",
+      "Scenario: hidden",
+      "  Given h",
+      '    """',
+      "    z",
+      '    """',
+    ].join("\n");
+    const scenarios = parseScenarios(text);
+    expect(scenarios.map(({ name }) => name)).toEqual(["a", "hidden"]);
+    expect(buildStats([{ domain: "f", scenarios }])).toMatchObject({
+      totals: { phase: { pending: 1 }, disallowed: 1 },
+      done: false,
+    });
+    const [first] = parseScenarioSteps(text);
+    expect(first.steps.map(({ text, argument }) => [text, argument])).toEqual([
+      ["g", `table:${JSON.stringify(["x"])}\ndocstring:${JSON.stringify(["", "Given y"])}`],
+    ]);
+  });
+
   it("step の後の閉じていない docstring は従来どおり拒否する", () => {
     expect(() => parseScenarios('Feature: f\nScenario: a\n  Given g\n  """\n  text\n')).toThrow(
       "Unclosed Gherkin docstring",

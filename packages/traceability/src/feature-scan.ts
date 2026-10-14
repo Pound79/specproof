@@ -241,7 +241,11 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
         examples = false;
       }
     }
-    stepOpen = inSteps && matchStep(line.trimStart(), language) !== undefined;
+    // step の表の行の後も docstring を開ける（Gherkin は 1 つの step に表と docstring を付けられる）。
+    stepOpen =
+      inSteps &&
+      (matchStep(line.trimStart(), language) !== undefined ||
+        (stepOpen && trimmed.startsWith("|")));
     clearPreamble();
   }
   if (docstring !== undefined) {
