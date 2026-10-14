@@ -47,8 +47,8 @@ const ELEMENT_PATTERNS: Record<StepLanguage | "both", ElementPatterns> = {
   },
   ja: {
     feature: /^(フィーチャ|機能):/,
-    // ja の Rule は Gherkin の版で異なる（旧版は Rule、現行は ルール）ため両方を読む。
-    rule: /^(Rule|ルール):/,
+    // runner の Gherkin（現行の辞書）で ja の Rule は ルール だけ。Rule: は説明文。
+    rule: /^ルール:/,
     background: /^背景:/,
     scenario: new RegExp(`^(${JA_SCENARIO}):([^\\n]*)$`),
     examples: /^(例|サンプル):/,

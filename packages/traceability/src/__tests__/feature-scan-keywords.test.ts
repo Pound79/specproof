@@ -100,6 +100,45 @@ describe("ファイルの言語の要素キーワード", () => {
     },
   );
 
+  // 現行の Gherkin の ja 辞書で Rule は「ルール」だけ。「Rule:」は説明文で、見出しと読むと同じく
+  // 本物の docstring を開けず、後続の未完了の条件を読み飛ばす。
+  it("日本語のファイルの説明文にある Rule: で後続の未完了の条件を落とさない", () => {
+    const text = [
+      "# language: ja",
+      "機能: f",
+      "シナリオ: real",
+      "  Rule: 説明文",
+      "  前提 a document",
+      '    """',
+      "    シナリオ: fake",
+      "      前提 a fake step",
+      '    """',
+      "  ならば ok",
+      "",
+      "@red-contract @skip",
+      "シナリオ: hidden",
+      "  前提 another document",
+      '    """',
+      "    text",
+      '    """',
+      "  ならば not implemented",
+    ].join("\n");
+    const scenarios = parseScenarios(text);
+    expect(scenarios.map(({ name }) => name)).toEqual(["real", "hidden"]);
+    expect(buildStats([{ domain: "f", scenarios }])).toMatchObject({
+      totals: { phase: { pending: 1 }, disallowed: 1 },
+      done: false,
+    });
+    expect(parseScenarioSteps(text).map(({ name }) => name)).toEqual(["real", "hidden"]);
+  });
+
+  it("日本語のファイルの ルール: は Rule として読み、タグを継承する", () => {
+    const [scenario] = parseScenarios(
+      "# language: ja\n機能: f\n@x\nルール: r\nシナリオ: a\n  前提 g\n",
+    );
+    expect(scenario.effectiveTags).toEqual(["@x"]);
+  });
+
   it.each([
     ["英語", "Feature: f\nScenario Outline: a\n  Given <v>\nExamples:\n  | v |\n  | 1 |\n"],
     ["日本語", "機能: f\nシナリオテンプレ: a\n  前提 <v>\n例:\n  | v |\n  | 1 |\n"],

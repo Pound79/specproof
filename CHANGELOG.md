@@ -78,12 +78,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runner は自分の言語（`# language:` の宣言または既定）で Feature 行を読めたときだけ解析できる
   ため、宣言の解釈が runner ごとに違っても、解析できるファイルでは runner と同じ言語になる。
   以前は docstring の範囲がずれ、後続のシナリオが集計から消えて `--strict` を通ることがあった。
-- Feature・Background・Scenario・Examples は、ファイルの言語（Feature 行で決める）のキーワードに
-  コロンが続く行だけを要素として読む。別の言語のキーワードや `Scenario :` のような行は runner と
-  同じく説明文になる。以前は説明文を要素と読み、後続のシナリオが集計から消えたり、Feature の
-  タグが外れたりして `--strict` を通ることがあった。英語と日本語のキーワードを 1 つのファイルに
-  混ぜた feature は、runner と同じく Feature 行の言語のキーワードだけを数える。2 つ目以降の
-  Feature 行も、runner と同じく説明文として読む。
+- Feature・Rule・Background・Scenario・Examples は、ファイルの言語（Feature 行で決める）のキーワードに
+  コロンが続く行だけを要素として読む（日本語の Rule は `ルール` だけ）。別の言語のキーワードや
+  `Scenario :` のような行は runner と同じく説明文になる。以前は説明文を要素と読み、後続の
+  シナリオが集計から消えたり、Feature のタグが外れたりして `--strict` を通ることがあった。
+  英語と日本語のキーワードを 1 つのファイルに混ぜた feature は、runner と同じく Feature 行の
+  言語のキーワードだけを数える。2 つ目以降の Feature 行も、runner と同じく説明文として読む。
 - `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
   リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
   表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。
