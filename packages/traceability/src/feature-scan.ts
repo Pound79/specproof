@@ -124,6 +124,8 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
   const patterns = elementPatterns(language);
   // 2 つ目以降の Feature 行は説明文（Gherkin は 1 ファイル 1 Feature）。
   let featureSeen = false;
+  // Background は Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素になる。
+  let backgroundAllowed = false;
 
   // 完成したシナリオだけを返却用配列に追加し、公開する要素は後で変更しない。
   const finishCurrent = (): void => {
@@ -193,20 +195,24 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
       finishCurrent();
       examples = false;
       inSteps = false;
+      backgroundAllowed = true;
     } else if (patterns.rule.test(trimmed)) {
       ruleTags = pendingStateTags;
       ruleAllTags = pendingAllTags;
       finishCurrent();
       examples = false;
       inSteps = false;
-    } else if (patterns.background.test(trimmed)) {
+      backgroundAllowed = true;
+    } else if (backgroundAllowed && patterns.background.test(trimmed)) {
       finishCurrent();
       examples = false;
       inSteps = true;
+      backgroundAllowed = false;
     } else {
       const match = trimmed.match(patterns.scenario);
       if (match) {
         finishCurrent();
+        backgroundAllowed = false;
         const outline = /Outline|Template|アウトライン|テンプレ/.test(match[1]);
         current = {
           line: index + 1,

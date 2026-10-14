@@ -128,6 +128,8 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
   const patterns = elementPatterns(language);
   // 2 つ目以降の Feature 行は説明文（Gherkin は 1 ファイル 1 Feature）。
   let featureSeen = false;
+  // Background は Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素になる。
+  let backgroundAllowed = false;
 
   const background = (): readonly ParsedStep[] => {
     sharedBackground ??= Object.freeze([...featureBackground, ...ruleBackground].map(freezeStep));
@@ -188,6 +190,7 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       sharedBackground = undefined;
       rule = 0;
       container = "none";
+      backgroundAllowed = true;
       continue;
     }
     if (patterns.rule.test(trimmed)) {
@@ -196,16 +199,19 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       sharedBackground = undefined;
       rule += 1;
       container = "none";
+      backgroundAllowed = true;
       continue;
     }
-    if (patterns.background.test(trimmed)) {
+    if (backgroundAllowed && patterns.background.test(trimmed)) {
       finish();
+      backgroundAllowed = false;
       container = rule > 0 ? "rule-background" : "feature-background";
       continue;
     }
     const scenario = trimmed.match(patterns.scenario);
     if (scenario) {
       finish();
+      backgroundAllowed = false;
       current = {
         name: scenario[2].trim(),
         line: index + 1,
@@ -215,7 +221,9 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       container = "scenario";
       continue;
     }
-    if (patterns.examples.test(trimmed)) {
+    // Background に Examples は付かない（説明文）。Scenario の Examples だけを読む。
+    const inBackground = container === "feature-background" || container === "rule-background";
+    if (!inBackground && patterns.examples.test(trimmed)) {
       if (current !== undefined) current = { ...current, outline: true };
       // Examples の後に step は来ない。表は値の行なので、step の引数にしない。
       container = "none";

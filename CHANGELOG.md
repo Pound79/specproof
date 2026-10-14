@@ -84,7 +84,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Scenario :` のような行は runner と同じく説明文になる。以前は説明文を要素と読み、後続の
   シナリオが集計から消えたり、Feature のタグが外れたりして `--strict` を通ることがあった。
   英語と日本語のキーワードを 1 つのファイルに混ぜた feature は、runner と同じく Feature 行の
-  言語のキーワードだけを数える。2 つ目以降の Feature 行も、runner と同じく説明文として読む。
+  言語のキーワードだけを数える。2 つ目以降の Feature 行も説明文として読む。
+  Background は runner と同じく Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素とし、
+  それ以外の位置では説明文として読む（以前は Examples の行が実行ケースから落ちることがあった）。
 - `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
   リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
   表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。

@@ -139,6 +139,40 @@ describe("ファイルの言語の要素キーワード", () => {
     expect(scenario.effectiveTags).toEqual(["@x"]);
   });
 
+  // Background は Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素になる。それ以外は
+  // 説明文で、要素と読むとシナリオを閉じて Examples の行（実行ケース）を落とす。
+  it.each([
+    [
+      "Outline の説明文",
+      "Feature: f\nScenario Outline: o\n  Background: x\n  Given <v>\n  Examples:\n    | v |\n    | 1 |\n    | 2 |\n",
+    ],
+    [
+      "Examples の説明文",
+      "Feature: f\nScenario Outline: o\n  Given <v>\n  Examples:\n  Background: x\n    | v |\n    | 1 |\n    | 2 |\n",
+    ],
+    [
+      "日本語の Examples の説明文",
+      "機能: f\nシナリオアウトライン: o\n  前提 <v>\n  例:\n  背景: x\n    | v |\n    | 1 |\n    | 2 |\n",
+    ],
+  ])("%sにある Background で実行ケースを落とさない", (_, text) => {
+    expect(parseScenarios(text)).toMatchObject([{ name: "o", caseCount: 2 }]);
+  });
+
+  it("lint は Background の説明文にある Examples で Background の step を落とさない", () => {
+    const [scenario] = parseScenarioSteps(
+      "Feature: f\n  Background:\n  Examples:\n  Given b\n  Scenario: s\n  Then t\n",
+    );
+    expect(scenario.background.map(({ text }) => text)).toEqual(["b"]);
+  });
+
+  it("Rule の中では最初の Scenario より前の Background を読む", () => {
+    const text =
+      "Feature: f\nScenario: s\n  Given g\nRule: r\nBackground:\n  Given b\nScenario: t\n  Given g\n";
+    expect(parseScenarios(text).map(({ name }) => name)).toEqual(["s", "t"]);
+    const [, rule] = parseScenarioSteps(text);
+    expect(rule.background.map(({ text: step }) => step)).toEqual(["b"]);
+  });
+
   it.each([
     ["英語", "Feature: f\nScenario Outline: a\n  Given <v>\nExamples:\n  | v |\n  | 1 |\n"],
     ["日本語", "機能: f\nシナリオテンプレ: a\n  前提 <v>\n例:\n  | v |\n  | 1 |\n"],
