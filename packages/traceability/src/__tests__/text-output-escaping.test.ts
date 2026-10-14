@@ -6,6 +6,7 @@ import {
   describeWarning,
 } from "../cli-check-format.js";
 import { describeChange } from "../cli-update-format.js";
+import { printable } from "../display-text.js";
 import { formatDomainList } from "../list.js";
 import { buildStats, formatStats } from "../stats.js";
 
@@ -57,4 +58,24 @@ test("list は domain・ラベル・ページ名を無害化する", () => {
 test("check の link 見出しと両側変更の行は linkId の bidi 制御文字を表示しない", () => {
   assert.equal(describeLinkHeading(`a${unsafe}b`), `link: a${shown}b`);
   assert.ok(describeBothSidesChanged(`a${unsafe}b`).startsWith(`!! link "a${shown}b": BOTH`));
+});
+
+// Unicode の Bidi_Control（PropList.txt）の 12 文字。代表だけを試すと U+061C のような漏れを見逃す。
+const BIDI_CONTROLS = [
+  0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069,
+];
+
+test.each(BIDI_CONTROLS.map((code) => [code.toString(16).toUpperCase().padStart(4, "0"), code]))(
+  "bidi 制御文字 U+%s を表示しない",
+  (_, code) => {
+    assert.equal(printable(`a${String.fromCodePoint(code)}b`), "a?b");
+  },
+);
+
+test("Bidi_Control の一覧は Unicode のプロパティと一致する", () => {
+  const all = [];
+  for (let code = 0; code <= 0xffff; code += 1) {
+    if (/\p{Bidi_Control}/u.test(String.fromCharCode(code))) all.push(code);
+  }
+  assert.deepEqual(all, BIDI_CONTROLS);
 });
