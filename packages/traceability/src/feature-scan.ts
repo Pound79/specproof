@@ -1,5 +1,6 @@
 // 英語・日本語の静的センサス用scanner。runnerの合否やシナリオIDは扱わない。
 import { parseDartFeature } from "./dart-gherkin.js";
+import { printable } from "./display-text.js";
 import { matchStep, type StepLanguage } from "./step-keywords.js";
 
 export interface ScannedScenario {
@@ -229,13 +230,15 @@ export const parseScenarios = (content: string, options: ParseOptions = {}): Sca
     if (trimmed.startsWith("@")) {
       stepOpen = false;
       const tags = splitTags(trimmed);
-      pendingTags.push(...tags);
-      pendingAllTags.push(...tags);
-      pendingStateTags.push(
-        ...tags.filter((tag) =>
-          ["@draft", "@red-contract", "@human", "@out-of-scope"].includes(tag),
-        ),
-      );
+      for (const tag of tags) {
+        pendingTags.push(tag);
+        pendingAllTags.push(tag);
+      }
+      for (const tag of tags) {
+        if (["@draft", "@red-contract", "@human", "@out-of-scope"].includes(tag)) {
+          pendingStateTags.push(tag);
+        }
+      }
       continue;
     }
     if (trimmed.startsWith("#")) {
@@ -331,6 +334,6 @@ export const parseFeatureScenarios = (
   try {
     return parseScenarios(content, options);
   } catch (error) {
-    throw new Error(`${JSON.stringify(relPath)}: ${(error as Error).message}`);
+    throw new Error(`${printable(JSON.stringify(relPath))}: ${(error as Error).message}`);
   }
 };

@@ -215,7 +215,7 @@ describe("adapter: flutter の feature", () => {
     expect(parseScenarios(text, { gherkin: "dart" })).toMatchObject([{ caseCount: 20_000 }]);
   });
 
-  it.each(["dart"] as const)(
+  it.each(["js", "dart"] as const)(
     "%s の規則で 1 行に大量のタグがあってもスタックを溢れさせない",
     (gherkin) => {
       const text = `Feature: f\n  ${"@red-contract".repeat(240_000)}\n  Scenario: s\n    Given x\n`;
