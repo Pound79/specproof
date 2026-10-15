@@ -20,7 +20,7 @@ export interface ScannedScenario {
    * 旧API入力では省略可（その場合は tags で集計する）。
    */
   effectiveTags?: string[];
-  /** 通常Scenarioは1、Examplesがあれば全データ行数。Outlineの初期値は0。旧API入力では省略可。 */
+  /** Examples が無ければ1、あれば全データ行数。Dart は Examples 無しの Outline を拒否する。旧API入力では省略可。 */
   caseCount?: number;
   /** 条件全体の状態へ投影できないExamplesタグを検査するための情報。 */
   exampleTags?: string[][];
@@ -277,7 +277,6 @@ export const parseScenarios = (content: string, options: ParseOptions = {}): Sca
       if (match) {
         finishCurrent();
         backgroundAllowed = false;
-        const outline = /Outline|Template|アウトライン|テンプレ/.test(match[1]);
         current = {
           line: index + 1,
           name: match[2].trim(),
@@ -285,7 +284,9 @@ export const parseScenarios = (content: string, options: ParseOptions = {}): Sca
           effectiveStateTags: [...new Set([...featureTags, ...ruleTags, ...pendingStateTags])],
           effectiveTags: union(featureAllTags, ruleAllTags, pendingAllTags),
           hasReasonComment: pendingComment,
-          caseCount: outline ? 0 : 1,
+          // JS の Gherkin は Examples が無い Outline も 1 ケース生成する。
+          // 最初の Examples を読んだ時点で 0 に戻し、データ行を数える。
+          caseCount: 1,
           exampleTags: [],
         };
         examples = false;

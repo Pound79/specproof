@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Playwright の feature で Examples が無い Scenario Outline のケース数を、runner と同じく
+  1件と数える。Examples が存在してデータ行が無い場合は、従来どおり0件とする。
 - `specproof init` / `setup-agent` は、`--force` で上書きする既存ファイルが複数の hardlink を
   持つときに拒否する。共有先がリポジトリ外にあっても、そのファイルを書き換えない。
   上書きしないファイルは従来どおり skip する。

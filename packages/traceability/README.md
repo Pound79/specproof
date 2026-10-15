@@ -89,6 +89,8 @@ it, since it hides pending conditions and makes the run look green.
 `disallowed` は使えないタグ（`@skip` / `@fixme` / `@fail`）が付いた条件の数です。
 レポート全体の `done` は `@red-contract`（pending）と使えないタグがともに 0 件のとき `true` です。
 Outline は条件として1件、ケースは複数 Examples の全データ行を合計します。通常 Scenario は1ケースです。
+Playwright の runner と同じく、Examples が無い Outline も1ケースと数えます。
+Examples が存在してデータ行が無い場合は0ケースです。Flutter の runner は Examples が無い Outline を拒否します。
 
 同じ実体の feature を複数の link や repo 内のシンボリックリンク経由で登録しても、
 lint と census は、それぞれ同じ実体を一度だけ読みます。表示する代表パスの選択規則は異なります。
