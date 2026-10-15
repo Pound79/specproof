@@ -1,4 +1,5 @@
 // 英語・日本語の静的センサス用scanner。runnerの合否やシナリオIDは扱わない。
+import { parseDartFeature } from "./dart-gherkin.js";
 import { matchStep, type StepLanguage } from "./step-keywords.js";
 
 export interface ScannedScenario {
@@ -98,7 +99,67 @@ const splitTags = (line: string): string[] =>
     .flatMap((token) => token.split("@").filter((name) => name !== ""))
     .map((name) => `@${name}`);
 
-export const parseScenarios = (content: string): ScannedScenario[] => {
+/** feature を読む規則。js は Playwright の runner（Gherkin）、dart は Flutter の runner（Dart の gherkin）。 */
+export type GherkinFlavor = "js" | "dart";
+
+export interface ParseOptions {
+  gherkin?: GherkinFlavor;
+  /** runner の既定の言語（設定の `language`）。dart の規則で、宣言の無い feature に使う。 */
+  language?: string;
+}
+
+const STATE_TAGS = ["@draft", "@red-contract", "@human", "@out-of-scope"];
+const stateTagsOf = (tags: readonly string[]): string[] =>
+  tags.filter((tag) => STATE_TAGS.includes(tag));
+
+/**
+ * シナリオの直前の、空行で区切られていないタグ行とコメント行を読む（JS の規則と同じ範囲）。
+ * tags と理由コメントの検査は、どちらの runner の規則でも同じ境界で行う。
+ */
+const preambleOf = (lines: readonly string[], index: number) => {
+  const tags: string[][] = [];
+  let comment = false;
+  for (let i = index - 1; i >= 0; i -= 1) {
+    const trimmed = lines[i].trim();
+    // 後ろから集めて最後に逆順にする（unshift はタグ行の数の二乗時間になる）。
+    if (trimmed.startsWith("@")) tags.push(splitTags(trimmed));
+    else if (trimmed.startsWith("#")) comment = true;
+    else break;
+  }
+  return { tags: tags.reverse().flat(), comment };
+};
+
+// Flutter の runner と同じ規則で読む（dart-gherkin.ts）。Rule は Dart の gherkin に無い。
+const parseDartScenarios = (content: string, language?: string): ScannedScenario[] => {
+  const feature = parseDartFeature(content, language);
+  if (feature === undefined) return [];
+  const lines = content.split(/\r\n|\r|\n/);
+  return feature.scenarios.map((scenario) => {
+    const preamble = preambleOf(lines, scenario.line - 1);
+    const exampleTags = scenario.examples.map(({ tags }) => stateTagsOf(tags));
+    return {
+      line: scenario.line,
+      name: scenario.name.trim(),
+      tags: preamble.tags,
+      effectiveStateTags: [...new Set(stateTagsOf([...feature.tags, ...scenario.assignedTags]))],
+      effectiveTags: [
+        ...new Set([
+          ...feature.tags,
+          ...scenario.assignedTags,
+          ...scenario.examples.flatMap(({ tags }) => tags),
+        ]),
+      ],
+      hasReasonComment: preamble.comment,
+      caseCount: scenario.outline
+        ? scenario.examples.reduce((sum, { cases }) => sum + cases, 0)
+        : 1,
+      exampleTags: scenario.outline ? exampleTags : [],
+    };
+  });
+};
+
+export const parseScenarios = (content: string, options: ParseOptions = {}): ScannedScenario[] => {
+  if (options.gherkin === "dart") return parseDartScenarios(content, options.language);
   const scenarios: ScannedScenario[] = [];
   let pendingTags: string[] = [];
   let pendingStateTags: string[] = [];
@@ -262,9 +323,13 @@ export const parseScenarios = (content: string): ScannedScenario[] => {
 };
 
 /** parseScenarios の失敗に、どの feature かを付ける。パスは改行を含みうるので JSON 文字列で示す。 */
-export const parseFeatureScenarios = (relPath: string, content: string): ScannedScenario[] => {
+export const parseFeatureScenarios = (
+  relPath: string,
+  content: string,
+  options: ParseOptions = {},
+): ScannedScenario[] => {
   try {
-    return parseScenarios(content);
+    return parseScenarios(content, options);
   } catch (error) {
     throw new Error(`${JSON.stringify(relPath)}: ${(error as Error).message}`);
   }

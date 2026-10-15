@@ -121,7 +121,11 @@ phase/verification は `effectiveStateTags` を使用します。
 out-of-scope O`）で、続けて `@red-contract` の残数、使えないタグが残っていれば `tags that switch scenarios off (@fixme / @skip / @fail) remaining: N` で始まる行を表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring と、それ以外の言語を
 `# language:` で指定した feature は失敗させます。ファイルの言語は Feature 行のキーワードで決め、
 その言語のキーワードだけを要素と step として読みます（runner も自分の言語で Feature 行を読めた
-ときだけ解析するため）。タグ行は Gherkin と同じく、空白に続く `#` 以降を
+ときだけ解析するため）。`specproof.config.yaml` の `adapter` が `flutter` のときは、Flutter の runner
+（Dart の gherkin）と同じ規則で読みます（キーワードの大文字小文字を区別しない、Rule が無いなど）。
+宣言の無い feature は設定の `language` を既定の言語として読みます。runner が解析できない feature と、
+Dart の gherkin が 1 つのタグとして読む空白を含むタグ（`@out-of-scope # 理由` など）は、
+0 件や無効なタグとして通さず失敗させます。タグ行は Gherkin と同じく、空白に続く `#` 以降を
 除いて `@` で区切ります（`@smoke@human` は 2 つのタグ）。
 [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
 で決めたシナリオ ID 台帳はまだ実装しておらず、この統計には含まれません。

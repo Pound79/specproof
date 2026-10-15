@@ -3,6 +3,7 @@ import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from "
 import { parse } from "yaml";
 import { resolveDefaultManifestPath, resolveRepoRoot } from "./paths.js";
 import { resolveWithinRoot } from "./resolve.js";
+import type { GherkinFlavor } from "./feature-scan.js";
 
 export interface TraceabilityConfig {
   /** Absolute path of the repo root. */
@@ -36,6 +37,10 @@ export interface TraceabilityConfig {
    *  making --strict fail on missing-then, step-order, duplicate-scenario-name
    *  and duplicate-scenario warnings. */
   strictFeatureLint: boolean;
+  /** feature を読む規則（top-level `adapter`）。flutter は Dart の gherkin、それ以外は Gherkin の規則。 */
+  gherkin: GherkinFlavor;
+  /** runner の既定の Gherkin 言語（top-level `language`）。dart の規則で、宣言の無い feature に使う。 */
+  language?: string;
 }
 
 export interface DiscoverConfigOverrides {
@@ -70,6 +75,8 @@ const LEGACY_CONFIG_FILENAMES = ["bdd-kit.config.yaml", "bdd-kit.config.yml"];
 
 // 検証前の設定ファイル。値の型は readSection / readString などで確かめる。
 interface PartialConfigFile {
+  adapter?: unknown;
+  language?: unknown;
   layout?: unknown;
   tags?: unknown;
   strictUnregisteredImpl?: unknown;
@@ -275,6 +282,13 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     false,
   );
   const strictFeatureLint = readBoolean(fileConfig.strictFeatureLint, "strictFeatureLint", false);
+  const adapter = readString(fileConfig.adapter, "adapter");
+  if (adapter !== undefined && adapter !== "playwright" && adapter !== "flutter") {
+    throw new Error(`${sourceName}: adapter must be "playwright" or "flutter"`);
+  }
+  // Flutter の runner は Dart の gherkin で feature を読む（キーワードの書式が Gherkin と違う）。
+  const gherkin: GherkinFlavor = adapter === "flutter" ? "dart" : "js";
+  const language = readString(fileConfig.language, "language");
   return {
     repoRoot,
     manifestPath,
@@ -285,5 +299,7 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     strictUnregisteredImpl,
     strictUnregisteredSpecHeadings,
     strictFeatureLint,
+    gherkin,
+    language,
   };
 };

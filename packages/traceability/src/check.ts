@@ -10,7 +10,12 @@ import {
   readFileOrNull,
   SECTION_MISSING,
 } from "./hash.js";
-import { parseFeatureScenarios, type ScannedScenario } from "./feature-scan.js";
+import {
+  type GherkinFlavor,
+  type ParseOptions,
+  parseFeatureScenarios,
+  type ScannedScenario,
+} from "./feature-scan.js";
 import { loadManifest, type TraceabilityLink, type TraceabilityManifest } from "./manifest.js";
 import { resolveWithinRoot } from "./resolve.js";
 import { OUT_OF_SCOPE_TAG, DISALLOWED_TAGS } from "./config.js";
@@ -253,6 +258,7 @@ const lintFeature = async (
   target: FeatureTarget,
   repoRoot: string,
   runLimited: RunTaskLimited,
+  parse: ParseOptions,
 ): Promise<{ warnings: DriftWarning[]; source?: FeatureSource }> => {
   const content = await runLimited(() =>
     readFileOrNull(resolveWithinRoot(repoRoot, target.relPath)),
@@ -264,7 +270,7 @@ const lintFeature = async (
   if (containsDraftMarker(content)) {
     warnings.push(unreviewedDraftWarning(target.relPath, target.linkId));
   }
-  for (const scenario of parseFeatureScenarios(target.relPath, content)) {
+  for (const scenario of parseFeatureScenarios(target.relPath, content, parse)) {
     // @out-of-scope はシナリオ自身に付け、その直前に理由を書く。Feature / Rule / Examples から
     // 継承した宣言は、理由の置き場所が定まらず一括で外せてしまうので、理由があっても警告する。
     const ownOutOfScope = scenario.tags.includes(OUT_OF_SCOPE_TAG);
@@ -295,6 +301,10 @@ export interface CheckDriftOptions {
    *  implementation files that should be registered in some link's impl[].
    *  When unset, unregistered-impl auditing is skipped entirely (opt-in). */
   implGlobs?: string[];
+  /** feature を読む規則。adapter: flutter なら dart（既定は js）。 */
+  gherkin?: GherkinFlavor;
+  /** runner の既定の Gherkin 言語。dart の規則で、宣言の無い feature に使う。 */
+  language?: string;
 }
 
 export const checkDrift = async (
@@ -310,9 +320,10 @@ export const checkDrift = async (
   const entries = entriesPerLink.flat();
   const driftLinkCount = new Set(entries.map((entry) => entry.linkId)).size;
 
+  const parse: ParseOptions = { gherkin: options.gherkin ?? "js", language: options.language };
   const targets = await collectFeatureTargets(manifest, repoRoot, options.featuresDir);
   const featureResults = await Promise.all(
-    targets.map((target) => lintFeature(target, repoRoot, runLimited)),
+    targets.map((target) => lintFeature(target, repoRoot, runLimited, parse)),
   );
   const featureWarningGroups = featureResults.map((result) => result.warnings);
   // 重複と矛盾の候補はファイルをまたいで比べるので、読めた feature をまとめて渡す。
@@ -324,7 +335,7 @@ export const checkDrift = async (
   const contentLintWarnings: DriftWarning[] = lintFeatureSet(
     featureResults.flatMap((result) => (result.source === undefined ? [] : [result.source])),
     // 受け入れ条件から外したシナリオは、確認が無くても missing-then にしない。
-    { exemptTags: [OUT_OF_SCOPE_TAG] },
+    { exemptTags: [OUT_OF_SCOPE_TAG], ...parse },
   ).map((finding) => {
     const linkId = linkIdByPath.get(finding.path);
     const base = { kind: finding.kind, path: finding.path, message: finding.message };

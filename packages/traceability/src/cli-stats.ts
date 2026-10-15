@@ -82,7 +82,13 @@ const main = async (): Promise<void> => {
   for (const relPath of paths) {
     const content = await read(relPath);
     if (content === null) missingFeatures.push(relPath);
-    else features.push({ domain: relPath, scenarios: parseFeatureScenarios(relPath, content) });
+    else {
+      const scenarios = parseFeatureScenarios(relPath, content, {
+        gherkin: config.gherkin,
+        language: config.language,
+      });
+      features.push({ domain: relPath, scenarios });
+    }
   }
   // featuresDir の探索では、登録したのに消えた feature が見えない。登録分の実在も確かめる。
   const scanned = new Set(paths);

@@ -87,6 +87,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   言語のキーワードだけを数える。2 つ目以降の Feature 行も説明文として読む。
   Background は runner と同じく Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素とし、
   それ以外の位置では説明文として読む（以前は Examples の行が実行ケースから落ちることがあった）。
+- `adapter: flutter` の設定では、feature を Flutter の runner（Dart の gherkin）と同じ規則で読む。
+  Dart の gherkin はキーワードの大文字小文字を区別せず、step のキーワードの後の空白も要らない。
+  Gherkin の規則で読むと `given ...` の後の docstring を開けず、後続の未完了の条件が集計から消えて
+  `--strict` を通ることがあった。宣言の無い feature は設定の `language` を既定の言語として読み、
+  runner が解析できない feature と、空白を含むタグ（Dart の gherkin は `@out-of-scope # 理由`
+  を 1 つのタグとして読み、状態タグとして働かない）は失敗させる。
 - `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
   リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
   表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。

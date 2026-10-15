@@ -21,6 +21,8 @@ const main = async (): Promise<void> => {
   const report = await checkDrift(config.manifestPath, config.repoRoot, {
     featuresDir: config.featuresDir,
     implGlobs: config.implGlobs,
+    gherkin: config.gherkin,
+    language: config.language,
   });
   const strict = flags.has("--strict");
   const strictOptions = {

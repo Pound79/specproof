@@ -6,7 +6,13 @@
 //   - possible-contradiction: 前提と操作が同じなのに確認だけが違うシナリオの組（候補）
 // runner の合否は扱わない。ファイルの言語（英語・日本語）のキーワードを読む（feature-scan と同じ規則）。
 import { createHash } from "node:crypto";
-import { elementPatterns, featureLanguage, parseScenarios } from "./feature-scan.js";
+import { classifyDartStep, parseDartFeature, type DartStep } from "./dart-gherkin.js";
+import {
+  elementPatterns,
+  featureLanguage,
+  type ParseOptions,
+  parseScenarios,
+} from "./feature-scan.js";
 import { printable } from "./display-text.js";
 import { matchStep, type StepType } from "./step-keywords.js";
 
@@ -109,7 +115,43 @@ const freezeStep = (step: DraftStep): ParsedStep =>
     argument: step.argument.join("\n"),
   });
 
-export const parseScenarioSteps = (content: string): ParsedScenario[] => {
+// Flutter の runner と同じ規則で読む（dart-gherkin.ts）。Rule は無く、`*` は step にならない。
+const parseDartScenarioSteps = (content: string, language?: string): ParsedScenario[] => {
+  const feature = parseDartFeature(content, language);
+  if (feature === undefined) return [];
+  const toSteps = (steps: readonly DartStep[]): ParsedStep[] => {
+    let lastType: StepType | undefined;
+    return steps.map((step) => {
+      const { kind, text } = classifyDartStep(step.text, feature.language);
+      const explicit = kind !== "continue";
+      const type: StepType = explicit ? (kind as StepType) : (lastType ?? "given");
+      lastType = type;
+      const argument = step.args
+        .flatMap((arg) =>
+          "table" in arg
+            ? arg.table.split("\n").map(tableArgument)
+            : [`docstring:${JSON.stringify(["", arg.docstring])}`],
+        )
+        .join("\n");
+      return Object.freeze({ type, text, explicit, line: step.line, argument });
+    });
+  };
+  const background = Object.freeze(toSteps(feature.background));
+  return feature.scenarios.map((scenario) => ({
+    name: scenario.name.trim(),
+    line: scenario.line,
+    rule: 0,
+    steps: Object.freeze(toSteps(scenario.steps)),
+    background,
+    outline: scenario.outline,
+  }));
+};
+
+export const parseScenarioSteps = (
+  content: string,
+  options: ParseOptions = {},
+): ParsedScenario[] => {
+  if (options.gherkin === "dart") return parseDartScenarioSteps(content, options.language);
   const scenarios: ParsedScenario[] = [];
   // 読み取り中だけ配列に追記する（毎回コピーすると step 数の二乗になる）。返す値は凍結する。
   let featureBackground: DraftStep[] = [];
@@ -299,10 +341,10 @@ const quote = (text: string): string => {
 };
 
 /** シナリオの行番号 → 継承を含むタグ。feature-scan と同じ規則で読む。読めなければ空。 */
-const tagsByLine = (content: string): Map<number, readonly string[]> => {
+const tagsByLine = (content: string, options: ParseOptions): Map<number, readonly string[]> => {
   try {
     return new Map(
-      parseScenarios(content).map((scenario) => [
+      parseScenarios(content, options).map((scenario) => [
         scenario.line,
         scenario.effectiveTags ?? scenario.tags,
       ]),
@@ -318,7 +360,7 @@ export interface FeatureSource {
   content: string;
 }
 
-export interface FeatureLintOptions {
+export interface FeatureLintOptions extends ParseOptions {
   /** このタグ（継承を含む）が付いたシナリオは missing-then にしない（自動化しない印のシナリオ）。 */
   exemptTags?: readonly string[];
 }
@@ -343,8 +385,8 @@ export const lintFeatureSet = (
     if (seenPaths.has(source.path)) continue;
     seenPaths.add(source.path);
     const firstByName = new Map<string, number>();
-    const tags = exemptTags.length > 0 ? tagsByLine(source.content) : new Map();
-    for (const scenario of parseScenarioSteps(source.content)) {
+    const tags = exemptTags.length > 0 ? tagsByLine(source.content, options) : new Map();
+    for (const scenario of parseScenarioSteps(source.content, options)) {
       const at = `${quote(source.path)}:${scenario.line}`;
       const name = quote(scenario.name);
       const nameKey = `${scenario.rule}\u0000${scenario.name}`;
