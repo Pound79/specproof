@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-16
+
 ### Added
 
+- 静的統計に phase（draft/pending/complete）と verification（machine/human）の
+  別軸、Outline の展開ケース数を追加する。条件数とケース数を区別する。
+  complete は実行済み GREEN を示さない。
+- version 1 manifest の `links[].criteria` を任意の不透明な ID 配列として
+  検証・保持する。多対多の対応と未知キーを更新・dry-run で維持する。
 - `specproof-check` が feature の中身を lint する。確認（Then）の無いシナリオ
   （`missing-then`）、前提・操作・確認の順番が戻る step（`step-order`）、同じファイル内の
   シナリオ名の重複（`duplicate-scenario-name`）、背景を含めた step の並びが同じシナリオ
@@ -38,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`specproof-stats --strict` の完了条件が変わる。** `@red-contract` が 1 件でも残っているか、
-  `@fixme` / `@skip` / `@fail` が付いていれば失敗する（0.3.0 までは `@fixme` が 0 なら成功し、
+  `@fixme` / `@skip` / `@fail` が付いていれば失敗する（0.2.2 までは `@fixme` が 0 なら成功し、
   `@red-contract` は数えなかった）。JSON から `automated` / `fixme` / `skip` / `fixmeClean` /
   `fixmeTag` / `skipTag` を除き、`outOfScope` / `disallowed` / `done` を加えた。表示の行も変わる。
 - テンプレートの runner（Playwright・Flutter）は `@draft` / `@human` / `@out-of-scope` の
@@ -61,70 +68,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - new-feature・bootstrap は feature を `projects[].features` の意図した project に登録し、
   `--list` の実行一覧に対象が現れることを確かめる。implement は着手前に同じ確認を行い、
   登録漏れは設定変更案として示す。対象 0 件を GREEN や「実装不要」と扱わない。
-
-### Fixed
-
-- Playwright の feature で Examples が無い Scenario Outline のケース数を、runner と同じく
-  1件と数える。Examples が存在してデータ行が無い場合は、従来どおり0件とする。
-- `specproof init` / `setup-agent` は、`--force` で上書きする既存ファイルが複数の hardlink を
-  持つときに拒否する。共有先がリポジトリ外にあっても、そのファイルを書き換えない。
-  上書きしないファイルは従来どおり skip する。
-- feature の読み取りで、シナリオ名の単独 CR・U+2028・U+2029、後続の文字がある docstring の
-  閉じ行、区切り文字を含む Examples のセルによって、後続のシナリオや実行ケースが集計から
-  消えなくなった。Gherkin と同じ判定に揃えたため、これまで `--strict` を通っていた feature が
-  `@red-contract` や使えないタグで失敗することがある。
-- Feature・Rule・Background・Scenario・Examples の説明文にある `"""` や ``` を docstring の
-  開始と読まなくなった。Gherkin と同じく、Scenario / Background の step の直後（その step の表の
-  後を含む）だけで docstring を開く。step は、英語ならキーワードの後に半角空白が続く行、日本語なら
-  キーワードで始まる行で、ファイルの言語のキーワードだけを使う。言語は Feature 行のキーワードで
-  決める。
-  runner は自分の言語（`# language:` の宣言または既定）で Feature 行を読めたときだけ解析できる
-  ため、宣言の解釈が runner ごとに違っても、解析できるファイルでは runner と同じ言語になる。
-  以前は docstring の範囲がずれ、後続のシナリオが集計から消えて `--strict` を通ることがあった。
-- Feature・Rule・Background・Scenario・Examples は、ファイルの言語（Feature 行で決める）のキーワードに
-  コロンが続く行だけを要素として読む（日本語の Rule は `ルール` だけ）。別の言語のキーワードや
-  `Scenario :` のような行は runner と同じく説明文になる。以前は説明文を要素と読み、後続の
-  シナリオが集計から消えたり、Feature のタグが外れたりして `--strict` を通ることがあった。
-  英語と日本語のキーワードを 1 つのファイルに混ぜた feature は、runner と同じく Feature 行の
-  言語のキーワードだけを数える。2 つ目以降の Feature 行も説明文として読む。
-  Background は runner と同じく Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素とし、
-  それ以外の位置では説明文として読む（以前は Examples の行が実行ケースから落ちることがあった）。
-- `adapter: flutter` の設定では、feature を Flutter の runner（Dart の gherkin）と同じ規則で読む。
-  Dart の gherkin はキーワードの大文字小文字を区別せず、step のキーワードの後の空白も要らない。
-  Gherkin の規則で読むと `given ...` の後の docstring を開けず、後続の未完了の条件が集計から消えて
-  `--strict` を通ることがあった。宣言の無い feature は設定の `language` を既定の言語として読み、
-  runner が解析できない feature と、空白を含むタグ（Dart の gherkin は `@out-of-scope # 理由`
-  を 1 つのタグとして読み、状態タグとして働かない）は失敗させる。
-- `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
-  リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
-  表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。
-
-## [0.3.0] - 2026-10-07
-
-### Added
-
-- 静的統計に phase（draft/pending/complete）と verification（machine/human）の
-  別軸、Outline の展開ケース数を追加する。条件数とケース数を区別し、
-  従来の TOTAL 表示・fixme/skip・strict を維持する。complete は実行済み GREEN を示さない。
-- version 1 manifest の `links[].criteria` を任意の不透明な ID 配列として
-  検証・保持する。多対多の対応と未知キーを更新・dry-run で維持する。
-
-### Changed
-
-- **`specproof-stats` の fixme / skip の数が増える場合がある。** 集計を runner と同じく
-  Gherkin のタグ継承に従わせた。Feature・Rule・Examples に付けた `@fixme` / `@skip` と、
-  空行を挟んでシナリオに付けたタグも数える。従来は自身の直前タグだけを見ていたため、
-  Feature に `@fixme` があっても fixme=0 と判定し、`--strict` の完了条件を誤って満たした。
-  理由コメントの検査範囲は従来どおりシナリオ自身のタグに限る。
+- **`specproof-stats` のタグの集計が runner と同じく Gherkin のタグ継承に従う。**
+  Feature・Rule・Examples に付けたタグと、空行を挟んでシナリオに付けたタグも数える。
+  従来は自身の直前タグだけを見ていたため、Feature に `@fixme` があっても fixme=0 と判定し、
+  `--strict` の完了条件を誤って満たした。
 - `specproof-stats --strict` は、manifest に登録した feature が読めないときと、設定した
   `featuresDir` が無いときに失敗する。`featuresDir` を集計する場合も、登録済み feature の
-  実在を確かめる。従来は欠落したファイルを黙って集計から外し、その中の `@fixme` ごと
-  消えて完了条件を満たした。`--json` は `missingFeatures` と `missingFeaturesDir` を出す。
-- **feature の scanner が Gherkin と同じ字句規則で読む。** `@smoke@fixme` のように空白なしで
+  実在を確かめる。従来は欠落したファイルを黙って集計から外し、その中の未完了のシナリオ
+  ごと消えて完了条件を満たした。`--json` は `missingFeatures` と `missingFeaturesDir` を出す。
+- **feature の scanner が Gherkin と同じ字句規則で読む。** `@smoke@human` のように空白なしで
   続けたタグを 2 つのタグとして読み、タグ行の空白に続く `#` 以降をコメントとして除く。
   英語・日本語以外の `# language:` を指定した feature は 0 件として通さず、`stats` と
-  `check` をファイル名付きのエラーで止める。従来は runner が skip するシナリオを
-  automated と数え、未対応言語の `@fixme` を見落とした。
+  `check` をファイル名付きのエラーで止める。従来は runner が実行しないシナリオを完了側に
+  数え、未対応言語の feature のシナリオを見落とした。
 - **設定値の型の誤りがエラーになる。** traceability エンジンが読む `layout.*`・`tags.*`・
   `strictUnregistered*` に、型の違う値（`implGlobs` に文字列、`"true"` や `yes` の
   真偽値、空文字列、空白を含むタグなど）があると止まる。従来は未設定として扱い、
@@ -175,6 +131,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Playwright の feature で Examples が無い Scenario Outline のケース数を、runner と同じく
+  1件と数える。Examples が存在してデータ行が無い場合は、従来どおり0件とする。
+- `specproof init` / `setup-agent` は、`--force` で上書きする既存ファイルが複数の hardlink を
+  持つときに拒否する。共有先がリポジトリ外にあっても、そのファイルを書き換えない。
+  上書きしないファイルは従来どおり skip する。
+- feature の読み取りで、シナリオ名の単独 CR・U+2028・U+2029、後続の文字がある docstring の
+  閉じ行、区切り文字を含む Examples のセルによって、後続のシナリオや実行ケースが集計から
+  消えなくなった。Gherkin と同じ判定に揃えたため、これまで `--strict` を通っていた feature が
+  `@red-contract` や使えないタグで失敗することがある。
+- Feature・Rule・Background・Scenario・Examples の説明文にある `"""` や ``` を docstring の
+  開始と読まなくなった。Gherkin と同じく、Scenario / Background の step の直後（その step の表の
+  後を含む）だけで docstring を開く。step は、英語ならキーワードの後に半角空白が続く行、日本語なら
+  キーワードで始まる行で、ファイルの言語のキーワードだけを使う。言語は Feature 行のキーワードで
+  決める。
+  runner は自分の言語（`# language:` の宣言または既定）で Feature 行を読めたときだけ解析できる
+  ため、宣言の解釈が runner ごとに違っても、解析できるファイルでは runner と同じ言語になる。
+  以前は docstring の範囲がずれ、後続のシナリオが集計から消えて `--strict` を通ることがあった。
+- Feature・Rule・Background・Scenario・Examples は、ファイルの言語（Feature 行で決める）のキーワードに
+  コロンが続く行だけを要素として読む（日本語の Rule は `ルール` だけ）。別の言語のキーワードや
+  `Scenario :` のような行は runner と同じく説明文になる。以前は説明文を要素と読み、後続の
+  シナリオが集計から消えたり、Feature のタグが外れたりして `--strict` を通ることがあった。
+  英語と日本語のキーワードを 1 つのファイルに混ぜた feature は、runner と同じく Feature 行の
+  言語のキーワードだけを数える。2 つ目以降の Feature 行も説明文として読む。
+  Background は runner と同じく Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素とし、
+  それ以外の位置では説明文として読む（以前は Examples の行が実行ケースから落ちることがあった）。
+- `adapter: flutter` の設定では、feature を Flutter の runner（Dart の gherkin）と同じ規則で読む。
+  Dart の gherkin はキーワードの大文字小文字を区別せず、step のキーワードの後の空白も要らない。
+  Gherkin の規則で読むと `given ...` の後の docstring を開けず、後続の未完了の条件が集計から消えて
+  `--strict` を通ることがあった。宣言の無い feature は設定の `language` を既定の言語として読み、
+  runner が解析できない feature と、空白を含むタグ（Dart の gherkin は `@out-of-scope # 理由`
+  を 1 つのタグとして読み、状態タグとして働かない）は失敗させる。
+- `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
+  リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
+  表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。
 - Playwright テンプレートの認証 setup は、選ばれた project の認証情報が足りないとき
   skip せず失敗する。skip すると、依存する認証済み project が前回の storageState のまま
   走った。パスワードと newPassword は前後の空白を削らずにそのまま渡す。認証済み project は
@@ -228,7 +218,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   従来は FIFO で読み込みが止まり、リンク切れは設定なしとして既定値で動いた。
 - manifest の link `id` に改行などの制御文字・区切り文字を拒否する。id は check の報告と
   PR コメントにそのまま出るため、見出しや行を偽装できた。
-
 ## [0.2.2] - 2026-09-02
 
 ### Added
