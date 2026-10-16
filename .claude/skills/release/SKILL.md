@@ -131,11 +131,12 @@ GitHub Release は workflow が自動作成する（上記「必ず理解して�
 - **何も publish されない / workflow が skip した**（上記チェックは通ったのに）→
   既に publish 済みのバージョンでタグを打った。`npm view <pkg> version` で確認し、version を上げ直して
   新しいタグを切る。
-- **publish ステップが `E404 Not Found - PUT https://registry.npmjs.org/@pound79%2f...` か `E401` で落ちる**
-  → パッケージが無いのではなく認証の失敗。そのパッケージの npmjs.com の Trusted Publisher 設定
-  （repo・workflow ファイル名・environment・Allow `npm publish`）を確認し、直したら
+- **publish ステップが `E404 Not Found - PUT https://registry.npmjs.org/@pound79%2f...`・`E401`・
+  `ENEEDAUTH` などの認証関連エラーで落ちる** → `E404` もパッケージが無いのではなく認証の失敗。
+  次を確認する: そのパッケージの npmjs.com の Trusted Publisher 設定（repo・workflow ファイル名・
+  environment・Allow `npm publish`）、publish job の `id-token: write`、runner の npm のバージョン
+  （Trusted Publishing には npm 11.5.1 以上が要る）。エラーコードだけで原因を決めつけない。直したら
   `gh run rerun <run-id> --failed` で失敗した job だけ再実行する（publish 済みの版は skip される）。
-  `ENEEDAUTH` / `EOTP` は token 前提の古い構成のエラーで、今の workflow では出ない。
 - **`Verify the downloaded artifact` か `verify-publish-tarball.sh` が `refusing to publish` で落ちる**
   → build job の成果物が想定と違う（artifact に 2 つの tarball 以外がある、または tarball から npm が
   読む `package.json` が checkout と一致しない・`.git` を含む）。正規の手順では起きないので、build 中に
