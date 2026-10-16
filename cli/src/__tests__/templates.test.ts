@@ -125,9 +125,10 @@ const jobOf = (workflowText: string, name: string): WorkflowJob => {
 
 const publishJobOf = (workflowText: string): WorkflowJob => jobOf(workflowText, "publish");
 
-// The job that can mint an npm publish credential must not run the project's
-// or its dependencies' code: no install, no lifecycle scripts, no test/build.
-// Each shell command (split on newlines, `;`, `&&`, `||`, `|` and `$(`) may
+// The job that can mint an npm publish credential must not run dependency or
+// build code: no install, no lifecycle scripts, no test/build. (It does run
+// scripts/verify-publish-tarball.sh, checked out from the same commit as the
+// workflow.) Each shell command (split on newlines, `;`, `&&`, `||`, `|` and `$(`) may
 // call npm only as `npm view` or `npm publish` of a tarball (which runs no
 // lifecycle scripts, unlike publishing a directory or `--workspace`), and node
 // only as `node -p` reading a package.json version; npx/yarn/pnpm/bun and
@@ -220,14 +221,20 @@ describe("release workflow", () => {
     expect(runsNoProjectCode(publishJob)).toBe(true);
   });
 
-  it("checks each tarball's own name/version and pins the registry before publishing", () => {
+  // What the check refuses is covered by release-publish-steps.test.ts, which
+  // runs these steps against crafted tarballs.
+  it("verifies each tarball and pins the registry before publishing", () => {
     const publishRuns = (publishJob.steps ?? [])
       .map((step) => step.run ?? "")
       .filter((run) => /\bnpm publish\b/.test(run));
     expect(publishRuns).toHaveLength(2);
     for (const run of publishRuns) {
       const lines = run.split("\n");
-      const checkLine = lines.findIndex((line) => /tar -xOzf .* package\/package\.json/.test(line));
+      const checkLine = lines.findIndex((line) =>
+        /^bash "\$GITHUB_WORKSPACE\/scripts\/verify-publish-tarball\.sh" "\.\/[^"]+\.tgz"/.test(
+          line,
+        ),
+      );
       const publishLine = lines.findIndex((line) => /\bnpm publish\b/.test(line));
       expect(checkLine).toBeGreaterThanOrEqual(0);
       expect(checkLine).toBeLessThan(publishLine);

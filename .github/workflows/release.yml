@@ -57,9 +57,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
   # Publishes the tarballs built above. It holds `id-token: write` for npm
-  # trusted publishing (OIDC) + provenance, so it runs no project or dependency
-  # code: no `npm ci`, no `npm run`, and publishing a tarball runs no lifecycle
-  # scripts. Same reasoning as keeping `contents: write` in the `release` job.
+  # trusted publishing (OIDC) + provenance, so it runs no dependency code: no
+  # `npm ci`, no `npm run`, and publishing a tarball runs no lifecycle scripts.
+  # The only scripts it runs are scripts/verify-publish-tarball.sh and
+  # verify-publish-manifest.mjs from the same commit as this workflow (the
+  # latter loads the runner's npm-bundled pacote, not project dependencies). Same reasoning as keeping `contents: write` in the
+  # `release` job.
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -67,7 +70,7 @@ jobs:
       contents: read
       id-token: write   # npm trusted publishing (OIDC) + provenance
     steps:
-      # Checked out only to read the package versions; nothing from it runs.
+      # Checked out to read the package versions and the verify script.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -80,24 +83,39 @@ jobs:
         with:
           name: npm-tarballs
           path: ${{ runner.temp }}/tarballs
+      # The publish steps run npm in this directory. With no package.json above
+      # it, npm loads a `.npmrc` here as project config (proxy, TLS, registry),
+      # so the build job must not be able to add anything but the two tarballs.
+      - name: Verify the downloaded artifact
+        working-directory: ${{ runner.temp }}/tarballs
+        run: |
+          TRACEABILITY_VERSION=$(node -p "require(process.env.GITHUB_WORKSPACE + '/packages/traceability/package.json').version")
+          CLI_VERSION=$(node -p "require(process.env.GITHUB_WORKSPACE + '/cli/package.json').version")
+          EXPECTED=$(printf '%s\n' "pound79-specproof-$CLI_VERSION.tgz" "pound79-specproof-traceability-$TRACEABILITY_VERSION.tgz" | sort)
+          ACTUAL=$(ls -A | sort)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::the artifact must hold exactly the two expected tarballs, found: ${ACTUAL//$'\n'/ } — refusing to publish"
+            exit 1
+          fi
       # Authentication is npm trusted publishing: npm exchanges this job's OIDC
       # token for a short-lived publish credential. Each package must list this
       # repository and `release.yml` as a trusted publisher on npmjs.com, with
       # `npm publish` allowed. No npm token secret is used. The steps run in the
-      # tarball directory, outside the npm workspace root. Each step checks the
-      # name/version inside the tarball (read as data, nothing executed) and
-      # pins `--registry`, which overrides any `publishConfig.registry` in it.
+      # tarball directory, outside the npm workspace root. npm applies a
+      # tarball's `publishConfig` as npm config for the publish and its OIDC
+      # exchange, and `--registry` does not override other keys such as
+      # `https-proxy`, `strict-ssl` or `@pound79:registry`; the real control is
+      # scripts/verify-publish-tarball.sh, which reads the tarball with this
+      # npm's own pacote (as `npm publish <tarball>` does) and refuses it unless
+      # the package.json npm would read is byte-identical to the checked-out
+      # one and the tarball has no `.git` for npm to fill gitHead from.
       - name: Publish @pound79/specproof-traceability
         working-directory: ${{ runner.temp }}/tarballs
         run: |
           PKG_VERSION=$(node -p "require(process.env.GITHUB_WORKSPACE + '/packages/traceability/package.json').version")
           NPM_TAG=latest
           case "$PKG_VERSION" in *-*) NPM_TAG=next ;; esac
-          PACKED=$(tar -xOzf "./pound79-specproof-traceability-$PKG_VERSION.tgz" package/package.json | jq -r '.name + "@" + .version')
-          if [ "$PACKED" != "@pound79/specproof-traceability@$PKG_VERSION" ]; then
-            echo "::error::tarball contains $PACKED, expected @pound79/specproof-traceability@$PKG_VERSION — refusing to publish"
-            exit 1
-          fi
+          bash "$GITHUB_WORKSPACE/scripts/verify-publish-tarball.sh" "./pound79-specproof-traceability-$PKG_VERSION.tgz" "$GITHUB_WORKSPACE/packages/traceability/package.json"
           if npm view @pound79/specproof-traceability@"$PKG_VERSION" version 2>/dev/null; then
             echo "::notice::@pound79/specproof-traceability@$PKG_VERSION already published — skipping"
           else
@@ -109,11 +127,7 @@ jobs:
           PKG_VERSION=$(node -p "require(process.env.GITHUB_WORKSPACE + '/cli/package.json').version")
           NPM_TAG=latest
           case "$PKG_VERSION" in *-*) NPM_TAG=next ;; esac
-          PACKED=$(tar -xOzf "./pound79-specproof-$PKG_VERSION.tgz" package/package.json | jq -r '.name + "@" + .version')
-          if [ "$PACKED" != "@pound79/specproof@$PKG_VERSION" ]; then
-            echo "::error::tarball contains $PACKED, expected @pound79/specproof@$PKG_VERSION — refusing to publish"
-            exit 1
-          fi
+          bash "$GITHUB_WORKSPACE/scripts/verify-publish-tarball.sh" "./pound79-specproof-$PKG_VERSION.tgz" "$GITHUB_WORKSPACE/cli/package.json"
           if npm view @pound79/specproof@"$PKG_VERSION" version 2>/dev/null; then
             echo "::notice::@pound79/specproof@$PKG_VERSION already published — skipping"
           else
