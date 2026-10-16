@@ -35,7 +35,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - run: npm ci
+      # --ignore-scripts: dependencies' install scripts would run in the job
+      # whose output is published. The workspaces' own `prepare` (build) is
+      # skipped too; `npm run build` and `npm pack` below build explicitly.
+      - run: npm ci --ignore-scripts
       # Publish gate: never ship when the npm packages and the Claude Code plugin
       # manifests disagree on version. scripts/release.sh keeps them in lockstep,
       # but a manual/out-of-script `v*` tag push reaches this workflow directly —
