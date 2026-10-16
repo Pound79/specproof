@@ -21,8 +21,9 @@ specproof の npm パッケージをリリースする。**機械的処理は `s
 - リリースは `.github/workflows/release.yml` が **`v*` タグの push で発火**し、各 `package.json` の
   `version` を読んで npm publish する。**既に publish 済みのバージョンは skip**。
 - **タグ名 ≠ publish される version**。version は `package.json` から読まれる。ただし
-  `release.yml` の `publish` job 冒頭で `v<tag> == v<cli/package.json version>` を検証しており、
-  不一致なら **npm publish の前に**失敗する（`package.json` を上げずにタグだけ打つケースを含む）。
+  `release.yml` の `build` job 冒頭で `v<tag> == v<cli/package.json version>` を検証しており、
+  不一致なら **npm publish の前に**失敗する（`package.json` を上げずにタグだけ打つケースを含む。
+  `publish` job は `needs: build` なので、build が落ちれば publish は走らない）。
   この検証は npm publish より前に置くことが必須 — publish は取り消せないため、後段（Release 作成）
   で検出しても手遅れ。
 - `npm version --workspaces` は `package.json` だけでなく **`package-lock.json` も更新**する。怠ると
@@ -34,6 +35,20 @@ specproof の npm パッケージをリリースする。**機械的処理は `s
   ここを怠ると、コードは新しいのにプラグインだけ旧バージョンに据え置かれる（`/plugin install` が「既に最新」と誤報告する）。
   4つの version 源（cli / traceability / marketplace / plugin）が一致するかは `npm run check:versions` が検証し、
   CI（`ci.yml`）で毎 PR 走るほか、Release workflow（`release.yml`）でも publish 前ゲートとして走る（ドリフト時は publish されない）。
+- Release workflow は 3 job で動く:
+  1. `build`（`id-token` なし）— タグと版の照合、`npm ci --ignore-scripts`（依存の install script を
+     動かさない）・`check:versions`・typecheck・build・test の順（`--ignore-scripts` では workspace の
+     `prepare` も動かないため、build 済みの CLI を使うテストより前に build する）、
+     2 パッケージの `npm pack`、tarball を `npm-tarballs` artifact に upload。
+  2. `publish`（`id-token: write`）— artifact を download し、ディレクトリに 2 つの tarball 以外が
+     無いことと、`scripts/verify-publish-tarball.sh` で tarball を検査してから
+     `npm publish <tarball> --provenance` する。依存のコードは実行しない。
+  3. `release` — GitHub Release を作成する。
+- npm への認証は **Trusted Publishing（OIDC）**。npm token の secret は使わない。npmjs.com の
+  両パッケージ（`@pound79/specproof`・`@pound79/specproof-traceability`）に、GitHub Actions の
+  Trusted Publisher（user `Pound79` / repo `specproof` / workflow `release.yml` / environment なし /
+  **Allow `npm publish` にチェック**）が登録されている必要がある。workflow のファイル名や
+  environment を変えたら、npmjs.com 側の登録も同時に直す。
 - publish は `id-token: write` + `--provenance` で行われるため supply-chain 来歴が付く。
   **必ずこの workflow 経由でリリースする**（ローカルからの手動 `npm publish` は使わない）。
 - npm publish 成功後、workflow が `gh release create` で GitHub Release も自動作成する
@@ -111,13 +126,24 @@ GitHub Release は workflow が自動作成する（上記「必ず理解して�
   プラグインマニフェスト2つの version bump 漏れ。`npm run check:versions` で不一致を確認し、
   `.claude-plugin/marketplace.json` と `plugins/specproof/.claude-plugin/plugin.json` を揃える。
   正攻法は次の patch を `scripts/release.sh` で切ること（4源を lockstep で bump する）。
-- **`Verify tag matches package version` で落ちる** → 打ったタグと `cli/package.json` の
+- **`build` job の `Verify tag matches package version` で落ちる** → 打ったタグと `cli/package.json` の
   version が食い違っている（`package.json` の bump 忘れ、またはタグの打ち間違い）。npm publish の
   前に落ちるので安全。`npm view <pkg> version` で現状を確認し、タグを打ち直すか
   `package.json` を揃えてから再タグする。
 - **何も publish されない / workflow が skip した**（上記チェックは通ったのに）→
   既に publish 済みのバージョンでタグを打った。`npm view <pkg> version` で確認し、version を上げ直して
   新しいタグを切る。
+- **publish ステップが `E404 Not Found - PUT https://registry.npmjs.org/@pound79%2f...`・`E401`・
+  `ENEEDAUTH` などの認証関連エラーで落ちる** → `E404` もパッケージが無いのではなく認証の失敗。
+  次を確認する: そのパッケージの npmjs.com の Trusted Publisher 設定（repo・workflow ファイル名・
+  environment・Allow `npm publish`）、publish job の `id-token: write`、runner の npm のバージョン
+  （Trusted Publishing には npm 11.5.1 以上が要る）。エラーコードだけで原因を決めつけない。直したら
+  `gh run rerun <run-id> --failed` で失敗した job だけ再実行する（publish 済みの版は skip される）。
+- **`Verify the downloaded artifact` か `verify-publish-tarball.sh` が `refusing to publish` で落ちる**
+  → build job の成果物が想定と違う（artifact に 2 つの tarball 以外がある、または tarball から npm が
+  読む `package.json` が checkout と一致しない・`.git` を含む）。正規の手順では起きないので、build 中に
+  package.json を書き換える変更が入っていないか、依存が改ざんしていないかを調べる。検査を外して
+  通さない。原因を直したら新しい patch 版で切り直す。
 - **workflow が `npm ci` で落ちる** → `package-lock.json` が package.json と不整合。
   手で version を編集していないか確認し、`npm version --workspaces` で揃え直す（スクリプト経由なら自動）。
 - **`git push` が SSH で失敗する制限環境** → HTTPS にフォールバック（token を config に残さない）:
