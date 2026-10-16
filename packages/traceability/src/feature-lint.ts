@@ -4,18 +4,19 @@
 //   - duplicate-scenario-name: 同じファイル・同じ Rule の中で名前が同じシナリオ
 //   - duplicate-scenario: 同じ背景で、step の並び（表・docstring の引数を含む）が同じシナリオ
 //   - possible-contradiction: 前提と操作が同じなのに確認だけが違うシナリオの組（候補）
-// runner の合否は扱わない。英語・日本語のキーワードを読む（feature-scan と同じ範囲）。
+// runner の合否は扱わない。ファイルの言語（英語・日本語）のキーワードを読む（feature-scan と同じ規則）。
 import { createHash } from "node:crypto";
+import { classifyDartStep, parseDartFeature, type DartStep } from "./dart-gherkin.js";
 import {
-  BACKGROUND_RE,
-  EXAMPLES_RE,
-  FEATURE_RE,
+  elementPatterns,
+  featureLanguage,
+  type ParseOptions,
   parseScenarios,
-  RULE_RE,
-  SCENARIO_RE,
 } from "./feature-scan.js";
+import { printable } from "./display-text.js";
+import { matchStep, type StepType } from "./step-keywords.js";
 
-export type StepType = "given" | "when" | "then";
+export type { StepType } from "./step-keywords.js";
 
 export interface ParsedStep {
   type: StepType;
@@ -56,37 +57,6 @@ export interface FeatureLintFinding {
   line: number;
   message: string;
 }
-
-// [キーワード, 種類, 本文との間に空白が要るか]。正規表現を使わず先頭一致と slice で読む
-// （(.*)$ 型の正規表現は、行の途中に単独の \r などがあると長い行で二乗時間になる）。
-const KEYWORDS: ReadonlyArray<readonly [string, StepType | "continue", boolean]> = [
-  ["Given", "given", true],
-  ["When", "when", true],
-  ["Then", "then", true],
-  ["And", "continue", true],
-  ["But", "continue", true],
-  ["*", "continue", true],
-  // 日本語のキーワードは本文との間に空白を要しない（Gherkin の ja 辞書）。
-  ["前提", "given", false],
-  ["もし", "when", false],
-  ["ならば", "then", false],
-  ["かつ", "continue", false],
-  ["且つ", "continue", false],
-  ["しかし", "continue", false],
-  ["但し", "continue", false],
-  ["ただし", "continue", false],
-  ["然し", "continue", false],
-];
-
-const matchStep = (trimmed: string): { kind: StepType | "continue"; text: string } | undefined => {
-  for (const [keyword, kind, needsSpace] of KEYWORDS) {
-    if (!trimmed.startsWith(keyword)) continue;
-    const rest = trimmed.slice(keyword.length);
-    if (needsSpace && !/^\s/.test(rest)) continue;
-    return { kind, text: rest.trim() };
-  }
-  return undefined;
-};
 
 // エスケープされていない | だけでセルを区切る。空白列を正規表現で探すと
 // セル内の長い空白列で二乗時間になるため、境界は一度だけ走査する。
@@ -145,7 +115,43 @@ const freezeStep = (step: DraftStep): ParsedStep =>
     argument: step.argument.join("\n"),
   });
 
-export const parseScenarioSteps = (content: string): ParsedScenario[] => {
+// Flutter の runner と同じ規則で読む（dart-gherkin.ts）。Rule は無く、`*` は step にならない。
+const parseDartScenarioSteps = (content: string, language?: string): ParsedScenario[] => {
+  const feature = parseDartFeature(content, language);
+  if (feature === undefined) return [];
+  const toSteps = (steps: readonly DartStep[]): ParsedStep[] => {
+    let lastType: StepType | undefined;
+    return steps.map((step) => {
+      const { kind, text } = classifyDartStep(step.text, feature.language);
+      const explicit = kind !== "continue";
+      const type: StepType = explicit ? (kind as StepType) : (lastType ?? "given");
+      lastType = type;
+      const argument = step.args
+        .flatMap((arg) =>
+          "table" in arg
+            ? arg.table.split("\n").map(tableArgument)
+            : [`docstring:${JSON.stringify(["", arg.docstring])}`],
+        )
+        .join("\n");
+      return Object.freeze({ type, text, explicit, line: step.line, argument });
+    });
+  };
+  const background = Object.freeze(toSteps(feature.background));
+  return feature.scenarios.map((scenario) => ({
+    name: scenario.name.trim(),
+    line: scenario.line,
+    rule: 0,
+    steps: Object.freeze(toSteps(scenario.steps)),
+    background,
+    outline: scenario.outline,
+  }));
+};
+
+export const parseScenarioSteps = (
+  content: string,
+  options: ParseOptions = {},
+): ParsedScenario[] => {
+  if (options.gherkin === "dart") return parseDartScenarioSteps(content, options.language);
   const scenarios: ParsedScenario[] = [];
   // 読み取り中だけ配列に追記する（毎回コピーすると step 数の二乗になる）。返す値は凍結する。
   let featureBackground: DraftStep[] = [];
@@ -158,6 +164,14 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
   let currentSteps: DraftStep[] = [];
   let lastStep: DraftStep | undefined;
   let docstring: DraftDocstring | undefined;
+  // 直前の意味のある行が Scenario / Background の step か。
+  let stepOpen = false;
+  const language = featureLanguage(content);
+  const patterns = elementPatterns(language);
+  // 2 つ目以降の Feature 行は説明文（Gherkin は 1 ファイル 1 Feature）。
+  let featureSeen = false;
+  // Background は Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素になる。
+  let backgroundAllowed = false;
 
   const background = (): readonly ParsedStep[] => {
     sharedBackground ??= Object.freeze([...featureBackground, ...ruleBackground].map(freezeStep));
@@ -190,7 +204,8 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       }
       continue;
     }
-    const fence = trimmed.match(/^("""|```)/);
+    // Gherkin は step の直後（空行・コメントは挟める）だけで docstring を開く。他は説明文。
+    const fence = stepOpen ? trimmed.match(/^("""|```)/) : null;
     if (fence) {
       docstring = {
         delimiter: fence[1],
@@ -198,40 +213,47 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
         mediaType: trimmed.slice(fence[1].length).trim(),
         lines: [],
       };
+      stepOpen = false;
       continue;
     }
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+    // 表の行は step の引数。step の表の後も docstring を開ける（Gherkin は両方を付けられる）。
     if (trimmed.startsWith("|")) {
       if (lastStep !== undefined) lastStep.argument.push(tableArgument(trimmed));
       continue;
     }
-    if (trimmed === "" || trimmed.startsWith("#") || trimmed.startsWith("@")) {
-      continue;
-    }
-    if (FEATURE_RE.test(trimmed)) {
+    stepOpen = false;
+    if (trimmed.startsWith("@")) continue;
+    if (!featureSeen && patterns.feature.test(trimmed)) {
+      featureSeen = true;
       finish();
       featureBackground = [];
       ruleBackground = [];
       sharedBackground = undefined;
       rule = 0;
       container = "none";
+      backgroundAllowed = true;
       continue;
     }
-    if (RULE_RE.test(trimmed)) {
+    if (patterns.rule.test(trimmed)) {
       finish();
       ruleBackground = [];
       sharedBackground = undefined;
       rule += 1;
       container = "none";
+      backgroundAllowed = true;
       continue;
     }
-    if (BACKGROUND_RE.test(trimmed)) {
+    if (backgroundAllowed && patterns.background.test(trimmed)) {
       finish();
+      backgroundAllowed = false;
       container = rule > 0 ? "rule-background" : "feature-background";
       continue;
     }
-    const scenario = trimmed.match(SCENARIO_RE);
+    const scenario = trimmed.match(patterns.scenario);
     if (scenario) {
       finish();
+      backgroundAllowed = false;
       current = {
         name: scenario[2].trim(),
         line: index + 1,
@@ -241,7 +263,9 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       container = "scenario";
       continue;
     }
-    if (EXAMPLES_RE.test(trimmed)) {
+    // Background に Examples は付かない（説明文）。Scenario の Examples だけを読む。
+    const inBackground = container === "feature-background" || container === "rule-background";
+    if (!inBackground && patterns.examples.test(trimmed)) {
       if (current !== undefined) current = { ...current, outline: true };
       // Examples の後に step は来ない。表は値の行なので、step の引数にしない。
       container = "none";
@@ -249,12 +273,13 @@ export const parseScenarioSteps = (content: string): ParsedScenario[] => {
       continue;
     }
     if (container === "none") continue;
-    const step = matchStep(trimmed);
+    const step = matchStep(line.trimStart(), language);
     if (step === undefined) continue; // シナリオ・背景の説明文
     const explicit = step.kind !== "continue";
     const type: StepType = explicit ? (step.kind as StepType) : (lastStep?.type ?? "given");
     const draft: DraftStep = { type, text: step.text, explicit, line: index + 1, argument: [] };
     lastStep = draft;
+    stepOpen = true;
     if (container === "scenario") {
       currentSteps.push(draft);
     } else {
@@ -311,15 +336,15 @@ const MAX_QUOTED = 200;
 
 /** 報告に引用する本文。制御文字（ANSI エスケープ・単独の \r など）を落とし、長さを切る。 */
 const quote = (text: string): string => {
-  const printable = text.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, "?");
-  return printable.length > MAX_QUOTED ? `${printable.slice(0, MAX_QUOTED)}…` : printable;
+  const shown = printable(text);
+  return shown.length > MAX_QUOTED ? `${shown.slice(0, MAX_QUOTED)}…` : shown;
 };
 
 /** シナリオの行番号 → 継承を含むタグ。feature-scan と同じ規則で読む。読めなければ空。 */
-const tagsByLine = (content: string): Map<number, readonly string[]> => {
+const tagsByLine = (content: string, options: ParseOptions): Map<number, readonly string[]> => {
   try {
     return new Map(
-      parseScenarios(content).map((scenario) => [
+      parseScenarios(content, options).map((scenario) => [
         scenario.line,
         scenario.effectiveTags ?? scenario.tags,
       ]),
@@ -335,7 +360,7 @@ export interface FeatureSource {
   content: string;
 }
 
-export interface FeatureLintOptions {
+export interface FeatureLintOptions extends ParseOptions {
   /** このタグ（継承を含む）が付いたシナリオは missing-then にしない（自動化しない印のシナリオ）。 */
   exemptTags?: readonly string[];
 }
@@ -360,8 +385,8 @@ export const lintFeatureSet = (
     if (seenPaths.has(source.path)) continue;
     seenPaths.add(source.path);
     const firstByName = new Map<string, number>();
-    const tags = exemptTags.length > 0 ? tagsByLine(source.content) : new Map();
-    for (const scenario of parseScenarioSteps(source.content)) {
+    const tags = exemptTags.length > 0 ? tagsByLine(source.content, options) : new Map();
+    for (const scenario of parseScenarioSteps(source.content, options)) {
       const at = `${quote(source.path)}:${scenario.line}`;
       const name = quote(scenario.name);
       const nameKey = `${scenario.rule}\u0000${scenario.name}`;

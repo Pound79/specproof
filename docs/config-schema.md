@@ -24,7 +24,7 @@ traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `fea
 
 | フィールド | 要否 | 説明 |
 |---|---|---|
-| `adapter` | required | `playwright` \| `flutter`。framework 分岐キー。 |
+| `adapter` | required | `playwright` \| `flutter`。framework 分岐キー。traceability は `flutter` のとき feature を Flutter の runner（Dart の gherkin）と同じ規則で読む。 |
 | `bddRunner` | required | BDD フレームワーク識別子（例 `playwright-bdd`）。 |
 | `bddGenTool` | required | 生成ツール名（ログ表示用、例 `bddgen`）。 |
 | `language` | required | Gherkin 方言（Cucumber i18n ロケール、例 `ja`）。キーワード集合はここから導出。 |

@@ -3,6 +3,7 @@ import { findFeatureFiles } from "./feature-files.js";
 import { uniqueFeatureTargets } from "./feature-identity.js";
 import path from "node:path";
 import { parseFeatureScenarios } from "./feature-scan.js";
+import { printable } from "./display-text.js";
 import { readFileOrNull } from "./hash.js";
 import { loadManifest, type TraceabilityManifest } from "./manifest.js";
 import { discoverConfig, type TraceabilityConfig } from "./config.js";
@@ -32,7 +33,7 @@ const findUnderFeaturesDir = async (config: TraceabilityConfig): Promise<string[
   } catch (error) {
     if (!isNotFound(error)) throw error;
     process.stderr.write(
-      `warn: featuresDir ${JSON.stringify(featuresDir)} not found — counting manifest-registered features only\n`,
+      `warn: featuresDir ${printable(JSON.stringify(featuresDir))} not found — counting manifest-registered features only\n`,
     );
     return undefined;
   }
@@ -81,7 +82,13 @@ const main = async (): Promise<void> => {
   for (const relPath of paths) {
     const content = await read(relPath);
     if (content === null) missingFeatures.push(relPath);
-    else features.push({ domain: relPath, scenarios: parseFeatureScenarios(relPath, content) });
+    else {
+      const scenarios = parseFeatureScenarios(relPath, content, {
+        gherkin: config.gherkin,
+        language: config.language,
+      });
+      features.push({ domain: relPath, scenarios });
+    }
   }
   // featuresDir の探索では、登録したのに消えた feature が見えない。登録分の実在も確かめる。
   const scanned = new Set(paths);
@@ -90,7 +97,7 @@ const main = async (): Promise<void> => {
   }
   for (const relPath of missingFeatures) {
     process.stderr.write(
-      `warn: registered feature ${JSON.stringify(relPath)} not found — not counted\n`,
+      `warn: registered feature ${printable(JSON.stringify(relPath))} not found — not counted\n`,
     );
   }
 

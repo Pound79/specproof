@@ -62,6 +62,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--list` の実行一覧に対象が現れることを確かめる。implement は着手前に同じ確認を行い、
   登録漏れは設定変更案として示す。対象 0 件を GREEN や「実装不要」と扱わない。
 
+### Fixed
+
+- Playwright の feature で Examples が無い Scenario Outline のケース数を、runner と同じく
+  1件と数える。Examples が存在してデータ行が無い場合は、従来どおり0件とする。
+- `specproof init` / `setup-agent` は、`--force` で上書きする既存ファイルが複数の hardlink を
+  持つときに拒否する。共有先がリポジトリ外にあっても、そのファイルを書き換えない。
+  上書きしないファイルは従来どおり skip する。
+- feature の読み取りで、シナリオ名の単独 CR・U+2028・U+2029、後続の文字がある docstring の
+  閉じ行、区切り文字を含む Examples のセルによって、後続のシナリオや実行ケースが集計から
+  消えなくなった。Gherkin と同じ判定に揃えたため、これまで `--strict` を通っていた feature が
+  `@red-contract` や使えないタグで失敗することがある。
+- Feature・Rule・Background・Scenario・Examples の説明文にある `"""` や ``` を docstring の
+  開始と読まなくなった。Gherkin と同じく、Scenario / Background の step の直後（その step の表の
+  後を含む）だけで docstring を開く。step は、英語ならキーワードの後に半角空白が続く行、日本語なら
+  キーワードで始まる行で、ファイルの言語のキーワードだけを使う。言語は Feature 行のキーワードで
+  決める。
+  runner は自分の言語（`# language:` の宣言または既定）で Feature 行を読めたときだけ解析できる
+  ため、宣言の解釈が runner ごとに違っても、解析できるファイルでは runner と同じ言語になる。
+  以前は docstring の範囲がずれ、後続のシナリオが集計から消えて `--strict` を通ることがあった。
+- Feature・Rule・Background・Scenario・Examples は、ファイルの言語（Feature 行で決める）のキーワードに
+  コロンが続く行だけを要素として読む（日本語の Rule は `ルール` だけ）。別の言語のキーワードや
+  `Scenario :` のような行は runner と同じく説明文になる。以前は説明文を要素と読み、後続の
+  シナリオが集計から消えたり、Feature のタグが外れたりして `--strict` を通ることがあった。
+  英語と日本語のキーワードを 1 つのファイルに混ぜた feature は、runner と同じく Feature 行の
+  言語のキーワードだけを数える。2 つ目以降の Feature 行も説明文として読む。
+  Background は runner と同じく Feature・Rule ごとに最初の Scenario より前で 1 回だけ要素とし、
+  それ以外の位置では説明文として読む（以前は Examples の行が実行ケースから落ちることがあった）。
+- `adapter: flutter` の設定では、feature を Flutter の runner（Dart の gherkin）と同じ規則で読む。
+  Dart の gherkin はキーワードの大文字小文字を区別せず、step のキーワードの後の空白も要らない。
+  Gherkin の規則で読むと `given ...` の後の docstring を開けず、後続の未完了の条件が集計から消えて
+  `--strict` を通ることがあった。宣言の無い feature は設定の `language` を既定の言語として読み、
+  runner が解析できない feature と、空白を含むタグ（Dart の gherkin は `@out-of-scope # 理由`
+  を 1 つのタグとして読み、状態タグとして働かない）は失敗させる。
+- `specproof-check` / `specproof-stats` / `specproof-update` / `specproof-list` のテキスト出力は、
+  リポジトリ由来の名前・パス・見出しにある制御文字・行区切り・bidi 制御文字・BOM を `?` で
+  表示する。端末が前の行を上書きしたり、表示順を入れ替えたりしない。
+
 ## [0.3.0] - 2026-10-07
 
 ### Added

@@ -32,6 +32,9 @@ describe("型の誤った設定値を拒否する", () => {
     ["layout: features\n", /layout/],
     ["tags: fixme\n", /tags/],
     ["- just\n- a list\n", /mapping/],
+    ["adapter: cypress\n", /adapter/],
+    ["adapter: 1\n", /adapter/],
+    ["language: 1\n", /language/],
   ])("%s", (yaml, message) =>
     withConfig(yaml, (root) => {
       expect(() => discoverConfig({ root })).toThrow(message);
@@ -64,6 +67,17 @@ describe("省略と正しい値は従来どおり受け付ける", () => {
         expect(config.strictUnregisteredImpl).toBe(true);
       },
     ));
+
+  // feature を読む規則は adapter で決まる。flutter は Dart の gherkin、それ以外は Gherkin。
+  it.each([
+    ["adapter: flutter\nlanguage: ja\n", "dart", "ja"],
+    ["adapter: playwright\n", "js", undefined],
+    ["", "js", undefined],
+  ])("%j の feature の規則を読む", (yaml, gherkin, language) =>
+    withConfig(yaml, (root) => {
+      expect(discoverConfig({ root })).toMatchObject({ gherkin, language });
+    }),
+  );
 
   it("空の設定ファイルは既定値で動く", () =>
     withConfig("", (root) => {

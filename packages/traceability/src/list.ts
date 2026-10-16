@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { TraceabilityManifest } from "./manifest.js";
+import { printable } from "./display-text.js";
 
 export interface RegisteredDomain {
   id: string;
@@ -99,7 +100,7 @@ export const formatDomainList = ({ registered, candidates }: DomainList): string
     `Registered domains (${registered.length}) — targets for specproof-sync and specproof-bootstrap:`,
     ...registered.map(
       (domain) =>
-        `  ${domain.id.padEnd(idWidth)}  ${domain.label}  (features: ${domain.featureCount})`,
+        `  ${printable(domain.id).padEnd(idWidth)}  ${printable(domain.label)}  (features: ${domain.featureCount})`,
     ),
     "",
     `Untracked bootstrap candidates (${candidates.length}) — pages with no traceability link:`,
@@ -115,7 +116,9 @@ export const formatDomainList = ({ registered, candidates }: DomainList): string
     ...candidates.map((candidate) => candidate.suggestedDomain.length),
   );
   for (const candidate of candidates) {
-    lines.push(`  ${candidate.suggestedDomain.padEnd(domainWidth)}  ${candidate.page}`);
+    lines.push(
+      `  ${printable(candidate.suggestedDomain).padEnd(domainWidth)}  ${printable(candidate.page)}`,
+    );
   }
   lines.push(
     "",

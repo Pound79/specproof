@@ -1,8 +1,9 @@
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
+import { printable } from "./display-text.js";
 
 export const describeEntry = (entry: DriftEntry): string => {
   const location = entry.heading ? `${entry.path} § ${entry.heading}` : entry.path;
-  return `[${entry.side}] ${location} — ${entry.status}`;
+  return printable(`[${entry.side}] ${location} — ${entry.status}`);
 };
 
 // failsUnderStrict reflects the warning's *kind* (would --strict treat this
@@ -10,8 +11,14 @@ export const describeEntry = (entry: DriftEntry): string => {
 // actually passed --strict. It lets callers distinguish hard warnings from
 // advisory ones (unregistered-impl / unregistered-spec-heading without their
 // opt-in flags) even in a plain, non-strict run.
+// linkId は manifest 由来。制御文字は manifest の検証で拒否するが、bidi 制御文字は通る。
+export const describeLinkHeading = (linkId: string): string => `link: ${printable(linkId)}`;
+
+export const describeBothSidesChanged = (linkId: string): string =>
+  `!! link "${printable(linkId)}": BOTH spec and impl changed — specproof-sync must stop and ask which side is authoritative`;
+
 export const describeWarning = (warning: DriftWarning, failsUnderStrict: boolean): string =>
-  `[${failsUnderStrict ? "warning" : "advisory"}] ${warning.message}`;
+  printable(`[${failsUnderStrict ? "warning" : "advisory"}] ${warning.message}`);
 
 // GitHub workflow command の data と property は異なる escape 規則を持つ。
 const escapeData = (value: string): string =>

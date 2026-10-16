@@ -177,7 +177,7 @@ Scenario Outline: 空のOutline
 `);
     expect(scenarios.map((s) => [s.name, s.caseCount])).toEqual([
       ["実際の条件", 2],
-      ["空のOutline", 0],
+      ["空のOutline", 1],
     ]);
   });
 

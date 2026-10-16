@@ -9,8 +9,20 @@ import { computeFileHash } from "../hash.js";
 import { buildStats } from "../stats.js";
 
 const dialects = [
-  { language: "en", feature: "Feature", scenario: "Scenario", outline: "Scenario Outline" },
-  { language: "ja", feature: "機能", scenario: "シナリオ", outline: "シナリオアウトライン" },
+  {
+    language: "en",
+    feature: "Feature",
+    rule: "Rule",
+    scenario: "Scenario",
+    outline: "Scenario Outline",
+  },
+  {
+    language: "ja",
+    feature: "機能",
+    rule: "ルール",
+    scenario: "シナリオ",
+    outline: "シナリオアウトライン",
+  },
 ] as const;
 const separators = [
   { label: "単独 CR", value: "\r" },
@@ -65,7 +77,7 @@ for (const dialect of dialects) {
         "@skip",
         `${dialect.feature}: 条件`,
         "@red-contract",
-        "Rule: 規則",
+        `${dialect.rule}: 規則`,
         "@human",
         `${dialect.outline}: ${name}`,
         dialect.language === "en" ? "  Given <value>" : "  前提 <value>",
