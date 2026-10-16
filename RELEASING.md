@@ -101,7 +101,16 @@ manual `gh release create` needed.
 
 ## Notes
 
-- Need a token in CI? The workflow uses the `NPM_TOKEN` repo secret.
+- CI publishes with npm trusted publishing (OIDC), not a token secret. On
+  npmjs.com, each package (`@pound79/specproof` and
+  `@pound79/specproof-traceability`) lists a GitHub Actions trusted publisher:
+  user `Pound79`, repository `specproof`, workflow `release.yml`, no
+  environment, with **Allow `npm publish`** checked. If the OIDC exchange
+  fails, npm falls back to setup-node's placeholder token and the publish step
+  fails with `E404 Not Found - PUT https://registry.npmjs.org/@pound79%2f...` or
+  `E401` — an authentication failure, not a missing package. Check this setting
+  for that package, then re-run the failed job (`gh run rerun <run-id>
+  --failed`); already-published versions are skipped.
 - From Claude Code you can drive this with the `release` skill
   (`.claude/skills/release/`), which authors the CHANGELOG from the git log and
   then runs `scripts/release.sh`.

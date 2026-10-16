@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write   # npm provenance
+      id-token: write   # npm trusted publishing (OIDC) + provenance
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -25,11 +25,15 @@ jobs:
             echo "::error::pushed tag $GITHUB_REF_NAME does not match cli/package.json version v$PKG_VERSION — refusing to publish"
             exit 1
           fi
+      # No dependency cache: this job can mint an npm publish credential, so it
+      # installs from the lockfile without restoring a shared Actions cache.
+      # `package-manager-cache: false` keeps setup-node from enabling the cache
+      # on its own if package.json ever gains a `packageManager` field.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           registry-url: https://registry.npmjs.org
-          cache: npm
+          package-manager-cache: false
       - run: npm ci
       # Publish gate: never ship when the npm packages and the Claude Code plugin
       # manifests disagree on version. scripts/release.sh keeps them in lockstep,
@@ -39,6 +43,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # Authentication is npm trusted publishing: npm exchanges this job's OIDC
+      # token for a short-lived publish credential. Each package must list this
+      # repository and `release.yml` as a trusted publisher on npmjs.com, with
+      # `npm publish` allowed. No npm token secret is used.
       - name: Publish @pound79/specproof-traceability
         run: |
           PKG_VERSION=$(node -p "require('./packages/traceability/package.json').version")
@@ -49,7 +57,6 @@ jobs:
           else
             npm publish --workspace packages/traceability --provenance --tag "$NPM_TAG"
           fi
-        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
       - name: Publish @pound79/specproof
         run: |
           PKG_VERSION=$(node -p "require('./cli/package.json').version")
@@ -60,7 +67,6 @@ jobs:
           else
             npm publish --workspace cli --provenance --tag "$NPM_TAG"
           fi
-        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
   release:
     needs: publish
     runs-on: ubuntu-latest

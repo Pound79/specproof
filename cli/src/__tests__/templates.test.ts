@@ -99,3 +99,18 @@ describe("dependency security workflow", () => {
     expect(workflow).toContain("npm audit --audit-level=moderate");
   });
 });
+
+describe("release workflow", () => {
+  const workflow = read(".github/workflows/release.yml");
+  const publishJob = workflow.slice(workflow.indexOf("  publish:"), workflow.indexOf("  release:"));
+
+  it("publishes through npm trusted publishing without a long-lived token", () => {
+    expect(publishJob).toMatch(/id-token: write/);
+    expect(workflow).not.toMatch(/NPM_TOKEN|NODE_AUTH_TOKEN/);
+  });
+
+  it("does not restore a dependency cache in the publish job", () => {
+    expect(publishJob).not.toMatch(/^\s+cache:/m);
+    expect(publishJob).toMatch(/^\s+package-manager-cache: false\s*$/m);
+  });
+});
