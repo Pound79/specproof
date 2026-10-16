@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 // src/__tests__/templates.test.ts -> repo root is four levels up.
 const repoRoot = path.resolve(fileURLToPath(import.meta.url), "../../../..");
@@ -97,5 +98,70 @@ describe("dependency security workflow", () => {
     const workflow = read(".github/workflows/dependency-review.yml");
     expect(workflow).toMatch(/permissions:\n\s+contents: read/);
     expect(workflow).toContain("npm audit --audit-level=moderate");
+  });
+});
+
+type WorkflowStep = {
+  uses?: string;
+  with?: Record<string, unknown>;
+  env?: Record<string, unknown>;
+};
+type WorkflowJob = { permissions?: Record<string, unknown>; steps?: WorkflowStep[] };
+
+// Inspect the parsed YAML, not the text: a commented-out `# id-token: write`
+// or `# cache: npm` still matches a text search but is not in effect.
+const publishJobOf = (workflowText: string): WorkflowJob => {
+  const job = (parse(workflowText) as { jobs?: Record<string, WorkflowJob> }).jobs?.publish;
+  if (!job) throw new Error("release.yml has no `publish` job");
+  return job;
+};
+
+const setupNodeStepsOf = (job: WorkflowJob): WorkflowStep[] =>
+  (job.steps ?? []).filter((step) => step.uses?.startsWith("actions/setup-node@"));
+
+const usesNoDependencyCache = (job: WorkflowJob): boolean => {
+  const steps = setupNodeStepsOf(job);
+  return (
+    steps.length > 0 &&
+    steps.every(
+      (step) => !("cache" in (step.with ?? {})) && step.with?.["package-manager-cache"] === false,
+    )
+  );
+};
+
+describe("release workflow", () => {
+  const workflow = read(".github/workflows/release.yml");
+  const publishJob = publishJobOf(workflow);
+
+  it("publishes through npm trusted publishing without a long-lived token", () => {
+    expect(publishJob.permissions?.["id-token"]).toBe("write");
+    for (const step of publishJob.steps ?? []) {
+      expect(step.env ?? {}).not.toHaveProperty("NODE_AUTH_TOKEN");
+    }
+    expect(workflow).not.toMatch(/NPM_TOKEN|NODE_AUTH_TOKEN/);
+  });
+
+  it("does not restore a dependency cache in the publish job", () => {
+    expect(usesNoDependencyCache(publishJob)).toBe(true);
+  });
+
+  it("treats commented-out settings as absent", () => {
+    const withoutIdToken = workflow.replace(/^(\s+)id-token: write/m, "$1# id-token: write");
+    expect(withoutIdToken).not.toBe(workflow);
+    expect(publishJobOf(withoutIdToken).permissions?.["id-token"]).toBeUndefined();
+
+    const withoutCacheOptOut = workflow.replace(
+      /^(\s+)package-manager-cache: false/m,
+      "$1# package-manager-cache: false",
+    );
+    expect(withoutCacheOptOut).not.toBe(workflow);
+    expect(usesNoDependencyCache(publishJobOf(withoutCacheOptOut))).toBe(false);
+
+    const withCache = workflow.replace(
+      /^(\s+)package-manager-cache: false/m,
+      "$1package-manager-cache: false\n$1cache: npm",
+    );
+    expect(withCache).not.toBe(workflow);
+    expect(usesNoDependencyCache(publishJobOf(withCache))).toBe(false);
   });
 });
