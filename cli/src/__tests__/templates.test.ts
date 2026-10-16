@@ -225,6 +225,17 @@ describe("release workflow", () => {
     }
   });
 
+  // --ignore-scripts also skips the workspaces' `prepare` build, and some tests
+  // run the built CLI (cli/dist), so the build has to come before the tests.
+  it("builds before testing in the build job", () => {
+    const runs = (jobOf(workflow, "build").steps ?? []).map((step) => step.run ?? "");
+    const build = runs.findIndex((run) => /^npm run build$/m.test(run));
+    const test = runs.findIndex((run) => /^npm test$/m.test(run));
+    expect(build).toBeGreaterThanOrEqual(0);
+    expect(test).toBeGreaterThanOrEqual(0);
+    expect(build).toBeLessThan(test);
+  });
+
   it("publishes the built tarballs without running project code", () => {
     expect([publishJob.needs ?? []].flat()).toContain("build");
     expect(
