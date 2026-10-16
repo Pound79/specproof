@@ -2,10 +2,13 @@ import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -17,11 +20,12 @@ import { parse } from "yaml";
 
 // Runs the real `run` scripts of the release workflow's publish job against
 // crafted tarballs and artifact directories, with `npm` replaced by a stub that
-// only records its arguments (the verify script still uses the real npm's
-// pacote, found next to `node`). The publish job must refuse, before `npm
-// publish` is ever called, anything other than the two expected tarballs, and
-// any tarball from which npm would read a package.json other than the
-// checked-out one.
+// only records its arguments. The stub sits in a fake npm install whose
+// node_modules/pacote links to the real npm's pacote, as the verify script
+// finds pacote through the `npm` on PATH. The publish job must refuse, before
+// `npm publish` is ever called, anything other than the two expected
+// tarballs, and any tarball from which npm would read a manifest other than
+// the checked-out one.
 
 // src/__tests__/release-publish-steps.test.ts -> repo root is four levels up.
 const repoRoot = path.resolve(fileURLToPath(import.meta.url), "../../../..");
@@ -56,8 +60,19 @@ const PACKAGES = [
 type Package = (typeof PACKAGES)[number];
 
 // The checked-out package.json; `npm pack` stores it in the tarball unchanged.
+// Like the real packages it declares a description: without one npm would fill
+// it in from the README, which the check refuses as tarball-derived.
 const trustedManifest = (pkg: Package): string =>
-  `${JSON.stringify({ name: pkg.name, version: VERSION, publishConfig: { access: "public" } }, null, 2)}\n`;
+  `${JSON.stringify(
+    {
+      name: pkg.name,
+      version: VERSION,
+      description: "fixture",
+      publishConfig: { access: "public" },
+    },
+    null,
+    2,
+  )}\n`;
 
 const STUB_NPM = `#!/bin/sh
 echo "$*" >> "$NPM_CALLS"
@@ -66,6 +81,27 @@ case "$1" in
 esac
 exit 0
 `;
+
+// The pacote of the real npm on PATH (npm -> .../npm/bin/npm-cli.js).
+const realPacoteDir = (() => {
+  const npm = spawnSync("sh", ["-c", "command -v npm"], { encoding: "utf8" }).stdout.trim();
+  return path.join(path.dirname(realpathSync(npm)), "..", "node_modules", "pacote");
+})();
+
+// Lays out <root>/npm-prefix/lib/node_modules/npm/{bin/npm-cli.js,node_modules/pacote}
+// like a real install, with <root>/bin/npm linking to the stub npm-cli.js.
+const installStubNpm = (root: string, { withPacote = true } = {}): string => {
+  const npmDir = path.join(root, "npm-prefix", "lib", "node_modules", "npm");
+  mkdirSync(path.join(npmDir, "bin"), { recursive: true });
+  mkdirSync(path.join(npmDir, "node_modules"));
+  writeFileSync(path.join(npmDir, "bin", "npm-cli.js"), STUB_NPM);
+  chmodSync(path.join(npmDir, "bin", "npm-cli.js"), 0o755);
+  if (withPacote) symlinkSync(realPacoteDir, path.join(npmDir, "node_modules", "pacote"));
+  const bin = path.join(root, "bin");
+  mkdirSync(bin);
+  symlinkSync(path.join(npmDir, "bin", "npm-cli.js"), path.join(bin, "npm"));
+  return bin;
+};
 
 // --- minimal ustar writer, so fixtures control every entry name and type ---
 
@@ -107,19 +143,30 @@ const tgz = (entries: Entry[]): Buffer =>
 type RunResult = { status: number | null; output: string; npmCalls: string[] };
 
 // Runs `runs` in order in a fresh tarball directory holding `files`, stopping
-// at the first failing step as GitHub does. `{{root}}` in a file's content is
-// replaced with the harness's temporary root, for fixtures that point outside
-// the tarball.
+// at the first failing step as GitHub does. `files` may be a function of the
+// harness's temporary root, for fixtures that point outside the tarball. The
+// publish job's `env` is applied with `${{ runner.temp }}` set to that root.
 const runSteps = (
   runs: string[],
   files: Record<string, Buffer | string> | ((root: string) => Record<string, Buffer | string>),
+  {
+    withPacote = true,
+    inspect,
+    trusted = trustedManifest,
+    env = {},
+  }: {
+    withPacote?: boolean;
+    inspect?: (root: string) => void;
+    trusted?: (pkg: Package) => string;
+    env?: Record<string, string | undefined>;
+  } = {},
 ): RunResult => {
   const root = mkdtempSync(path.join(os.tmpdir(), "specproof-publish-step-"));
   try {
     const workspace = path.join(root, "workspace");
     for (const pkg of PACKAGES) {
       mkdirSync(path.join(workspace, pkg.workspaceDir), { recursive: true });
-      writeFileSync(path.join(workspace, pkg.workspaceDir, "package.json"), trustedManifest(pkg));
+      writeFileSync(path.join(workspace, pkg.workspaceDir, "package.json"), trusted(pkg));
     }
     mkdirSync(path.join(workspace, "scripts"));
     for (const script of VERIFY_SCRIPTS) {
@@ -133,12 +180,15 @@ const runSteps = (
       writeFileSync(path.join(tarballs, name), content);
     }
 
-    const bin = path.join(root, "bin");
-    mkdirSync(bin);
-    writeFileSync(path.join(bin, "npm"), STUB_NPM);
-    chmodSync(path.join(bin, "npm"), 0o755);
+    const bin = installStubNpm(root, { withPacote });
     const npmCallsFile = path.join(root, "npm-calls.log");
     writeFileSync(npmCallsFile, "");
+    const jobEnv = Object.fromEntries(
+      Object.entries(publishJob.env ?? {}).map(([key, value]) => [
+        key,
+        value.replaceAll("${{ runner.temp }}", root),
+      ]),
+    );
 
     let status: number | null = 0;
     let output = "";
@@ -153,7 +203,8 @@ const runSteps = (
         env: {
           ...process.env,
           PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}`,
-          ...(publishJob.env ?? {}),
+          ...jobEnv,
+          ...env,
           GITHUB_WORKSPACE: workspace,
           NPM_CALLS: npmCallsFile,
         },
@@ -163,6 +214,7 @@ const runSteps = (
       output += result.stdout + result.stderr;
       if (status !== 0) break;
     }
+    inspect?.(root);
     return {
       status,
       output,
@@ -343,6 +395,87 @@ describe.each(PACKAGES)("release publish step for $name", STEP_TEST_OPTIONS, (pk
     const result = publishWith(validTarball(pkg, extra));
     expect(result.status, result.output).toBe(0);
     expect(published(result)).toBe(true);
+  });
+
+  // npm's prepare turns some files into published manifest fields even though
+  // package.json does not mention them: `*.gyp` into an install script and
+  // `gypfile`, `server.js` into a start script, `AUTHORS` into contributors.
+  const derivedFieldLayouts: [string, Entry[]][] = [
+    ["binding.gyp (install script)", [{ name: "package/binding.gyp", body: "{}" }]],
+    ["server.js (start script)", [{ name: "package/server.js", body: "" }]],
+    ["AUTHORS (contributors)", [{ name: "package/AUTHORS", body: "Someone\n" }]],
+  ];
+
+  it.each(derivedFieldLayouts)(
+    "refuses a tarball whose %s npm would add to the manifest",
+    (_, extra) => {
+      const result = publishWith(validTarball(pkg, extra));
+      expect(result.status).not.toBe(0);
+      expect(published(result)).toBe(false);
+      expect(result.output).toMatch(/refusing to publish/);
+    },
+  );
+
+  it("refuses a tarball whose index.d.ts npm would add to the manifest as types", () => {
+    const result = publishWith(
+      validTarball(pkg, [
+        { name: "package/index.js", body: "" },
+        { name: "package/index.d.ts", body: "" },
+      ]),
+    );
+    expect(result.status).not.toBe(0);
+    expect(published(result)).toBe(false);
+    expect(result.output).toMatch(/npm would publish types/);
+  });
+
+  it("refuses a README that npm would turn into the description", () => {
+    const withoutDescription = (target: Package): string =>
+      `${JSON.stringify({ name: target.name, version: VERSION, publishConfig: { access: "public" } }, null, 2)}\n`;
+    const tarball = tgz([
+      { name: "package/package.json", body: withoutDescription(pkg) },
+      { name: "package/README.md", body: "# hi\n\nInjected description.\n" },
+    ]);
+    const result = runSteps(
+      [run],
+      { ...validArtifact(), [pkg.tarball(VERSION)]: tarball },
+      {
+        trusted: withoutDescription,
+      },
+    );
+    expect(result.status).not.toBe(0);
+    expect(published(result)).toBe(false);
+    expect(result.output).toMatch(/npm would publish description/);
+  });
+
+  it("refuses when npm_config_cache is not set", () => {
+    const result = runSteps([run], validArtifact(), { env: { npm_config_cache: undefined } });
+    expect(result.status).not.toBe(0);
+    expect(published(result)).toBe(false);
+    expect(result.output).toMatch(/npm_config_cache is not set/);
+  });
+
+  it("accepts a README, which npm adds to the manifest as readme", () => {
+    const result = publishWith(validTarball(pkg, [{ name: "package/README.md", body: "# hi\n" }]));
+    expect(result.status, result.output).toBe(0);
+  });
+
+  it("refuses when the npm on PATH has no pacote to check with", () => {
+    const result = runSteps([run], validArtifact(), { withPacote: false });
+    expect(result.status).not.toBe(0);
+    expect(published(result)).toBe(false);
+    expect(result.output).toMatch(/pacote/);
+  });
+
+  it("extracts the tarball under the same npm cache that npm publish uses", () => {
+    expect(publishJob.env?.npm_config_cache).toBe("${{ runner.temp }}/npm-cache");
+    let cacheUsed = false;
+    const result = runSteps([run], validArtifact(), {
+      inspect: (root) => {
+        cacheUsed = existsSync(path.join(root, "npm-cache", "_cacache"));
+      },
+    });
+    expect(result.status, result.output).toBe(0);
+    expect(cacheUsed).toBe(true);
   });
 
   it("detects a publish step that no longer runs the tarball check", () => {

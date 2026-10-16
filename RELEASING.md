@@ -66,9 +66,15 @@ never leaves a half-bumped tree.)
     same extraction `npm publish <tarball>` does) and refuses it unless the
     package.json npm would read is byte-identical to the one checked out at
     this commit (`npm pack` stores it unchanged) and the tarball holds no
-    `.git`, which npm would follow to read a file into `gitHead`. So any
-    change to `publishConfig`, `tag` or other package.json fields has to come
-    through a reviewed commit, not from the build job.
+    `.git`, which npm would follow to read a file into `gitHead`. npm's own
+    manifest for the tarball must also equal that package.json except for the
+    few fields npm derives from it or from the README, so files such as
+    `binding.gyp`, `server.js` or `AUTHORS` cannot add an install script, a
+    start script or contributors to the published metadata. So any change to
+    `publishConfig`, `tag`, `scripts` or other published fields has to come
+    through a reviewed commit, not from the build job. The check uses the
+    pacote of the `npm` on PATH and the same npm cache (`npm_config_cache`)
+    as the publish step.
 - `npm version --workspaces --allow-same-version` は既に対象版へ揃えた未公開候補も
   受け付ける。同版なら `package-lock.json` の差分がなくてもよいが、全 workspace の
   `package.json` と対応する lock entry が対象版と一致しなければ commit 前に拒否し、

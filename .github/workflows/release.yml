@@ -69,6 +69,11 @@ jobs:
     permissions:
       contents: read
       id-token: write   # npm trusted publishing (OIDC) + provenance
+    env:
+      # One npm cache for the verify script and `npm publish`, so the tarball is
+      # extracted in the same place by both (npm's prepare looks for `.git`
+      # upward from there).
+      npm_config_cache: ${{ runner.temp }}/npm-cache
     steps:
       # Checked out to read the package versions and the verify script.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,9 +111,11 @@ jobs:
       # exchange, and `--registry` does not override other keys such as
       # `https-proxy`, `strict-ssl` or `@pound79:registry`; the real control is
       # scripts/verify-publish-tarball.sh, which reads the tarball with this
-      # npm's own pacote (as `npm publish <tarball>` does) and refuses it unless
-      # the package.json npm would read is byte-identical to the checked-out
-      # one and the tarball has no `.git` for npm to fill gitHead from.
+      # npm's own pacote and cache (as `npm publish <tarball>` does) and refuses
+      # it unless the package.json npm would read is byte-identical to the
+      # checked-out one, the tarball has no `.git` for npm to fill gitHead from,
+      # and npm's manifest adds or changes no field beyond the few it derives
+      # (so no install script from binding.gyp, contributors from AUTHORS, ...).
       - name: Publish @pound79/specproof-traceability
         working-directory: ${{ runner.temp }}/tarballs
         run: |
