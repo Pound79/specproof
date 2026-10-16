@@ -47,6 +47,28 @@ never leaves a half-bumped tree.)
   before any publish because npm publish can't be undone. Always bump
   `package.json` first — which `scripts/release.sh` does — so the tag you push
   already matches.
+- The workflow runs three jobs in order. `build` installs, tests and runs
+  `npm pack` for both packages, then uploads the tarballs as the `npm-tarballs`
+  artifact; it has no `id-token: write`. `publish` downloads those tarballs
+  and runs `npm publish <tarball> --provenance` with `id-token: write`; it runs
+  no `npm ci` or package scripts, so dependency code never runs where an npm
+  publish credential can be minted. `release` then creates the GitHub Release.
+  This removes credential theft, not tampering: code that runs in `build`
+  (install scripts, tests, the build itself) can still change what is packed,
+  and that tarball would carry valid provenance. What `publish` does check,
+  because npm applies a tarball's `publishConfig` (and a `.npmrc` in the
+  directory it runs in) as npm config — proxy, TLS, scoped registry — for the
+  publish and its OIDC token exchange, which could route the publish
+  credential elsewhere:
+  - the downloaded artifact holds exactly the two expected tarballs;
+  - `scripts/verify-publish-tarball.sh` reads each tarball with the pacote
+    bundled with the publishing npm (`scripts/verify-publish-manifest.mjs`, the
+    same extraction `npm publish <tarball>` does) and refuses it unless the
+    package.json npm would read is byte-identical to the one checked out at
+    this commit (`npm pack` stores it unchanged) and the tarball holds no
+    `.git`, which npm would follow to read a file into `gitHead`. So any
+    change to `publishConfig`, `tag` or other package.json fields has to come
+    through a reviewed commit, not from the build job.
 - `npm version --workspaces --allow-same-version` は既に対象版へ揃えた未公開候補も
   受け付ける。同版なら `package-lock.json` の差分がなくてもよいが、全 workspace の
   `package.json` と対応する lock entry が対象版と一致しなければ commit 前に拒否し、
