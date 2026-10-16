@@ -48,7 +48,7 @@ never leaves a half-bumped tree.)
   `package.json` first — which `scripts/release.sh` does — so the tag you push
   already matches.
 - The workflow runs three jobs in order. `build` installs with
-  `npm ci --ignore-scripts` (no dependency install scripts), tests, builds and
+  `npm ci --ignore-scripts` (no dependency install scripts), builds, tests and
   runs `npm pack` for both packages, then uploads the tarballs as the
   `npm-tarballs` artifact; it has no `id-token: write`. `publish` downloads those tarballs
   and runs `npm publish <tarball> --provenance` with `id-token: write`; it runs
