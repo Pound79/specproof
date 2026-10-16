@@ -36,7 +36,9 @@ specproof の npm パッケージをリリースする。**機械的処理は `s
   4つの version 源（cli / traceability / marketplace / plugin）が一致するかは `npm run check:versions` が検証し、
   CI（`ci.yml`）で毎 PR 走るほか、Release workflow（`release.yml`）でも publish 前ゲートとして走る（ドリフト時は publish されない）。
 - Release workflow は 3 job で動く:
-  1. `build`（`id-token` なし）— タグと版の照合、`npm ci`・`check:versions`・typecheck・test・build、
+  1. `build`（`id-token` なし）— タグと版の照合、`npm ci --ignore-scripts`（依存の install script を
+     動かさない）・`check:versions`・typecheck・build・test の順（`--ignore-scripts` では workspace の
+     `prepare` も動かないため、build 済みの CLI を使うテストより前に build する）、
      2 パッケージの `npm pack`、tarball を `npm-tarballs` artifact に upload。
   2. `publish`（`id-token: write`）— artifact を download し、ディレクトリに 2 つの tarball 以外が
      無いことと、`scripts/verify-publish-tarball.sh` で tarball を検査してから
