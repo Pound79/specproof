@@ -95,6 +95,45 @@ describe("GitHub Actions supply-chain pins", () => {
   }
 });
 
+// GitHub rejects the whole workflow file (no job runs, not even on a tag push)
+// when a workflow- or job-level `env` uses a context that only exists inside a
+// job's steps, such as `runner.temp`. PR checks do not show that failure.
+const STEP_ONLY_CONTEXT = /\$\{\{[^}]*\b(runner|steps|job|env)\./;
+
+const envExpressionsWithStepOnlyContext = (workflowText: string): string[] => {
+  const workflow = parse(workflowText) as {
+    env?: Record<string, unknown>;
+    jobs?: Record<string, { env?: Record<string, unknown> }>;
+  };
+  const scopes: [string, Record<string, unknown> | undefined][] = [
+    ["env", workflow.env],
+    ...Object.entries(workflow.jobs ?? {}).map(
+      ([name, job]): [string, Record<string, unknown> | undefined] => [`jobs.${name}.env`, job.env],
+    ),
+  ];
+  return scopes.flatMap(([scope, env]) =>
+    Object.entries(env ?? {})
+      .filter(([, value]) => STEP_ONLY_CONTEXT.test(String(value)))
+      .map(([key, value]) => `${scope}.${key}: ${String(value)}`),
+  );
+};
+
+describe("GitHub Actions workflow env contexts", () => {
+  for (const file of WORKFLOW_FILES) {
+    it(`${file} uses no step-only context in workflow- or job-level env`, () => {
+      expect(envExpressionsWithStepOnlyContext(read(file))).toEqual([]);
+    });
+  }
+
+  it("detects runner.temp in a job-level env", () => {
+    const workflow =
+      "on: push\njobs:\n  a:\n    env:\n      X: ${{ runner.temp }}/x\n    steps: []\n";
+    expect(envExpressionsWithStepOnlyContext(workflow)).toEqual([
+      "jobs.a.env.X: ${{ runner.temp }}/x",
+    ]);
+  });
+});
+
 describe("dependency security workflow", () => {
   it("runs npm audit at moderate severity with read-only contents", () => {
     const workflow = read(".github/workflows/dependency-review.yml");

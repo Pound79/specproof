@@ -32,7 +32,7 @@ const repoRoot = path.resolve(fileURLToPath(import.meta.url), "../../../..");
 const workflowText = readFileSync(path.join(repoRoot, ".github/workflows/release.yml"), "utf8");
 const VERIFY_SCRIPTS = ["scripts/verify-publish-tarball.sh", "scripts/verify-publish-manifest.mjs"];
 
-type Step = { name?: string; run?: string };
+type Step = { name?: string; run?: string; env?: Record<string, string> };
 type PublishJob = { env?: Record<string, string>; steps: Step[] };
 
 const publishJob = (parse(workflowText) as { jobs: { publish: PublishJob } }).jobs.publish;
@@ -144,8 +144,10 @@ type RunResult = { status: number | null; output: string; npmCalls: string[] };
 
 // Runs `runs` in order in a fresh tarball directory holding `files`, stopping
 // at the first failing step as GitHub does. `files` may be a function of the
-// harness's temporary root, for fixtures that point outside the tarball. The
-// publish job's `env` is applied with `${{ runner.temp }}` set to that root.
+// harness's temporary root, for fixtures that point outside the tarball. As on
+// GitHub, each run gets the publish job's `env` and its own step's `env` (found
+// by its run text; a mutated run gets only the job's), with
+// `${{ runner.temp }}` set to that root.
 const runSteps = (
   runs: string[],
   files: Record<string, Buffer | string> | ((root: string) => Record<string, Buffer | string>),
@@ -183,16 +185,19 @@ const runSteps = (
     const bin = installStubNpm(root, { withPacote });
     const npmCallsFile = path.join(root, "npm-calls.log");
     writeFileSync(npmCallsFile, "");
-    const jobEnv = Object.fromEntries(
-      Object.entries(publishJob.env ?? {}).map(([key, value]) => [
-        key,
-        value.replaceAll("${{ runner.temp }}", root),
-      ]),
-    );
+    const withRunnerTemp = (values: Record<string, string> = {}): Record<string, string> =>
+      Object.fromEntries(
+        Object.entries(values).map(([key, value]) => [
+          key,
+          value.replaceAll("${{ runner.temp }}", root),
+        ]),
+      );
+    const jobEnv = withRunnerTemp(publishJob.env);
 
     let status: number | null = 0;
     let output = "";
     for (const [index, run] of runs.entries()) {
+      const stepEnv = withRunnerTemp(publishJob.steps.find((step) => step.run === run)?.env);
       const script = path.join(root, `step-${index}.sh`);
       writeFileSync(script, run);
       // GitHub runs a `run:` without `shell:` as `bash -e {0}`.
@@ -204,6 +209,7 @@ const runSteps = (
           ...process.env,
           PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}`,
           ...jobEnv,
+          ...stepEnv,
           ...env,
           GITHUB_WORKSPACE: workspace,
           NPM_CALLS: npmCallsFile,
@@ -467,7 +473,8 @@ describe.each(PACKAGES)("release publish step for $name", STEP_TEST_OPTIONS, (pk
   });
 
   it("extracts the tarball under the same npm cache that npm publish uses", () => {
-    expect(publishJob.env?.npm_config_cache).toBe("${{ runner.temp }}/npm-cache");
+    const step = publishJob.steps.find((candidate) => candidate.name === `Publish ${pkg.name}`);
+    expect(step?.env?.npm_config_cache).toBe("${{ runner.temp }}/npm-cache");
     let cacheUsed = false;
     const result = runSteps([run], validArtifact(), {
       inspect: (root) => {
