@@ -230,6 +230,12 @@ hash は文書中の実際のセクションから計算し、保存済みの基
 ではない。同じ manifest への更新は順に実行する。異なる `--link-id` でも同時実行すると、
 両方が成功したまま一方の hash 更新が失われる可能性がある。
 
+### Manifest の版
+
+manifest の `version` は、外部の読み手に向けた契約である。保存済みの hash の意味、既存のキーの
+意味・型、必須のキー、番兵の値のいずれかを変えるときに上げ、省略できるキーの追加では上げない。
+規則と理由は [ADR 0010](../../docs/adr/0010-manifest-version-policy.md)。
+
 ### Manifest の criteria
 
 0.3.0 以降、version 1 の各 `links[]` に `criteria?: string[]` を指定できる。
