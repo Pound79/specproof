@@ -234,7 +234,7 @@ hash は文書中の実際のセクションから計算し、保存済みの基
 
 manifest の `version` は、外部の読み手に向けた契約である。保存済みの hash の意味、既存のキーの
 意味・型、必須のキー、番兵の値のいずれかを変えるときに上げ、省略できるキーの追加では上げない。
-規則と理由は [ADR 0010](../../docs/adr/0010-manifest-version-policy.md)。
+規則と理由は [ADR 0010](https://github.com/Pound79/specproof/blob/main/docs/adr/0010-manifest-version-policy.md)。
 
 ### Manifest の criteria
 

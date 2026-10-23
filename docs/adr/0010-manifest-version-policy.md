@@ -74,9 +74,13 @@ version 1 のまま 2 回変わった。
 - この ADR 以降の変更については、外部の読み手は version を見て知らない版を拒否すればよい。
   specproof は manifest の意味を変えるときに必ず version を変えるので、拒否は意味の変化を取りこぼさない
 - **既知の穴**: version 1 の manifest には、0.2.0 より前に正規化なしで取った hash と、0.2.0 以降に
-  取った hash がありうる。どちらも version 1 なので、外部の読み手は区別できない。0.2.0 より前の hash は
-  `specproof-check` で drift として表に出るので、`specproof-check --strict` が通る manifest は
-  0.2.0 以降の規則で取り直されている。外部の読み手は、この保証のある manifest だけを根拠にする
+  取った hash がありうる。どちらも version 1 なので、外部の読み手は区別できない。正規化で hash が
+  変わるのは、CRLF または先頭の BOM を含む内容から取った hash だけで、LF だけの内容は前後で同じになる。
+  変わる hash は 0.2.0 以降の `specproof-check` で drift になるので、0.2.0 以降の specproof で
+  `specproof-check` が通った commit の manifest は、今の規則と一致する（`--strict` は warning も失敗に
+  するだけで、drift の検出には要らない）。ただし check が通ったかどうかは manifest の中身からは
+  分からない。外部の読み手は、自分で check を実行するか、CI で check が通った commit の manifest だけを
+  根拠にする
 - hash の正規化や対象範囲を変える改善は、移行を伴う変更として扱う。小さな改善でも、保存済みの
   hash の意味が変わるなら version を上げる
 - README の「Manifest の版」節に、この規則への参照を置く
