@@ -1,6 +1,6 @@
 # traceability manifest の `version` を上げる規則
 
-> 状態: 提案（2026-10-23）。
+> 状態: 採択済み（2026-10-23）。
 
 `traceability.yaml` は `version: 1` で、loader は 1 以外を拒否する。ところが manifest の意味は
 version 1 のまま 2 回変わった。
