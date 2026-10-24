@@ -62,6 +62,11 @@ const checkGuide = (guide) => {
   assert.match(authz, /矛盾・欠落・未決/);
   // 確認を減らす変更だけを当てると読まれないよう、両方を当てることを同じ文に書く。
   assert.match(authz, /「確認を減らす変更」に加えて/);
+  // 点検は報告だけ。入力は spec の権限の節で、実装などから推測しない。当てる範囲を広げない。
+  assert.match(section, /sync でも点検は報告だけで、feature を直すかどうか/);
+  assert.match(section, /実装・画面・既存 feature から権限を推測して入力にしない/);
+  assert.match(section, /権限の節が drift していないリンクには、sync は認可の点検を当てない。/);
+  assert.match(section, /統制できない前提）は当てず/);
 };
 
 for (const distribution of distributions) {
@@ -114,6 +119,10 @@ test("安全規則の削除・弱体化を契約検査が検出する", () => {
     [checkWeakening, skill, "Examples の行を削る", "Examples を確認する"],
     [checkGuide, guide, "spec の明示が無ければ停止する", "常に進める"],
     [checkGuide, guide, "編集前に feature 全体", "編集後に feature 全体"],
+    [checkGuide, guide, "点検は報告だけで", "点検の結果で feature を直し"],
+    [checkGuide, guide, "推測して入力にしない", "参考にしてよい"],
+    [checkGuide, guide, "sync は認可の点検を当てない。", "sync は認可の点検を当てる。"],
+    [checkGuide, guide, "統制できない前提）は当てず", "統制できない前提）も当て"],
   ];
   for (const [check, original, before, after] of mutants) {
     const mutated = original.replace(before, after);
