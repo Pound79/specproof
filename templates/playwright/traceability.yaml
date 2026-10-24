@@ -34,7 +34,7 @@
 #         - path: src/app/login/page.tsx
 #           hash: PENDING
 #       features:
-#         - path: packages/e2e/features/login.feature
+#         - path: packages/e2e/features/login.feature   # default layout.e2eRoot; use yours
 #           hash: PENDING
 # ---------------------------------------------------------------------------
 version: 1
