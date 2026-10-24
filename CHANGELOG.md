@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 方法論に、権限の節を影響する各リンクの `spec[]` に登録する手順と、`criteria`・`spec[]`・
   sync の起動契機の違い、`strictUnregisteredSpecHeadings` で検出できない登録漏れを書いた。
 
+### Fixed
+
+- playwright の `traceability.yaml` 雛形の記入例を、リポジトリのルートからのパス
+  （`packages/e2e/features/login.feature` など）に直した。冒頭の説明はルート相対なのに
+  記入例が e2e パッケージ相対で、どちらを基準に書くか迷う原因になっていた。
+
 ## [0.3.0] - 2026-10-16
 
 ### Added

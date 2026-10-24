@@ -434,3 +434,23 @@ for (const adapter of ["playwright", "flutter"]) {
     }
   });
 }
+
+test("playwright の manifest 雛形の記入例は、リポジトリのルートからのパスで書く", () => {
+  // check / update は manifest のパスをリポジトリのルートから解決する。記入例が e2e パッケージからの
+  // パス（features/login.feature）だと、利用者がどちらを基準にするか迷い、誤ったパスを書く。
+  const template = read("templates/playwright/traceability.yaml");
+  const example = between(template, "# Example:", "# ----");
+  const paths = [...example.matchAll(/- path: (\S+)/g)].map((m) => m[1]);
+  assert.ok(paths.length >= 3, example);
+  const feature = paths.find((p) => p.endsWith(".feature"));
+  // 記入例は雛形の既定の featuresDir（e2eRoot を含むルートからのパス）と一致させる。
+  const config = read("templates/playwright/specproof.config.yaml");
+  const featuresDir = config.match(/^\s*featuresDir:\s*"([^"]+)"/m)?.[1];
+  assert.ok(featuresDir, "templates/playwright/specproof.config.yaml に featuresDir が無い");
+  assert.ok(feature.startsWith(`${featuresDir}/`), `${feature} は ${featuresDir}/ で始まらない`);
+  assert.doesNotMatch(paths.join("\n"), /^src\/pages\//m);
+  // 既定以外の --dir では例のパスが変わることを書いておく（init は manifest のコメントを書き換えない）。
+  assert.match(example, /default layout\.e2eRoot/);
+  assert.match(template, /all paths are relative to the repo root/);
+  assert.match(template, /e2eRoot/);
+});
