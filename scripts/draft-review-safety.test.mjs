@@ -60,6 +60,8 @@ const checkGuide = (guide) => {
   assert.match(authz, /権限の節/);
   assert.match(authz, /編集前に feature 全体/);
   assert.match(authz, /矛盾・欠落・未決/);
+  // 確認を減らす変更だけを当てると読まれないよう、両方を当てることを同じ文に書く。
+  assert.match(authz, /「確認を減らす変更」に加えて/);
 };
 
 for (const distribution of distributions) {

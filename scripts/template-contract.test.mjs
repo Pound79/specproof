@@ -171,6 +171,9 @@ test("生成ガイドが feature 単位の認可の点検で欠落・未決・�
   assert.match(row("未決"), /推測で補わない/);
   assert.match(row("未決"), /「やってほしいこと」/);
   assert.match(row("問題なし"), /創作しない/);
+  assert.match(row("矛盾"), /同じ指摘を重ねない/);
+  assert.match(authz, /範囲の限定[\s\S]*?読み取らない/);
+  assert.match(authz, /1 つに特定できるときだけ入力に含める/);
   assert.match(authz, /入力不足/);
   assert.match(authz, /否定だけの確認/);
   assert.match(authz, /rationale doc/);
