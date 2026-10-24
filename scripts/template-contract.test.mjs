@@ -162,6 +162,9 @@ test("生成ガイドが feature 単位の認可の点検で欠落・未決・�
   // 点検の節の中（次の `---` より前）に置く。別の節の文言で通らないようにする。
   const authz = between(guide, "### 認可の点検（feature 単位）", "\n---");
   assert.ok(section.endsWith(authz), "認可の点検がドラフトの点検の節の末尾に無い");
+  // 区分の欄の表記を固定する（「欠落なし」のような否定の書き方をさせない）。
+  assert.match(authz, /区分の欄には、矛盾・欠落・未決・問題なし・入力不足のどれか/);
+  assert.match(authz, /「欠落なし」のような、区分の否定は書かない/);
   const row = (name) => authz.split("\n").find((line) => line.startsWith(`| ${name} |`)) ?? "";
   assert.match(authz, /シナリオを 1 件ずつ見るだけでは/);
   assert.match(row("矛盾"), /権限との矛盾/);
