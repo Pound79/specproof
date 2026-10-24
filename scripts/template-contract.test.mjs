@@ -194,6 +194,9 @@ test("生成ガイドが feature 単位の認可の点検で欠落・未決・�
 test("生成ガイドは sync での認可の点検の当て方と、当てないものを区別する", () => {
   const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
   const bullet = between(guide, "- 権限の節が drift したリンク:", "\n\n");
+  // 「関わる」を、変わった記述と同じ役割・操作・対象の組み合わせとして定義し、判別できないときは安全側に倒す。
+  assert.match(bullet, /変わった記述と同じ役割・同じ操作・同じ対象についての点/);
+  assert.match(bullet, /判別できないときは関わるものとして扱う/);
   assert.match(bullet, /権限の節が drift していないリンクには、sync は認可の点検を当てない。/);
   // spec のみ changed で権限の節に feature を合わせるのは決定表の更新。矛盾の行の「人に尋ねる」は当てない。
   assert.match(bullet, /Step 2 の決定表による更新/);
@@ -257,6 +260,8 @@ test("sync は権限の節が drift したリンクに編集前の認可の点�
   assert.match(gate, /権限に関わる行を変えずに停止/);
   assert.match(gate, /今回の drift で変わった記述/);
   assert.match(gate, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
+  assert.match(gate, /変わった記述と同じ役割・同じ操作・同じ対象についての点/);
+  assert.match(gate, /判別できないときは関わるものとして扱う/);
   assert.match(gate, /manifest を更新しない/);
   assert.match(gate, /「欠落（sync で追加済み）」/);
 });
