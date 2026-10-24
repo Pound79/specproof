@@ -421,3 +421,17 @@ for (const adapter of ["playwright", "flutter"]) {
     }
   });
 }
+
+test("playwright の manifest 雛形の記入例は、リポジトリのルートからのパスで書く", () => {
+  // check / update は manifest のパスをリポジトリのルートから解決する。記入例が e2e パッケージからの
+  // パス（features/login.feature）だと、利用者がどちらを基準にするか迷い、誤ったパスを書く。
+  const template = read("templates/playwright/traceability.yaml");
+  const example = between(template, "# Example:", "# ----");
+  const paths = [...example.matchAll(/- path: (\S+)/g)].map((m) => m[1]);
+  assert.ok(paths.length >= 3, example);
+  const feature = paths.find((p) => p.endsWith(".feature"));
+  assert.match(feature, /^packages\/e2e\/features\//);
+  assert.doesNotMatch(paths.join("\n"), /^src\/pages\//m);
+  assert.match(template, /all paths are relative to the repo root/);
+  assert.match(template, /e2eRoot/);
+});
