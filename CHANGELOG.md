@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   未決は権限を推測で補わず spec への加筆を求め、問題なしでは拒否シナリオを創作しない。
   bootstrap と new-feature はドラフトの点検の 4 項目と認可の点検を当て、sync は権限の節が
   drift したリンクに編集前の認可の点検を当てる。点検はどれも提案だけで feature を書き換えない。
+  sync が停止するのは、今回変わった記述と同じ役割・操作・対象の未決と解消できない矛盾だけで、
+  判別できないときは停止する側に倒す。区分の欄は決まった区分だけで書く。
 - 方法論に、権限の節を影響する各リンクの `spec[]` に登録する手順と、`criteria`・`spec[]`・
   sync の起動契機の違い、`strictUnregisteredSpecHeadings` で検出できない登録漏れを書いた。
 

@@ -162,6 +162,11 @@ test("生成ガイドが feature 単位の認可の点検で欠落・未決・�
   // 点検の節の中（次の `---` より前）に置く。別の節の文言で通らないようにする。
   const authz = between(guide, "### 認可の点検（feature 単位）", "\n---");
   assert.ok(section.endsWith(authz), "認可の点検がドラフトの点検の節の末尾に無い");
+  // 区分の欄の表記を固定する（「欠落なし」のような否定の書き方をさせない）。
+  assert.match(authz, /区分の欄には、矛盾・欠落・未決・問題なしのどれか/);
+  assert.match(authz, /「欠落なし」のような、区分の否定は書かない/);
+  assert.match(authz, /「問題なし」の但し書きは提案の欄に書く/);
+  assert.match(authz, /入力不足は feature の行ではなく、報告ごとに 1 回だけ/);
   const row = (name) => authz.split("\n").find((line) => line.startsWith(`| ${name} |`)) ?? "";
   assert.match(authz, /シナリオを 1 件ずつ見るだけでは/);
   assert.match(row("矛盾"), /権限との矛盾/);
@@ -194,6 +199,12 @@ test("生成ガイドが feature 単位の認可の点検で欠落・未決・�
 test("生成ガイドは sync での認可の点検の当て方と、当てないものを区別する", () => {
   const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
   const bullet = between(guide, "- 権限の節が drift したリンク:", "\n\n");
+  // 「関わる」を、変わった記述と同じ役割・操作・対象の組み合わせとして定義し、判別できないときは安全側に倒す。
+  assert.match(bullet, /変わった記述と同じ役割・同じ操作・同じ対象についての点/);
+  assert.match(bullet, /判別できないときは関わるものとして扱う/);
+  // 範囲の限定・役割の定義・複数の操作に及ぶ規則が変わったときは、それが及ぶ組をすべて関わるものにする。
+  assert.match(bullet, /範囲の限定そのものが今回変わったときは、範囲の外の組も関わるものとして扱う/);
+  assert.match(bullet, /役割や対象の範囲の定義、複数の操作に及ぶ規則が変わったときは、それが及ぶ組をすべて関わるものとして扱う/);
   assert.match(bullet, /権限の節が drift していないリンクには、sync は認可の点検を当てない。/);
   // spec のみ changed で権限の節に feature を合わせるのは決定表の更新。矛盾の行の「人に尋ねる」は当てない。
   assert.match(bullet, /Step 2 の決定表による更新/);
@@ -257,6 +268,8 @@ test("sync は権限の節が drift したリンクに編集前の認可の点�
   assert.match(gate, /権限に関わる行を変えずに停止/);
   assert.match(gate, /今回の drift で変わった記述/);
   assert.match(gate, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
+  assert.match(gate, /変わった記述と同じ役割・同じ操作・同じ対象についての点/);
+  assert.match(gate, /判別できないときは関わるものとして扱う/);
   assert.match(gate, /manifest を更新しない/);
   assert.match(gate, /「欠落（sync で追加済み）」/);
 });
