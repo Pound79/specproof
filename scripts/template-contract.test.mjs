@@ -134,7 +134,7 @@ const between = (text, start, end) => {
   return text.slice(from, to);
 };
 
-test("生成ガイドがドラフトの点検 4 項目を持ち、点検は提案だけにする", () => {
+test("生成ガイドがドラフトの点検 5 項目を持ち、点検は提案だけにする", () => {
   // 条件の書き方の弱さ（否定だけの確認・値の無い確認など）を、人のレビュー任せにせず
   // AI が提案として挙げる。提案に留め、feature 本文を黙って書き換えない。
   const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
@@ -147,8 +147,35 @@ test("生成ガイドがドラフトの点検 4 項目を持ち、点検は提�
   assert.match(row("統制できない前提"), /`@human`（人が確かめて記録を残す）を提案/);
   assert.match(row("確認を減らす変更"), /`@out-of-scope` に変える、`@red-contract` を外す/);
   assert.match(row("確認を減らす変更"), /停止/);
+  assert.match(row("権限との矛盾"), /権限の節/);
+  assert.match(row("権限との矛盾"), /どちらが正かは決めない/);
   assert.match(section, /点検の結果でドラフトを書き換えない/);
   assert.match(section, /idiomGuide.*を設定していても/);
+  // bootstrap と new-feature はシナリオ単位の 4 項目を名前で列挙する。表に行を足すだけでは当たらない。
+  assert.match(section, /否定だけの確認・値の無い確認・\s*統制できない前提・権限との矛盾/);
+});
+
+test("生成ガイドが feature 単位の認可の点検で欠落・未決・問題なしを区別する", () => {
+  // 「無い拒否シナリオ」はシナリオを 1 件ずつ見ても見つからない。feature 全体を権限の節と照合する。
+  const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
+  const section = between(guide, "## ドラフトの点検", "\n---");
+  // 点検の節の中（次の `---` より前）に置く。別の節の文言で通らないようにする。
+  const authz = between(guide, "### 認可の点検（feature 単位）", "\n---");
+  assert.ok(section.endsWith(authz), "認可の点検がドラフトの点検の節の末尾に無い");
+  const row = (name) => authz.split("\n").find((line) => line.startsWith(`| ${name} |`)) ?? "";
+  assert.match(authz, /シナリオを 1 件ずつ見るだけでは/);
+  assert.match(row("矛盾"), /権限との矛盾/);
+  assert.match(row("欠落"), /拒否/);
+  assert.match(row("欠落"), /肯定で確かめる/);
+  assert.match(row("欠落"), /「決めてほしいこと」/);
+  assert.match(row("未決"), /推測で補わない/);
+  assert.match(row("未決"), /「やってほしいこと」/);
+  assert.match(row("問題なし"), /創作しない/);
+  assert.match(authz, /入力不足/);
+  assert.match(authz, /否定だけの確認/);
+  assert.match(authz, /rationale doc/);
+  assert.match(authz, /製品側のテスト/);
+  assert.match(authz, /`feature 名 \/ 区分 \/ 根拠の権限の節 \/ 提案`/);
 });
 
 test("bootstrap と new-feature はドラフトの点検を報告の裁定に回し、書き換えない", () => {
@@ -159,12 +186,46 @@ test("bootstrap と new-feature はドラフトの点検を報告の裁定に回
   for (const [name, [start, end]] of Object.entries(steps)) {
     const step = between(read(`plugins/specproof/skills/${name}/SKILL.md`), start, end);
     assert.match(step, /「ドラフトの点検」/, name);
+    assert.match(step, /権限との矛盾/, name);
+    assert.match(step, /「認可の点検」/, name);
+    assert.match(step, /feature 全体/, name);
     assert.match(step, /「決めてほしいこと」に提案として並べる/, name);
     assert.match(step, /書き換えない/, name);
     assert.match(step, /idiomGuide.*を設定していても/, name);
   }
+  // 盲点の自己点検の横断認可は共通の点検に寄せ、他の盲点は残す。
+  const blind = between(read("plugins/specproof/skills/specproof-bootstrap/SKILL.md"), "6. **bootstrap の盲点", "あわせて、");
+  assert.match(blind, /「認可の点検」/);
+  assert.match(blind, /API 契約バリデーション/);
+  assert.match(blind, /別エンドポイント／別ページの操作フロー/);
   const orchestrator = read("plugins/specproof/skills/specproof/SKILL.md");
   assert.match(between(orchestrator, "**決めてほしいこと", "**やってほしいこと"), /ドラフトの点検/);
+  assert.match(between(orchestrator, "**決めてほしいこと", "**やってほしいこと"), /認可の点検/);
+  assert.match(between(orchestrator, "**やってほしいこと", "\n5. "), /権限の節/);
+});
+
+test("sync は権限の節が drift したリンクに編集前の認可の点検を当て、報告だけにする", () => {
+  const skill = read("plugins/specproof/skills/specproof-sync/SKILL.md");
+  const gate = between(skill, "**認可の点検（編集前）**", "\n対象リンクごとに:");
+  assert.match(gate, /`entries`/);
+  assert.match(gate, /権限の節/);
+  assert.match(gate, /feature 全体/);
+  assert.match(gate, /矛盾・欠落・未決/);
+  assert.match(gate, /報告/);
+  assert.match(gate, /推測/);
+  assert.match(gate, /Step 2 の決定表/);
+});
+
+test("方法論が権限の節の manifest 登録と sync の起動契機を区別する", () => {
+  const methodology = read("docs/methodology.md");
+  assert.match(between(methodology, "### ドラフトの点検", "\n### drift 検知"), /認可の点検/);
+  const section = between(methodology, "### 権限の節を各リンクに登録する", "\n### ");
+  assert.match(section, /`links\[\]\.spec\[\]`/);
+  assert.match(section, /`criteria`/);
+  assert.match(section, /登録しただけでは sync は起動しない/);
+  assert.match(section, /`strictUnregisteredSpecHeadings: true`/);
+  assert.match(section, /他のリンクへの登録漏れは検出できない/);
+  assert.match(section, /レビューの承認や動作の確認の証拠ではない/);
 });
 
 test("sync は spec の明示が無い確認を減らす変更を行わず停止する", () => {

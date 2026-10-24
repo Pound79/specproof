@@ -55,6 +55,11 @@ const checkGuide = (guide) => {
   assert.match(row, /Feature \/ Rule \/ Examples/);
   assert.match(row, /Examples の行を削る/);
   assert.match(section, /点検の結果でドラフトを書き換えない/);
+  // sync は権限の節が drift したリンクについて、編集前に feature 全体を権限と照合して報告する。
+  const authz = between(section, "sync は、`{{config:commands.traceabilityCheck}} --json`", "報告する。");
+  assert.match(authz, /権限の節/);
+  assert.match(authz, /編集前に feature 全体/);
+  assert.match(authz, /矛盾・欠落・未決/);
 };
 
 for (const distribution of distributions) {
@@ -106,6 +111,7 @@ test("安全規則の削除・弱体化を契約検査が検出する", () => {
     [checkWeakening, skill, "Feature / Rule / Examples", "Scenario"],
     [checkWeakening, skill, "Examples の行を削る", "Examples を確認する"],
     [checkGuide, guide, "spec の明示が無ければ停止する", "常に進める"],
+    [checkGuide, guide, "編集前に feature 全体", "編集後に feature 全体"],
   ];
   for (const [check, original, before, after] of mutants) {
     const mutated = original.replace(before, after);
