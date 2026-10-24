@@ -66,6 +66,8 @@ const checkGuide = (guide) => {
   assert.match(section, /今回の drift で変わった記述に関わる点で/);
   assert.match(section, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
   assert.match(section, /判別できないときは関わるものとして扱う/);
+  assert.match(section, /変わった記述と同じ役割・同じ操作・同じ対象についての点/);
+  assert.match(section, /範囲の外の組も関わるものとして扱う/);
   // 点検は報告だけ。入力は spec の権限の節で、実装などから推測しない。当てる範囲を広げない。
   assert.match(section, /sync でも点検は報告だけで、feature を直すかどうか/);
   assert.match(section, /実装・画面・既存 feature から権限を推測して入力にしない/);
@@ -129,6 +131,8 @@ test("安全規則の削除・弱体化を契約検査が検出する", () => {
     [checkGuide, guide, "統制できない前提）は当てず", "統制できない前提）も当て"],
     [checkGuide, guide, "それだけでは停止しない", "停止する"],
     [checkGuide, guide, "判別できないときは関わるものとして扱う", "判別できないときは関わらないものとして扱う"],
+    [checkGuide, guide, "同じ役割・同じ操作・同じ対象についての点", "同じ役割についての点"],
+    [checkGuide, guide, "範囲の外の組も関わるものとして扱う", "範囲の外の組は関わらないものとして扱う"],
     [checkGuide, guide, "今回の drift で変わった記述に関わる点で", "どの記述に関わる点でも"],
   ];
   for (const [check, original, before, after] of mutants) {
