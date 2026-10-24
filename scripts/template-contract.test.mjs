@@ -199,6 +199,9 @@ test("生成ガイドは sync での認可の点検の当て方と、当てな�
   assert.match(bullet, /Step 2 の決定表による更新/);
   assert.match(bullet, /「どちらに合わせるかを人に尋ねる」「提案に留める」は当てない/);
   assert.match(bullet, /権限に関わる行を変えずに停止し、manifest を更新しない/);
+  // 停止は今回の drift で変わった記述に関わるものだけ。変わっていない記述の未決は報告して止めない。
+  assert.match(bullet, /今回の drift で変わった記述/);
+  assert.match(bullet, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
   const others = between(guide, "sync は表のほかの項目", "\n");
   assert.match(others, /否定だけの確認・値の無い確認・統制できない前提）は当てず/);
   assert.match(others, /「否定だけの確認にも当たる」も報告しない/);
@@ -252,6 +255,8 @@ test("sync は権限の節が drift したリンクに編集前の認可の点�
   assert.match(gate, /「どちらに合わせるかを人に尋ねる」「提案に留める」は当てない/);
   assert.match(gate, /未決を含むリンク/);
   assert.match(gate, /権限に関わる行を変えずに停止/);
+  assert.match(gate, /今回の drift で変わった記述/);
+  assert.match(gate, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
   assert.match(gate, /manifest を更新しない/);
   assert.match(gate, /「欠落（sync で追加済み）」/);
 });

@@ -62,6 +62,9 @@ const checkGuide = (guide) => {
   assert.match(authz, /矛盾・欠落・未決/);
   // 確認を減らす変更だけを当てると読まれないよう、両方を当てることを同じ文に書く。
   assert.match(authz, /「確認を減らす変更」に加えて/);
+  // 停止は今回の drift で変わった記述に関わるものだけで、前からある未決では止めない。
+  assert.match(section, /今回の drift で変わった記述に関わる点で/);
+  assert.match(section, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
   // 点検は報告だけ。入力は spec の権限の節で、実装などから推測しない。当てる範囲を広げない。
   assert.match(section, /sync でも点検は報告だけで、feature を直すかどうか/);
   assert.match(section, /実装・画面・既存 feature から権限を推測して入力にしない/);
@@ -123,6 +126,8 @@ test("安全規則の削除・弱体化を契約検査が検出する", () => {
     [checkGuide, guide, "推測して入力にしない", "参考にしてよい"],
     [checkGuide, guide, "sync は認可の点検を当てない。", "sync は認可の点検を当てる。"],
     [checkGuide, guide, "統制できない前提）は当てず", "統制できない前提）も当て"],
+    [checkGuide, guide, "それだけでは停止しない", "停止する"],
+    [checkGuide, guide, "今回の drift で変わった記述に関わる点で", "どの記述に関わる点でも"],
   ];
   for (const [check, original, before, after] of mutants) {
     const mutated = original.replace(before, after);
