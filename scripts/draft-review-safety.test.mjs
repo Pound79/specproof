@@ -55,6 +55,21 @@ const checkGuide = (guide) => {
   assert.match(row, /Feature \/ Rule \/ Examples/);
   assert.match(row, /Examples の行を削る/);
   assert.match(section, /点検の結果でドラフトを書き換えない/);
+  // sync は権限の節が drift したリンクについて、編集前に feature 全体を権限と照合して報告する。
+  const authz = between(section, "sync は、`{{config:commands.traceabilityCheck}} --json`", "報告する。");
+  assert.match(authz, /権限の節/);
+  assert.match(authz, /編集前に feature 全体/);
+  assert.match(authz, /矛盾・欠落・未決/);
+  // 確認を減らす変更だけを当てると読まれないよう、両方を当てることを同じ文に書く。
+  assert.match(authz, /「確認を減らす変更」に加えて/);
+  // 停止は今回の drift で変わった記述に関わるものだけで、前からある未決では止めない。
+  assert.match(section, /今回の drift で変わった記述に関わる点で/);
+  assert.match(section, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
+  // 点検は報告だけ。入力は spec の権限の節で、実装などから推測しない。当てる範囲を広げない。
+  assert.match(section, /sync でも点検は報告だけで、feature を直すかどうか/);
+  assert.match(section, /実装・画面・既存 feature から権限を推測して入力にしない/);
+  assert.match(section, /権限の節が drift していないリンクには、sync は認可の点検を当てない。/);
+  assert.match(section, /統制できない前提）は当てず/);
 };
 
 for (const distribution of distributions) {
@@ -106,6 +121,13 @@ test("安全規則の削除・弱体化を契約検査が検出する", () => {
     [checkWeakening, skill, "Feature / Rule / Examples", "Scenario"],
     [checkWeakening, skill, "Examples の行を削る", "Examples を確認する"],
     [checkGuide, guide, "spec の明示が無ければ停止する", "常に進める"],
+    [checkGuide, guide, "編集前に feature 全体", "編集後に feature 全体"],
+    [checkGuide, guide, "点検は報告だけで", "点検の結果で feature を直し"],
+    [checkGuide, guide, "推測して入力にしない", "参考にしてよい"],
+    [checkGuide, guide, "sync は認可の点検を当てない。", "sync は認可の点検を当てる。"],
+    [checkGuide, guide, "統制できない前提）は当てず", "統制できない前提）も当て"],
+    [checkGuide, guide, "それだけでは停止しない", "停止する"],
+    [checkGuide, guide, "今回の drift で変わった記述に関わる点で", "どの記述に関わる点でも"],
   ];
   for (const [check, original, before, after] of mutants) {
     const mutated = original.replace(before, after);

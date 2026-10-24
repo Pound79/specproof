@@ -126,8 +126,9 @@ description: >
 3. **決めてほしいこと（裁定）** — 振る舞い矛盾の権威側・`@out-of-scope` とその理由の承認・
    `@draft`（状態タグ。`# specproof: draft` マーカーとは別）を作るか（`@red-contract` に付け替えるか）・
    adapter/mode 確認・ドラフトの点検で挙がった提案（`../specproof-sync/prompts/system.md` の
-   「ドラフトの点検」。採るかどうかを人が決める）。
-4. **やってほしいこと（作業）** — `.env`/認証セットアップ・install・spec の WHY 加筆・`@red-contract` の
+   「ドラフトの点検」。認可の点検で挙がった権限との矛盾・拒否の欠落を含む。採るかどうかを人が決める）。
+4. **やってほしいこと（作業）** — `.env`/認証セットアップ・install・spec の WHY 加筆・
+   認可の点検で未決・入力不足になった権限の節の加筆・`.feature` の対象外として挙がった製品側のテスト・`@red-contract` の
    実装・`@human` の確認と記録・testability backlog（`@human` を自動化するために作るべき seam）。
 5. **完了ダッシュボード** — `{{config:commands.traceabilityStats}}`（無ければ
    `npx -y -p @pound79/specproof-traceability specproof-stats`）で条件数 / phase（draft・pending・complete）/

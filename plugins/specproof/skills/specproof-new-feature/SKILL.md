@@ -111,9 +111,10 @@ specproof init --adapter <framework>
 
 7. 作成物の一覧と、ユーザーが次に実装すべき pending step を報告する。あわせて、
    `../specproof-sync/prompts/system.md` の「ドラフトの点検」（否定だけの確認・値の無い確認・
-   統制できない前提。`{{config:layout.idiomGuide}}` を設定していても、この節はここを読む）を
-   作成したシナリオに当て、該当を報告の「決めてほしいこと」に提案として並べる。
-   点検の結果で feature を書き換えない。
+   統制できない前提・権限との矛盾。`{{config:layout.idiomGuide}}` を設定していても、この節はここを読む）を
+   作成したシナリオに当て、同じ節の「認可の点検」（拒否の欠落・未決。入力は spec の権限の節）を
+   作成した feature 全体に当てる。spec への加筆は「やってほしいこと」に回し、ほかの該当を
+   報告の「決めてほしいこと」に提案として並べる。点検の結果で feature を書き換えない。
 
 ## Safety rules
 

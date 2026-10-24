@@ -134,7 +134,7 @@ const between = (text, start, end) => {
   return text.slice(from, to);
 };
 
-test("生成ガイドがドラフトの点検 4 項目を持ち、点検は提案だけにする", () => {
+test("生成ガイドがドラフトの点検 5 項目を持ち、点検は提案だけにする", () => {
   // 条件の書き方の弱さ（否定だけの確認・値の無い確認など）を、人のレビュー任せにせず
   // AI が提案として挙げる。提案に留め、feature 本文を黙って書き換えない。
   const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
@@ -147,8 +147,64 @@ test("生成ガイドがドラフトの点検 4 項目を持ち、点検は提�
   assert.match(row("統制できない前提"), /`@human`（人が確かめて記録を残す）を提案/);
   assert.match(row("確認を減らす変更"), /`@out-of-scope` に変える、`@red-contract` を外す/);
   assert.match(row("確認を減らす変更"), /停止/);
+  assert.match(row("権限との矛盾"), /権限の節/);
+  assert.match(row("権限との矛盾"), /どちらが正かは決めない/);
   assert.match(section, /点検の結果でドラフトを書き換えない/);
   assert.match(section, /idiomGuide.*を設定していても/);
+  // bootstrap と new-feature はシナリオ単位の 4 項目を名前で列挙する。表に行を足すだけでは当たらない。
+  assert.match(section, /否定だけの確認・値の無い確認・\s*統制できない前提・権限との矛盾/);
+});
+
+test("生成ガイドが feature 単位の認可の点検で欠落・未決・問題なしを区別する", () => {
+  // 「無い拒否シナリオ」はシナリオを 1 件ずつ見ても見つからない。feature 全体を権限の節と照合する。
+  const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
+  const section = between(guide, "## ドラフトの点検", "\n---");
+  // 点検の節の中（次の `---` より前）に置く。別の節の文言で通らないようにする。
+  const authz = between(guide, "### 認可の点検（feature 単位）", "\n---");
+  assert.ok(section.endsWith(authz), "認可の点検がドラフトの点検の節の末尾に無い");
+  const row = (name) => authz.split("\n").find((line) => line.startsWith(`| ${name} |`)) ?? "";
+  assert.match(authz, /シナリオを 1 件ずつ見るだけでは/);
+  assert.match(row("矛盾"), /権限との矛盾/);
+  assert.match(row("欠落"), /拒否/);
+  assert.match(row("欠落"), /肯定で確かめる/);
+  assert.match(row("欠落"), /「決めてほしいこと」/);
+  assert.match(row("未決"), /推測で補わない/);
+  assert.match(row("未決"), /「やってほしいこと」/);
+  assert.match(row("問題なし"), /創作しない/);
+  assert.match(row("矛盾"), /同じ指摘を重ねない/);
+  assert.match(authz, /範囲の限定[\s\S]*?読み取らない/);
+  assert.match(authz, /1 つに特定できるときだけ入力に含める/);
+  assert.match(authz, /入力不足/);
+  assert.match(authz, /否定だけの確認/);
+  assert.match(authz, /rationale doc/);
+  assert.match(authz, /製品側のテスト/);
+  assert.match(authz, /`feature 名 \/ 区分 \/ 根拠の権限の節 \/ 提案`/);
+  // 照合だけで実装の認可を確かめたと読まれないようにする。
+  assert.match(row("問題なし"), /spec の権限の節と feature の照合のみ。実装の認可の検証ではない/);
+  // 「創作しない」は新規の提案だけに当てる。根拠が消えた既存の拒否は未決にし、削除・緩和の規則に回す。
+  assert.match(row("問題なし"), /新規の提案だけ/);
+  assert.match(row("未決"), /既存の拒否シナリオの根拠が権限の節から消えた/);
+  assert.match(row("未決"), /Step 3 の 5・6/);
+  assert.match(authz, /実装・画面・既存 feature から権限を推測して入力にしない/);
+  assert.match(authz, /new-feature と bootstrap では、feature を書く元にした spec 文書/);
+  assert.match(authz, /対象の spec 文書に権限を決める記述が 1 つも無い/);
+  assert.match(authz, /報告ごとに 1 回だけ/);
+});
+
+test("生成ガイドは sync での認可の点検の当て方と、当てないものを区別する", () => {
+  const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
+  const bullet = between(guide, "- 権限の節が drift したリンク:", "\n\n");
+  assert.match(bullet, /権限の節が drift していないリンクには、sync は認可の点検を当てない。/);
+  // spec のみ changed で権限の節に feature を合わせるのは決定表の更新。矛盾の行の「人に尋ねる」は当てない。
+  assert.match(bullet, /Step 2 の決定表による更新/);
+  assert.match(bullet, /「どちらに合わせるかを人に尋ねる」「提案に留める」は当てない/);
+  assert.match(bullet, /権限に関わる行を変えずに停止し、manifest を更新しない/);
+  // 停止は今回の drift で変わった記述に関わるものだけ。変わっていない記述の未決は報告して止めない。
+  assert.match(bullet, /今回の drift で変わった記述/);
+  assert.match(bullet, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
+  const others = between(guide, "sync は表のほかの項目", "\n");
+  assert.match(others, /否定だけの確認・値の無い確認・統制できない前提）は当てず/);
+  assert.match(others, /「否定だけの確認にも当たる」も報告しない/);
 });
 
 test("bootstrap と new-feature はドラフトの点検を報告の裁定に回し、書き換えない", () => {
@@ -159,12 +215,68 @@ test("bootstrap と new-feature はドラフトの点検を報告の裁定に回
   for (const [name, [start, end]] of Object.entries(steps)) {
     const step = between(read(`plugins/specproof/skills/${name}/SKILL.md`), start, end);
     assert.match(step, /「ドラフトの点検」/, name);
+    assert.match(step, /権限との矛盾/, name);
+    assert.match(step, /「認可の点検」/, name);
+    assert.match(step, /feature 全体/, name);
     assert.match(step, /「決めてほしいこと」に提案として並べる/, name);
     assert.match(step, /書き換えない/, name);
     assert.match(step, /idiomGuide.*を設定していても/, name);
   }
+  // 盲点の自己点検の横断認可は共通の点検に寄せ、他の盲点は残す。
+  const blind = between(read("plugins/specproof/skills/specproof-bootstrap/SKILL.md"), "6. **bootstrap の盲点", "あわせて、");
+  assert.match(blind, /「認可の点検」/);
+  assert.match(blind, /API 契約バリデーション/);
+  assert.match(blind, /別エンドポイント／別ページの操作フロー/);
+  assert.match(blind, /認可以外のセキュリティ契約（セッション切れの扱いなど）/);
+  assert.match(blind, /impl から権限を読み取って拒否シナリオを足さない/);
+  // 「観測可能なら feature に追加し」は横断認可には当てない。
+  const addRule = between(blind, "上の 3 つは", "\n");
+  assert.match(addRule, /観測可能なら feature に追加し/);
+  assert.ok(blind.indexOf("横断認可") > blind.indexOf("上の 3 つは"), "横断認可が追加の規則より前にある");
   const orchestrator = read("plugins/specproof/skills/specproof/SKILL.md");
   assert.match(between(orchestrator, "**決めてほしいこと", "**やってほしいこと"), /ドラフトの点検/);
+  assert.match(between(orchestrator, "**決めてほしいこと", "**やってほしいこと"), /認可の点検/);
+  assert.match(between(orchestrator, "**やってほしいこと", "\n5. "), /権限の節/);
+});
+
+test("sync は権限の節が drift したリンクに編集前の認可の点検を当て、報告だけにする", () => {
+  const skill = read("plugins/specproof/skills/specproof-sync/SKILL.md");
+  const gate = between(skill, "**認可の点検（編集前）**", "\n対象リンクごとに:");
+  assert.match(gate, /`entries`/);
+  assert.match(gate, /権限の節/);
+  assert.match(gate, /feature 全体/);
+  assert.match(gate, /矛盾・欠落・未決/);
+  assert.match(gate, /報告/);
+  assert.match(gate, /推測/);
+  assert.match(gate, /Step 2 の決定表/);
+  assert.match(gate, /編集を始める前に/);
+  assert.match(gate, /編集前ゲートと同じ読み取りの段階で、全対象リンク/);
+  assert.match(gate, /停止するときも点検の結果を報告に含める/);
+  assert.match(gate, /「どちらに合わせるかを人に尋ねる」「提案に留める」は当てない/);
+  assert.match(gate, /未決を含むリンク/);
+  assert.match(gate, /権限に関わる行を変えずに停止/);
+  assert.match(gate, /今回の drift で変わった記述/);
+  assert.match(gate, /変わっていない記述から出る未決は報告するが、それだけでは停止しない/);
+  assert.match(gate, /manifest を更新しない/);
+  assert.match(gate, /「欠落（sync で追加済み）」/);
+});
+
+test("方法論が権限の節の manifest 登録と sync の起動契機を区別する", () => {
+  const methodology = read("docs/methodology.md");
+  const review = between(methodology, "### ドラフトの点検", "\n### drift 検知");
+  assert.match(review, /認可の点検/);
+  assert.match(review, /spec の権限の節と feature の照合で、実装の認可の検証ではない/);
+  assert.match(review, /対象の spec 文書に権限を決める記述が 1 つも無/);
+  assert.match(review, /決定表による更新/);
+  assert.match(between(methodology, "### rationale doc は自動生成しない", "\n### "), /画面から観測できない部分の横断認可/);
+  const section = between(methodology, "### 権限の節を各リンクに登録する", "\n### ");
+  assert.match(section, /登録済みの見出しと同じレベルの見出しだけ/);
+  assert.match(section, /`links\[\]\.spec\[\]`/);
+  assert.match(section, /`criteria`/);
+  assert.match(section, /登録しただけでは sync は起動しない/);
+  assert.match(section, /`strictUnregisteredSpecHeadings: true`/);
+  assert.match(section, /他のリンクへの登録漏れは検出できない/);
+  assert.match(section, /レビューの承認や動作の確認の証拠ではない/);
 });
 
 test("sync は spec の明示が無い確認を減らす変更を行わず停止する", () => {

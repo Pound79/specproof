@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 「ドラフトの点検」に認可の点検を追加した。入力は spec の権限の節で、シナリオ単位の
+  「権限との矛盾」と、feature 単位の拒否の欠落・未決・問題なしを区別して報告する。
+  未決は権限を推測で補わず spec への加筆を求め、問題なしでは拒否シナリオを創作しない。
+  bootstrap と new-feature はドラフトの点検の 4 項目と認可の点検を当て、sync は権限の節が
+  drift したリンクに編集前の認可の点検を当てる。点検はどれも提案だけで feature を書き換えない。
+- 方法論に、権限の節を影響する各リンクの `spec[]` に登録する手順と、`criteria`・`spec[]`・
+  sync の起動契機の違い、`strictUnregisteredSpecHeadings` で検出できない登録漏れを書いた。
+
 ## [0.3.0] - 2026-10-16
 
 ### Added
