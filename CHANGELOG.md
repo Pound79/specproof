@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `specproof-check` は、設定ファイルがあるのに `layout.featuresDir` が無いとき警告
+  `features-dir-unset` を出し、`--strict` で失敗する。未設定だと登録していない feature の
+  ドラフトマーカー・止めるタグ・lint を黙って検査しておらず、設定の文書（必須）と食い違っていた。
+  設定ファイルを置かずに engine だけを使う場合は従来どおり警告しない。同梱のテンプレートは設定済み。
+  `featuresDir` を書いていても指す先が存在しない・ディレクトリでないときは、これまで黙って
+  登録済みの feature だけを見ていたので、警告 `features-dir-missing` を出し `--strict` で失敗する。
 - PR の依存の検査を `npm audit` から `actions/dependency-review-action` に替えた。その PR が
   持ち込む moderate 以上の脆弱な依存（開発用の依存も含む）だけで落ち、main に既にある脆弱性では
   関係のない PR を止めない（既存の脆弱性は Dependabot alerts と security updates が扱う）。

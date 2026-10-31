@@ -65,7 +65,10 @@ describe.skipIf(process.platform === "win32")("登録した feature の実体", 
         expect(report.warnings).toEqual([]);
         const result = cli(root, "check", "--strict", "--json");
         expect(result.error).toBeUndefined();
-        expect(result.status, result.stderr).toBe(0);
+        // 設定ファイルに featuresDir が無いことだけを知らせ（strict で失敗）、別名は重複にしない。
+        const kinds = JSON.parse(result.stdout).warnings.map((w: { kind: string }) => w.kind);
+        expect(kinds).toEqual(featuresDir ? [] : ["features-dir-unset"]);
+        expect(result.status, result.stderr).toBe(featuresDir ? 0 : 1);
       }),
   );
 

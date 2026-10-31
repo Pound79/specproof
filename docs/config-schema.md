@@ -56,7 +56,7 @@ package.json に workspaces を注入しないため、`npm run <script>` を裸
 | フィールド | 要否 | 説明 |
 |---|---|---|
 | `e2eRoot` | required | E2E パッケージ root |
-| `featuresDir` | required | `.feature` 置き場 |
+| `featuresDir` | required | `.feature` 置き場。未設定だと `specproof-check` は登録していない `.feature` を走査できず、警告 `features-dir-unset` を、指す先が存在しない・ディレクトリでないと `features-dir-missing` を出す（どちらも `--strict` で失敗） |
 | `stepsDir` | required | step 定義 dir |
 | `stepFileSuffix` | optional<sup>+</sup> | step ファイル命名規約（`.steps.ts`）。glob 誤爆防止。 |
 | `stepFileExt` | required | step ファイル言語拡張子（`.ts`） |

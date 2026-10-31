@@ -41,6 +41,8 @@ export interface TraceabilityConfig {
   gherkin: GherkinFlavor;
   /** runner の既定の Gherkin 言語（top-level `language`）。dart の規則で、宣言の無い feature に使う。 */
   language?: string;
+  /** 読んだ設定ファイルのリポジトリ相対の名前。設定ファイルが無ければ undefined。 */
+  configFile?: string;
 }
 
 export interface DiscoverConfigOverrides {
@@ -301,5 +303,6 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     strictFeatureLint,
     gherkin,
     language,
+    configFile: source?.name,
   };
 };
