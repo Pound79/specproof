@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 方法論に、権限の節を影響する各リンクの `spec[]` に登録する手順と、`criteria`・`spec[]`・
   sync の起動契機の違い、`strictUnregisteredSpecHeadings` で検出できない登録漏れを書いた。
 
+### Changed
+
+- PR の依存の検査を `npm audit` から `actions/dependency-review-action` に替えた。その PR が
+  持ち込む moderate 以上の脆弱な依存（開発用の依存も含む）だけで落ち、main に既にある脆弱性では
+  関係のない PR を止めない（既存の脆弱性は Dependabot alerts と security updates が扱う）。
+- Dependabot の version updates が提案までに待つ日数を、既定の 3 日から 7 日に延ばした（`cooldown`）。
+  公開直後に乗っ取られて取り下げられる版を取り込みにくくする。security updates は待たない。
+
 ### Fixed
 
 - playwright の `traceability.yaml` 雛形の記入例を、リポジトリのルートからのパス
