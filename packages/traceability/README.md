@@ -332,6 +332,13 @@ methodology, config schema, and the adapter contract.
 （例: Page.ts / _page.dart）。`--github-annotations` は GitHub Actions 用の注釈を stderr に出す。
 未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。
 
+失敗したときは stderr に `<command> failed: <message>` を 1 行だけ出し、終了コード 2 で終わる。
+メッセージの改行・制御文字は `?` に置き換え、設定や manifest の YAML 構文エラーはファイルの行を
+写さずに行と列だけを示す（公開リポジトリの CI ログに、PR の内容で GitHub Actions の
+ワークフローコマンドや偽の行を作らせないため）。想定外のエラーのスタックは既定では出さず、
+環境変数 `SPECPROOF_DEBUG=1` を付けたときだけ続けて出す（このときは整形前のメッセージも出るので、
+公開の CI では付けない）。
+
 `layout.implGlobs` は `*` / `**` に加えてリテラルのファイルパスと先頭 `./` を受け付ける。
 `?` はワイルドカードではなく文字として扱う。
 `specproof-update` は変更ゼロなら保存せず、変更した hash だけを原子的に保存する。

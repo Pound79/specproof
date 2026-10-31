@@ -1,4 +1,6 @@
 // traceability CLI 共通の引数検証。未知の引数は処理を始める前に拒否する。
+import { printable } from "./display-text.js";
+
 type ValueOptionKey = "manifest" | "root" | "pagesDir" | "candidateSuffix" | "linkId";
 
 const VALUE_OPTIONS: Record<string, ValueOptionKey> = {
@@ -70,9 +72,15 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
  */
 export const runCli = (name: string, main: () => Promise<void>): void => {
   main().catch((error: unknown) => {
-    // 想定外のエラーは調査用にスタックを残す。
-    if (error instanceof CliUsageError) console.error(`${name} failed: ${error.message}`);
-    else console.error(`${name} failed:`, error);
+    // 公開リポジトリの CI ログは誰でも読めるので、既定ではスタック（実行環境のファイル配置）を
+    // 出さず、メッセージを 1 行にして出す。メッセージには利用者のリポジトリ由来の文字列が
+    // 入りうるので、改行や制御文字で行頭にワークフローコマンドや偽の行を作らせない。
+    // 調査でスタックが要るときは SPECPROOF_DEBUG=1 で出す。
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`${name} failed: ${printable(message)}`);
+    if (!(error instanceof CliUsageError) && process.env.SPECPROOF_DEBUG === "1") {
+      console.error(error);
+    }
     process.exitCode = 2;
   });
 };
