@@ -52,6 +52,8 @@ export interface DriftWarning {
     | "unregistered-spec-heading"
     | "unregistered-impl"
     | "duplicate-heading"
+    | "features-dir-unset"
+    | "features-dir-missing"
     | FeatureLintKind;
   // The offending file path (the feature, for unreviewed-draft). Absent for
   // empty-link, where the link itself — not a file — is the subject.
@@ -205,10 +207,34 @@ const unregisteredFeatureWarning = (relPath: string): DriftWarning => ({
   message: `feature file is not registered in the traceability manifest: ${relPath}`,
 });
 
+// 設定ファイルがあるのに featuresDir が無いと、登録していない feature の
+// ドラフトマーカー・止めるタグ・lint を検査しない（登録済みの feature だけを見る）。
+// 設定の文書では必須なので、黙って検査を外さず知らせる。設定ファイルを置かない engine
+// 単体の利用は従来どおり既定値で動かし、警告しない。
+const featuresDirUnsetWarning = (configFile: string): DriftWarning => ({
+  kind: "features-dir-unset",
+  path: configFile,
+  message: `${configFile} has no layout.featuresDir, so .feature files that no link registers are not checked for draft markers, disallowed tags or lint. Set layout.featuresDir to the directory holding the .feature files.`,
+});
+
+// featuresDir を書いていても、指す先が無い・ディレクトリでないと同じく検査が外れる。
+// 設定を別名に書き換えるだけでゲートを素通りさせないよう、こちらも知らせる。
+const featuresDirMissingWarning = (featuresDir: string): DriftWarning => ({
+  kind: "features-dir-missing",
+  path: featuresDir,
+  message: `featuresDir ${JSON.stringify(featuresDir)} is not an existing directory, so .feature files that no link registers are not checked for draft markers, disallowed tags or lint.`,
+});
+
 // A feature file to lint, with its manifest link id when it is registered.
 interface FeatureTarget {
   relPath: string;
   linkId?: string;
+}
+
+interface FeatureTargets {
+  targets: FeatureTarget[];
+  /** featuresDir を指定したのに、存在しない・ディレクトリでないため走査できなかった。 */
+  featuresDirMissing: boolean;
 }
 
 // 登録済み feature と featuresDir 配下の未登録 feature を lint する。
@@ -217,7 +243,7 @@ const collectFeatureTargets = async (
   manifest: TraceabilityManifest,
   repoRoot: string,
   featuresDir: string | undefined,
-): Promise<FeatureTarget[]> => {
+): Promise<FeatureTargets> => {
   const registered = uniqueFeatureTargets(
     repoRoot,
     manifest.links.flatMap((link) =>
@@ -230,7 +256,7 @@ const collectFeatureTargets = async (
   );
 
   if (featuresDir === undefined) {
-    return registered;
+    return { targets: registered, featuresDirMissing: false };
   }
   let entries: string[];
   try {
@@ -238,17 +264,18 @@ const collectFeatureTargets = async (
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT" || code === "ENOTDIR") {
-      return registered;
+      return { targets: registered, featuresDirMissing: true };
     }
     throw error;
   }
   // 登録と探索を同じ規則で照合する。登録順を先に置き、別名だけの登録でも
   // linkId を保持する。ENOENT / ENOTDIR 以外の実体解決エラーは握り潰さない。
-  return uniqueFeatureTargets<FeatureTarget>(
+  const targets = uniqueFeatureTargets<FeatureTarget>(
     repoRoot,
     [...registered, ...entries.map((relPath) => ({ relPath }))],
     (target) => target.relPath,
   );
+  return { targets, featuresDirMissing: false };
 };
 
 // Reads a feature file once and runs the per-file lints on it (draft marker +
@@ -305,6 +332,9 @@ export interface CheckDriftOptions {
   gherkin?: GherkinFlavor;
   /** runner の既定の Gherkin 言語。dart の規則で、宣言の無い feature に使う。 */
   language?: string;
+  /** 読んだ設定ファイルの名前。設定ファイルがあるのに featuresDir が無ければ
+   *  features-dir-unset を警告する。 */
+  configFile?: string;
 }
 
 export const checkDrift = async (
@@ -321,7 +351,11 @@ export const checkDrift = async (
   const driftLinkCount = new Set(entries.map((entry) => entry.linkId)).size;
 
   const parse: ParseOptions = { gherkin: options.gherkin ?? "js", language: options.language };
-  const targets = await collectFeatureTargets(manifest, repoRoot, options.featuresDir);
+  const { targets, featuresDirMissing } = await collectFeatureTargets(
+    manifest,
+    repoRoot,
+    options.featuresDir,
+  );
   const featureResults = await Promise.all(
     targets.map((target) => lintFeature(target, repoRoot, runLimited, parse)),
   );
@@ -349,6 +383,12 @@ export const checkDrift = async (
   const implWarnings = await auditUnregisteredImpl(manifest, repoRoot, options.implGlobs);
 
   const warnings = [
+    ...(options.configFile !== undefined && options.featuresDir === undefined
+      ? [featuresDirUnsetWarning(options.configFile)]
+      : []),
+    ...(featuresDirMissing && options.featuresDir !== undefined
+      ? [featuresDirMissingWarning(options.featuresDir)]
+      : []),
     ...manifest.links.filter(isEmptyLink).map(emptyLinkWarning),
     ...featureWarningGroups.flat(),
     ...contentLintWarnings,

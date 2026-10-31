@@ -244,6 +244,8 @@ describe("warningFailsUnderStrict", () => {
     "disallowed-tag",
     "unregistered-feature",
     "duplicate-heading",
+    "features-dir-unset",
+    "features-dir-missing",
   ])("always escalates %s, with or without options", (kind) => {
     expect(warningFailsUnderStrict(kind)).toBe(true);
     expect(

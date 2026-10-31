@@ -110,7 +110,10 @@ describe.skipIf(process.platform === "win32")("別名だけを登録した featu
         expect(report.clean).toBe(true);
         expect(report.warnings).toEqual([]);
         const checked = cli(root, "check");
-        expect(checked.status, checked.stderr).toBe(0);
+        // 設定ファイルに featuresDir が無いことだけを知らせ（strict で失敗）、別名は未登録・重複にしない。
+        const kinds = JSON.parse(checked.stdout).warnings.map((w: { kind: string }) => w.kind);
+        expect(kinds).toEqual(featuresDir ? [] : ["features-dir-unset"]);
+        expect(checked.status, checked.stderr).toBe(featuresDir ? 0 : 1);
         const counted = cli(root, "stats");
         expect(counted.status, counted.stderr).toBe(0);
         const census = JSON.parse(counted.stdout);

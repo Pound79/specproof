@@ -23,6 +23,7 @@ const main = async (): Promise<void> => {
     implGlobs: config.implGlobs,
     gherkin: config.gherkin,
     language: config.language,
+    configFile: config.configFile,
   });
   const strict = flags.has("--strict");
   const strictOptions = {

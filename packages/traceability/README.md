@@ -145,6 +145,8 @@ failing unless `--strict` is passed:
 | `missing-reason` | an `@out-of-scope` scenario has no reason comment (its own tags only), or `@out-of-scope` is inherited from Feature / Rule / Examples — put `@out-of-scope` on each scenario with a reason comment |
 | `disallowed-tag` | a scenario carries a tag that makes the runner skip it or expect its failure (`@fixme` / `@skip` / `@fail`), including one inherited from Feature / Rule / Examples |
 | `unregistered-feature` | a `.feature` file under `featuresDir` that no link registers |
+| `features-dir-unset` | a config file exists but sets no `layout.featuresDir`, so `.feature` files that no link registers are not scanned (no warning when there is no config file) |
+| `features-dir-missing` | `featuresDir` is set but is not an existing directory, so `.feature` files that no link registers are not scanned |
 | `unregistered-spec-heading` | a heading in an already-referenced spec file that no link registers |
 | `unregistered-impl` | a file matching `layout.implGlobs` that no link's `impl[]` registers |
 | `duplicate-heading` | a registered heading appears more than once in its spec file, making the section hash ambiguous |
