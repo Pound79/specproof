@@ -5,6 +5,7 @@ import { buildDomainList, formatDomainList } from "./list.js";
 import { loadManifest } from "./manifest.js";
 import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
+import { printJson, printText } from "./output.js";
 
 const main = async (): Promise<void> => {
   const { flags, manifest, root, pagesDir, candidateSuffix } = parseCliArgs(
@@ -30,11 +31,11 @@ const main = async (): Promise<void> => {
   });
 
   if (flags.has("--json")) {
-    console.log(JSON.stringify(domainList, null, 2));
+    printJson(domainList);
     return;
   }
 
-  console.log(formatDomainList(domainList));
+  printText(formatDomainList(domainList));
 };
 
 runCli("traceability list", main);

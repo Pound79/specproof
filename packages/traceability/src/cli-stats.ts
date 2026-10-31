@@ -9,6 +9,7 @@ import { loadManifest, type TraceabilityManifest } from "./manifest.js";
 import { discoverConfig, type TraceabilityConfig } from "./config.js";
 import { resolveWithinRoot } from "./resolve.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
+import { printErrorText, printJson, printText } from "./output.js";
 import { buildStats, formatStats, type FeatureScenarios } from "./stats.js";
 
 interface FeatureSources {
@@ -32,8 +33,8 @@ const findUnderFeaturesDir = async (config: TraceabilityConfig): Promise<string[
     return await findFeatureFiles(config.repoRoot, featuresDir);
   } catch (error) {
     if (!isNotFound(error)) throw error;
-    process.stderr.write(
-      `warn: featuresDir ${printable(JSON.stringify(featuresDir))} not found — counting manifest-registered features only\n`,
+    printErrorText(
+      `warn: featuresDir ${printable(JSON.stringify(featuresDir))} not found — counting manifest-registered features only`,
     );
     return undefined;
   }
@@ -96,17 +97,17 @@ const main = async (): Promise<void> => {
     if (!scanned.has(relPath) && (await read(relPath)) === null) missingFeatures.push(relPath);
   }
   for (const relPath of missingFeatures) {
-    process.stderr.write(
-      `warn: registered feature ${printable(JSON.stringify(relPath))} not found — not counted\n`,
+    printErrorText(
+      `warn: registered feature ${printable(JSON.stringify(relPath))} not found — not counted`,
     );
   }
 
   const report = buildStats(features);
 
   if (flags.has("--json")) {
-    console.log(JSON.stringify({ ...report, missingFeatures, missingFeaturesDir }, null, 2));
+    printJson({ ...report, missingFeatures, missingFeaturesDir });
   } else {
-    console.log(formatStats(report));
+    printText(formatStats(report));
   }
 
   // Read-only by default. Under --strict, an outstanding @red-contract or a
