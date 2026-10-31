@@ -1,5 +1,6 @@
 // traceability CLI 共通の引数検証。未知の引数は処理を始める前に拒否する。
 import { printable } from "./display-text.js";
+import { printErrorText } from "./output.js";
 
 type ValueOptionKey = "manifest" | "root" | "pagesDir" | "candidateSuffix" | "linkId";
 
@@ -77,7 +78,7 @@ export const runCli = (name: string, main: () => Promise<void>): void => {
     // 入りうるので、改行や制御文字で行頭にワークフローコマンドや偽の行を作らせない。
     // 調査でスタックが要るときは SPECPROOF_DEBUG=1 で出す。
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`${name} failed: ${printable(message)}`);
+    printErrorText(`${name} failed: ${printable(message)}`);
     if (!(error instanceof CliUsageError) && process.env.SPECPROOF_DEBUG === "1") {
       console.error(error);
     }
