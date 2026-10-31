@@ -17,13 +17,18 @@ name: BDD drift check
 # `pull_request` (not `pull_request_target`) on purpose: this job checks out
 # and processes untrusted PR code, and pull_request_target would hand that
 # code a write-capable token. The trade-off — fork PRs get a read-only token
-# and skip the comment step — is handled below via annotations + job failure.
+# and skip the comment job — is handled below via annotations + job failure.
 on:
   pull_request:
 
+# Least privilege: the drift-check job checks out the PR and runs code fetched
+# from npm, so it gets a read-only token. Only the comment job, which checks out
+# nothing and runs no PR or registry code, may write the PR comment.
+# This assumes GitHub-hosted runners. On a self-hosted runner, the npx cache
+# (~/.npm/_npx), ~/.npmrc and proxy settings carry over between jobs and
+# repositories, so isolate the runner per job before using this workflow.
 permissions:
   contents: read
-  pull-requests: write # to upsert the drift-report comment
 
 # One run per PR: a newer push cancels the older run, so a slower run for an
 # older commit cannot finish last and overwrite the newer report.
@@ -35,9 +40,14 @@ jobs:
   drift-check:
     name: specproof-check --strict
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      # persist-credentials: false keeps the token out of .git/config, where the
+      # code run below (from the PR and from npm) could read it.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Use Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -46,41 +56,79 @@ jobs:
 
       # --strict escalates structural warnings (unreviewed draft markers,
       # disallowed @fixme/@skip/@fail tags, @out-of-scope without a reason comment,
-      # empty links) to failures, not
-      # just hash drift. --json is captured to drift-report.json for the
-      # comment step below; --github-annotations writes "::warning
-      # file=...::" lines to this step's own log (stderr), independent of the
-      # JSON on stdout, so GitHub also surfaces each drifted ref inline on the
-      # PR's "Files changed" tab even if the comment step is skipped.
+      # empty links) to failures, not just hash drift. --json is captured to
+      # drift-report.json for the comment job; --github-annotations writes
+      # "::warning file=...::" lines to this step's own log (stderr), independent
+      # of the JSON on stdout, so GitHub also surfaces each drifted ref inline on
+      # the PR's "Files changed" tab even if the comment job is skipped.
+      #
+      # npx runs outside the checkout ($RUNNER_TEMP) so npm reads no .npmrc that
+      # the PR could add (registry, proxy, scoped registries), with the registry
+      # pinned and install scripts off. --root points the check at the checkout.
       #
       # continue-on-error + `id: check` defer the pass/fail decision to the
-      # dedicated step at the end, so the PR comment still gets posted/updated
-      # even when the check fails.
+      # last step, so the report is still uploaded when the check fails.
       - name: Run specproof-check
         id: check
         continue-on-error: true
+        working-directory: ${{ runner.temp }}
+        env:
+          npm_config_ignore_scripts: "true"
         run: |
-          npx -y -p @pound79/specproof-traceability@0.3.0 specproof-check \
-            --strict --json --github-annotations > drift-report.json
+          npx -y --registry=https://registry.npmjs.org -p @pound79/specproof-traceability@0.3.0 specproof-check \
+            --root "$GITHUB_WORKSPACE" --strict --json --github-annotations > "$RUNNER_TEMP/drift-report.json"
 
-      # Fork PRs run with a read-only GITHUB_TOKEN regardless of the
-      # `permissions:` block above, so posting a comment would fail with a
-      # 403. Skip the comment there; the annotations from the previous step
-      # and the job failure below still surface the result on the PR.
+      - name: Upload drift report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: drift-report
+          path: ${{ runner.temp }}/drift-report.json
+          if-no-files-found: warn
+          retention-days: 1
+          overwrite: true # a re-run of the job uploads the report again
+
+      - name: Fail if drift or strict warnings were found
+        if: steps.check.outcome == 'failure'
+        run: exit 1
+
+  # Fork PRs run with a read-only GITHUB_TOKEN regardless of the `permissions:`
+  # block, so posting a comment would fail with a 403. Skip the comment there;
+  # the annotations and the drift-check job failure still surface the result.
+  # !cancelled(): the comment is still posted/updated when drift-check fails,
+  # but a superseded run (concurrency) is not kept alive the way always() would.
+  comment:
+    name: drift-check comment
+    needs: drift-check
+    if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # to upsert the drift-report comment
+    steps:
+      # A missing report (e.g. setup failed) is handled by the script below.
+      - name: Download drift report
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: drift-report
+
       - name: Comment on PR
-        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const fs = require('fs');
             const marker = '<!-- specproof-drift-check -->';
 
+            // npx 自体が失敗すると report は空か壊れている。そのときも下で既存のコメントを書き換え、
+            // 前のコミットの結果（clean など）を残さない。
             let report;
             try {
-              report = JSON.parse(fs.readFileSync('drift-report.json', 'utf8'));
+              const parsed = JSON.parse(fs.readFileSync('drift-report.json', 'utf8'));
+              if (typeof parsed !== 'object' || parsed === null) throw new Error('not a JSON object');
+              report = parsed;
             } catch (error) {
               core.warning(`specproof-drift-check: could not read drift-report.json: ${error.message}`);
-              return;
             }
 
             const { owner, repo } = context.repo;
@@ -115,8 +163,21 @@ jobs:
               return false;
             };
 
-            // report の文字列は PR の内容（パス・見出し）から作られ、PR が npm の取得元を差し替えれば
-            // report 自体も偽造できる。全項目を未信頼として Markdown・HTML・メンションに解釈させない。
+            if (report === undefined) {
+              if (!existing) return;
+              if (!(await isCurrentHead())) return;
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body: `${marker}\n### BDD drift check: report unavailable\n\n${checked}\n\nThe drift report could not be read, so the previous result no longer applies. See the drift-check job log.`,
+              });
+              return;
+            }
+
+            // report の文字列は PR の内容（パス・見出し・link id）から作られ、report は PR の
+            // コードを checkout したジョブから届く。全項目を未信頼として Markdown・HTML・メンションに
+            // 解釈させない。
             // 改行・制御文字と、表示順を入れ替える bidi 制御文字・BOM を ? に潰し、中身のどの
             // バッククォートの並びより長いフェンスで囲んだコードスパンに入れる（CommonMark の
             // 規則で中身から閉じられない）。
@@ -215,6 +276,3 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
 
-      - name: Fail if drift or strict warnings were found
-        if: steps.check.outcome == 'failure'
-        run: exit 1
