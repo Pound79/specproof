@@ -81,6 +81,7 @@ const EXPECTED_ACTION_SHAS: Record<string, string> = {
   "actions/github-script": "f28e40c7f34bde8b3046d885e986cb6290c5673b",
   "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
   "actions/download-artifact": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+  "actions/dependency-review-action": "a1d282b36b6f3519aa1f3fc636f609c47dddb294",
 };
 
 describe("GitHub Actions supply-chain pins", () => {
@@ -135,10 +136,38 @@ describe("GitHub Actions workflow env contexts", () => {
 });
 
 describe("dependency security workflow", () => {
-  it("runs npm audit at moderate severity with read-only contents", () => {
-    const workflow = read(".github/workflows/dependency-review.yml");
-    expect(workflow).toMatch(/permissions:\n\s+contents: read/);
-    expect(workflow).toContain("npm audit --audit-level=moderate");
+  // Inspect the parsed YAML so a commented-out or mis-indented key does not pass.
+  type ReviewJob = {
+    "continue-on-error"?: unknown;
+    steps?: (WorkflowStep & { "continue-on-error"?: unknown })[];
+  };
+  const workflow = () =>
+    parse(read(".github/workflows/dependency-review.yml")) as {
+      on?: Record<string, unknown>;
+      permissions?: Record<string, unknown>;
+      jobs?: Record<string, ReviewJob>;
+    };
+
+  it("runs on pull requests with read-only contents", () => {
+    const { on, permissions } = workflow();
+    expect(Object.keys(on ?? {})).toEqual(["pull_request"]);
+    expect(permissions).toEqual({ contents: "read" });
+  });
+
+  it("fails PRs that add moderate-or-higher vulnerabilities in any dependency scope", () => {
+    const jobs = Object.values(workflow().jobs ?? {});
+    const job = jobs.find((j) =>
+      (j.steps ?? []).some((s) => s.uses?.startsWith("actions/dependency-review-action@")),
+    );
+    const step = job?.steps?.find((s) => s.uses?.startsWith("actions/dependency-review-action@"));
+    expect(step?.with?.["fail-on-severity"]).toBe("moderate");
+    const scopes = String(step?.with?.["fail-on-scopes"]).split(/,\s*/);
+    expect(scopes).toEqual(expect.arrayContaining(["runtime", "development"]));
+    // Any of these turns the gate into a warning that never fails the PR.
+    expect(step?.with?.["warn-only"]).toBeUndefined();
+    expect(step?.with?.["vulnerability-check"]).not.toBe(false);
+    expect(step?.["continue-on-error"]).toBeUndefined();
+    expect(job?.["continue-on-error"]).toBeUndefined();
   });
 });
 
