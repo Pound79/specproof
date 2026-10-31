@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `docs/security-model.md` を追加した。読み書きする範囲（信頼境界）、外部への通信先、暗号の在庫
+  （manifest の hash は変更の検知であり改ざんの検知ではないこと）、重い処理と上限、drift のゲートが
+  保証しないこと（CODEOWNERS と必須ステータスチェックとの併用）を書いた。`SECURITY.md` に依存の
+  脆弱性を深刻度ごとに直す期限（critical 7 日・high 14 日・moderate 30 日・low は次のリリース、
+  悪用が確認されたものは 7 日）を、`config-schema.md` に設定ファイルの上限・未知のキーの扱い・
+  `layout` のパスの境界・flutter の `language` の許容値を、traceability の README に manifest の
+  検証の規則を、playwright の雛形の README にこの足場が作る機密データとその扱いを書いた。
+  `config-schema.md` の「skill / CLI はこれらのコマンドを spawn する」は、実行するのは skill だけなので直した。
+  README の標語を「SHA-256 verifies」から「SHA-256 detects」にした。
 - 「ドラフトの点検」に認可の点検を追加した。入力は spec の権限の節で、シナリオ単位の
   「権限との矛盾」と、feature 単位の拒否の欠落・未決・問題なしを区別して報告する。
   未決は権限を推測で補わず spec への加筆を求め、問題なしでは拒否シナリオを創作しない。

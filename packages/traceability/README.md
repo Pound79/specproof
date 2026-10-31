@@ -288,6 +288,21 @@ these limits:
 - path: 4,096 characters; id/hash: 256; label/heading: 1,024
 - link `id` must not contain control or separator characters (like criterion IDs)
 
+Other rules the loader and `specproof-update` enforce:
+
+- link `id` values are unique across the manifest
+- a spec reference's `headingLevel`, when present, is an integer from 1 through
+  6 and selects the heading level matched for its `heading` (default 2)
+- `hash` is only checked to be a string of at most 256 characters, not to be a
+  SHA-256 hex digest; any value that differs from the computed hash reads as
+  drift
+- `specproof-update` refuses to bless a reference whose file or heading is
+  missing; fix the manifest entry instead
+
+The hashes detect changes; they are not a tamper-proof seal. Anyone who can edit
+the referenced files can also re-run `specproof-update`, so reviewing the diff
+stays the control (see [docs/security-model.md](../../docs/security-model.md)).
+
 `specproof-check` and `specproof-update` preserve manifest order while limiting
 file reads to 32 concurrent operations. If a read fails, queued reads are
 cancelled instead of continuing unnecessary filesystem work.

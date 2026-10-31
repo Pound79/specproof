@@ -30,7 +30,7 @@ specproof breaks that loop with a separation of powers:
   authoritative when spec and implementation disagree, and blessing the new
   baseline stay with you.
 
-**The AI proposes. SHA-256 verifies. You decide.**
+**The AI proposes. SHA-256 detects. You decide.**
 
 ## Get started in 30 seconds
 
