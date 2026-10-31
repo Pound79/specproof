@@ -1,4 +1,9 @@
 version: 2
+# Every entry waits 7 days (Dependabot's default is 3) after a release before
+# proposing it (`cooldown`), so a hijacked version that is caught and
+# unpublished within days never reaches a PR. Cooldown applies to version
+# updates only — Dependabot security updates still open PRs as soon as a fix
+# exists.
 updates:
   # Root npm workspace — the single root package-lock.json covers
   # `cli` and `packages/*`, so this one entry keeps the whole workspace current.
@@ -6,6 +11,8 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore
@@ -21,11 +28,15 @@ updates:
 
   # Scaffold template shipped into user projects. It lives outside the
   # workspace and has no lockfile, so Dependabot bumps the package.json
-  # ranges directly. Keeps generated projects on recent deps.
+  # ranges directly. Keeps generated projects on recent deps. The cooldown
+  # only delays the range bump here: a generated project still resolves the
+  # newest version inside `^` when it runs `npm install`.
   - package-ecosystem: npm
     directory: "/templates/playwright"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore
@@ -42,6 +53,8 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: ci
     groups:

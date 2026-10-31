@@ -171,6 +171,24 @@ describe("dependency security workflow", () => {
   });
 });
 
+describe("dependabot version updates", () => {
+  it("waits out a cooldown on every ecosystem", () => {
+    const config = parse(read(".github/dependabot.yml")) as {
+      updates: {
+        "package-ecosystem": string;
+        directory: string;
+        cooldown?: { "default-days"?: number };
+      }[];
+    };
+    for (const entry of config.updates) {
+      expect(
+        entry.cooldown?.["default-days"],
+        `${entry["package-ecosystem"]} ${entry.directory}`,
+      ).toBeGreaterThanOrEqual(7);
+    }
+  });
+});
+
 type WorkflowStep = {
   uses?: string;
   run?: string;
