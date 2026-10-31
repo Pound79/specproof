@@ -1,6 +1,8 @@
 import { realpath } from "node:fs/promises";
+import path from "node:path";
 import { readManifestFile } from "./manifest-io.js";
-import { parse, stringify } from "yaml";
+import { stringify } from "yaml";
+import { parseRepositoryYaml } from "./yaml-parse.js";
 import { writeFileAtomic } from "./atomic-write.js";
 import { replaceManifestHashes } from "./manifest-text.js";
 import { resolveWithinRoot } from "./resolve.js";
@@ -198,7 +200,7 @@ const manifestSources = new WeakMap<TraceabilityManifest, string>();
 
 export const loadManifest = async (manifestPath: string): Promise<TraceabilityManifest> => {
   const raw = await readManifestFile(manifestPath);
-  const parsed: unknown = parse(raw);
+  const parsed = parseRepositoryYaml(raw, path.basename(manifestPath));
   assertManifestShape(parsed);
   manifestSources.set(parsed, raw);
   return parsed;

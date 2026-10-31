@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- traceability の CLI が失敗したときの stderr を 1 行にした。設定や manifest の YAML 構文
+  エラーはファイルの行を写さず行と列だけを示し、メッセージの改行・制御文字は `?` に置き換える。
+  これまでは PR が持ち込んだ YAML の行がそのまま CI のログの行頭に出て、GitHub Actions の
+  ワークフローコマンドとして読まれえた。想定外のエラーのスタックも既定では出さない
+  （メッセージ自体に含まれるパスは残る）。調査でスタックが要るときは `SPECPROOF_DEBUG=1` を付ける
+  （このときはスタックとともに整形前のメッセージも出る）。
 - playwright の `traceability.yaml` 雛形の記入例を、リポジトリのルートからのパス
   （`packages/e2e/features/login.feature` など）に直した。冒頭の説明はルート相対なのに
   記入例が e2e パッケージ相対で、どちらを基準に書くか迷う原因になっていた。

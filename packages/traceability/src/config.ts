@@ -1,9 +1,9 @@
 import path from "node:path";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from "node:fs";
-import { parse } from "yaml";
 import { resolveDefaultManifestPath, resolveRepoRoot } from "./paths.js";
 import { resolveWithinRoot } from "./resolve.js";
 import type { GherkinFlavor } from "./feature-scan.js";
+import { parseRepositoryYaml } from "./yaml-parse.js";
 
 export interface TraceabilityConfig {
   /** Absolute path of the repo root. */
@@ -135,12 +135,7 @@ const readConfigText = (repoRoot: string, name: string): string => {
 };
 
 const parseConfigFile = (name: string, text: string): PartialConfigFile => {
-  let parsed: unknown;
-  try {
-    parsed = parse(text);
-  } catch (error) {
-    throw new Error(`Failed to parse ${name}: ${(error as Error).message}`);
-  }
+  const parsed = parseRepositoryYaml(text, name);
   if (parsed === null || parsed === undefined) return {};
   if (!isMapping(parsed)) {
     throw new Error(`${name}: the top level must be a YAML mapping`);
