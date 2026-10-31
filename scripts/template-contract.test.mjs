@@ -352,12 +352,22 @@ for (const file of DRIFT_WORKFLOWS) {
       String(s.uses).startsWith("actions/download-artifact@"),
     );
     const post = workflow.jobs.comment.steps.find((s) => s.name === "Comment on PR");
-    assert.equal(download.with.name, upload.with.name);
     assert.match(upload.with.path, /\/drift-report\.json$/);
     assert.match(post.with.script, /readFileSync\('drift-report\.json'/);
     // ジョブの再実行で同じ名前の artifact を作り直しても失敗しない。
     assert.equal(upload.with.overwrite, true);
     assert.match(String(upload.if), /!cancelled\(\)/);
+    // 再実行で今回の report が作られなかったとき、同じ run に残る前回の artifact を名前で拾って
+    // 前の結果を表示しない。今回 upload が作った artifact の ID だけを渡し、無ければ取りに行かない。
+    const job = workflow.jobs["drift-check"];
+    const output = Object.entries(job.outputs ?? {}).find(([, value]) =>
+      String(value).includes(`steps.${upload.id}.outputs.artifact-id`),
+    );
+    assert.ok(upload.id && output, "drift-check must expose the uploaded artifact-id");
+    const ref = `needs.drift-check.outputs.${output[0]}`;
+    assert.equal(download.with.name, undefined, "download by name can pick up a stale artifact");
+    assert.equal(download.with["artifact-ids"], `\${{ ${ref} }}`);
+    assert.match(String(download.if), new RegExp(`${ref.replaceAll(".", "\\.")} != ''`));
   });
 
   test(`${file}: checkout は認証情報を残さない`, () => {

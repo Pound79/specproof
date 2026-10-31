@@ -38,7 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - drift-check ワークフローの雛形（playwright・flutter）の権限と依存の取り方を締めた。
   `pull-requests: write` は、checkout も PR・npm 由来のコードの実行もしない新しい `comment` ジョブ
   だけに付け、specproof-check を動かす `drift-check` ジョブは読み取り専用にした（report は artifact
-  で渡す）。checkout は `persist-credentials: false` にし、`npx` は checkout の外（`$RUNNER_TEMP`）で
+  で渡し、ジョブの再実行で前回の artifact を拾わないよう、今回 upload した artifact の ID だけを
+  受け取る）。checkout は `persist-credentials: false` にし、`npx` は checkout の外（`$RUNNER_TEMP`）で
   `--registry` を明示し、インストールスクリプトを止めて動かす（PR が足した `.npmrc` で取得元を
   差し替えさせない）。両ジョブに `timeout-minutes` を付けた。既に雛形を取り込んだリポジトリは
   `.github/workflows/specproof-drift-check.yml` を手で更新する（`specproof init` は既存の
