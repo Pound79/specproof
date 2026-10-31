@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `specproof-check` は、設定ファイルがあるのに `layout.featuresDir` が無いとき警告
+  `features-dir-unset` を出し、`--strict` で失敗する。未設定だと登録していない feature の
+  ドラフトマーカー・止めるタグ・lint を黙って検査しておらず、設定の文書（必須）と食い違っていた。
+  設定ファイルを置かずに engine だけを使う場合は従来どおり警告しない。同梱のテンプレートは設定済み。
+  `featuresDir` を書いていても指す先が存在しない・ディレクトリでないときは、これまで黙って
+  登録済みの feature だけを見ていたので、警告 `features-dir-missing` を出し `--strict` で失敗する。
 - PR の依存の検査を `npm audit` から `actions/dependency-review-action` に替えた。その PR が
   持ち込む moderate 以上の脆弱な依存（開発用の依存も含む）だけで落ち、main に既にある脆弱性では
   関係のない PR を止めない（既存の脆弱性は Dependabot alerts と security updates が扱う）。
@@ -35,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   リンク、メンションを差し込み、ボットのコメントを偽装・隠蔽できた。既に雛形を取り込んだ
   リポジトリは `.github/workflows/specproof-drift-check.yml` の該当箇所を手で更新する
   （`specproof init` は既存のワークフローを上書きしない）。
+- traceability の CLI が失敗したときの stderr を 1 行にした。設定や manifest の YAML 構文
+  エラーはファイルの行を写さず行と列だけを示し、メッセージの改行・制御文字は `?` に置き換える。
+  これまでは PR が持ち込んだ YAML の行がそのまま CI のログの行頭に出て、GitHub Actions の
+  ワークフローコマンドとして読まれえた。想定外のエラーのスタックも既定では出さない
+  （メッセージ自体に含まれるパスは残る）。調査でスタックが要るときは `SPECPROOF_DEBUG=1` を付ける
+  （このときはスタックとともに整形前のメッセージも出る）。
 - playwright の `traceability.yaml` 雛形の記入例を、リポジトリのルートからのパス
   （`packages/e2e/features/login.feature` など）に直した。冒頭の説明はルート相対なのに
   記入例が e2e パッケージ相対で、どちらを基準に書くか迷う原因になっていた。

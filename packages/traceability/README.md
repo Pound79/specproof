@@ -145,6 +145,8 @@ failing unless `--strict` is passed:
 | `missing-reason` | an `@out-of-scope` scenario has no reason comment (its own tags only), or `@out-of-scope` is inherited from Feature / Rule / Examples — put `@out-of-scope` on each scenario with a reason comment |
 | `disallowed-tag` | a scenario carries a tag that makes the runner skip it or expect its failure (`@fixme` / `@skip` / `@fail`), including one inherited from Feature / Rule / Examples |
 | `unregistered-feature` | a `.feature` file under `featuresDir` that no link registers |
+| `features-dir-unset` | a config file exists but sets no `layout.featuresDir`, so `.feature` files that no link registers are not scanned (no warning when there is no config file) |
+| `features-dir-missing` | `featuresDir` is set but is not an existing directory, so `.feature` files that no link registers are not scanned |
 | `unregistered-spec-heading` | a heading in an already-referenced spec file that no link registers |
 | `unregistered-impl` | a file matching `layout.implGlobs` that no link's `impl[]` registers |
 | `duplicate-heading` | a registered heading appears more than once in its spec file, making the section hash ambiguous |
@@ -331,6 +333,13 @@ methodology, config schema, and the adapter contract.
 指定した root 内に置く必要がある。`--candidate-suffix <suffix>` は候補の拡張子込み suffix
 （例: Page.ts / _page.dart）。`--github-annotations` は GitHub Actions 用の注釈を stderr に出す。
 未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。
+
+失敗したときは stderr に `<command> failed: <message>` を 1 行だけ出し、終了コード 2 で終わる。
+メッセージの改行・制御文字は `?` に置き換え、設定や manifest の YAML 構文エラーはファイルの行を
+写さずに行と列だけを示す（公開リポジトリの CI ログに、PR の内容で GitHub Actions の
+ワークフローコマンドや偽の行を作らせないため）。想定外のエラーのスタックは既定では出さず、
+環境変数 `SPECPROOF_DEBUG=1` を付けたときだけ続けて出す（このときは整形前のメッセージも出るので、
+公開の CI では付けない）。
 
 `layout.implGlobs` は `*` / `**` に加えてリテラルのファイルパスと先頭 `./` を受け付ける。
 `?` はワイルドカードではなく文字として扱う。

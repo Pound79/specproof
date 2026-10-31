@@ -526,6 +526,8 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 | `missing-reason` | 登録済み feature ならあり | `@out-of-scope` のシナリオに理由コメントが無い。または `@out-of-scope` を Feature・Rule・Examples から継承している（シナリオごとに付け直し、理由コメントを書く） |
 | `disallowed-tag` | 登録済み feature ならあり | runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（`@skip` / `@fixme` / `@fail`）が付いている（Feature・Rule・Examples からの継承を含む） |
 | `unregistered-feature` | なし | `featuresDir` 配下に存在するが、どのリンクの `features[]` にも登録されていない `.feature` ファイル |
+| `features-dir-unset` | なし | 設定ファイルがあるのに `layout.featuresDir` が無い。登録していない `.feature` のドラフトマーカー・止めるタグ・lint を検査できない（設定ファイルが無ければ出さない） |
+| `features-dir-missing` | なし | `featuresDir` を書いているが、存在しない・ディレクトリでない。登録していない `.feature` を検査できない |
 | `unregistered-spec-heading` | なし | マニフェストに 1 件以上 spec 参照がある markdown ファイル内で、未登録の見出しが見つかった |
 | `unregistered-impl` | なし | `layout.implGlobs` にマッチするが、どのリンクの `impl[]` にも登録されていない実装ファイル（`implGlobs` 未設定時は検知自体を行わない） |
 | `duplicate-heading` | あり | 登録済み見出しが同一ファイル内に複数回出現し、セクションハッシュが一意に定まらない |
