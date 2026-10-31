@@ -405,7 +405,69 @@ for (const adapter of ["playwright", "flutter"]) {
   });
 }
 
+// report の文字列は PR の内容（パス・見出し）から作られ、PR が npm の取得元を差し替えれば report
+// 自体も偽造できる。全項目を未信頼として、Markdown・HTML・メンションとして解釈させない。
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// text が、中身のどのバッククォートの並びより長いフェンスで閉じたコードスパンとして本文にあるか。
+// 同じ長さの並びが中にあると、そこでコードスパンが閉じて残りが Markdown として解釈される。
+const inCodeSpan = (body, text) => {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  const match = new RegExp(`(?<!\`)(\`+) ${escapeRegExp(text)} \\1(?!\`)`).exec(body);
+  return match !== null && match[1].length > longest;
+};
+const HOSTILE = {
+  clean: false,
+  driftCount: 1,
+  driftLinkCount: 1,
+  entries: [
+    {
+      linkId: "a`b**c",
+      side: "spec\n# side",
+      path: "docs/a.md\n## injected <!-- hide",
+      heading: "@octocat [x](https://evil.example)",
+      status: "changed</details>",
+    },
+    {
+      linkId: "`edge`",
+      side: "a``b",
+      path: "docs/‮evil﻿.md",
+      status: "missing",
+    },
+  ],
+  warnings: [
+    { message: "hard @octocat\n# forged", failsUnderStrict: true },
+    { message: "advisory </details><img src=x> #1", failsUnderStrict: false },
+  ],
+  bothSidesChanged: [],
+};
+
 for (const adapter of ["playwright", "flutter"]) {
+  test(`${adapter}: report 由来の文字列は改行を潰したコードスパンに入れ、Markdown として解釈させない`, async () => {
+    const sha = "e".repeat(40);
+    const [[, { body }]] = await runCommentScript(adapter, {
+      headSha: sha,
+      currentHeadSha: sha,
+      report: HOSTILE,
+    });
+    for (const text of [
+      "a`b**c",
+      "spec?# side",
+      "docs/a.md?## injected <!-- hide",
+      "@octocat [x](https://evil.example)",
+      "changed</details>",
+      "hard @octocat?# forged",
+      "advisory </details><img src=x> #1",
+      "`edge`",
+      "a``b",
+      // bidi 制御文字と BOM は表示順の偽装に使えるので潰す。
+      "docs/?evil?.md",
+    ]) {
+      assert.ok(inCodeSpan(body, text), `${JSON.stringify(text)} must be in a code span:\n${body}`);
+    }
+    // `<!--` などは文字としてコードスパンの中に残るだけなので、上の検査で足りる。
+    assert.doesNotMatch(body, /^#+ (side|injected|forged)/m);
+  });
+
   test(`${adapter}: コメント探索中に head が進んだら作成も更新もしない`, async () => {
     for (const [report, comments] of [[DRIFT, []], [DRIFT, [BOT_COMMENT]], [CLEAN, [BOT_COMMENT]]]) {
       const calls = await runCommentScript(adapter, {
