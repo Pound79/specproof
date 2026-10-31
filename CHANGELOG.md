@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- drift-check ワークフローの雛形（playwright・flutter）が PR コメントに書く report の文字列
+  （link id・パス・見出し・状態・警告文）を、改行・制御文字・bidi 制御文字・BOM を `?` に潰した
+  コードスパンに入れるようにした。これまでは無加工で Markdown に入れていたので、PR の内容で見出しや HTML コメント、
+  リンク、メンションを差し込み、ボットのコメントを偽装・隠蔽できた。既に雛形を取り込んだ
+  リポジトリは `.github/workflows/specproof-drift-check.yml` の該当箇所を手で更新する
+  （`specproof init` は既存のワークフローを上書きしない）。
 - playwright の `traceability.yaml` 雛形の記入例を、リポジトリのルートからのパス
   （`packages/e2e/features/login.feature` など）に直した。冒頭の説明はルート相対なのに
   記入例が e2e パッケージ相対で、どちらを基準に書くか迷う原因になっていた。

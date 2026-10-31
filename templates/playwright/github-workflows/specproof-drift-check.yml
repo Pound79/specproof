@@ -115,6 +115,18 @@ jobs:
               return false;
             };
 
+            // report の文字列は PR の内容（パス・見出し）から作られ、PR が npm の取得元を差し替えれば
+            // report 自体も偽造できる。全項目を未信頼として Markdown・HTML・メンションに解釈させない。
+            // 改行・制御文字と、表示順を入れ替える bidi 制御文字・BOM を ? に潰し、中身のどの
+            // バッククォートの並びより長いフェンスで囲んだコードスパンに入れる（CommonMark の
+            // 規則で中身から閉じられない）。
+            const code = (value) => {
+              const text = String(value ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufeff\p{Bidi_Control}]/gu, '?');
+              const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+              const fence = '`'.repeat(longest + 1);
+              return `${fence} ${text} ${fence}`;
+            };
+
             const isClean = report.clean && report.warnings.length === 0;
 
             if (isClean) {
@@ -137,11 +149,11 @@ jobs:
                 const rows = report.entries
                   .filter((e) => e.linkId === linkId)
                   .map((e) => {
-                    const location = e.heading ? `${e.path} § ${e.heading}` : e.path;
-                    return `  - \`${e.side}\` ${location} — **${e.status}**`;
+                    const location = e.heading ? `${code(e.path)} § ${code(e.heading)}` : code(e.path);
+                    return `  - ${code(e.side)} ${location} — **${code(e.status)}**`;
                   })
                   .join('\n');
-                return `- **${linkId}**\n${rows}`;
+                return `- **${code(linkId)}**\n${rows}`;
               })
               .join('\n');
 
@@ -159,14 +171,14 @@ jobs:
               hardWarnings.length === 0
                 ? ''
                 : `\n\n**Warnings (fail under \`--strict\`):**\n${hardWarnings
-                    .map((w) => `- ${w.message}`)
+                    .map((w) => `- ${code(w.message)}`)
                     .join('\n')}`;
 
             const advisoryWarningSection =
               advisoryWarnings.length === 0
                 ? ''
                 : `\n\n<details><summary>Advisory warnings (do not fail the check) — ${advisoryWarnings.length}</summary>\n\n${advisoryWarnings
-                    .map((w) => `- ${w.message}`)
+                    .map((w) => `- ${code(w.message)}`)
                     .join('\n')}\n\n</details>`;
 
             const warningSection = hardWarningSection + advisoryWarningSection;
@@ -176,7 +188,7 @@ jobs:
                 ? hardWarnings.length > 0
                   ? '**No hash drift** — failing on `--strict` warning(s) only.'
                   : '**No hash drift** — advisory warning(s) only (does not fail the check).'
-                : `**${report.driftCount} drifted reference(s) across ${report.driftLinkCount} link(s):**\n\n${driftSection}`;
+                : `**${Number(report.driftCount)} drifted reference(s) across ${Number(report.driftLinkCount)} link(s):**\n\n${driftSection}`;
 
             // Advisory-only runs exit 0 — the comment must not claim drift
             // was detected, and sync/update remediation would be misleading.
