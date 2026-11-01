@@ -1,9 +1,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { walkRegularFilesWithoutSymlinks } from "../path-security.js";
 import { runSetupAgent, pickPluginSkillsRoot } from "../setup-agent.js";
 
 const repoRoot = path.resolve(fileURLToPath(import.meta.url), "../../../..");
@@ -98,6 +99,45 @@ describe("runSetupAgent", () => {
     const content = readFileSync(path.join(skillsDir, "SKILL.md"), "utf-8");
     expect(content).not.toBe("existing content");
     expect(content).toContain("name: specproof");
+  });
+
+  // 途中で失敗したら、この実行で書いたものを戻す（新しく作ったファイルとディレクトリは消し、
+  // --force で上書きしたファイルは元の内容と権限に戻す）。コピーの順は readdir の順でファイル
+  // システムにより変わるため、同じ走査で最初と最後のファイルを決める。
+  const skillFiles = (): string[] =>
+    walkRegularFilesWithoutSymlinks(path.join(repoRoot, "plugins", "specproof", "skills"));
+
+  it("rolls back the skill files it wrote when a later copy fails", async () => {
+    const files = skillFiles();
+    const skillsDir = path.join(root, "repo", ".agents", "skills");
+    const first = path.join(skillsDir, files[0]);
+    const last = path.join(skillsDir, files[files.length - 1]);
+    await mkdir(path.dirname(first), { recursive: true });
+    await writeFile(first, "old", { mode: 0o600 });
+    await chmod(first, 0o600);
+    await mkdir(last, { recursive: true }); // 書き込めない（ディレクトリ）
+
+    expect(() => runSetupAgent({ agent: "codex", force: true })).toThrow(/rolled back/);
+
+    expect(readFileSync(first, "utf-8")).toBe("old");
+    expect(statSync(first).mode & 0o777).toBe(0o600);
+    expect(statSync(last).isDirectory()).toBe(true);
+    expect(listFiles(skillsDir)).toEqual([files[0]]);
+  });
+
+  it("removes the directories it created when a later copy fails", async () => {
+    const files = skillFiles();
+    const skillsDir = path.join(root, "repo", ".agents", "skills");
+    const last = path.join(skillsDir, files[files.length - 1]);
+    await mkdir(last, { recursive: true });
+
+    expect(() => runSetupAgent({ agent: "codex", force: true })).toThrow(/rolled back/);
+
+    const topDir = (rel: string): string => rel.split(path.sep)[0];
+    expect(statSync(last).isDirectory()).toBe(true);
+    expect(listFiles(skillsDir)).toEqual([]);
+    // 作った skill のディレクトリは消え、置いておいたディレクトリの祖先だけが残る。
+    expect(readdirSync(skillsDir)).toEqual([topDir(files[files.length - 1])]);
   });
 
   it("rejects an agent skills directory that escapes through a repository symlink", async () => {
