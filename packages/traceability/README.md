@@ -287,6 +287,8 @@ these limits:
 - references: 1,000 per link and 20,000 total
 - path: 4,096 characters; id/hash: 256; label/heading: 1,024
 - link `id` must not contain control or separator characters (like criterion IDs)
+- each referenced spec / implementation / feature file: 8 MiB, regular files only
+  (a FIFO or device is rejected before it is opened); the limit is per file
 
 Other rules the loader and `specproof-update` enforce:
 

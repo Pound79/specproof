@@ -9,16 +9,20 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
   return {
     ...actual,
-    readFile: async (file: string, encoding: BufferEncoding) => {
-      if (!String(file).endsWith(".ts")) return actual.readFile(file, encoding);
+    // 本体は open から close までの間に読む。その間を 1 件の読み取りとして数える。
+    open: async (...args: Parameters<typeof actual.open>) => {
+      const handle = await actual.open(...args);
+      if (!String(args[0]).endsWith(".ts")) return handle;
       readState.active += 1;
       readState.peak = Math.max(readState.peak, readState.active);
       await new Promise((resolve) => setTimeout(resolve, 10));
-      try {
-        return await actual.readFile(file, encoding);
-      } finally {
-        readState.active -= 1;
-      }
+      const close = handle.close.bind(handle);
+      return Object.assign(handle, {
+        close: async () => {
+          readState.active -= 1;
+          return close();
+        },
+      });
     },
   };
 });
