@@ -136,4 +136,7 @@ npm と Sigstore の仕組みで、specproof のコードではない。
     読み込むパス
   - `.npmrc` と `.github/workflows/`
 - CI では `--root` と `--manifest` を明示して、設定で読み込み先を変えられる範囲を減らす
+- 設定ファイルが無いことを CI で失敗にする。エンジンは設定ファイルが無ければ既定値で動き（設定を置かない
+  利用のため）、`layout.featuresDir` が無いので登録していない feature を見ないまま `--strict` を通す。
+  同梱の drift-check のワークフローは、検査の前にリポジトリのルートの設定ファイルを確かめて止まる
 - manifest の hash の更新を含む PR では、spec・実装・feature の差分を人がレビューする

@@ -67,6 +67,10 @@ bdd_tests/
 
 実アプリの画面をテストするときは `counter_app.dart` を消し、`appMainFunction` でアプリの `main()` を起動して `features/`・`steps/` を書く。
 
+## drift のゲートを効かせる
+
+`specproof init` は `.github/workflows/specproof-drift-check.yml` も置き、PR ごとに `specproof-check --strict` を実行する。PR は manifest の hash・`specproof.config.yaml`・ワークフロー自体を書き換えられるので、検査だけでは drift を止められない。ブランチの保護で必須のステータスチェックにし、`specproof.config.yaml` / `specproof.config.yml`・`traceability.yaml`・`.npmrc`・`.github/workflows/` を CODEOWNERS で守る。設定ファイルが無ければワークフローは失敗する。詳しくは [drift のゲートが保証しないこと](https://github.com/Pound79/specproof/blob/main/docs/security-model.md#drift-のゲートが保証しないこと)。
+
 ## BDD 方法論の参照ポイント
 
 specproof-* skill は `{{config:layout.e2eReadme}}` としてこのファイルを参照する。詳細は
