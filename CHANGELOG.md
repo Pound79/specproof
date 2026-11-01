@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 公開する 2 パッケージの実行時の依存 `yaml` を、範囲（`^2.9.1`）から完全な版（`2.9.1`）に固定した。
+  drift-check などは `npx` で lockfile 無しに取得するので、範囲だと取得のたびに新しい版（乗っ取られた
+  版を含む）が入りえた。`yaml` 自身は依存を持たないので、推移的な依存まで版が固定される。版の更新は
+  Dependabot の PR で行う（`versioning-strategy: increase` で完全な版のまま上げる）。公開済みの 0.3.0 は
+  範囲のままなので、固定が効くのは次のリリースからである。
 - `specproof-check` は、設定ファイルがあるのに `layout.featuresDir` が無いとき警告
   `features-dir-unset` を出し、`--strict` で失敗する。未設定だと登録していない feature の
   ドラフトマーカー・止めるタグ・lint を黙って検査しておらず、設定の文書（必須）と食い違っていた。
