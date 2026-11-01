@@ -52,7 +52,37 @@ updates:
           - minor
           - patch
 
-  # GitHub Actions used by CI / release workflows.
+  # Flutter scaffold template (pubspec.yaml, no lockfile shipped), so the
+  # constraints that generated projects start from stay current.
+  - package-ecosystem: pub
+    directory: "/templates/flutter"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    # flutter_gherkin (3.0.0-rc.17, the last release) and build_runner (2.4.x,
+    # forced by flutter_gherkin's transitive deps) are pinned on purpose; see the
+    # comment in templates/flutter/pubspec.yaml. build_runner patches still flow.
+    ignore:
+      - dependency-name: flutter_gherkin
+      - dependency-name: build_runner
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+    groups:
+      flutter-template:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions used by CI / release workflows. The scaffolded
+  # specproof-drift-check.yml pins the same SHAs; a test keeps them in sync
+  # (scripts/dependency-watch.test.mjs), so bump the templates in the same PR.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
