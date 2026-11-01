@@ -59,7 +59,7 @@ E2E_PASSWORD=YourPassword1!
 |---|---|---|
 | Variable names only | `.env.example` | Committed on purpose (`!.env.example` in `.gitignore`). Never put real values in it. |
 | Test account credentials | `.env` (and CI secrets) | Use dedicated test accounts, never real users' or production accounts. `.env` and `.env.*` are gitignored; keep them out of commits and logs. |
-| Logged-in browser state (cookies, localStorage) | `playwright/.auth/*.json`, written by the auth setup relative to the directory you run Playwright from | Gitignored. Run Playwright from this package so the files land here, do not upload them as CI artifacts, and delete them after runs on shared machines. |
+| Logged-in browser state (cookies, localStorage) | `playwright/.auth/*.json` in this package (resolved against the package, wherever Playwright runs from; a `storageState` path outside the package is refused) | Gitignored, and deleted by the `auth-teardown` project after the authenticated projects finish. The teardown does not run when a run is interrupted (Ctrl-C, a cancelled CI job, `globalTimeout`), with `--no-deps`, or in UI mode, so delete `playwright/.auth/` by hand on shared machines after those. `--no-deps` also needs the setup project to have run first. Do not upload these files as CI artifacts. |
 | Traces, screenshots and videos | `test-results/`, `playwright-report/` | A trace (kept on the first retry in CI) records the actions, including the typed login form, and the network. Treat these as sensitive: gitignored; if you upload them as CI artifacts, keep the retention short and do not publish them from public repositories. |
 
 `E2E_BASE_URL` defaults to `http://localhost:5173`. The scaffold sends the test

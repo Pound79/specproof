@@ -9,6 +9,11 @@
  *     globalTeardown: "src/setup/global-teardown.ts"
  *
  * Playwright will then pass this path to `globalTeardown` in playwright.config.ts.
+ *
+ * The saved sessions in playwright/.auth/ are deleted by the auth-teardown
+ * project (src/setup/auth.teardown.ts) before this runs. If your cleanup needs
+ * the session token, as in the example below, do it in auth.teardown.ts
+ * before the files are deleted.
  */
 
 export default async function globalTeardown(): Promise<void> {

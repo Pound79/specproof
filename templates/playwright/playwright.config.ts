@@ -5,7 +5,12 @@ import {
   isConditionMet,
   resolveActiveEnvironment,
 } from "./src/config/specproof-config";
-import { loadDotenv, resolveBaseUrl, shouldStartWebServer } from "./src/config/env";
+import {
+  loadDotenv,
+  resolveAuthStatePath,
+  resolveBaseUrl,
+  shouldStartWebServer,
+} from "./src/config/env";
 
 // ---------------------------------------------------------------------------
 // Load config → resolve environment → load dotenv
@@ -35,6 +40,14 @@ const setupProject = needsSetup
         name: "setup",
         testDir: "src/setup",
         testMatch: /\.setup\.ts$/,
+        // Deletes the saved sessions once every project that depends on setup
+        // has finished, so logged-in state does not outlive the run.
+        teardown: "auth-teardown",
+      },
+      {
+        name: "auth-teardown",
+        testDir: "src/setup",
+        testMatch: /\.teardown\.ts$/,
       },
     ]
   : [];
@@ -88,7 +101,10 @@ const appProjects = cfg.projects.flatMap((p) => {
       use: {
         ...devices[device],
         // Empty storageState string means a clean, unauthenticated session.
-        storageState: p.storageState ? p.storageState : { cookies: [], origins: [] },
+        // Resolved against the e2e package root, the same place auth setup writes it.
+        storageState: p.storageState
+          ? resolveAuthStatePath(p.storageState)
+          : { cookies: [], origins: [] },
       },
       // Wire the setup dependency only for projects that require auth.
       ...(p.setup ? { dependencies: ["setup"] } : {}),
