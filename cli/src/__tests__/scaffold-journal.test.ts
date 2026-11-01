@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -30,7 +31,9 @@ describe("ScaffoldJournal.rollback", () => {
     journal.recordBefore(file);
     writeFileSync(file, "ours");
     journal.recordWritten(file);
-    rmSync(file);
+    // 元のファイルを残したまま置き換える（消すと inode 番号が再利用されうるので、識別子では
+    // 見分けられない。それは dev・inode による確認の限界）。
+    renameSync(file, `${file}.moved`);
     writeFileSync(file, "theirs");
     expect(journal.rollback().failed).toEqual([file]);
     expect(existsSync(file)).toBe(true);

@@ -49,7 +49,8 @@ const sameIdentity = (stat: { dev: number; ino: number }, id: Identity | undefin
  * 取り消しはこの実行が触ったファイルだけに触れる。パスの安全の検査をやり直し（親が symlink に
  * 差し替えられていないか）、上書きしたファイルは書き込みの前か後と同じファイル（dev・inode）の
  * ときだけ戻す。書き込みの途中で失敗した場合（書き込みの記録が無い）も、開いた時点で中身が消えて
- * いるので戻す。合わないものは触らず、戻せなかったものとして返す。
+ * いるので戻す。合わないものは触らず、戻せなかったものとして返す。dev・inode による確認は、消された
+ * ファイルの番号が再利用された場合までは見分けられない（他のプロセスとの競合への排他は保証しない）。
  */
 export class ScaffoldJournal {
   private readonly entries: Entry[] = [];
