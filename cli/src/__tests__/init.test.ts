@@ -1,5 +1,15 @@
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -182,6 +192,63 @@ describe("scaffoldTemplate", () => {
     await mkdir(path.dirname(full), { recursive: true });
     await writeFile(full, content);
   };
+
+  // 途中で失敗したら、この実行で書いたものを戻し、実行前の状態に揃える（新しく作ったファイルと
+  // ディレクトリは消し、--force で上書きしたファイルは元の内容に戻す）。
+  it("rolls back the files it wrote when a later write fails", async () => {
+    await writeTplFile("a.txt", "A");
+    await writeTplFile("b/c.txt", "C");
+    await writeTplFile("z.txt", "Z");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(path.join(e2eDir, "z.txt"), { recursive: true }); // 書き込めない（ディレクトリ）
+    await writeFile(path.join(e2eDir, "a.txt"), "old");
+
+    expect(() =>
+      scaffoldTemplate({ tplDir, repoRoot, e2eDir, templateDefaultDir: "e2e", force: true }),
+    ).toThrow(/rolled back/);
+
+    expect(await readFile(path.join(e2eDir, "a.txt"), "utf8")).toBe("old");
+    expect(existsSync(path.join(e2eDir, "b/c.txt"))).toBe(false);
+    expect(existsSync(path.join(e2eDir, "b"))).toBe(false);
+    expect(existsSync(path.join(e2eDir, "z.txt"))).toBe(true);
+  });
+
+  it("leaves an existing file untouched when it fails before writing it", async () => {
+    await writeTplFile("a.txt", "A");
+    await writeTplFile("specproof.config.yaml", "- not a mapping\n");
+    await writeFile(path.join(repoRoot, "specproof.config.yaml"), "layout: {}\n");
+    const e2eDir = path.join(repoRoot, "e2e");
+
+    let message = "";
+    try {
+      scaffoldTemplate({ tplDir, repoRoot, e2eDir, templateDefaultDir: "e2e", force: true });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/rolled back \d+ file\(s\)/);
+    expect(message).not.toMatch(/Could not restore/);
+    expect(message).not.toMatch(/\.\./);
+    expect(await readFile(path.join(repoRoot, "specproof.config.yaml"), "utf8")).toBe(
+      "layout: {}\n",
+    );
+    expect(existsSync(path.join(e2eDir, "a.txt"))).toBe(false);
+  });
+
+  it("restores the permissions of a file it overwrote before failing", async () => {
+    await writeTplFile("a.txt", "A");
+    await writeTplFile("z.txt", "Z");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(path.join(e2eDir, "z.txt"), { recursive: true });
+    await writeFile(path.join(e2eDir, "a.txt"), "secret", { mode: 0o600 });
+    await chmod(path.join(e2eDir, "a.txt"), 0o600);
+
+    expect(() =>
+      scaffoldTemplate({ tplDir, repoRoot, e2eDir, templateDefaultDir: "e2e", force: true }),
+    ).toThrow(/rolled back/);
+
+    expect((await stat(path.join(e2eDir, "a.txt"))).mode & 0o777).toBe(0o600);
+    expect(await readFile(path.join(e2eDir, "a.txt"), "utf8")).toBe("secret");
+  });
 
   it("rewrites specproof.config.yaml layout paths when e2eDir differs from the template default", async () => {
     await writeTplFile(
