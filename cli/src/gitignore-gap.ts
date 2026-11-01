@@ -17,18 +17,26 @@ interface Pattern {
 
 // git の規則のうち、行の文字列を比べるのに要る分だけを扱う。glob の意味までは解かないので、
 // `.env*` は `.env` と `.env.*` の代わりとはみなさない。
-// - 空行と # の行は飛ばす。末尾の空白は除き、先頭の空白は模様の一部として残す。
+// - 空行と # の行は飛ばす。末尾のスペースは除き（タブは残す）、先頭の空白は模様の一部として残す。
 // - 先頭の ! は否定。後の行の否定は、それより前の同じ除外を打ち消す。
 // - 先頭の / は外す（.gitignore のあるディレクトリに固定するだけで、雛形の置き場所と同じ）。
 // - 末尾の / はディレクトリだけに効く印として覚える。
+// 末尾の char を、後ろから走査して線形の時間で落とす（/\s+$/ は空白の長い連なりのあとに
+// 別の文字があると 2 乗の時間がかかる）。git が無視する末尾の空白はスペースだけで、タブは残す。
+const withoutTrailing = (text: string, char: string): string => {
+  let end = text.length;
+  while (end > 0 && text[end - 1] === char) end -= 1;
+  return text.slice(0, end);
+};
+
 const patternsOf = (text: string): Pattern[] =>
   text.split(/\r?\n/).flatMap((raw) => {
-    const line = raw.replace(/\s+$/, "");
+    const line = withoutTrailing(raw, " ");
     if (line === "" || line.startsWith("#")) return [];
     const negated = line.startsWith("!");
     const body = (negated ? line.slice(1) : line).replace(/^\//, "");
     const directoryOnly = body.endsWith("/");
-    return [{ negated, name: directoryOnly ? body.replace(/\/+$/, "") : body, directoryOnly }];
+    return [{ negated, name: directoryOnly ? withoutTrailing(body, "/") : body, directoryOnly }];
   });
 
 /**
