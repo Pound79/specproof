@@ -128,7 +128,7 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 | `layout` | `e2eRoot` / `featuresDir` / `stepsDir` / `stepFileSuffix` / `stepFileExt` / `pagesDir` / `candidateSuffix` / `textConstants` / `i18nSource` / `manifest` / `specDir` / `implGlobs` / `scratchDir` / `testRunnerConfig` / `idiomGuide` / `e2eReadme` |
 | `projects[]` の各要素 | `name` / `tags` / `features` / `storageState` / `setup` / `conditional` / `credentialsEnv` |
 | `projects[].credentialsEnv` | `username` / `password` / `newPassword` |
-| `environments[]` の各要素 | `name` / `default` / `dotenvFile` / `auth` / `excludeTags` / `envOverrides` |
+| `environments[]` の各要素 | `name` / `default` / `dotenvFile` / `auth` / `excludeTags` / `envOverrides` / `allowInsecureHttp` |
 | `environments[].auth` | `provider` / `description` |
 | `implement` | `blastRadiusGlobs` |
 | `git` | `commitScope` / `branchPrefix` |

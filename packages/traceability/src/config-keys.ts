@@ -91,6 +91,8 @@ const CONFIG_SCHEMA: KeySchema = mapping({
       auth: fixed(["provider", "description"]),
       excludeTags: VALUE,
       envOverrides: FREE_FORM,
+      // playwright の雛形が読む（localhost 以外への http を明示で許す）。
+      allowInsecureHttp: VALUE,
     }),
   ),
   implement: fixed(["blastRadiusGlobs"]),

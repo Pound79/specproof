@@ -150,6 +150,7 @@ const EVERY_KNOWN_KEY = {
       auth: { provider: "mock", description: "d" },
       excludeTags: [],
       envOverrides: {},
+      allowInsecureHttp: true,
     },
   ],
   implement: { blastRadiusGlobs: [] },
