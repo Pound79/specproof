@@ -52,7 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   1 MiB までの通常ファイルに限った。
 - spec の見出しとコードの区切りの解析で、時間が入力の長さの二乗に増える経路を無くした（20 万個の
   空白を含む見出しで約 60 秒、単独の CR を含む行では約 200 秒）。閉じの `#` を外す処理は正規表現から
-  末尾の 1 回の走査に替え、CR を含む行は照合の前に従来どおり見出し・区切りでないと判定する。
+  末尾の 1 回の走査に替え、CR・U+2028・U+2029 を含む行は照合の前に従来どおり見出し・区切りでないと
+  判定する。
   CLI の `detect` は、`.env.example` の 256 文字を超えるキーを名前として扱わない。
 - traceability の CLI（check・update・list・stats）の出力が、GitHub Actions のログで
   ワークフローコマンドとして読まれないようにした。ランナーは行頭（空白を除く）の `::name::` と、

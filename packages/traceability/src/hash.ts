@@ -84,13 +84,13 @@ export const hasDraftMarker = async (absPath: string): Promise<boolean> => {
 // (an info string is allowed on the opening fence but not the closing one).
 const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
-// 改行の正規化は CRLF だけなので、単独の CR が行に残りうる。`.` は CR に一致せず、CR を含む行は
-// 下の正規表現に一致しない（区切りでも見出しでもない）。照合すると後戻りで二乗の時間がかかるので、
-// 照合の前に同じ結果を返す。
-const hasCarriageReturn = (line: string): boolean => line.includes("\r");
+// 行は LF で分けるので、単独の CR と U+2028・U+2029 は行に残りうる。正規表現の `.` はこの 3 文字に
+// 一致せず、含む行は下の正規表現に一致しない（区切りでも見出しでもない）。照合すると後戻りで二乗の
+// 時間がかかるので、照合の前に同じ結果を返す。
+const hasLineTerminator = (line: string): boolean => /[\r\u2028\u2029]/.test(line);
 
 const parseFence = (line: string): { char: string; len: number; bare: boolean } | null => {
-  if (hasCarriageReturn(line)) return null;
+  if (hasLineTerminator(line)) return null;
   const match = line.match(FENCE_RE);
   if (match === null) {
     return null;
@@ -115,7 +115,7 @@ const stripClosingSequence = (text: string): string => {
 
 // CommonMark ATX: 0-3 spaces, 1-6 #, whitespace or EOL, optional closing #.
 const parseHeading = (line: string): { level: number; text: string } | null => {
-  if (hasCarriageReturn(line)) return null;
+  if (hasLineTerminator(line)) return null;
   const match = line.match(/^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/);
   if (!match) return null;
   return {
