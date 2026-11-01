@@ -9,6 +9,10 @@ updates:
   # `cli` and `packages/*`, so this one entry keeps the whole workspace current.
   - package-ecosystem: npm
     directory: "/"
+    # The published packages pin their runtime dependencies to exact versions
+    # (see scripts/runtime-deps.test.mjs). `increase` bumps a pin to the new
+    # exact version instead of widening it into a range.
+    versioning-strategy: increase
     schedule:
       interval: weekly
     cooldown:
