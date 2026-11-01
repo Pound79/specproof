@@ -201,6 +201,12 @@ runner:
 # Auth provider (auth.provider / auth.description) is defined here only —
 # there is no top-level `auth` block.
 #
+# allowInsecureHttp (optional, default false): when a project below uses
+# credentials or a saved session, the run refuses an http:// base URL whose
+# host is not localhost, *.localhost, 127.0.0.0/8 or ::1. Set
+# `allowInsecureHttp: true` on an entry only for an environment that really
+# has no https (it then accepts any http host); prefer https:// elsewhere.
+#
 # See docs/config-schema.md "environments" for the full field reference.
 # ---------------------------------------------------------------------------
 environments:
@@ -219,6 +225,8 @@ environments:
   #     provider: google
   #     description: "Firebase Auth (Google) — dev project."
   #   excludeTags: []
+  #   # Only when this environment has no https (see allowInsecureHttp above):
+  #   # allowInsecureHttp: true
 
 strictUnregisteredImpl: false
 strictUnregisteredSpecHeadings: false

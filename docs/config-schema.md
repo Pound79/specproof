@@ -141,6 +141,34 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 | `auth.description` | string | optional | 認証方式の人間向け説明。スキルがシナリオ実装時に参照する。 |
 | `excludeTags` | string[] | optional | この環境で除外するタグのリスト。ランナーがフィルタに使い、スキルが skip 判定に使う。各要素は単一のタグ（`/^@[^@\s()]+$/`）に限り、状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `envOverrides` | Record\<string, string\> | optional | dotenv 読み込み後に追加注入する環境変数。shell 既設定値は上書きしない。 |
+| `allowInsecureHttp` | boolean | optional | `true` のときだけ、この環境で loopback 以外のホストへの `http://` の baseURL に認証情報を送ってよい。既定（未設定・`false`・真偽値の `true` 以外）は止める。Playwright テンプレートだけが読む。0.5.0 で追加。詳細は後述。 |
+
+#### `environments[].allowInsecureHttp`
+
+Playwright テンプレートは baseURL（`env.baseUrl` が指す環境変数の値）を確かめる。設定ファイルの
+`projects[]` のうち `conditional` を満たすもののどれかが認証情報を使う（`setup: true`・`credentialsEnv`・
+空でない `storageState` のどれかを持つ）とき、`playwright.config.ts` の読み込みでブラウザを起動する前に
+確かめ、auth setup もログインの前にもう一度確かめる。判定は設定ファイルの project で行い、CLI の
+`--project` で選んだものではない（`authed` を持つ設定で `--project guest` だけを走らせても確かめる）。
+`http://` で、ホストが loopback（`localhost`・`*.localhost`・`127.0.0.0/8`・`::1`）でなければ、選ばれた
+環境プロファイルに `allowInsecureHttp: true` が無い限り、認証情報を送らずに失敗する。`localhost.`
+（末尾のドット）・`[::ffff:127.0.0.1]`・`0.0.0.0` は loopback とみなさない。`https://` と loopback への `http://` はこの設定に関係なく通り、
+`http://` でも `https://` でもない scheme はこの設定があっても止める。https を用意できない環境だけで、
+その `environments[]` エントリに明示して許可する。許可はホストではなく環境に結び付くので、許可した環境では
+どの http のホストも通る。確かめるのは baseURL だけで、リダイレクト先やコードで直接指定した別の URL は
+見ない。
+
+```yaml
+environments:
+  - name: staging
+    dotenvFile: ".env.staging"
+    allowInsecureHttp: true   # この環境だけ平文の http を許す
+```
+
+`environments[]` のエントリに書けるキーは、上の表の `name`・`default`・`dotenvFile`・`auth`・`excludeTags`・
+`envOverrides`・`allowInsecureHttp` である。Playwright テンプレートの設定の読み込みは未知のキーを検査しない
+（書き間違えたキーは黙って無視される）。traceability エンジンが設定の未知キーを検査するときは、この一覧を
+`environments[]` の既知のキーとする。
 
 ### 例
 

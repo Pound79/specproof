@@ -43,6 +43,8 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 - **読む範囲**: `specproof detect` と `init --adapter auto` は、実行したディレクトリの
   `package.json`・`pubspec.yaml`・`.env.example`（変数の名前だけ）を読む。1 ファイル 1 MiB までの
   通常ファイルだけを読むが、境界の検査はしていない（symlink も辿る）。信頼できないディレクトリで `detect` を走らせない
+- **既存の `.gitignore`**: `init` は残す `.gitignore` を 1 MiB まで読み、雛形の秘密と実行結果の除外
+  （`.env`・`playwright/.auth` など）が無ければ警告する。書き換えず、照合は行の文字列で git の判定と完全には一致しない
 - **子プロセス**: 起動しない。設定の `commands.*` も実行しない
 
 ### 共通の限界
@@ -70,6 +72,10 @@ skill は最初にコマンドを実行する前に、設定ファイル・`.npm
 | AI skill | npm レジストリ | `npx` で CLI・エンジンを取得する（setup、`commands.traceability*`） | なし |
 | AI skill | GitHub（`gh` CLI または GitHub の connector） | ブランチの push と PR の作成（sync など） | 利用者の環境の資格情報 |
 | AI skill | テスト対象のアプリ（`env.baseUrl`） | `commands.smoke` の実行 | テスト用アカウント（`.env`） |
+
+Playwright の雛形は、認証情報や保存したセッションを使う project があるとき、loopback 以外への `http://` の
+baseURL を、環境の `allowInsecureHttp: true` が無ければ拒否する（`docs/config-schema.md` の
+`environments[].allowInsecureHttp`）。許可は環境ごとでホストには結び付かず、リダイレクト先は確かめない。
 
 `npx` の取得元は npm の設定（レジストリ・プロキシ・スコープごとのレジストリ）に従い、npm は実行した
 ディレクトリ（と親）の `.npmrc` も読む。PR を checkout した作業ツリーの中で `npx` を実行すると、PR

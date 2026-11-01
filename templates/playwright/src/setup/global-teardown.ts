@@ -28,6 +28,8 @@ export default async function globalTeardown(): Promise<void> {
   // template — copy this file into your project and add the imports there.
   //
   // import { readFileSync, existsSync } from "node:fs";
+  // import { assertSecureBaseUrl } from "../config/base-url-guard";
+  // import { loadSpecproofConfig, resolveActiveEnvironment } from "../config/specproof-config";
   // import path from "node:path";
   //
   // const AUTH_FILE = "playwright/.auth/user.json";
@@ -55,7 +57,10 @@ export default async function globalTeardown(): Promise<void> {
   //
   // async function deleteTestData(token: string): Promise<void> {
   //   // TODO: call your API / SDK to remove records created during the test run
-  //   const res = await fetch(`${process.env.E2E_BASE_URL}/api/test-cleanup`, {
+  //   // Refuse to send the bearer token over plain http to a non-loopback host.
+  //   const baseUrl = process.env.E2E_BASE_URL ?? "";
+  //   assertSecureBaseUrl(baseUrl, resolveActiveEnvironment(loadSpecproofConfig()));
+  //   const res = await fetch(`${baseUrl}/api/test-cleanup`, {
   //     method: "DELETE",
   //     headers: { Authorization: `Bearer ${token}` },
   //   });

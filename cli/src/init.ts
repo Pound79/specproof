@@ -13,6 +13,8 @@ import {
   shellCdCommand,
 } from "./scaffold-config.js";
 import { printable } from "./display-text.js";
+import { missingSensitiveEntries } from "./gitignore-gap.js";
+import { readSmallTextFile } from "./bounded-read.js";
 import { ScaffoldJournal } from "./scaffold-journal.js";
 
 export type AgentType = "claude" | "codex" | "all";
@@ -25,6 +27,9 @@ export interface InitOptions {
 }
 
 const SUPPORTED = ["playwright", "flutter", "auto"];
+
+// 既存の .gitignore を比べるために読む上限。これを超えるものは読まない。
+const GITIGNORE_MAX_BYTES = 1024 * 1024;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -166,6 +171,8 @@ export interface ScaffoldResult {
   skipped: string[];
   skippedWorkflows: string[];
   layoutRewritten: boolean;
+  /** 残した既存の .gitignore に、雛形の機密の除外が足りないとき（file はリポジトリ相対）。 */
+  gitignoreGap?: { file: string; missing: string[] };
 }
 
 // Dotfiles are shipped in templates without their leading dot (see the copy
@@ -202,6 +209,7 @@ export function scaffoldTemplate(params: {
   const skipped: string[] = [];
   const skippedWorkflows: string[] = [];
   let layoutRewritten = false;
+  let gitignoreGap: ScaffoldResult["gitignoreGap"];
   const journal = new ScaffoldJournal(repoRoot);
 
   try {
@@ -236,6 +244,22 @@ export function scaffoldTemplate(params: {
       // --force; everything else follows the usual --force semantics.
       if (existsSync(dest) && (isWorkflow || !force)) {
         (isWorkflow ? skippedWorkflows : skipped).push(path.relative(repoRoot, dest));
+        if (base === "gitignore") {
+          // 利用者の .gitignore は書き換えず、雛形の機密の除外で足りない行を知らせる。
+          // 警告のための読み込みで init を止めない。読めない（通常のファイルでない・大きすぎる・
+          // 権限が無い）ときは何も除外していないとみなす。
+          let existing = "";
+          try {
+            existing = readSmallTextFile(dest, GITIGNORE_MAX_BYTES);
+          } catch {
+            existing = "";
+          }
+          const missing = missingSensitiveEntries(
+            readFileSync(path.join(tplDir, rel), "utf8"),
+            existing,
+          );
+          if (missing.length > 0) gitignoreGap = { file: path.relative(repoRoot, dest), missing };
+        }
         continue;
       }
 
@@ -290,7 +314,7 @@ export function scaffoldTemplate(params: {
     );
   }
 
-  return { written, skipped, skippedWorkflows, layoutRewritten };
+  return { written, skipped, skippedWorkflows, layoutRewritten, gitignoreGap };
 }
 
 export async function runInit(opts: InitOptions): Promise<void> {
@@ -319,7 +343,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const e2eDir = resolveTargetDir(repoRoot, opts.dir ?? fallbackDir);
   const force = opts.force ?? false;
 
-  const { written, skipped, skippedWorkflows, layoutRewritten } = scaffoldTemplate({
+  const { written, skipped, skippedWorkflows, layoutRewritten, gitignoreGap } = scaffoldTemplate({
     tplDir,
     repoRoot,
     e2eDir,
@@ -345,6 +369,16 @@ export async function runInit(opts: InitOptions): Promise<void> {
         "(never overwritten, even with --force — merge manually):",
     );
     for (const s of skippedWorkflows) console.log(`  = ${s}`);
+  }
+  if (gitignoreGap) {
+    console.warn(
+      `\nWarning: ${printable(gitignoreGap.file)} was left unchanged and lacks these ` +
+        "exclusions for secrets and test artifacts from the template:\n" +
+        gitignoreGap.missing.map((entry) => `  - ${printable(entry)}\n`).join("") +
+        "Add them by hand. Lines are compared as written (ignoring a leading / and trailing spaces), " +
+        "so an equivalent pattern (e.g. .env*) or a parent .gitignore that already covers " +
+        "an entry is not recognized.",
+    );
   }
   const agentType = opts.agent ?? "all";
   const nextSteps = buildNextSteps(agentType);

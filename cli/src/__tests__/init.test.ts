@@ -12,7 +12,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   runInit,
   buildNextSteps,
@@ -59,6 +59,35 @@ describe("runInit", () => {
     await expect(runInit({ adapter: "playwright" })).rejects.toThrow(/symbolic link|symlink/i);
     expect(await readdir(outside)).toEqual([]);
   });
+
+  it.each([
+    [
+      "playwright",
+      "packages/e2e",
+      ["playwright/.auth", "test-results", "playwright-report", ".env.*", ".npmrc"],
+    ],
+    ["flutter", "bdd_tests", [".env.*", ".npmrc"]],
+  ])(
+    "%s: 既存の .gitignore に足りない機密の除外を警告し、ファイルは変えない",
+    async (adapter, dir, missing) => {
+      const gitignore = path.join(root, "repo", dir, ".gitignore");
+      await mkdir(path.dirname(gitignore), { recursive: true });
+      await writeFile(gitignore, "node_modules\n.env\n");
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        await runInit({ adapter, agent: "claude" });
+        const warned = warn.mock.calls.map((call) => call.join(" ")).join("\n");
+        expect(warned).toContain(`${path.join(dir, ".gitignore")} was left unchanged`);
+        for (const entry of missing) expect(warned).toContain(`  - ${entry}\n`);
+        expect(warned).not.toContain("  - .env\n");
+        expect(await readFile(gitignore, "utf-8")).toBe("node_modules\n.env\n");
+      } finally {
+        warn.mockRestore();
+        log.mockRestore();
+      }
+    },
+  );
 });
 
 describe("buildNextSteps", () => {
@@ -393,6 +422,181 @@ describe("scaffoldTemplate", () => {
     expect(await readFile(path.join(e2eDir, ".env.example"), "utf-8")).toBe(
       "# E2E_BASE_URL=http://localhost:5173\n",
     );
+  });
+
+  it("既存の .gitignore に足りない機密の除外を返し、利用者のファイルは変えない", async () => {
+    await writeTplFile(
+      "gitignore",
+      "node_modules\nplaywright/.auth\ntest-results\nplaywright-report\n.env\n.env.*\n!.env.example\n.npmrc\n",
+    );
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(e2eDir, { recursive: true });
+    await writeFile(path.join(e2eDir, ".gitignore"), "node_modules\n/test-results/\n.env\n");
+
+    const result = scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: "e2e",
+      force: false,
+    });
+
+    expect(result.skipped).toContain(path.join("e2e", ".gitignore"));
+    expect(result.gitignoreGap).toEqual({
+      file: path.join("e2e", ".gitignore"),
+      missing: ["playwright/.auth", "playwright-report", ".env.*", ".npmrc"],
+    });
+    expect(await readFile(path.join(e2eDir, ".gitignore"), "utf-8")).toBe(
+      "node_modules\n/test-results/\n.env\n",
+    );
+  });
+
+  it("既存の .gitignore が機密の除外をすべて持てば何も返さない", async () => {
+    await writeTplFile("gitignore", "build/\n.env\n.env.*\n!.env.example\n.npmrc\n");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(e2eDir, { recursive: true });
+    await writeFile(
+      path.join(e2eDir, ".gitignore"),
+      "# secrets\n/.env \n.env.*\r\n.npmrc/\n.npmrc\n",
+    );
+
+    const result = scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: "e2e",
+      force: false,
+    });
+
+    expect(result.skipped).toContain(path.join("e2e", ".gitignore"));
+    expect(result.gitignoreGap).toBeUndefined();
+  });
+
+  it.each([
+    ["ディレクトリだけに効く .env/", ".env/\n.npmrc\ntest-results\n", [".env"]],
+    ["先頭に空白がある行（git では空白も模様の一部）", " .env\n.npmrc\ntest-results\n", [".env"]],
+    ["後の行の否定で除外が外れた .env", ".env\n.npmrc\n!.env\ntest-results\n", [".env"]],
+    ["否定の後でまた除外した .env", "!.env\n.env\n.npmrc\ntest-results\n", []],
+    ["末尾の / はディレクトリの項目なら同じとみなす", ".env\n.npmrc\ntest-results/\n", []],
+    ["末尾の空白は無視する", ".env  \n.npmrc\ntest-results\n", []],
+  ])("既存の .gitignore を git に近い規則で比べる: %s", async (_label, existing, missing) => {
+    await writeTplFile("gitignore", ".env\n.npmrc\ntest-results\n");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(e2eDir, { recursive: true });
+    await writeFile(path.join(e2eDir, ".gitignore"), existing);
+
+    const result = scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: "e2e",
+      force: false,
+    });
+
+    expect(result.gitignoreGap?.missing ?? []).toEqual(missing);
+  });
+
+  it("否定や雛形に無い機密の行は、足りない項目に数えない", async () => {
+    // 雛形の gitignore に無い機密の行（ここでは playwright/.auth など）は求めない。
+    await writeTplFile("gitignore", ".env\n!.env.example\n");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(e2eDir, { recursive: true });
+    await writeFile(path.join(e2eDir, ".gitignore"), "!.env\n");
+
+    const result = scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: "e2e",
+      force: false,
+    });
+
+    expect(result.gitignoreGap).toEqual({
+      file: path.join("e2e", ".gitignore"),
+      missing: [".env"],
+    });
+  });
+
+  it("既存の .gitignore が通常のファイルでなければ読まず、機密の除外はすべて足りないとみなす", async () => {
+    await writeTplFile("gitignore", ".env\n.npmrc\n");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(path.join(e2eDir, ".gitignore"), { recursive: true });
+
+    const result = scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: "e2e",
+      force: false,
+    });
+
+    expect(result.gitignoreGap).toEqual({
+      file: path.join("e2e", ".gitignore"),
+      missing: [".env", ".npmrc"],
+    });
+  });
+
+  it("既存の .gitignore が大きすぎても init を止めず、機密の除外はすべて足りないとみなす", async () => {
+    await writeTplFile("gitignore", ".env\n.npmrc\n");
+    await writeTplFile("steps/example.steps.ts", "// template\n");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(e2eDir, { recursive: true });
+    await writeFile(path.join(e2eDir, ".gitignore"), `.env\n.npmrc\n${"#".repeat(1024 * 1024)}\n`);
+
+    const result = scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: "e2e",
+      force: false,
+    });
+
+    expect(result.written).toContain(path.join("e2e", "steps", "example.steps.ts"));
+    expect(result.gitignoreGap).toEqual({
+      file: path.join("e2e", ".gitignore"),
+      missing: [".env", ".npmrc"],
+    });
+  });
+
+  it("既存の .gitignore が読めなくても init を止めない", async () => {
+    await writeTplFile("gitignore", ".env\n");
+    await writeTplFile("steps/example.steps.ts", "// template\n");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(e2eDir, { recursive: true });
+    const gitignore = path.join(e2eDir, ".gitignore");
+    await writeFile(gitignore, ".env\n");
+    await chmod(gitignore, 0o000);
+    try {
+      const result = scaffoldTemplate({
+        tplDir,
+        repoRoot,
+        e2eDir,
+        templateDefaultDir: "e2e",
+        force: false,
+      });
+      expect(result.written).toContain(path.join("e2e", "steps", "example.steps.ts"));
+      expect(result.gitignoreGap?.file).toBe(path.join("e2e", ".gitignore"));
+    } finally {
+      await chmod(gitignore, 0o644);
+    }
+  });
+
+  it("--force で .gitignore を上書きしたときは何も返さない", async () => {
+    await writeTplFile("gitignore", ".env\n");
+    const e2eDir = path.join(repoRoot, "e2e");
+    await mkdir(e2eDir, { recursive: true });
+    await writeFile(path.join(e2eDir, ".gitignore"), "node_modules\n");
+
+    const result = scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: "e2e",
+      force: true,
+    });
+
+    expect(result.written).toContain(path.join("e2e", ".gitignore"));
+    expect(result.gitignoreGap).toBeUndefined();
   });
 
   it("rejects a nested destination symlink before writing outside the repo", async () => {
