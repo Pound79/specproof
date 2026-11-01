@@ -25,9 +25,10 @@ traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `fea
 設定ファイルはリポジトリのルートの `specproof.config.yaml`（または `.yml`）で、1 MiB 以下の
 通常ファイルでなければエラーで止まる。改名前の `bdd-kit.config.yaml` / `.yml` は 0.4.0 から読まず、
 ルート（またはルートを探して親へたどる途中の、目印の無いディレクトリ）に旧名だけがあれば、名前の変更を
-案内して止まる。エンジンが読まないキー（skill だけが読むキーを含む）は検証せずに無視する。ただし
-`layout` と `tags` は mapping でなければエラーになり、`tags.fixme` / `tags.skip` は書いてあるだけで
-エラーになる。`adapter: flutter` のとき、`language` はエンジンが読める `en` / `ja` の
+案内して止まる。エンジンが読まないキー（skill だけが読むキーを含む）の値の型は検証しない。
+どの consumer も読まないキー（綴りの誤りなど）は `specproof-check` が警告 `unknown-config-key` を出し、
+`--strict` で失敗する（[未知のキー](#未知のキー)）。`layout` と `tags` は mapping でなければエラーになり、
+`tags.fixme` / `tags.skip` は書いてあるだけでエラーになる。`adapter: flutter` のとき、`language` はエンジンが読める `en` / `ja` の
 どちらかにする（それ以外は feature を読む段でエラーになる）。
 
 | フィールド | 要否 | 説明 |
@@ -94,8 +95,9 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 
 | ブロック | 要否 | 要点 |
 |---|---|---|
+| `runner` | optional | Playwright テンプレートの実行設定。`device`（既定 `Desktop Chrome`）/ `webServerCommand` / `globalTeardown` / `i18nLocaleStorageKey`。 |
 | `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、ここでは設定しない。実行を止めるタグに別名を付ける設定になるので、`tags.fixme` / `tags.skip` を書くと読み込みが失敗する（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。 |
-| `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。`tags` には状態タグに触れる式と括弧の対応が取れていない式を書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
+| `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。Playwright テンプレートは `storageState` / `setup` / `credentialsEnv`（`username` / `password` / `newPassword`）も読む。`tags` には状態タグに触れる式と括弧の対応が取れていない式を書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `env` | required（baseUrl） | 環境変数の論理名。`adminUsername`<sup>+</sup> は authed-admin の条件判定。 |
 | `environments[]` | required（1エントリ以上） | 実行環境プロファイル。環境別の auth / dotenv / excludeTags を宣言。詳細は後述。 |
 | `implement`<sup>+</sup> | optional | `blastRadiusGlobs` = specproof-implement の編集許可スコープ（implGlobs とは別概念）。 |
@@ -103,6 +105,47 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 | `agents`<sup>+</sup> | optional | `codeReviewer` / `securityReviewer` の識別子。 |
 | `conventions` | optional | `agentsDoc` / `i18nLintPlugin` / `stepFrameworkPattern` / `pendingStubBody`。 |
 | `examples` | optional | `domainName` / `specDoc`<sup>+</sup> / `internalConstants`。 |
+
+## 未知のキー
+
+`specproof-check` は、設定ファイルにあってどの consumer（traceability エンジン・skill・テンプレートの
+設定読み込み）も読まないキーを、警告 `unknown-config-key` で 1 件ずつ知らせる。綴りを誤ったキー
+（`layout.featureDir`、`strictUnregisteredImp` など）は黙って既定値に落ち、設定したつもりの監査や
+コマンドが効かないため。ほかの構造の警告と同じく `--strict` で失敗する（opt-out の設定は無い）。
+メッセージはキーの経路（`layout.featureDir`、`projects[0].tag`、識別子でないキーは
+`["a b"]` のように引用する）だけを示し、値は出さない。100 件を超えると走査を止め、最初の 100 件と、
+超えたことを示す 1 件（`truncated: true`）を出す。テキストと annotation に出すのは 20 件までで、超えたことを
+示す 1 件は必ず出す（`--json` は全件）。メッセージのキーの経路は 200 文字で切り詰め、末尾に `…` を付ける。`specproof-update` / `list` / `stats` は
+この警告を出さない。
+
+検査の深さの規則: consumer がキーの名前を決め打ちで読む mapping は、キーの集合を固定して検査する。
+キーの名前を利用者が決める mapping は中を見ない。値が mapping・配列でないとき（型違い）は
+中を見ない（エンジンが読むキーの型はエンジンが、テンプレートが読むキーはテンプレートが確かめる）。
+
+| 範囲 | 既知のキー |
+|---|---|
+| トップレベル | `adapter` / `bddRunner` / `bddGenTool` / `language` / `commands` / `layout` / `fixtures` / `tags` / `projects` / `env` / `environments` / `implement` / `git` / `agents` / `conventions` / `examples` / `runner` / `flutter` / `strictUnregisteredImpl` / `strictUnregisteredSpecHeadings` / `strictFeatureLint` |
+| `commands` | `generate` / `typecheck` / `lint` / `productTypecheck` / `productLint` / `smoke` / `install` / `traceabilityUpdate` / `traceabilityCheck` / `traceabilityList` / `traceabilityStats` |
+| `layout` | `e2eRoot` / `featuresDir` / `stepsDir` / `stepFileSuffix` / `stepFileExt` / `pagesDir` / `candidateSuffix` / `textConstants` / `i18nSource` / `manifest` / `specDir` / `implGlobs` / `scratchDir` / `testRunnerConfig` / `idiomGuide` / `e2eReadme` |
+| `projects[]` の各要素 | `name` / `tags` / `features` / `storageState` / `setup` / `conditional` / `credentialsEnv` |
+| `projects[].credentialsEnv` | `username` / `password` / `newPassword` |
+| `environments[]` の各要素 | `name` / `default` / `dotenvFile` / `auth` / `excludeTags` / `envOverrides` / `allowInsecureHttp` |
+| `environments[].auth` | `provider` / `description` |
+| `implement` | `blastRadiusGlobs` |
+| `git` | `commitScope` / `branchPrefix` |
+| `agents` | `codeReviewer` / `securityReviewer` |
+| `conventions` | `agentsDoc` / `i18nLintPlugin` / `stepFrameworkPattern` / `pendingStubBody` |
+| `examples` | `domainName` / `specDoc` / `internalConstants` |
+| `runner` | `device` / `webServerCommand` / `globalTeardown` / `i18nLocaleStorageKey` |
+| `flutter` | `gherkinParser` / `testEntry` / `device` / `buildRunnerPin` / `buildYamlSources` / `traceabilityHashSource` |
+
+中を見ない（名前を利用者が決める）mapping: `fixtures`（フィクスチャ名）、`tags`（タグの正準名。
+`tags.sf` のような任意のタグを足せる。`tags.fixme` / `tags.skip` は従来どおりエラー）、`env`
+（環境変数の論理名。`projects[].conditional: env.<名前>` が任意の名前を参照できる）、
+`environments[].envOverrides`（環境変数名）。
+
+廃止したキー（`runner.authDir` など）と、過去の検討資料（`docs/history/`）にだけ現れるキーは既知に
+含めない。既知のキーを増やすときは、この表と `packages/traceability/src/config-keys.ts` を同時に更新する。
 
 ## environments（required — 1 エントリ以上）
 

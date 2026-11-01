@@ -29,12 +29,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   足場には `src/config/base-url-guard.ts` を足し、`playwright.config.ts`・`src/setup/auth.setup.ts`・
   `src/config/specproof-config.ts`（`EnvironmentProfile.allowInsecureHttp`）を差分に合わせて直す
   （`specproof init --force` は手元の変更を上書きする）。フィールドは `docs/config-schema.md` を参照。
+- **破壊的変更**: `specproof-check` は、`specproof.config.yaml`（または `.yml`）にあってどの consumer
+  （traceability エンジン・skill・テンプレートの設定読み込み）も読まないキーを、警告 `unknown-config-key`
+  で 1 件ずつ知らせ、`--strict` で失敗する。これまでは綴りを誤ったキー（`layout.featureDir` など）が黙って
+  無視され、設定したつもりの値が既定値に落ちていた。トップレベル・`layout`・`commands` など、キーの名前が
+  決まっている節を検査し、名前を利用者が決める `fixtures` / `tags` / `env` / `environments[].envOverrides`
+  の中は見ない。メッセージはキーの経路（200 文字で切り詰める）だけを示し、値は出さない。100 件を超えると
+  走査を止め、超えたことを 1 件の警告で必ず示す。既知のキーと規則は
+  `docs/config-schema.md` の「未知のキー」。
+  移行: `specproof-check --json` の `unknown-config-key` が示すキーを、正しい綴りに直すか削除する。
+  たとえば v0.1.0〜v0.2.2 の雛形が書いていた `runner.authDir`（使われていない）は削除する。
+  独自の情報を設定ファイルに置いていた場合は、別のファイルへ移す（警告を止める設定は無い）。
+- **破壊的変更**: manifest の読み込みは、参照の `hash` が sha256 の 16 進（小文字 64 桁）・仮の値
+  `PENDING`・`FILE_MISSING` / `SECTION_MISSING` のどれでもなければエラーで止まる（値は出さない）。
+  これまでは 256 文字以下の任意の文字列を受け付け、drift として報告していた。link の `label` と spec 参照の
+  `heading` は、link `id` と同じく制御文字・行区切りを含むとエラーで止まる（水平タブは、Markdown の
+  見出しと旧い manifest のために受け付ける。YAML のブロック形式 `label: >` / `label: |` が付ける
+  `label` の末尾の改行は検査で除き、ファイルの値はそのまま保つ）。
+  移行: 手で書いた仮の値（空文字列や `TODO` など）は `PENDING` に置き換えて `specproof-update` を実行する。
+  大文字の 16 進は小文字にする。`label` / `heading` の改行などの制御文字は取り除く（`heading` は
+  spec の見出しの行と合わせる）。
+- API の型: `DriftWarning["kind"]` に `"unknown-config-key"` を、`DriftWarning` に任意の
+  `truncated` を、`TraceabilityConfig` に任意の `unknownConfigKeys` を足した。`kind` を網羅して
+  分岐する利用者は新しい値を扱う。`PENDING_HASH` を `FILE_MISSING` / `SECTION_MISSING` と同じく
+  パッケージの入口から公開する。
+- manifest を新しく書くときの先頭のコメントを、hash が sha256 の 16 進（新しい参照は `PENDING`）で、
+  変更を確かめてから `specproof-update` で取り直すことが分かる文に改めた。
 
 ### Fixed
 
 - `specproof setup-agent codex` は、skill のファイルを順にコピーする途中で失敗すると、それまでに書いた
   ファイルを消し、`--force` で上書きしたファイルを元の内容と権限に戻し、作ったディレクトリのうち空に
   なったものを消してから失敗を知らせる。`specproof init` と同じ取り消しで、半端な skill を残さない。
+- CLI の `detect` と `init --adapter auto` は、`package.json` の形を確かめて読む。トップレベルが object で
+  ない（`null` など）と例外で止まり、`dependencies` の値が文字列でなくても依存として数え、`workspaces` の
+  要素が文字列でなくても monorepo と判定していた。形が違うフィールドは無いものとして扱い、
+  `package.json` があることだけを手がかりに残す。JSON として読めないファイルは従来どおりエラーで止まる。
 
 ## [0.4.1] - 2026-11-01
 

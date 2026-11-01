@@ -418,13 +418,13 @@ drift を検出できる。これがこの方法論全体を支える根幹の�
     - path: <spec-doc-path>
       heading: <見出し>        # 見出し行のテキスト（先頭の "#"+空白 は除く）
       headingLevel: 2          # 任意（既定 2 = "## "）。### を指すなら 3
-      hash: <sha256-hash>      # PENDING → bless コマンドで実ハッシュに更新
+      hash: PENDING            # 新規は PENDING。bless コマンドで実ハッシュ（小文字 16 進 64 桁）に更新
   impl:
     - path: <impl-file-path>
-      hash: <sha256-hash>
+      hash: PENDING
   features:
     - path: <feature-file-path>
-      hash: <sha256-hash>
+      hash: PENDING
 ```
 
 ハッシュは各 ref（`spec`/`impl`/`features` の各要素）に紐付く。
@@ -510,6 +510,7 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
       "kind": string,            // 下表参照
       "path": string,            // 対象ファイルパス（empty-link では省略）
       "message": string,
+      "truncated": true,          // unknown-config-key の上限（100 件）で走査を止めたことを示す 1 件だけに付く
       "failsUnderStrict": boolean // この warning が --strict で失敗扱いになるかの実効値（config の strictUnregisteredImpl / strictUnregisteredSpecHeadings を反映）。CLI（specproof-check --json）出力層で付与され、checkDrift 本体・DriftWarning 型には含まれない
     }
   ],
@@ -528,6 +529,7 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 | `unregistered-feature` | なし | `featuresDir` 配下に存在するが、どのリンクの `features[]` にも登録されていない `.feature` ファイル |
 | `features-dir-unset` | なし | 設定ファイルがあるのに `layout.featuresDir` が無い。登録していない `.feature` のドラフトマーカー・止めるタグ・lint を検査できない（設定ファイルが無ければ出さない） |
 | `features-dir-missing` | なし | `featuresDir` を書いているが、存在しない・ディレクトリでない。登録していない `.feature` を検査できない |
+| `unknown-config-key` | なし | 設定ファイルに、どの consumer（エンジン・skill・テンプレート）も読まないキーがある（綴りの誤りなど）。キーの経路だけを示し、値は出さない（規則は [config-schema](config-schema.md#未知のキー)） |
 | `unregistered-spec-heading` | なし | マニフェストに 1 件以上 spec 参照がある markdown ファイル内で、未登録の見出しが見つかった |
 | `unregistered-impl` | なし | `layout.implGlobs` にマッチするが、どのリンクの `impl[]` にも登録されていない実装ファイル（`implGlobs` 未設定時は検知自体を行わない） |
 | `duplicate-heading` | あり | 登録済み見出しが同一ファイル内に複数回出現し、セクションハッシュが一意に定まらない |

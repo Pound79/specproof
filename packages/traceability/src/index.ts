@@ -19,6 +19,7 @@ export {
   FILE_MISSING,
   hasDraftMarker,
   SECTION_MISSING,
+  PENDING_HASH,
 } from "./hash.js";
 
 export { parseScenarios, type ScannedScenario } from "./feature-scan.js";

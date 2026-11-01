@@ -25,6 +25,7 @@ const main = async (): Promise<void> => {
     gherkin: config.gherkin,
     language: config.language,
     configFile: config.configFile,
+    unknownConfigKeys: config.unknownConfigKeys ?? [],
   });
   const strict = flags.has("--strict");
   const strictOptions = {

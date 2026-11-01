@@ -12,13 +12,13 @@ links:
     spec:
       - path: docs/spec.md
         heading: 1. Login
-        hash: abc
+        hash: PENDING
     impl:
       - path: src/login.ts
-        hash: abc
+        hash: PENDING
     features:
       - path: features/login.feature
-        hash: abc
+        hash: PENDING
 `;
 
 describe("loadManifest validation", () => {
@@ -76,7 +76,7 @@ links:
     label: Login
     spec:
       - path: docs/spec.md
-        hash: abc
+        hash: PENDING
     impl: []
     features: []
 `);
@@ -109,7 +109,7 @@ links:
     spec: []
     impl:
       - path: ""
-        hash: abc
+        hash: PENDING
     features: []
 `);
 
@@ -125,7 +125,7 @@ links:
             id: "login",
             label: "Login",
             spec: [],
-            impl: [{ path: "a".repeat(4097), hash: "abc" }],
+            impl: [{ path: "a".repeat(4097), hash: "PENDING" }],
             features: [],
           },
         ],
@@ -143,7 +143,7 @@ links:
           {
             id: "login",
             label: "Login",
-            spec: [{ path: "docs/spec.md", heading: "a".repeat(1025), hash: "abc" }],
+            spec: [{ path: "docs/spec.md", heading: "a".repeat(1025), hash: "PENDING" }],
             impl: [],
             features: [],
           },
@@ -214,7 +214,7 @@ links:
         label: `Link ${linkIndex}`,
         spec: [],
         // 参照数だけが境界条件なので、各参照は最小の有効値にする。
-        impl: Array.from({ length: count }, () => ({ path: "x", hash: "" })),
+        impl: Array.from({ length: count }, () => ({ path: "x", hash: "PENDING" })),
         features: [],
       };
     });
@@ -394,9 +394,9 @@ links:
           label: "Login",
           criteria: ["AC-001"],
           extension: { detail: ["one", "two"] },
-          spec: [{ path: "spec.md", heading: "Login", hash: "abc", revision: 7 }],
-          impl: [{ path: "impl.ts", hash: "abc", role: "primary" }],
-          features: [{ path: "login.feature", hash: "abc", annotation: true }],
+          spec: [{ path: "spec.md", heading: "Login", hash: "PENDING", revision: 7 }],
+          impl: [{ path: "impl.ts", hash: "PENDING", role: "primary" }],
+          features: [{ path: "login.feature", hash: "PENDING", annotation: true }],
         },
       ],
     };

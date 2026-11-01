@@ -199,3 +199,42 @@ test("neutralizeWorkflowCommands は行ごとに `##[` と行頭の `::` を崩�
   assert.equal(neutralizeWorkflowCommands("\u0085::x"), "\u0085?:x");
   assert.ok(!isCommandLine(neutralizeWorkflowCommands("\u3000\u0085::x")));
 });
+
+// 設定ファイルのキーは PR の作者が書ける。unknown-config-key の警告に出すキーも出口を通し、
+// 端末の制御シーケンスと bidi 制御文字も残さない。
+const HOSTILE_KEYS = [
+  "::error::top",
+  "##[warning]key",
+  "  ::notice::indented",
+  "x\u001b[2J\u202ey\n::error::z",
+];
+for (const args of [[], ["--strict"], ["--json"], ["--github-annotations"]]) {
+  test(`check ${args.join(" ")}: 設定の未知のキーもワークフローコマンドとして読まれない`, () =>
+    withRepo((root) => {
+      const hostile = Object.fromEntries(HOSTILE_KEYS.map((key) => [key, 1]));
+      writeFileSync(
+        path.join(root, "specproof.config.yaml"),
+        JSON.stringify({
+          layout: { manifest: "traceability.yaml", featuresDir: "features", ...hostile },
+          ...hostile,
+        }),
+      );
+      const result = cli(root, "check", args);
+      const output = result.stdout + result.stderr;
+      // 攻撃の入力が実際に出力へ届いていることを確かめる。
+      assert.match(output, /top/);
+      assert.match(output, /indented/);
+      assert.doesNotMatch(output, /[\u001b\u202e]/u);
+      assertNoCommandLines(result.stdout, "check stdout");
+      // --github-annotations は意図した `::warning::` を stderr に出す。キーから行を増やさない。
+      const lines = result.stderr.split(/\r\n|\r|\n/).filter((line) => line !== "");
+      for (const line of lines) {
+        assert.ok(
+          !isCommandLine(line) ||
+            line.startsWith("::warning::specproof traceability: ") ||
+            line.startsWith("::warning file="),
+          JSON.stringify(line),
+        );
+      }
+    }));
+}

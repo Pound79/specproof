@@ -1,5 +1,6 @@
 import path from "node:path";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from "node:fs";
+import { collectUnknownConfigKeys } from "./config-keys.js";
 import { assertNoRemovedConfig, resolveDefaultManifestPath, resolveRepoRoot } from "./paths.js";
 import { resolveWithinRoot } from "./resolve.js";
 import type { GherkinFlavor } from "./feature-scan.js";
@@ -43,6 +44,9 @@ export interface TraceabilityConfig {
   language?: string;
   /** 読んだ設定ファイルのリポジトリ相対の名前。設定ファイルが無ければ undefined。 */
   configFile?: string;
+  /** 設定ファイルにある、どの consumer も読まないキーの経路（出現順）。check が
+   *  unknown-config-key として報告する。設定ファイルが無ければ空。 */
+  unknownConfigKeys?: string[];
 }
 
 export interface DiscoverConfigOverrides {
@@ -291,5 +295,6 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     gherkin,
     language,
     configFile: source?.name,
+    unknownConfigKeys: source === null ? [] : collectUnknownConfigKeys(source.config),
   };
 };

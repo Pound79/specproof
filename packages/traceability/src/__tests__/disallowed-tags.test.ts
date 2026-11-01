@@ -119,7 +119,7 @@ describe("checkDrift", () => {
         "    impl: []",
         "    features:",
         "      - path: features/a.feature",
-        "        hash: x",
+        "        hash: PENDING",
         "",
       ].join("\n"),
     );
@@ -191,7 +191,7 @@ describe("checkDrift の @out-of-scope と missing-then", () => {
     await mkdir(path.join(root, "features"));
     await writeFile(
       path.join(root, "traceability.yaml"),
-      "version: 1\nlinks:\n  - id: a\n    label: A\n    spec: []\n    impl: []\n    features:\n      - path: features/a.feature\n        hash: x\n",
+      "version: 1\nlinks:\n  - id: a\n    label: A\n    spec: []\n    impl: []\n    features:\n      - path: features/a.feature\n        hash: PENDING\n",
     );
   });
   afterEach(async () => {

@@ -112,14 +112,14 @@ specproof init --adapter <framework>
      `{{config:layout.textConstants}}` の定数を使う（上流: `{{config:layout.i18nSource}}`）
    - フィクスチャの destructure には `{{config:fixtures}}` の fixture 名を用いる
 5. `{{config:layout.manifest}}` に新しいリンクを追加する
-   (id / label / spec / impl / features。hash は `PENDING` でよい):
+   (id / label / spec / impl / features。hash は `PENDING` にする。それ以外の仮の値は manifest の読み込みで拒否される):
 
    ```bash
    {{config:commands.traceabilityUpdate}}
    {{config:commands.traceabilityCheck}}   # clean を確認
    ```
 
-   ツールは `PENDING` を特別扱いしないため、仮 hash を入れた直後は意図的に
+   `PENDING` は実ハッシュと一致しないため、仮 hash を入れた直後は意図的に
    drift が出るのが正常。追加後すぐ `{{config:commands.traceabilityUpdate}}` で実ハッシュに更新する。
 
    [feature の登録と実行対象の確認](references/runner-registration.md) に従い、

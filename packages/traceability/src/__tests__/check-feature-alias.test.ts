@@ -17,7 +17,7 @@ const unregistered = async (registered: string, alias: string): Promise<string[]
     await symlink(path.basename(registered), path.join(root, alias));
     await writeFile(
       path.join(root, "traceability.yaml"),
-      `version: 1\nlinks:\n  - id: a\n    label: A\n    spec: []\n    impl: []\n    features:\n      - path: ${registered}\n        hash: x\n`,
+      `version: 1\nlinks:\n  - id: a\n    label: A\n    spec: []\n    impl: []\n    features:\n      - path: ${registered}\n        hash: PENDING\n`,
     );
     const report = await checkDrift(path.join(root, "traceability.yaml"), root, {
       featuresDir: "features",

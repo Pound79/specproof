@@ -147,6 +147,7 @@ failing unless `--strict` is passed:
 | `unregistered-feature` | a `.feature` file under `featuresDir` that no link registers |
 | `features-dir-unset` | a config file exists but sets no `layout.featuresDir`, so `.feature` files that no link registers are not scanned (no warning when there is no config file) |
 | `features-dir-missing` | `featuresDir` is set but is not an existing directory, so `.feature` files that no link registers are not scanned |
+| `unknown-config-key` | `specproof.config.yaml` has a key that no consumer (this engine, the skills, the templates) reads, such as a misspelt `layout.featureDir`; the message names the key path, never its value (rule: [docs/config-schema.md](../../docs/config-schema.md#未知のキー)) |
 | `unregistered-spec-heading` | a heading in an already-referenced spec file that no link registers |
 | `unregistered-impl` | a file matching `layout.implGlobs` that no link's `impl[]` registers |
 | `duplicate-heading` | a registered heading appears more than once in its spec file, making the section hash ambiguous |
@@ -178,6 +179,11 @@ with `*` / And / But steps are not checked for `missing-then` or `step-order`
 (their step types are unknown), and `@out-of-scope` scenarios are not
 checked for `missing-then`. At most 10
 `possible-contradiction` warnings are printed; `--json` has them all.
+Likewise at most 20 `unknown-config-key` warnings are printed and annotated
+(a config file is PR-controlled); `--json` and the `--strict` verdict use all of them.
+Past 100 unknown keys the scan stops and one more warning (with
+`truncated: true`) says so; that warning is always printed. Each key path in a
+message is cut to 200 characters, ending with `…`.
 
 Because `unregistered-impl` / `unregistered-spec-heading` don't escalate
 under `--strict` without their opt-in flags, `check --json` annotates every
@@ -289,8 +295,13 @@ these limits:
 - manifest file: 8 MiB
 - links: 10,000
 - references: 1,000 per link and 20,000 total
-- path: 4,096 characters; id/hash: 256; label/heading: 1,024
-- link `id` must not contain control or separator characters (like criterion IDs)
+- path: 4,096 characters; id: 256; label/heading: 1,024
+- link `id` must not contain control or separator characters (like criterion
+  IDs); a link `label` and a spec reference's `heading` must not either, except
+  a horizontal tab (a Markdown heading line can hold one, and older manifests
+  stored it as-is). Trailing line feeds of a `label` (as YAML block scalars
+  `label: >` / `label: |` produce) are ignored by this check and kept in the
+  file; a line break inside the label is rejected
 - each referenced spec / implementation / feature file: 8 MiB, regular files only
   (a FIFO or device is rejected before it is opened); the limit is per file
 
@@ -299,9 +310,11 @@ Other rules the loader and `specproof-update` enforce:
 - link `id` values are unique across the manifest
 - a spec reference's `headingLevel`, when present, is an integer from 1 through
   6 and selects the heading level matched for its `heading` (default 2)
-- `hash` is only checked to be a string of at most 256 characters, not to be a
-  SHA-256 hex digest; any value that differs from the computed hash reads as
-  drift
+- `hash` must be a SHA-256 hex digest (64 lowercase hex characters), the
+  placeholder `PENDING` for a new reference, or `FILE_MISSING` /
+  `SECTION_MISSING` (left by older or hand-edited manifests; `check` always
+  reports them as missing). Any other value fails the load, without echoing
+  the value. A valid value that differs from the computed hash reads as drift
 - `specproof-update` refuses to bless a reference whose file or heading is
   missing; fix the manifest entry instead
 
