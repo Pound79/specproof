@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 同梱の drift-check のワークフローは、検査の前にリポジトリのルートの `specproof.config.yaml`
+  （または `.yml`）を確かめ、無ければ失敗する。エンジンは設定ファイルが無いと既定値で動き、登録していない
+  `.feature` を見ないまま `--strict` を通すので、PR で設定ファイルを消してもゲートが緩まないようにする。
+  エンジンの挙動（設定を置かない利用）は変えない。0.4.0 以前に取り込んだワークフローには入らないので、
+  必要なら `specproof init --force` ではなく手でステップを足す（`.github/workflows/` は `--force` でも上書きしない）。
+- playwright と flutter の雛形の README に、drift-check を必須のステータスチェックにし、設定・manifest・
+  `.npmrc`・`.github/workflows/` を CODEOWNERS で守る案内と、`docs/security-model.md` へのリンクを足した。
+
 ## [0.4.0] - 2026-11-01
 
 ### Added

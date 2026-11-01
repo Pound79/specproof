@@ -193,6 +193,14 @@ Use the specproof-sync skill, or the traceability CLI configured in
 `specproof.config.yaml` (`commands.traceabilityCheck` / `commands.traceabilityUpdate`),
 to keep the manifest up to date.
 
+`specproof init` also adds `.github/workflows/specproof-drift-check.yml`, which runs
+`specproof-check --strict` on every pull request. A pull request can edit the manifest
+hashes, `specproof.config.yaml` and the workflow itself, so the check alone does not
+stop drift. Make it a required status check in your branch protection, and protect
+`specproof.config.yaml` / `specproof.config.yml`, `traceability.yaml`, `.npmrc` and
+`.github/workflows/` with CODEOWNERS. The workflow fails when the config file is
+missing. See [what the drift gate does not guarantee](https://github.com/Pound79/specproof/blob/main/docs/security-model.md#drift-のゲートが保証しないこと).
+
 ---
 
 ## BDD Methodology Pointers
