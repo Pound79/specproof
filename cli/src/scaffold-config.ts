@@ -8,20 +8,18 @@ export const assertScaffoldDirectory = (dir: string): void => {
   }
 };
 
-// printf の書式で、表示に危険な文字を UTF-8 のバイトの 8 進表記にする（POSIX の printf が戻す）。
+// printf の書式で、[A-Za-z0-9_./-] 以外の文字を UTF-8 のバイトの 8 進表記にする（POSIX の printf
+// が戻す）。表示に危険な文字に加え、%・\・'・!（対話的な bash 3.2 は "$(...)" の中の ' ' の中でも
+// 履歴展開する）・$・`・" も画面に出さない。
 const printfFormat = (text: string): string =>
   [...text]
-    .map((char) => {
-      if (printable(char) !== char) {
-        return [...Buffer.from(char, "utf8")]
-          .map((byte) => `\\${byte.toString(8).padStart(3, "0")}`)
-          .join("");
-      }
-      if (char === "%") return "%%";
-      if (char === "\\") return "\\\\";
-      if (char === "'") return "'\\''";
-      return char;
-    })
+    .map((char) =>
+      /^[A-Za-z0-9_./-]$/.test(char)
+        ? char
+        : [...Buffer.from(char, "utf8")]
+            .map((byte) => `\\${byte.toString(8).padStart(3, "0")}`)
+            .join(""),
+    )
     .join("");
 
 /**
