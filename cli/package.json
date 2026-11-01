@@ -1,6 +1,6 @@
 {
   "name": "@pound79/specproof",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "type": "module",
   "publishConfig": {
     "access": "public"

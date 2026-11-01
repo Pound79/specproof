@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-01
+
 ### Added
 
 - `specproof init` は、配置先の既存の `.gitignore` を残すとき、雛形の `.gitignore` にある秘密と実行結果の
@@ -65,7 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ない（`null` など）と例外で止まり、`dependencies` の値が文字列でなくても依存として数え、`workspaces` の
   要素が文字列でなくても monorepo と判定していた。形が違うフィールドは無いものとして扱い、
   `package.json` があることだけを手がかりに残す。JSON として読めないファイルは従来どおりエラーで止まる。
-
 ## [0.4.1] - 2026-11-01
 
 ### Changed
@@ -698,7 +699,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/specproof/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Pound79/specproof/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Pound79/specproof/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Pound79/specproof/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Pound79/specproof/compare/v0.2.2...v0.3.0

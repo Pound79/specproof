@@ -93,7 +93,7 @@ jobs:
         env:
           npm_config_ignore_scripts: "true"
         run: |
-          npx -y --registry=https://registry.npmjs.org -p @pound79/specproof-traceability@0.4.1 specproof-check \
+          npx -y --registry=https://registry.npmjs.org -p @pound79/specproof-traceability@0.5.0 specproof-check \
             --root "$GITHUB_WORKSPACE" --strict --json --github-annotations > "$RUNNER_TEMP/drift-report.json"
 
       - name: Upload drift report
