@@ -82,10 +82,28 @@ esac
 exit 0
 `;
 
-// The pacote of the real npm on PATH (npm -> .../npm/bin/npm-cli.js).
+// The pacote of the real npm, which the stub install links to. On the runner
+// (setup-node) the `npm` on PATH links to .../npm/bin/npm-cli.js, so pacote
+// sits next to it. Version managers such as mise put a wrapper script there
+// instead, which runs the npm bundled with the running Node
+// (<node>/../lib/node_modules/npm), so fall back to that npm's pacote.
 const realPacoteDir = (() => {
   const npm = spawnSync("sh", ["-c", "command -v npm"], { encoding: "utf8" }).stdout.trim();
-  return path.join(path.dirname(realpathSync(npm)), "..", "node_modules", "pacote");
+  const besideCli = path.join(path.dirname(realpathSync(npm)), "..", "node_modules", "pacote");
+  if (existsSync(besideCli)) return besideCli;
+  const bundled = path.join(
+    path.dirname(process.execPath),
+    "..",
+    "lib",
+    "node_modules",
+    "npm",
+    "node_modules",
+    "pacote",
+  );
+  if (!existsSync(bundled)) {
+    throw new Error(`cannot find the real npm's pacote at ${besideCli} or ${bundled}`);
+  }
+  return bundled;
 })();
 
 // Lays out <root>/npm-prefix/lib/node_modules/npm/{bin/npm-cli.js,node_modules/pacote}
