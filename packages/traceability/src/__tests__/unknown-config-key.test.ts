@@ -202,6 +202,32 @@ test("check は上限を超えた未知のキーを 1 件の警告にまとめ�
   assert.match(warnings.at(-1)?.message ?? "", /more than 100 unknown keys/);
 });
 
+test("テキストの表示上限を超えても、走査を止めたことを示す警告は必ず出す", () => {
+  const config = `layout:\n  manifest: traceability.yaml\n  featuresDir: .\n${Array.from(
+    { length: MAX_UNKNOWN_CONFIG_KEYS + 5 },
+    (_, i) => `k${i}: 1\n`,
+  ).join("")}`;
+  const text = run(config, []);
+  assert.match(text.stdout, /more than 100 unknown keys/);
+  const annotations = run(config, ["--github-annotations"]);
+  assert.match(annotations.stderr, /::warning::.*more than 100 unknown keys/);
+});
+
+// キーは PR の作者が書け、alias で何度も参照させられる。長いキーで警告とコメントを膨らませない。
+// YAML の暗黙のキーは 1024 文字までなので、明示のキー（? ...）で長いキーを書く。
+test("警告に入れるキーの経路は 200 文字で切り詰める", () => {
+  const json = run(
+    `layout:\n  manifest: traceability.yaml\n  featuresDir: .\n? ${"a".repeat(5000)}\n: 1\n`,
+    ["--json"],
+  );
+  const [warning] = (
+    JSON.parse(json.stdout) as { warnings: { kind: string; message: string }[] }
+  ).warnings.filter((w) => w.kind === "unknown-config-key");
+  assert.ok(warning.message.includes(`${"a".repeat(199)}…`), warning.message);
+  assert.ok(!warning.message.includes("a".repeat(201)));
+  assert.ok(warning.message.length < 500);
+});
+
 test("テキストと annotation に出す unknown-config-key は 20 件まで", () => {
   const warnings = Array.from({ length: 25 }, (_, index) => ({
     kind: "unknown-config-key" as const,

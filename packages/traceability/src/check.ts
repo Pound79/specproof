@@ -61,6 +61,9 @@ export interface DriftWarning {
   // The offending file path (the feature, for unreviewed-draft). Absent for
   // empty-link, where the link itself — not a file — is the subject.
   path?: string;
+  // unknown-config-key の上限で走査を止めたことを示す 1 件だけに付く。テキストと annotation の
+  // 表示の上限に数えず、必ず出す。
+  truncated?: true;
   message: string;
 }
 
@@ -232,14 +235,24 @@ const featuresDirMissingWarning = (featuresDir: string): DriftWarning => ({
 // キーは PR の作者が書けるので、経路だけを示して値は出さない。識別子でないキーは経路の時点で
 // JSON の文字列にしてあり、残る bidi 制御文字なども --json と annotation に生で出さないよう
 // printable で ? にする（テキストの出力は出口でも無害化する）。
+// キーは alias で何度も参照させられるので、長いキーで警告と PR コメントを膨らませない。
+const MAX_KEY_PATH_IN_MESSAGE = 200;
+const shortenKeyPath = (key: string): string => {
+  const chars = Array.from(printable(key));
+  return chars.length > MAX_KEY_PATH_IN_MESSAGE
+    ? `${chars.slice(0, MAX_KEY_PATH_IN_MESSAGE - 1).join("")}…`
+    : chars.join("");
+};
+
 const unknownConfigKeyWarning = (configFile: string, key: string): DriftWarning => ({
   kind: "unknown-config-key",
   path: configFile,
-  message: `${configFile} has an unknown key ${printable(key)} that specproof does not read, so its value has no effect. Fix its spelling or remove it (see docs/config-schema.md for the keys specproof reads).`,
+  message: `${configFile} has an unknown key ${shortenKeyPath(key)} that specproof does not read, so its value has no effect. Fix its spelling or remove it (see docs/config-schema.md for the keys specproof reads).`,
 });
 
 const tooManyUnknownConfigKeysWarning = (configFile: string): DriftWarning => ({
   kind: "unknown-config-key",
+  truncated: true,
   path: configFile,
   message: `${configFile} has more than ${MAX_UNKNOWN_CONFIG_KEYS} unknown keys; only the first ${MAX_UNKNOWN_CONFIG_KEYS} are listed. Fix or remove them (see docs/config-schema.md for the keys specproof reads).`,
 });

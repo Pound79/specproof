@@ -141,7 +141,7 @@ export const selectWarningsForDisplay = (warnings: DriftWarning[]): DisplayWarni
   const seen = new Map<DriftWarning["kind"], number>();
   const shown = warnings.filter((warning) => {
     const limit = DISPLAY_LIMITS[warning.kind];
-    if (limit === undefined) return true;
+    if (limit === undefined || warning.truncated === true) return true;
     const count = (seen.get(warning.kind) ?? 0) + 1;
     seen.set(warning.kind, count);
     return count <= limit;
