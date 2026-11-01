@@ -1,6 +1,6 @@
 import path from "node:path";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from "node:fs";
-import { resolveDefaultManifestPath, resolveRepoRoot } from "./paths.js";
+import { assertNoRemovedConfig, resolveDefaultManifestPath, resolveRepoRoot } from "./paths.js";
 import { resolveWithinRoot } from "./resolve.js";
 import type { GherkinFlavor } from "./feature-scan.js";
 import { parseRepositoryYaml } from "./yaml-parse.js";
@@ -70,10 +70,6 @@ export const DISALLOWED_TAGS: readonly string[] = Object.freeze(["@fixme", "@ski
 export const OUT_OF_SCOPE_TAG = "@out-of-scope";
 
 const CONFIG_FILENAMES = ["specproof.config.yaml", "specproof.config.yml"];
-
-// Pre-rename filenames (bdd-kit → specproof). Still discovered, but emit a
-// deprecation warning to stderr so repos migrate at their own pace.
-const LEGACY_CONFIG_FILENAMES = ["bdd-kit.config.yaml", "bdd-kit.config.yml"];
 
 // 検証前の設定ファイル。値の型は readSection / readString などで確かめる。
 interface PartialConfigFile {
@@ -157,12 +153,8 @@ const readConfigFile = (repoRoot: string): ConfigSource | null => {
       return { name, config: parseConfigFile(name, readConfigText(repoRoot, name)) };
     }
   }
-  for (const name of LEGACY_CONFIG_FILENAMES) {
-    if (entryExists(path.join(repoRoot, name))) {
-      process.stderr.write(`${name} is deprecated; rename it to specproof.config.yaml\n`);
-      return { name, config: parseConfigFile(name, readConfigText(repoRoot, name)) };
-    }
-  }
+  // 改名前の名前だけがあれば止める（--root で渡したルートも対象）。
+  assertNoRemovedConfig(repoRoot);
   return null;
 };
 
@@ -217,8 +209,8 @@ const configReaders = (source: string) => {
 /**
  * Discovers the effective traceability config. Resolution order:
  *   1. Explicit overrides (--root / --manifest / --pages-dir) win.
- *   2. `layout.*` / `tags.*` fields from specproof.config.yaml (or the
- *      deprecated bdd-kit.config.yaml) at the repo root.
+ *   2. `layout.*` / `tags.*` fields from specproof.config.yaml (or .yml) at
+ *      the repo root.
  *   3. Conventional defaults (`traceability.yaml`).
  *
  * Synchronous because `resolveRepoRoot` may shell out to `git rev-parse`.

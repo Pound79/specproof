@@ -195,7 +195,7 @@ runner:
 #
 # Each entry defines auth provider, dotenv file, and excluded tags for an
 # execution environment. Set SPECPROOF_ENV=<name> to select the active profile
-# (the legacy BDD_KIT_ENV is still read as a fallback — see docs/config-schema.md).
+# (see docs/config-schema.md).
 # When unset, the entry with `default: true` is used.
 #
 # Auth provider (auth.provider / auth.description) is defined here only —

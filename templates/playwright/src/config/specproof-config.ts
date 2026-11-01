@@ -61,9 +61,10 @@ export interface SpecproofConfig {
 
 const CONFIG_FILENAMES = ["specproof.config.yaml", "specproof.config.yml"];
 
-// Pre-rename filenames (bdd-kit -> specproof). Still discovered, but emit a
-// deprecation warning to stderr so repos migrate at their own pace.
-const LEGACY_CONFIG_FILENAMES = ["bdd-kit.config.yaml", "bdd-kit.config.yml"];
+// Pre-rename filenames (bdd-kit -> specproof, 0.2.0). No longer read since
+// 0.4.0; if only one of these exists, stop and ask for the rename instead of
+// silently running without the config.
+const REMOVED_CONFIG_FILENAMES = ["bdd-kit.config.yaml", "bdd-kit.config.yml"];
 
 // ---------------------------------------------------------------------------
 // loadSpecproofConfig
@@ -71,8 +72,8 @@ const LEGACY_CONFIG_FILENAMES = ["bdd-kit.config.yaml", "bdd-kit.config.yml"];
 
 /**
  * Walks up the directory tree from `startDir` (default `process.cwd()`) until
- * it finds a `specproof.config.yaml` (or `.yml`) file. Falls back to the
- * deprecated `bdd-kit.config.yaml` name when the current name is absent.
+ * it finds a `specproof.config.yaml` (or `.yml`) file. A directory holding only
+ * the removed `bdd-kit.config.yaml` name stops with a rename message.
  * Parses and returns the contents as a {@link SpecproofConfig}.
  *
  * Throws a descriptive error when no config file is found in any ancestor
@@ -89,11 +90,11 @@ export function loadSpecproofConfig(startDir?: string): SpecproofConfig {
         return parseConfigFile(candidate);
       }
     }
-    for (const filename of LEGACY_CONFIG_FILENAMES) {
-      const candidate = path.join(dir, filename);
-      if (existsSync(candidate)) {
-        process.stderr.write(`${filename} is deprecated; rename it to specproof.config.yaml\n`);
-        return parseConfigFile(candidate);
+    for (const filename of REMOVED_CONFIG_FILENAMES) {
+      if (existsSync(path.join(dir, filename))) {
+        throw new Error(
+          `specproof: ${filename} is no longer read; rename it to specproof.config.yaml`,
+        );
       }
     }
 
@@ -134,14 +135,16 @@ const parseConfigFile = (candidate: string): SpecproofConfig => {
 
 /**
  * Resolves the active environment profile from the config based on the
- * `SPECPROOF_ENV` environment variable (falling back to the deprecated
- * `BDD_KIT_ENV` when `SPECPROOF_ENV` is unset).
+ * `SPECPROOF_ENV` environment variable.
  *
  * Selection order:
  * 1. `SPECPROOF_ENV` is set → match by `name`. Throws if no match.
- * 2. `SPECPROOF_ENV` is unset, `BDD_KIT_ENV` is set → match by `name`. Throws if no match.
- * 3. Neither is set → first entry with `default: true`.
- * 4. No default → first entry in the list.
+ * 2. Otherwise → first entry with `default: true`.
+ * 3. No default → first entry in the list.
+ *
+ * The pre-rename `BDD_KIT_ENV` is no longer read (since 0.4.0). When it is set
+ * without `SPECPROOF_ENV`, this stops instead of silently running the default
+ * environment.
  *
  * `environments` is required (at least 1 entry) — this function always
  * returns a profile.
@@ -157,7 +160,6 @@ export function resolveActiveEnvironment(cfg: SpecproofConfig): EnvironmentProfi
   for (const project of cfg.projects ?? []) assertProjectTags(project);
 
   const envName = process.env.SPECPROOF_ENV?.trim();
-  const legacyEnvName = process.env.BDD_KIT_ENV?.trim();
 
   if (envName && envName.length > 0) {
     const match = profiles.find((p) => p.name === envName);
@@ -170,16 +172,8 @@ export function resolveActiveEnvironment(cfg: SpecproofConfig): EnvironmentProfi
     );
   }
 
-  if (legacyEnvName && legacyEnvName.length > 0) {
-    process.stderr.write("BDD_KIT_ENV is deprecated; rename it to SPECPROOF_ENV\n");
-    const match = profiles.find((p) => p.name === legacyEnvName);
-    if (match) {
-      return match;
-    }
-    throw new Error(
-      `specproof: BDD_KIT_ENV="${legacyEnvName}" does not match any environments[] entry ` +
-        `(available: ${profiles.map((p) => p.name).join(", ")}).`,
-    );
+  if (process.env.BDD_KIT_ENV?.trim()) {
+    throw new Error("specproof: BDD_KIT_ENV is no longer read; use SPECPROOF_ENV instead.");
   }
 
   return profiles.find((p) => p.default === true) ?? profiles[0];

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -172,41 +172,26 @@ describe("discoverConfig", () => {
   });
 });
 
-// Back-compat (RENAME-DESIGN §3-1): the pre-rename bdd-kit.config.yaml /
-// .yml is still discovered — with a stderr deprecation warning — so repos
-// that have not migrated yet are not silently broken.
-describe("discoverConfig legacy bdd-kit.config.yaml fallback", () => {
-  it("falls back to bdd-kit.config.yaml when specproof.config.yaml is absent", async () => {
-    const root = await makeTmp();
-    await writeFile(
-      path.join(root, "bdd-kit.config.yaml"),
-      "layout:\n  manifest: packages/e2e/traceability.yaml\n",
-    );
-    const config = discoverConfig({ root });
-    expect(config.manifestPath).toBe(path.join(root, "packages/e2e/traceability.yaml"));
-  });
+// 0.4.0 で旧名（bdd-kit、0.2.0 で改名）の設定ファイルを読むのをやめた。黙って無視すると、置いた
+// 設定（featuresDir など）が効かないまま検査が通るので、旧名だけがあれば名前の変更を案内して止める。
+describe("discoverConfig with the removed bdd-kit.config.yaml name", () => {
+  for (const legacy of ["bdd-kit.config.yaml", "bdd-kit.config.yml"]) {
+    it(`stops with a rename message when only ${legacy} exists`, async () => {
+      const root = await makeTmp();
+      await writeFile(path.join(root, legacy), "layout:\n  pagesDir: legacy-pages\n");
+      expect(() => discoverConfig({ root })).toThrow(
+        new RegExp(
+          `${legacy.replace(/\./g, "\\.")} is no longer read; rename it to specproof\\.config\\.yaml`,
+        ),
+      );
+    });
+  }
 
-  it("prefers specproof.config.yaml over a legacy bdd-kit.config.yaml in the same dir", async () => {
+  it("reads specproof.config.yaml and ignores a leftover bdd-kit.config.yaml", async () => {
     const root = await makeTmp();
     await writeFile(path.join(root, "bdd-kit.config.yaml"), "layout:\n  pagesDir: legacy-pages\n");
     await writeFile(path.join(root, "specproof.config.yaml"), "layout:\n  pagesDir: new-pages\n");
     const config = discoverConfig({ root });
     expect(config.pagesDir).toBe("new-pages");
-  });
-
-  it("writes a deprecation warning to stderr when falling back to bdd-kit.config.yaml", async () => {
-    const root = await makeTmp();
-    await writeFile(path.join(root, "bdd-kit.config.yaml"), "layout:\n  pagesDir: from-config\n");
-    const writeSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    try {
-      discoverConfig({ root });
-      expect(writeSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "bdd-kit.config.yaml is deprecated; rename it to specproof.config.yaml",
-        ),
-      );
-    } finally {
-      writeSpy.mockRestore();
-    }
   });
 });

@@ -23,8 +23,9 @@ traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `fea
 設定したつもりの監査が、型違いで黙って無効になることを防ぐため。
 
 設定ファイルはリポジトリのルートの `specproof.config.yaml`（または `.yml`）で、1 MiB 以下の
-通常ファイルでなければエラーで止まる。旧名の `bdd-kit.config.yaml` / `.yml` も読むが、非推奨の
-警告を出す。エンジンが読まないキー（skill だけが読むキーを含む）は検証せずに無視する。ただし
+通常ファイルでなければエラーで止まる。改名前の `bdd-kit.config.yaml` / `.yml` は 0.4.0 から読まず、
+ルート（またはルートを探して親へたどる途中の、目印の無いディレクトリ）に旧名だけがあれば、名前の変更を
+案内して止まる。エンジンが読まないキー（skill だけが読むキーを含む）は検証せずに無視する。ただし
 `layout` と `tags` は mapping でなければエラーになり、`tags.fixme` / `tags.skip` は書いてあるだけで
 エラーになる。`adapter: flutter` のとき、`language` はエンジンが読める `en` / `ja` の
 どちらかにする（それ以外は feature を読む段でエラーになる）。
@@ -116,24 +117,24 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 - **認証ロール軸（`projects[]`）と環境軸（`environments[]`）は直交する。**
   `authed` × `local`（mock auth）/ `authed` × `dev`（Google OAuth）の組み合わせは
   `projects[]` を複製せずに `environments[]` で吸収する。
-- **`SPECPROOF_ENV` 環境変数**でアクティブプロファイルを選択する（`BDD_KIT_ENV` は旧環境変数名。後方互換のため引き続き読み取られるフォールバックとして残る）。
+- **`SPECPROOF_ENV` 環境変数**でアクティブプロファイルを選択する。
 - **`{{config:auth.provider}}` トークンはアクティブ環境プロファイルの `auth.provider` に解決される。**
 
 ### 選択ルール
 
 1. `SPECPROOF_ENV` が設定されている → 一致する `name` のエントリを使用。不一致時はエラー。
-2. `SPECPROOF_ENV` が未設定 かつ `BDD_KIT_ENV`(非推奨の後方互換フォールバック)が設定されている → 同様に一致する `name` のエントリを使用。不一致時はエラー。
-3. どちらも未設定 → `default: true` のエントリ。複数ある場合は先頭。
-4. `default: true` もない → `environments[]` の先頭エントリ。
+2. 未設定 → `default: true` のエントリ。複数ある場合は先頭。
+3. `default: true` もない → `environments[]` の先頭エントリ。
 
-**後方互換**: `BDD_KIT_ENV` は `SPECPROOF_ENV` 導入前の環境変数名。`SPECPROOF_ENV` が優先され、`SPECPROOF_ENV` が未設定の場合にのみ `BDD_KIT_ENV` がフォールバックとして読み取られる。新規導入では `SPECPROOF_ENV` を使うこと。
+改名前の環境変数 `BDD_KIT_ENV` は 0.4.0 から読まない。`SPECPROOF_ENV` が無く `BDD_KIT_ENV` だけが
+設定されていれば、既定の環境で黙って走らせず、`SPECPROOF_ENV` への変更を案内して止まる。
 
 ### フィールド
 
 | フィールド | 型 | 要否 | 説明 |
 |---|---|---|---|
-| `name` | string | required | 環境名（`local` / `dev` / `staging` / `prod` 等）。`SPECPROOF_ENV`(未設定時は後方互換フォールバックの `BDD_KIT_ENV`)の値と照合する。 |
-| `default` | boolean | optional | `SPECPROOF_ENV` / `BDD_KIT_ENV` がどちらも未設定時に使うプロファイル。1 つだけ `true` にする。 |
+| `name` | string | required | 環境名（`local` / `dev` / `staging` / `prod` 等）。`SPECPROOF_ENV` の値と照合する。 |
+| `default` | boolean | optional | `SPECPROOF_ENV` が未設定のときに使うプロファイル。1 つだけ `true` にする。 |
 | `dotenvFile` | string | optional | この環境で読む dotenv ファイルパス（e2e パッケージルート相対）。省略時は `.env`。 |
 | `auth` | object | optional | この環境の認証設定。 |
 | `auth.provider` | string | optional | 認証プロバイダ識別子（`mock` / `google` / `email-password` / `saml` 等）。 |
@@ -174,7 +175,7 @@ environments:
 ### 直交性: environments × projects × tags
 
 ```
-environments[]  — 実行環境軸（local/dev/staging）  → SPECPROOF_ENV(未設定時は BDD_KIT_ENV)で選択
+environments[]  — 実行環境軸（local/dev/staging）  → SPECPROOF_ENV で選択
 projects[]      — 認証ロール軸（authed/admin/guest）→ tags + conditional で選択
 tags            — シナリオ属性軸（@slow/@admin 等）  → ランナーがフィルタ
 ```
