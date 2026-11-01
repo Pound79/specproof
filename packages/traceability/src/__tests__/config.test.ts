@@ -180,9 +180,7 @@ describe("discoverConfig with the removed bdd-kit.config.yaml name", () => {
       const root = await makeTmp();
       await writeFile(path.join(root, legacy), "layout:\n  pagesDir: legacy-pages\n");
       expect(() => discoverConfig({ root })).toThrow(
-        new RegExp(
-          `${legacy.replace(/\./g, "\\.")} is no longer read; rename it to specproof\\.config\\.yaml`,
-        ),
+        `${legacy} is no longer read; rename it to specproof.config.yaml`,
       );
     });
   }

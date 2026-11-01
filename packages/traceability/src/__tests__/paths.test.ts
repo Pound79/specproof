@@ -42,9 +42,7 @@ describe("resolveRepoRoot", () => {
       await writeFile(path.join(sub, legacy), "version: 1\n", "utf8");
 
       expect(() => resolveRepoRoot(child)).toThrow(
-        new RegExp(
-          `${legacy.replace(/\./g, "\\.")} is no longer read; rename it to specproof\\.config\\.yaml`,
-        ),
+        `${legacy} is no longer read; rename it to specproof.config.yaml`,
       );
     });
   }
