@@ -65,6 +65,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependabot の version updates が提案までに待つ日数を、既定の 3 日から 7 日に延ばした（`cooldown`）。
   公開直後に乗っ取られて取り下げられる版を取り込みにくくする。security updates は待たない。
 
+### Removed
+
+- **改名（0.2.0）前の設定ファイル名 `bdd-kit.config.yaml` / `bdd-kit.config.yml` を読まなくなった。**
+  エンジンと playwright の雛形は、旧名のファイルだけがあると、名前の変更を案内して止まる（置いた設定が
+  効かないまま検査が通らないようにするため）。エンジンがルートを探して親へたどるときも、目印の無い
+  ディレクトリに旧名があればそこで止まる。旧名はリポジトリのルートの目印にはならない。
+  移行は `specproof.config.yaml` への名前の変更だけで、中身はそのまま使える。
+- **playwright の雛形は環境変数 `BDD_KIT_ENV` を読まなくなった。** `SPECPROOF_ENV` が無く `BDD_KIT_ENV`
+  だけがあると、既定の環境で黙って動かずに止まる。`SPECPROOF_ENV` に名前を変える。
+- 旧名のドラフトの印 `# bdd-kit: draft` は引き続き検出する（外すと、改名前に書いたドラフトが査読済みとして
+  通るため）。
+
 ### Fixed
 
 - `specproof init` が足場を書く途中で失敗したとき、それまでに書いたファイルが残り、半端な足場に

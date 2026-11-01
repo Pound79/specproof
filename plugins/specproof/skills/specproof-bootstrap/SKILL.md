@@ -18,7 +18,7 @@ description: Bootstrap a rich Gherkin .feature DRAFT from existing implementatio
 step の定義など）も実行し、`.npmrc` も読む。どれも PR で書き換えられるので、次を守る。
 
 1. 最初にコマンドを実行する前に、既定ブランチを `git fetch` してから、設定ファイル
-   （`specproof.config.yaml`・`specproof.config.yml`・`bdd-kit.config.yaml`・`bdd-kit.config.yml`）の全体、
+   （`specproof.config.yaml`・`specproof.config.yml`）の全体、
    `.npmrc`、`package.json`、lockfile、コマンドが呼ぶスクリプトが変わっていないかを確かめる
    （`git diff <既定ブランチ>...HEAD -- <ファイル>`、`git diff HEAD -- <ファイル>`、未追跡も含めて
    `git status --porcelain -- <ファイル>`）。既定ブランチは `gh repo view --json defaultBranchRef` か

@@ -34,12 +34,7 @@ for (const dir of skillDirs) {
     const start = skill.indexOf(HEADING);
     assert.ok(start >= 0, `${dir}/SKILL.md must have "${HEADING}"`);
     const section = skill.slice(start, skill.indexOf("\n## ", start + HEADING.length) >>> 0);
-    for (const name of [
-      "specproof.config.yaml",
-      "specproof.config.yml",
-      "bdd-kit.config.yaml",
-      "bdd-kit.config.yml",
-    ]) {
+    for (const name of ["specproof.config.yaml", "specproof.config.yml"]) {
       assert.match(section, new RegExp(name.replaceAll(".", "\\.")));
     }
     assert.match(section, /package\.json/);

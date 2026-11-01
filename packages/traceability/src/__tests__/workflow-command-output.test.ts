@@ -94,7 +94,7 @@ test("JSON 出力は値を変えずに `##[` だけを読まれない書き方�
   }));
 
 // 出口（output.ts）を通らない出力を増やさない。通さないのは、意図したコマンド（annotation）、
-// SPECPROOF_DEBUG=1 で明示的に有効にしたスタック、固定のファイル名だけを出す非推奨の案内に限る。
+// SPECPROOF_DEBUG=1 で明示的に有効にしたスタックに限る。
 test("CLI の出力は output.ts の出口を通す（例外は決めた箇所だけ）", () => {
   const src = fileURLToPath(new URL("..", import.meta.url));
   const direct = (readdirSync(src, { recursive: true }) as string[])
@@ -110,7 +110,6 @@ test("CLI の出力は output.ts の出口を通す（例外は決めた箇所�
     "cli-args.ts: console.error(error);",
     "cli-check.ts: console.error(toGithubAnnotation(entry));",
     "cli-check.ts: console.error(toGithubWarningAnnotation(warning));",
-    "config.ts: process.stderr.write(`${name} is deprecated; rename it to specproof.config.yaml\\n`);",
   ]);
 });
 

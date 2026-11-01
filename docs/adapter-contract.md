@@ -71,7 +71,7 @@ Flutter 専用 guide は未整備であり、他 adapter の例を適用しな�
 
 ### 2.10 environments（実行環境プロファイル）
 
-型・選択順序・旧 `BDD_KIT_ENV` の現役 fallback は
+型・選択順序は
 [environments の正本](./config-schema.md#environmentsrequired--1-エントリ以上)。
 Flutter runtime の環境切替は consumer の CI/script が担当する。
 

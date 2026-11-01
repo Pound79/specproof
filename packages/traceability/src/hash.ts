@@ -55,9 +55,10 @@ export const computeFileHash = async (absPath: string): Promise<string> => {
 // ignores it.
 export const DRAFT_MARKER = "# specproof: draft";
 
-// Pre-rename marker (bdd-kit → specproof). Still detected so drafts written
-// before the rename are not silently treated as reviewed; generation
-// (specproof-bootstrap) only ever writes the current DRAFT_MARKER.
+// Pre-rename marker (bdd-kit → specproof). Detected permanently, unlike the
+// removed bdd-kit config names: dropping it would let a draft written before
+// the rename pass as reviewed. Generation (specproof-bootstrap) only ever
+// writes the current DRAFT_MARKER.
 export const LEGACY_DRAFT_MARKER = "# bdd-kit: draft";
 
 // True when `content` has the draft marker (current or legacy) as a whole

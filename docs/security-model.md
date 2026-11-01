@@ -19,8 +19,9 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 エンジンの境界は、次の規則で決めた**ルート**で、その外を読み書きしない。
 
 - **ルートの決め方**: `--root` があればそれを使う。無ければ実行したディレクトリから親へたどり、
-  `specproof.config.yaml` / `specproof.config.yml` / `traceability.yaml`（と旧名の
-  `bdd-kit.config.*`）のある最初のディレクトリ、それも無ければ `git rev-parse --show-toplevel`。
+  `specproof.config.yaml` / `specproof.config.yml` / `traceability.yaml` のある最初のディレクトリ、
+  それも無ければ `git rev-parse --show-toplevel`。たどる途中で、目印が無く改名前の
+  `bdd-kit.config.yaml` / `.yml` だけがあるディレクトリに来たら、名前の変更を案内してエラーで止まる。
   ルートは git のリポジトリのルートとは限らない（サブディレクトリに `traceability.yaml` があれば
   そこが、リポジトリより上に目印のファイルがあればそこがルートになる）。CI では `--root` で
   明示するのが確実
@@ -125,10 +126,12 @@ npm と Sigstore の仕組みで、specproof のコードではない。
 - drift-check を、ブランチの保護（ruleset）で必須のステータスチェックにする
 - 次のファイルを CODEOWNERS で守り、code owner の承認を必須にする（ファイル名は既定の構成の例で、
   実際に読み込むパスに合わせる）
-  - 設定ファイル: エンジンが探すすべての名前（`specproof.config.yaml`・`specproof.config.yml`・
-    旧名の `bdd-kit.config.yaml`・`bdd-kit.config.yml`）。エンジンはこの順に探して最初の 1 つを
-    読むので、今の設定より優先順位の高い名前を新しく置くだけで設定を差し替えられる。使っていない
-    名前も守る
+  - 設定ファイル: エンジンが探す両方の名前（`specproof.config.yaml`・`specproof.config.yml`）。
+    エンジンはこの順に探して最初の 1 つを読むので、`.yml` を使っているリポジトリに `.yaml` を
+    新しく置くだけで設定を差し替えられる。使っていない名前も守る。改名前の `bdd-kit.config.yaml`・
+    `bdd-kit.config.yml` は 0.4.0 から読まず、それだけがあれば止まる。0.3.x 以前のエンジン（それを
+    固定した drift-check のワークフローを含む）は `specproof.config.*` が無ければ旧名を読むので、
+    その版を使うあいだは旧名も守る
   - manifest: 既定の `traceability.yaml` と、`layout.manifest` や CI の `--manifest` で実際に
     読み込むパス
   - `.npmrc` と `.github/workflows/`
