@@ -77,7 +77,7 @@ const allDeps = (pkg: NonNullable<RepoSnapshot["packageJson"]>): Record<string, 
 });
 
 const hasAny = (deps: Record<string, string>, names: readonly string[]): string[] =>
-  names.filter((n) => n in deps);
+  names.filter((n) => Object.hasOwn(deps, n));
 
 const hasWorkspaces = (workspaces?: Workspaces): boolean => {
   if (Array.isArray(workspaces)) {
@@ -283,6 +283,45 @@ const parseEnvExampleKeys = (text: string): readonly string[] =>
     .map((line) => line.split("=")[0].trim())
     .filter((key) => key.length > 0 && key.length <= MAX_ENV_KEY_LENGTH);
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
+/** 値がすべて文字列の object（dependencies の形）なら写しを返し、そうでなければ無視する。 */
+const readStringMap = (value: unknown): Record<string, string> | undefined => {
+  if (!isPlainObject(value)) return undefined;
+  const entries = Object.entries(value);
+  if (!entries.every(([, item]) => typeof item === "string")) return undefined;
+  return Object.fromEntries(entries) as Record<string, string>;
+};
+
+/** workspaces は文字列の配列か、packages に文字列の配列を持つ object。それ以外は無視する。 */
+const readWorkspaces = (value: unknown): Workspaces | undefined => {
+  if (isStringArray(value)) return [...value];
+  if (isPlainObject(value) && isStringArray(value.packages))
+    return { packages: [...value.packages] };
+  return undefined;
+};
+
+/**
+ * JSON として読めた package.json から、使うフィールドを形を確かめて取り出す。形が違うフィールドは
+ * 無いものとして扱う（例外で止めず、誤った候補も出さない）。トップレベルが object でなくても、
+ * package.json があること自体は候補の手がかりとして残す。
+ */
+const readPackageJson = (raw: unknown): NonNullable<RepoSnapshot["packageJson"]> => {
+  if (!isPlainObject(raw)) return {};
+  const fields = {
+    dependencies: readStringMap(raw.dependencies),
+    devDependencies: readStringMap(raw.devDependencies),
+    workspaces: readWorkspaces(raw.workspaces),
+  };
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined),
+  ) as NonNullable<RepoSnapshot["packageJson"]>;
+};
+
 export async function collectSnapshot(root: string): Promise<RepoSnapshot> {
   const rootFiles = readdirSync(root).filter(
     (name) => !name.startsWith(".") || name === ".env.example",
@@ -292,12 +331,8 @@ export async function collectSnapshot(root: string): Promise<RepoSnapshot> {
 
   const pkgPath = path.join(root, "package.json");
   if (existsSync(pkgPath)) {
-    const raw = JSON.parse(readSmallTextFile(pkgPath, MAX_DETECT_FILE_BYTES));
-    snapshot.packageJson = {
-      dependencies: raw.dependencies,
-      devDependencies: raw.devDependencies,
-      workspaces: raw.workspaces,
-    };
+    const raw: unknown = JSON.parse(readSmallTextFile(pkgPath, MAX_DETECT_FILE_BYTES));
+    snapshot.packageJson = readPackageJson(raw);
   }
 
   const pubspecPath = path.join(root, "pubspec.yaml");
