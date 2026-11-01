@@ -25,6 +25,29 @@ description: Implement production code (and pending step bodies / page-object me
   `{{config:auth.provider}}` / `{{config:auth.description}}` はアクティブプロファイルの
   `auth` から解決する（`adapter-contract.md` §5 ルール 5）。
 
+
+## 設定のコマンドを実行する前の確認
+
+`{{config:commands.*}}` は設定ファイルに書かれたシェルのコマンドで、展開してそのまま実行する。
+コマンドはリポジトリのコード（`package.json` の `scripts` と `pre*`・`post*`、`playwright.config.ts`、
+step の定義など）も実行し、`.npmrc` も読む。どれも PR で書き換えられるので、次を守る。
+
+1. 最初にコマンドを実行する前に、既定ブランチを `git fetch` してから、設定ファイル
+   （`specproof.config.yaml`・`specproof.config.yml`・`bdd-kit.config.yaml`・`bdd-kit.config.yml`）の全体、
+   `.npmrc`、`package.json`、lockfile、コマンドが呼ぶスクリプトが変わっていないかを確かめる
+   （`git diff <既定ブランチ>...HEAD -- <ファイル>`、`git diff HEAD -- <ファイル>`、未追跡も含めて
+   `git status --porcelain -- <ファイル>`）。既定ブランチは `gh repo view --json defaultBranchRef` か
+   `git symbolic-ref --short refs/remotes/origin/HEAD` で分かる。`origin` が fork を指す clone では元の
+   リポジトリの既定ブランチを使い、分からなければユーザーに聞く
+2. 変わっていれば、変わった中身と展開後のコマンドをユーザーに示す。
+   承認を得るまでどのコマンドも実行しない。承認が無ければ停止し、検証ゲートが未実行であることを報告する
+3. 既定ブランチとの差分を取れないときも、2 と同じく示して承認を待つ
+4. 途中で 1 のファイルが変わったとき（自分で編集した場合を含む）は、次のコマンドの前に 1 からやり直す
+
+差分が無くても、コマンドはそのブランチのコードを実行する。信頼できないブランチで走らせるのは、PR を
+手元で checkout して `npm test` を実行するのと同じことで、この確認が見つけるのはコマンドや設定の
+差し替えだけである。
+
 ## 核心思想: 方向の非対称性
 
 - `impl → feature`（テストをコードから再生成）= **同語反復で禁止**。テストが独立性を失い

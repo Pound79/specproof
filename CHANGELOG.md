@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 設定の `commands.*` を実行する skill（specproof・bootstrap・implement・new-feature・sync）に、
+  「設定のコマンドを実行する前の確認」を足した。設定ファイルの `commands` やコマンドが呼ぶ
+  スクリプトが既定ブランチから変わっていれば、展開後の中身を示して人の承認を待ち、承認が無ければ
+  実行せずに停止する。PR で書き換えたコマンドを AI がそのまま実行しないようにするため。
 - `specproof-check` は、設定ファイルがあるのに `layout.featuresDir` が無いとき警告
   `features-dir-unset` を出し、`--strict` で失敗する。未設定だと登録していない feature の
   ドラフトマーカー・止めるタグ・lint を黙って検査しておらず、設定の文書（必須）と食い違っていた。
