@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `specproof init` は、配置先の既存の `.gitignore` を残すとき、雛形の `.gitignore` にある秘密と実行結果の
+  除外（`.env`・`.env.*`・`.npmrc`、playwright はさらに `playwright/.auth`・`test-results`・
+  `playwright-report`）のうち足りない行を警告する。これまでは黙って残し、認証情報や保存したログイン状態が
+  追跡されうることに気づけなかった。利用者のファイルは変えない。比べ方は `cli/README.md` を参照。
+
 ## [0.4.1] - 2026-11-01
 
 ### Changed
