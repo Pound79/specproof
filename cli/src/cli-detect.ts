@@ -1,4 +1,5 @@
 import { collectSnapshot, detectAdapter, selectAdapterCandidate } from "./detect.js";
+import { printable } from "./display-text.js";
 
 export interface DetectOptions {
   json?: boolean;
@@ -22,8 +23,8 @@ export async function runDetect(opts: DetectOptions): Promise<void> {
 
   console.log("Detected adapter candidates:\n");
   for (const c of result.candidates) {
-    console.log(`  ${c.adapter} (${c.confidence}) -> ${c.dir}`);
-    for (const s of c.signals) console.log(`    signal: ${s}`);
+    console.log(`  ${c.adapter} (${c.confidence}) -> ${printable(c.dir)}`);
+    for (const s of c.signals) console.log(`    signal: ${printable(s)}`);
   }
 
   if (result.hints.monorepo) {
@@ -34,13 +35,15 @@ export async function runDetect(opts: DetectOptions): Promise<void> {
     console.log("\n  Environment hints (from .env.example):");
     for (const env of result.hints.environments) {
       const provider = env.authProvider ? ` auth=${env.authProvider}` : "";
-      console.log(`    ${env.name}${provider}  (${env.signals.join(", ")})`);
+      console.log(`    ${printable(env.name)}${provider}  (${printable(env.signals.join(", "))})`);
     }
   }
 
   const picked = selectAdapterCandidate(result);
   if (picked) {
-    console.log(`\nRecommendation: specproof init --adapter ${picked.adapter} --dir ${picked.dir}`);
+    console.log(
+      `\nRecommendation: specproof init --adapter ${picked.adapter} --dir ${printable(picked.dir)}`,
+    );
   } else {
     console.log("\nDetection is inconclusive. Specify an adapter explicitly:");
     console.log("  specproof init --adapter <playwright|flutter>");

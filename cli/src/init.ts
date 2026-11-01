@@ -12,6 +12,7 @@ import {
   rewriteScaffoldConfig,
   shellCdCommand,
 } from "./scaffold-config.js";
+import { printable } from "./display-text.js";
 import { ScaffoldJournal } from "./scaffold-journal.js";
 
 export type AgentType = "claude" | "codex" | "all";
@@ -113,7 +114,7 @@ export async function resolveAutoAdapter(
   const picked = selectAdapterCandidate(result);
   if (picked) {
     console.log(
-      `Auto-detected adapter: ${picked.adapter} (${picked.confidence} confidence — signals: ${picked.signals.join(", ")}). Re-run with --adapter to override.`,
+      `Auto-detected adapter: ${picked.adapter} (${picked.confidence} confidence — signals: ${printable(picked.signals.join(", "))}). Re-run with --adapter to override.`,
     );
     return { adapter: picked.adapter, dir: picked.dir };
   }
@@ -326,7 +327,9 @@ export async function runInit(opts: InitOptions): Promise<void> {
     force,
   });
 
-  const e2eLabel = path.relative(repoRoot, e2eDir) || ".";
+  const e2eRelative = path.relative(repoRoot, e2eDir) || ".";
+  // 表示には printable を通した値を、cd のコマンドには元のパスを使う（shellCdCommand が安全な形にする）。
+  const e2eLabel = printable(e2eRelative);
   console.log(`specproof init (${adapter}) — scaffolded into ${e2eLabel}`);
   for (const w of written) console.log(`  + ${w}`);
   if (layoutRewritten) {
@@ -350,13 +353,13 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const manualSteps =
     adapter === "flutter"
       ? `  a. Edit specproof.config.yaml at the repo root.
-  b. ${shellCdCommand(e2eLabel)} && flutter create --platforms=macos --project-name bdd_tests .
+  b. ${shellCdCommand(e2eRelative)} && flutter create --platforms=macos --project-name bdd_tests .
   c. flutter pub get && dart run build_runner build --delete-conflicting-outputs
   d. flutter test integration_test/gherkin_suite_test.dart -d macos
 
   See ${e2eLabel}/README.md for the verified Japanese-Gherkin recipe and gotchas.`
       : `  a. Edit specproof.config.yaml at the repo root.
-  b. ${shellCdCommand(e2eLabel)} && npm install && npm run install:browsers
+  b. ${shellCdCommand(e2eRelative)} && npm install && npm run install:browsers
   c. Copy .env.example to .env and fill in credentials.
   d. npm run test:smoke`;
   console.log(`

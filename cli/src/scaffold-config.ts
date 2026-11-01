@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { isMap, isScalar, parse, parseDocument, type Scalar, visit } from "yaml";
+import { printable } from "./display-text.js";
 
 export const assertScaffoldDirectory = (dir: string): void => {
   if (/[\x00-\x1f\x7f]/.test(dir)) {
@@ -7,12 +8,29 @@ export const assertScaffoldDirectory = (dir: string): void => {
   }
 };
 
-/** CDPATH や単独「-」に依存せず、相対配置先を現在地から指定する。 */
+// printf の書式で、[A-Za-z0-9_./-] 以外の文字を UTF-8 のバイトの 8 進表記にする（POSIX の printf
+// が戻す）。表示に危険な文字に加え、%・\・'・!（対話的な bash 3.2 は "$(...)" の中の ' ' の中でも
+// 履歴展開する）・$・`・" も画面に出さない。
+const printfFormat = (text: string): string =>
+  [...text]
+    .map((char) =>
+      /^[A-Za-z0-9_./-]$/.test(char)
+        ? char
+        : [...Buffer.from(char, "utf8")]
+            .map((byte) => `\\${byte.toString(8).padStart(3, "0")}`)
+            .join(""),
+    )
+    .join("");
+
+/**
+ * 配置先へ移る cd のコマンド。CDPATH や単独「-」に依存せず、相対配置先を現在地から指定する。表示に危険な文字（制御文字・行区切り・bidi 制御文字・BOM）を含む
+ * 名前は、画面に生の文字を出さずに元の名前を指せるよう、printf で組み立てる形にする。
+ */
 export const shellCdCommand = (dir: string): string => {
   const operand = dir === "." ? "." : `./${dir}`;
-  return /^[A-Za-z0-9_./-]+$/.test(operand)
-    ? `cd ${operand}`
-    : `cd -- '${operand.replaceAll("'", "'\\''")}'`;
+  if (/^[A-Za-z0-9_./-]+$/.test(operand)) return `cd ${operand}`;
+  if (printable(operand) !== operand) return `cd -- "$(printf '${printfFormat(operand)}')"`;
+  return `cd -- '${operand.replaceAll("'", "'\\''")}'`;
 };
 
 interface ScalarEdit {
@@ -25,7 +43,7 @@ interface ScalarEdit {
 const isPlainSafe = (value: string): boolean => {
   if (value === "" || /[\n\r]/.test(value)) return false;
   try {
-    return parse(`key: ${value}\n`)?.key === value;
+    return parse(`key: ${value}\n`, { logLevel: "error" })?.key === value;
   } catch {
     return false;
   }
@@ -59,7 +77,8 @@ export const rewriteScaffoldConfig = (
   templateDir: string,
   targetDir: string,
 ): string => {
-  const document = parseDocument(source);
+  // toJS() に警告を emitWarning で直接出させない（キーがコレクションのときなど）。
+  const document = parseDocument(source, { logLevel: "error" });
   if (document.errors.length > 0) throw document.errors[0];
   if (!isMap(document.contents)) throw new Error("Template config must be a YAML mapping");
   const edits: ScalarEdit[] = [];
@@ -101,7 +120,8 @@ export const rewriteScaffoldConfig = (
     .sort((a, b) => b.start - a.start)
     .reduce((text, edit) => text.slice(0, edit.start) + edit.text + text.slice(edit.end), source);
   // 差し替えた文字列が構文木での更新と同じ値になることを保存前に確かめる。
-  if (!isDeepStrictEqual(parse(rewritten), document.toJS())) {
+  // 比べるためだけの読み直しなので、yaml に警告を stderr へ直接出させない。
+  if (!isDeepStrictEqual(parse(rewritten, { logLevel: "error" }), document.toJS())) {
     throw new Error("Template config rewrite did not preserve the intended values");
   }
   return rewritten;

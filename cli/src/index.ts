@@ -2,6 +2,7 @@
 import { runInit } from "./init.js";
 import type { AgentType } from "./init.js";
 import { runDetect } from "./cli-detect.js";
+import { printableLines } from "./display-text.js";
 import { runSetupAgent } from "./setup-agent.js";
 import { parseFlags, wantsHelp } from "./flags.js";
 
@@ -88,6 +89,10 @@ const main = async (): Promise<void> => {
 };
 
 main().catch((error: unknown) => {
-  console.error("specproof failed:", error instanceof Error ? error.message : error);
+  // エラー文には --dir の値や利用者のリポジトリのパスが入る。端末の表示を偽装させない。
+  console.error(
+    "specproof failed:",
+    printableLines(error instanceof Error ? error.message : String(error)),
+  );
   process.exitCode = 1;
 });

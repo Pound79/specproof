@@ -139,8 +139,17 @@ for (const [adapter, defaultDir] of [
   ["playwright", "packages/e2e"],
   ["flutter", "bdd_tests"],
 ]) {
-  for (const dir of [".", "-", "custom-bdd", "e2e tests", defaultDir]) {
-    test(`${adapter}/${dir}: OLDPWD と CDPATH の外部配置先で生成コマンドを実行しない`, async () => {
+  // 表示で ? に置き換える文字（BOM・bidi 制御文字）を含む名前でも、手動手順の cd は実際の配置先へ移る。
+  for (const dir of [
+    ".",
+    "-",
+    "custom-bdd",
+    "e2e tests",
+    "tests\ufeffbdd",
+    "e2e\u202e!x",
+    defaultDir,
+  ]) {
+    test(`${adapter}/${JSON.stringify(dir)}: OLDPWD と CDPATH の外部配置先で生成コマンドを実行しない`, async () => {
       const fixture = realpathSync(
         mkdtempSync(path.join(os.tmpdir(), "specproof-cd-environment-")),
       );
