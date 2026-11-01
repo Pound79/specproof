@@ -70,8 +70,9 @@ AI skill（`plugins/specproof/skills/`）は利用者の AI エージェント�
 `npx` の取得元は npm の設定（レジストリ・プロキシ・スコープごとのレジストリ）に従い、npm は実行した
 ディレクトリ（と親）の `.npmrc` も読む。PR を checkout した作業ツリーの中で `npx` を実行すると、PR
 が `.npmrc` を足すだけで取得元を差し替えられる。CI では作業ツリーの外で実行し、`--registry` を
-明示する。また、`actions/checkout` は既定で `GITHUB_TOKEN` を `.git/config` に残すので、同じ
-ジョブで PR や npm 由来のコードを動かすなら `persist-credentials: false` にする。
+明示する。また、`actions/checkout` は既定で、後続のステップが git の認証に使えるよう
+`GITHUB_TOKEN` を保持する。同じジョブで PR や npm 由来のコードを動かすなら
+`persist-credentials: false` にする。
 
 ## 暗号の在庫
 
@@ -108,13 +109,25 @@ npm と Sigstore の仕組みで、specproof のコードではない。
 決定的に検出する。ただし、次のものは PR の中で変えられるので、ゲートだけでは止められない。
 
 - manifest の hash（PR の作者が `specproof-update` で取り直せる）
-- `specproof.config.yaml`（`layout.featuresDir` や `strict*` の設定）
+- 設定ファイル（`specproof.config.yaml` と別名。`layout.manifest`・`layout.featuresDir`・`strict*` の設定）
 - drift-check のワークフロー自体（`pull_request` ではワークフローは PR の版で動く）
 - `.npmrc`（作業ツリーで `npx` を実行する場合、エンジンの取得元を差し替えて結果を偽造できる）
+
+どれか 1 つでも守られていなければ、検査の範囲を外せる。たとえば守られていない設定ファイルで
+`layout.manifest` を空の manifest に、`layout.featuresDir` を空のディレクトリに向ければ、既定の
+`traceability.yaml` に触れずに `--strict` を通せる。
 
 ゲートを効かせるには、次を合わせて使う。
 
 - drift-check を、ブランチの保護（ruleset）で必須のステータスチェックにする
-- `traceability.yaml`・`specproof.config.yaml`・`.npmrc`・`.github/workflows/` を CODEOWNERS で
-  守り、code owner の承認を必須にする
+- 次のファイルを CODEOWNERS で守り、code owner の承認を必須にする（ファイル名は既定の構成の例で、
+  実際に読み込むパスに合わせる）
+  - 設定ファイル: エンジンが探すすべての名前（`specproof.config.yaml`・`specproof.config.yml`・
+    旧名の `bdd-kit.config.yaml`・`bdd-kit.config.yml`）。エンジンはこの順に探して最初の 1 つを
+    読むので、今の設定より優先順位の高い名前を新しく置くだけで設定を差し替えられる。使っていない
+    名前も守る
+  - manifest: 既定の `traceability.yaml` と、`layout.manifest` や CI の `--manifest` で実際に
+    読み込むパス
+  - `.npmrc` と `.github/workflows/`
+- CI では `--root` と `--manifest` を明示して、設定で読み込み先を変えられる範囲を減らす
 - manifest の hash の更新を含む PR では、spec・実装・feature の差分を人がレビューする
