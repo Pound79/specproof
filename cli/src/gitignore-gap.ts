@@ -44,19 +44,24 @@ const patternsOf = (text: string): Pattern[] =>
  * 雛形での順に返す。親ディレクトリの .gitignore は見ない。
  */
 export const missingSensitiveEntries = (templateText: string, existingText: string): string[] => {
-  // 名前ごとに、最後に効いている除外（ディレクトリだけに効くか）を残す。
-  const excluded = new Map<string, boolean>();
+  // 名前ごとに、ファイルとディレクトリのそれぞれが除外されているかを、後の行を優先して残す。
+  // 末尾の / の付いた行（除外も否定も）はディレクトリだけに効く。
+  const excluded = new Map<string, { files: boolean; dirs: boolean }>();
   for (const pattern of patternsOf(existingText)) {
-    if (pattern.negated) excluded.delete(pattern.name);
-    else excluded.set(pattern.name, (excluded.get(pattern.name) ?? true) && pattern.directoryOnly);
+    const state = excluded.get(pattern.name) ?? { files: false, dirs: false };
+    const value = !pattern.negated;
+    excluded.set(pattern.name, {
+      files: pattern.directoryOnly ? state.files : value,
+      dirs: value,
+    });
   }
   return patternsOf(templateText)
     .filter((pattern) => !pattern.negated && SENSITIVE_GITIGNORE_ENTRIES.has(pattern.name))
     .map((pattern) => pattern.name)
     .filter((name) => {
-      const directoryOnly = excluded.get(name);
-      if (directoryOnly === undefined) return true;
-      // ディレクトリだけに効く除外（.env/ など）は、ファイルの項目を除外しない。
-      return directoryOnly && SENSITIVE_GITIGNORE_ENTRIES.get(name) === false;
+      const state = excluded.get(name);
+      if (state === undefined) return true;
+      // 雛形の項目がディレクトリならディレクトリの除外を、ファイルならファイルの除外を見る。
+      return SENSITIVE_GITIGNORE_ENTRIES.get(name) ? !state.dirs : !state.files;
     });
 };

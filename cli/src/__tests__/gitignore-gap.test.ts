@@ -17,3 +17,17 @@ test("末尾のタブは落とさない（.env<TAB> は .env を除外しない�
   assert.ok(missingSensitiveEntries(TEMPLATE, ".env\t\n").includes(".env"));
   assert.ok(!missingSensitiveEntries(TEMPLATE, ".env   \n").includes(".env"));
 });
+
+// ディレクトリだけを戻す否定（!.env/）は、ファイルの .env の除外を取り消さない（git と同じ）。
+test("ディレクトリだけの否定は、ファイルの除外を取り消さない", () => {
+  assert.ok(!missingSensitiveEntries(TEMPLATE, ".env\n!.env/\n").includes(".env"));
+  // ディレクトリの項目は、ディレクトリだけの否定で戻る。
+  assert.ok(
+    missingSensitiveEntries(TEMPLATE, "playwright/.auth\n!playwright/.auth/\n").includes(
+      "playwright/.auth",
+    ),
+  );
+  // 否定のあとにもう一度除外すれば、また除外される。
+  assert.ok(!missingSensitiveEntries(TEMPLATE, ".env\n!.env\n.env\n").includes(".env"));
+  assert.ok(missingSensitiveEntries(TEMPLATE, ".env\n!.env\n").includes(".env"));
+});
