@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dependabot の対象に、Flutter の雛形の pub の依存を加えた。雛形の drift-check ワークフローが固定する
+  actions は、specproof 自身のワークフロー（Dependabot が更新する）と同じ SHA であることをテストで
+  確かめる（`scripts/dependency-watch.test.mjs`）。Dependabot が actions を上げる PR では、雛形の
+  ワークフローも同じ版に上げる。雛形だけで使う `actions/github-script` はリリースの前に手で確かめる。
+  pub では、意図して固定している `flutter_gherkin` と `build_runner` の minor・major を更新の対象から
+  外した。`SECURITY.md` の監視の範囲と、約束の限界（雛形の推移的な依存、生成済みのリポジトリ、
+  `flutter_gherkin`）を合わせて書いた。
 - `specproof-check` は、設定ファイルがあるのに `layout.featuresDir` が無いとき警告
   `features-dir-unset` を出し、`--strict` で失敗する。未設定だと登録していない feature の
   ドラフトマーカー・止めるタグ・lint を黙って検査しておらず、設定の文書（必須）と食い違っていた。
