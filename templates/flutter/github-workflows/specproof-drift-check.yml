@@ -61,6 +61,21 @@ jobs:
         with:
           node-version: 24
 
+      # specproof-check runs with defaults when there is no config file (for
+      # using the engine without one), and then does not scan .feature files
+      # that no link registers. specproof init always writes the config, so a
+      # PR that deletes it must not turn --strict into a check of registered
+      # features only. Protect the config with CODEOWNERS as well (see
+      # docs/security-model.md in the specproof repository).
+      - name: Require the specproof config
+        run: |
+          # -L also accepts a broken symlink, so specproof-check reports it as such.
+          missing() { [ ! -e "$1" ] && [ ! -L "$1" ]; }
+          if missing "$GITHUB_WORKSPACE/specproof.config.yaml" && missing "$GITHUB_WORKSPACE/specproof.config.yml"; then
+            echo "::error::specproof.config.yaml (or .yml) is missing at the repository root; specproof-check would skip unregistered .feature files without it."
+            exit 1
+          fi
+
       # --strict escalates structural warnings (unreviewed draft markers,
       # disallowed @fixme/@skip/@fail tags, @out-of-scope without a reason comment,
       # empty links) to failures, not just hash drift. --json is captured to
