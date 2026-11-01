@@ -528,6 +528,7 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 | `unregistered-feature` | なし | `featuresDir` 配下に存在するが、どのリンクの `features[]` にも登録されていない `.feature` ファイル |
 | `features-dir-unset` | なし | 設定ファイルがあるのに `layout.featuresDir` が無い。登録していない `.feature` のドラフトマーカー・止めるタグ・lint を検査できない（設定ファイルが無ければ出さない） |
 | `features-dir-missing` | なし | `featuresDir` を書いているが、存在しない・ディレクトリでない。登録していない `.feature` を検査できない |
+| `unknown-config-key` | なし | 設定ファイルに、どの consumer（エンジン・skill・テンプレート）も読まないキーがある（綴りの誤りなど）。キーの経路だけを示し、値は出さない（規則は [config-schema](config-schema.md#未知のキー)） |
 | `unregistered-spec-heading` | なし | マニフェストに 1 件以上 spec 参照がある markdown ファイル内で、未登録の見出しが見つかった |
 | `unregistered-impl` | なし | `layout.implGlobs` にマッチするが、どのリンクの `impl[]` にも登録されていない実装ファイル（`implGlobs` 未設定時は検知自体を行わない） |
 | `duplicate-heading` | あり | 登録済み見出しが同一ファイル内に複数回出現し、セクションハッシュが一意に定まらない |
