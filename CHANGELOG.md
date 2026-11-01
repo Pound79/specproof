@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-01
+
 ### Added
 
 - GitHub Release に CycloneDX の SBOM（`specproof-<版>.cdx.json`）を添付する。lockfile 全体から作り、
@@ -138,7 +140,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - playwright の `traceability.yaml` 雛形の記入例を、リポジトリのルートからのパス
   （`packages/e2e/features/login.feature` など）に直した。冒頭の説明はルート相対なのに
   記入例が e2e パッケージ相対で、どちらを基準に書くか迷う原因になっていた。
-
 ## [0.3.0] - 2026-10-16
 
 ### Added
@@ -617,7 +618,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/specproof/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Pound79/specproof/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Pound79/specproof/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/Pound79/specproof/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Pound79/specproof/compare/v0.2.0...v0.2.1
