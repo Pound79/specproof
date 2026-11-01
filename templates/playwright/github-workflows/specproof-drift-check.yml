@@ -45,8 +45,9 @@ jobs:
     outputs:
       report-artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
-      # persist-credentials: false keeps the token out of .git/config, where the
-      # code run below (from the PR and from npm) could read it.
+      # persist-credentials: false: by default checkout keeps the token for later
+      # git commands, where the code run below (from the PR and from npm) could
+      # read it.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
