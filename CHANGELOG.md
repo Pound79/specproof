@@ -13,14 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   除外（`.env`・`.env.*`・`.npmrc`、playwright はさらに `playwright/.auth`・`test-results`・
   `playwright-report`）のうち足りない行を警告する。これまでは黙って残し、認証情報や保存したログイン状態が
   追跡されうることに気づけなかった。利用者のファイルは変えない。比べ方は `cli/README.md` を参照。
+  比べ方は git の規則の一部だけなので、`.env*` のような同等のパターンや親の `.gitignore` は判定できず、
+  まれに git の判定とずれる。
 
 ### Changed
 
-- **破壊的変更（0.5.0）**: playwright の雛形は、選ばれた project が認証情報を使う（`setup: true` か
-  `credentialsEnv` を持つ）とき、`playwright.config.ts` の読み込みとログインの前に baseURL を確かめ、
-  `http://` でホストが loopback（`localhost`・`127.0.0.0/8`・`::1`）でなければ認証情報を送らずに失敗する。
-  `http://` でも `https://` でもない scheme も止める。これまでは README で https を勧めるだけで、平文の
-  http の検証環境にも認証情報を送っていた。
+- **破壊的変更（0.5.0）**: playwright の雛形は、設定ファイルの project のどれかが認証情報を使う
+  （`setup: true`・`credentialsEnv`・空でない `storageState` のどれか）とき、`playwright.config.ts` の
+  読み込みとログインの前に baseURL を確かめ、`http://` でホストが loopback（`localhost`・`*.localhost`・
+  `127.0.0.0/8`・`::1`）でなければ認証情報を送らずに失敗する。`http://` でも `https://` でもない scheme も
+  止める。これまでは README で https を勧めるだけで、平文の http の検証環境にも認証情報を送っていた。
+  許可は環境ごとでホストには結び付かず、確かめるのは baseURL だけ（リダイレクト先は見ない）。
   移行: https を用意できない環境だけ、`specproof.config.yaml` のその `environments[]` エントリに
   `allowInsecureHttp: true` を足す（真偽値の `true` だけを許可とみなす）。雛形のファイルなので、取り込み済みの
   足場には `src/config/base-url-guard.ts` を足し、`playwright.config.ts`・`src/setup/auth.setup.ts`・

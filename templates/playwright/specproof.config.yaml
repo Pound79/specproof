@@ -201,10 +201,11 @@ runner:
 # Auth provider (auth.provider / auth.description) is defined here only —
 # there is no top-level `auth` block.
 #
-# allowInsecureHttp (optional, default false): when a selected project uses
-# credentials, the run refuses an http:// base URL whose host is not localhost,
-# 127.0.0.0/8 or ::1. Set `allowInsecureHttp: true` on an entry only for an
-# environment that really has no https; prefer https:// everywhere else.
+# allowInsecureHttp (optional, default false): when a project below uses
+# credentials or a saved session, the run refuses an http:// base URL whose
+# host is not localhost, *.localhost, 127.0.0.0/8 or ::1. Set
+# `allowInsecureHttp: true` on an entry only for an environment that really
+# has no https (it then accepts any http host); prefer https:// elsewhere.
 #
 # See docs/config-schema.md "environments" for the full field reference.
 # ---------------------------------------------------------------------------

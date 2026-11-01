@@ -145,14 +145,18 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 
 #### `environments[].allowInsecureHttp`
 
-Playwright テンプレートは baseURL（`env.baseUrl` が指す環境変数の値）を確かめる。選ばれた project の
-どれかが認証情報を使う（`setup: true` か `credentialsEnv` を持つ）とき、`playwright.config.ts` の読み込みで
-ブラウザを起動する前に確かめ、auth setup もログインの前にもう一度確かめる。`http://` で、ホストが
-loopback（`localhost`・`127.0.0.0/8`・`::1`）でなければ、選ばれた環境プロファイルに `allowInsecureHttp: true`
-が無い限り、認証情報を送らずに失敗する。`https://` と loopback への `http://` はこの設定に関係なく通り、
+Playwright テンプレートは baseURL（`env.baseUrl` が指す環境変数の値）を確かめる。設定ファイルの
+`projects[]` のうち `conditional` を満たすもののどれかが認証情報を使う（`setup: true`・`credentialsEnv`・
+空でない `storageState` のどれかを持つ）とき、`playwright.config.ts` の読み込みでブラウザを起動する前に
+確かめ、auth setup もログインの前にもう一度確かめる。判定は設定ファイルの project で行い、CLI の
+`--project` で選んだものではない（`authed` を持つ設定で `--project guest` だけを走らせても確かめる）。
+`http://` で、ホストが loopback（`localhost`・`*.localhost`・`127.0.0.0/8`・`::1`）でなければ、選ばれた
+環境プロファイルに `allowInsecureHttp: true` が無い限り、認証情報を送らずに失敗する。`localhost.`
+（末尾のドット）・`[::ffff:127.0.0.1]`・`0.0.0.0` は loopback とみなさない。`https://` と loopback への `http://` はこの設定に関係なく通り、
 `http://` でも `https://` でもない scheme はこの設定があっても止める。https を用意できない環境だけで、
-その `environments[]` エントリに明示して許可する。確かめるのは baseURL だけで、リダイレクト先や
-コードで直接指定した別の URL は見ない。
+その `environments[]` エントリに明示して許可する。許可はホストではなく環境に結び付くので、許可した環境では
+どの http のホストも通る。確かめるのは baseURL だけで、リダイレクト先やコードで直接指定した別の URL は
+見ない。
 
 ```yaml
 environments:
@@ -162,7 +166,9 @@ environments:
 ```
 
 `environments[]` のエントリに書けるキーは、上の表の `name`・`default`・`dotenvFile`・`auth`・`excludeTags`・
-`envOverrides`・`allowInsecureHttp` である。設定の未知キーを検査するときは、この一覧を既知のキーとする。
+`envOverrides`・`allowInsecureHttp` である。Playwright テンプレートの設定の読み込みは未知のキーを検査しない
+（書き間違えたキーは黙って無視される）。traceability エンジンが設定の未知キーを検査するときは、この一覧を
+`environments[]` の既知のキーとする。
 
 ### 例
 

@@ -64,12 +64,13 @@ E2E_PASSWORD=YourPassword1!
 
 `E2E_BASE_URL` defaults to `http://localhost:5173`. The scaffold sends the test
 credentials to whatever URL you set, so use `https://` for any host other than
-localhost. This is enforced: when a selected project logs in (`setup: true`) or
-has `credentialsEnv`, loading `playwright.config.ts` fails before any browser
-starts (and the auth setup checks again before logging in) if the base URL is
-`http://` to a host other than `localhost`, `127.0.0.0/8` or `::1`, or uses a
-scheme other than `http://` / `https://`. Plain http is allowed only when the
-active environment profile opts in:
+localhost. This is enforced: when a project in `specproof.config.yaml` (whose
+`conditional` is met) logs in (`setup: true`), has `credentialsEnv`, or reuses a
+saved session (a non-empty `storageState`), loading `playwright.config.ts` fails
+before any browser starts (and the auth setup checks again before logging in)
+if the base URL is `http://` to a host other than `localhost`, `*.localhost`,
+`127.0.0.0/8` or `::1`, or uses a scheme other than `http://` / `https://`.
+Plain http is allowed only when the active environment profile opts in:
 
 ```yaml
 environments:
@@ -77,11 +78,17 @@ environments:
     allowInsecureHttp: true # only for an environment that really has no https
 ```
 
-Only the value `true` opts in. Runs with no such project (for example only the
-`guest` project) are not checked. If your own code sends credentials to another
-URL (an absolute `page.goto()` target, a redirect to a different host, a cleanup
-API call), check that URL with `assertSecureBaseUrl()` from
-`src/config/base-url-guard.ts` as well; only the base URL is checked here.
+Only the value `true` opts in. The decision uses the projects in the config
+file, not the ones you pick with `--project`: a config whose projects are all
+credential-free (like `guest`) is not checked, but `--project guest` on a config
+that also has `authed` is. Limits:
+
+- The opt-in is per environment, not per host: with `allowInsecureHttp: true`,
+  any http host you set as the base URL for that environment is accepted.
+- Only the base URL is checked. If your own code sends credentials to another
+  URL (an absolute `page.goto()` target, a redirect to a different host, a
+  cleanup API call), check that URL with `assertSecureBaseUrl()` from
+  `src/config/base-url-guard.ts` as well.
 
 ### 4. (Optional) Create test users
 
