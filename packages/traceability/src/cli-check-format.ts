@@ -133,6 +133,8 @@ export interface DisplayWarnings {
 const DISPLAY_LIMITS: Partial<Record<DriftWarning["kind"], number>> = {
   "unregistered-impl": 20,
   "possible-contradiction": 10,
+  // 設定のキーは PR の作者が書けるので、大量のキーでログと annotation を埋めさせない。
+  "unknown-config-key": 20,
 };
 
 export const selectWarningsForDisplay = (warnings: DriftWarning[]): DisplayWarnings => {

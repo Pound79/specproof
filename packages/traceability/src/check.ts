@@ -23,6 +23,8 @@ import { auditUnregisteredImpl } from "./impl-audit.js";
 import { auditSpecHeadings } from "./spec-audit.js";
 import { lintFeatureSet, type FeatureLintKind, type FeatureSource } from "./feature-lint.js";
 import { createTaskLimiter, type RunTaskLimited } from "./concurrency.js";
+import { printable } from "./display-text.js";
+import { MAX_UNKNOWN_CONFIG_KEYS } from "./config-keys.js";
 
 const MAX_CONCURRENT_FILE_READS = 32;
 
@@ -54,6 +56,7 @@ export interface DriftWarning {
     | "duplicate-heading"
     | "features-dir-unset"
     | "features-dir-missing"
+    | "unknown-config-key"
     | FeatureLintKind;
   // The offending file path (the feature, for unreviewed-draft). Absent for
   // empty-link, where the link itself — not a file — is the subject.
@@ -225,6 +228,27 @@ const featuresDirMissingWarning = (featuresDir: string): DriftWarning => ({
   message: `featuresDir ${JSON.stringify(featuresDir)} is not an existing directory, so .feature files that no link registers are not checked for draft markers, disallowed tags or lint.`,
 });
 
+// 綴りを誤ったキーはどの consumer にも読まれず、設定したつもりの値が黙って既定値に落ちる。
+// キーは PR の作者が書けるので、経路だけを示して値は出さない。識別子でないキーは経路の時点で
+// JSON の文字列にしてあり、残る bidi 制御文字なども --json と annotation に生で出さないよう
+// printable で ? にする（テキストの出力は出口でも無害化する）。
+const unknownConfigKeyWarning = (configFile: string, key: string): DriftWarning => ({
+  kind: "unknown-config-key",
+  path: configFile,
+  message: `${configFile} has an unknown key ${printable(key)} that specproof does not read, so its value has no effect. Fix its spelling or remove it (see docs/config-schema.md for the keys specproof reads).`,
+});
+
+const tooManyUnknownConfigKeysWarning = (configFile: string): DriftWarning => ({
+  kind: "unknown-config-key",
+  path: configFile,
+  message: `${configFile} has more than ${MAX_UNKNOWN_CONFIG_KEYS} unknown keys; only the first ${MAX_UNKNOWN_CONFIG_KEYS} are listed. Fix or remove them (see docs/config-schema.md for the keys specproof reads).`,
+});
+
+const unknownConfigKeyWarnings = (configFile: string, keys: readonly string[]): DriftWarning[] => [
+  ...keys.slice(0, MAX_UNKNOWN_CONFIG_KEYS).map((key) => unknownConfigKeyWarning(configFile, key)),
+  ...(keys.length > MAX_UNKNOWN_CONFIG_KEYS ? [tooManyUnknownConfigKeysWarning(configFile)] : []),
+];
+
 // A feature file to lint, with its manifest link id when it is registered.
 interface FeatureTarget {
   relPath: string;
@@ -335,6 +359,9 @@ export interface CheckDriftOptions {
   /** 読んだ設定ファイルの名前。設定ファイルがあるのに featuresDir が無ければ
    *  features-dir-unset を警告する。 */
   configFile?: string;
+  /** 設定ファイルにある、どの consumer も読まないキーの経路。configFile があるときだけ
+   *  unknown-config-key を警告する。 */
+  unknownConfigKeys?: readonly string[];
 }
 
 export const checkDrift = async (
@@ -382,7 +409,11 @@ export const checkDrift = async (
   const specHeadingWarnings = await auditSpecHeadings(manifest, repoRoot);
   const implWarnings = await auditUnregisteredImpl(manifest, repoRoot, options.implGlobs);
 
+  const { configFile } = options;
   const warnings = [
+    ...(configFile === undefined
+      ? []
+      : unknownConfigKeyWarnings(configFile, options.unknownConfigKeys ?? [])),
     ...(options.configFile !== undefined && options.featuresDir === undefined
       ? [featuresDirUnsetWarning(options.configFile)]
       : []),
