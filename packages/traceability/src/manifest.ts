@@ -43,9 +43,10 @@ const MAX_REFS_PER_LINK = 1_000;
 const MAX_TOTAL_REFS = 20_000;
 const MAX_ID_LENGTH = 256;
 const CONTROL_OR_SEPARATOR = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u;
-// 見出しは CONTROL_OR_SEPARATOR から水平タブだけを除く。Markdown の見出しの行はタブを含みえて、
-// 旧い specproof が見出しのタブをそのまま保存した manifest を読めるようにする（行は偽装できない）。
-const HEADING_CONTROL_OR_SEPARATOR = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f\u2028\u2029]/u;
+// 見出しとラベルは CONTROL_OR_SEPARATOR から水平タブだけを除く。Markdown の見出しの行はタブを
+// 含みえて、旧い specproof が見出しのタブをそのまま保存した manifest を読めるようにする
+// （タブで行は偽装できない）。
+const CONTROL_OR_SEPARATOR_EXCEPT_TAB = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f\u2028\u2029]/u;
 // 保存できる hash は sha256 の 16 進（hash.ts が出す小文字 64 桁）と、決まった値だけ。
 // PENDING は新しい参照の仮の値、FILE_MISSING / SECTION_MISSING は旧い manifest や手で書いた
 // manifest に残りうる見つからない印（check は常に missing と報告し、update は書き込まない）。
@@ -98,7 +99,7 @@ const assertSpecRef: (value: unknown, where: string) => asserts value is SpecRef
   const record = value as FileRef & Record<string, unknown>;
   if (typeof record.heading !== "string" || record.heading.length > MAX_HEADING_LENGTH) {
     fail(where, `heading must be a string of at most ${MAX_HEADING_LENGTH} characters`);
-  } else if (HEADING_CONTROL_OR_SEPARATOR.test(record.heading)) {
+  } else if (CONTROL_OR_SEPARATOR_EXCEPT_TAB.test(record.heading)) {
     // 見出しは check の報告と PR コメントにそのまま出る。link id と同じく行を偽装させない。
     fail(where, "heading must not contain control or separator characters");
   }
@@ -188,16 +189,16 @@ const assertManifestShape: (value: unknown) => asserts value is TraceabilityMani
       // id は check の報告と PR コメントにそのまま出る。改行で見出しや行を偽装させない。
       fail(where, "id must not contain control or separator characters");
     }
-    if (
-      typeof link.label !== "string" ||
-      link.label === "" ||
-      link.label.length > MAX_LABEL_LENGTH
-    ) {
+    // YAML のブロック形式（label: > / label: |）は末尾に改行が付く。ラベルは表示にしか使わないので
+    // 末尾の改行を除いて検査する。保存する値は変えない（update は元の YAML の hash だけを書き換え、
+    // 読み込んだ値と元の YAML が一致することを確かめる）。
+    const label = typeof link.label === "string" ? link.label.replace(/\n+$/, "") : undefined;
+    if (label === undefined || label === "" || (link.label as string).length > MAX_LABEL_LENGTH) {
       fail(
         `${where} (id: ${String(link.id)})`,
         `label must be a non-empty string of at most ${MAX_LABEL_LENGTH} characters`,
       );
-    } else if (CONTROL_OR_SEPARATOR.test(link.label)) {
+    } else if (CONTROL_OR_SEPARATOR_EXCEPT_TAB.test(label)) {
       // ラベルも list の出力と --json に出る。link id と同じく行を偽装させない。
       fail(`${where} (id: ${link.id})`, "label must not contain control or separator characters");
     }

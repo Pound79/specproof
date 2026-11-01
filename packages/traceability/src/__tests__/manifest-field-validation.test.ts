@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadManifest } from "../manifest.js";
+import { loadManifest, saveManifest } from "../manifest.js";
 
 // manifest の hash・見出し・ラベルは PR の作者が書ける。hash は sha256 の 16 進（小文字 64 桁）か
 // 決まった値だけを受け付け、見出しとラベルは link id と同じく制御文字・行区切りを拒否する。
@@ -81,12 +81,12 @@ describe("manifest のフィールドの検証", () => {
     },
   );
 
-  it.each(["a\nb", "a\rb", "a\tb", "a\u0000b", "a\u009bb", "a\u2028b"])(
+  it.each(["a\nb", "a\rb", "a\n\nb", "\n", "a\r\n", "a\u0000b", "a\u009bb", "a\u2028b"])(
     "ラベル %j を読み込みで拒否する",
     async (label) => {
       await write({ label });
       await expect(loadManifest(manifestPath)).rejects.toThrow(
-        /label must not contain control or separator characters/,
+        /label must (not contain control or separator characters|be a non-empty string)/,
       );
     },
   );
@@ -95,6 +95,42 @@ describe("manifest のフィールドの検証", () => {
   it("見出しの水平タブは受け付ける", async () => {
     await write({ spec: [{ path: "docs/spec.md", heading: "\tAccount\t##", hash: HEX }] });
     await expect(loadManifest(manifestPath)).resolves.toBeDefined();
+  });
+
+  // YAML のブロック形式（label: > / label: |）は値の末尾に改行が付く。0.4.x で読めた manifest を
+  // 読めるままにする。タブは見出しと同じく許す。
+  it.each(["a\n", "a\n\n", "a\tb"])("ラベル %j は受け付ける", async (label) => {
+    await write({ label });
+    await expect(loadManifest(manifestPath)).resolves.toBeDefined();
+  });
+
+  it("ブロック形式のラベルの manifest を読み、hash だけを書き換えて保存できる", async () => {
+    await writeFile(
+      manifestPath,
+      [
+        "version: 1",
+        "links:",
+        "  - id: a",
+        "    label: >",
+        "      long label",
+        "      folded",
+        "    spec: []",
+        "    impl:",
+        "      - path: src/a.ts",
+        "        hash: PENDING",
+        "    features: []",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const original = await loadManifest(manifestPath);
+    expect(original.links[0].label).toBe("long label folded\n");
+    const updated = structuredClone(original);
+    updated.links[0].impl[0].hash = HEX;
+    await saveManifest(manifestPath, updated, original);
+    const reloaded = await loadManifest(manifestPath);
+    expect(reloaded.links[0].label).toBe("long label folded\n");
+    expect(reloaded.links[0].impl[0].hash).toBe(HEX);
   });
 
   it("制御文字の無い見出しとラベル（記号・非 ASCII を含む）は受け付ける", async () => {
