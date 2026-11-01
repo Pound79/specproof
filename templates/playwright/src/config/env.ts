@@ -9,6 +9,9 @@ import type { SpecproofConfig, EnvironmentProfile } from "./specproof-config";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
+// storageState paths resolve against the package root; see auth-state.ts.
+export { resolveAuthStatePath } from "./auth-state";
+
 // ---------------------------------------------------------------------------
 // loadDotenv — environment-profile-aware dotenv loading
 // ---------------------------------------------------------------------------

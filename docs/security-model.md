@@ -40,8 +40,8 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   既存ファイルへの書き込みは拒否する。既存のファイルは `--force` が無ければ上書きせず、
   `.github/workflows/` のファイルは `--force` でも上書きしない
 - **読む範囲**: `specproof detect` と `init --adapter auto` は、実行したディレクトリの
-  `package.json`・`pubspec.yaml`・`.env.example`（変数の名前だけ）を読む。読み込みには境界の検査を
-  していない（symlink も辿る）。信頼できないディレクトリで `detect` を走らせない
+  `package.json`・`pubspec.yaml`・`.env.example`（変数の名前だけ）を読む。1 ファイル 1 MiB までの
+  通常ファイルだけを読むが、境界の検査はしていない（symlink も辿る）。信頼できないディレクトリで `detect` を走らせない
 - **子プロセス**: 起動しない。設定の `commands.*` も実行しない
 
 ### 共通の限界
@@ -99,7 +99,7 @@ npm と Sigstore の仕組みで、specproof のコードではない。
 |---|---|
 | 設定ファイルの読み込み | 1 MiB、通常ファイルだけ |
 | manifest の読み込み | 8 MiB、link 10,000、参照は link あたり 1,000・全体 20,000 など（[traceability README](../packages/traceability/README.md#manifest-safety-limits)） |
-| spec・実装・feature の内容の読み込みと hash | ファイルごとの大きさの上限は無い。同時に読むのは 32 件まで |
+| spec・実装・feature の内容の読み込みと hash | 1 ファイル 8 MiB、通常ファイルだけ。同時に読むのは 32 件まで |
 | `layout.featuresDir` と `layout.implGlobs` のディレクトリ走査 | `implGlobs` は 256 本・1 本 1,024 文字まで。走査するファイルの数には上限が無い |
 | feature の lint のファイル横断の比較（重複・矛盾の候補） | 上限は無い |
 

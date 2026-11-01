@@ -1,8 +1,7 @@
-import path from "node:path";
 import type { Page } from "@playwright/test";
 import { LoginPage } from "../pages/LoginPage";
 import { ExamplePage } from "../pages/ExamplePage";
-import type { Credentials } from "../config/env";
+import { resolveAuthStatePath, type Credentials } from "../config/env";
 import { loadSpecproofConfig } from "../config/specproof-config";
 import { forceAppLanguage } from "../config/locale";
 
@@ -13,7 +12,7 @@ import { forceAppLanguage } from "../config/locale";
  *
  * @param page        - Playwright Page instance (from setup fixture)
  * @param credentials - Username / password (and optional newPassword) to use
- * @param authFile    - Relative-or-absolute path where storageState is written
+ * @param authFile    - storageState path, relative to the e2e package root
  */
 export async function saveAuthState(
   page: Page,
@@ -33,5 +32,5 @@ export async function saveAuthState(
   const examplePage = new ExamplePage(page);
   await examplePage.expectLoaded();
 
-  await page.context().storageState({ path: path.resolve(process.cwd(), authFile) });
+  await page.context().storageState({ path: resolveAuthStatePath(authFile) });
 }

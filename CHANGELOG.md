@@ -34,6 +34,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   「設定のコマンドを実行する前の確認」を足した。設定ファイルの `commands` やコマンドが呼ぶ
   スクリプトが既定ブランチから変わっていれば、展開後の中身を示して人の承認を待ち、承認が無ければ
   実行せずに停止する。PR で書き換えたコマンドを AI がそのまま実行しないようにするため。
+- Dependabot の対象に、Flutter の雛形の pub の依存を加えた。雛形の drift-check ワークフローが固定する
+  actions は、specproof 自身のワークフロー（Dependabot が更新する）と同じ SHA であることをテストで
+  確かめる（`scripts/dependency-watch.test.mjs`）。Dependabot が actions を上げる PR では、雛形の
+  ワークフローも同じ版に上げる。雛形だけで使う `actions/github-script` はリリースの前に手で確かめる。
+  pub では、意図して固定している `flutter_gherkin` と `build_runner` の minor・major を更新の対象から
+  外した。`SECURITY.md` の監視の範囲と、約束の限界（雛形の推移的な依存、生成済みのリポジトリ、
+  `flutter_gherkin`）を合わせて書いた。
+- 公開する 2 パッケージの実行時の依存 `yaml` を、範囲（`^2.9.1`）から完全な版（`2.9.1`）に固定した。
+  drift-check などは `npx` で lockfile 無しに取得するので、範囲だと取得のたびに新しい版（乗っ取られた
+  版を含む）が入りえた。`yaml` 自身は依存を持たないので、推移的な依存まで版が固定される。版の更新は
+  Dependabot の PR で行う（`versioning-strategy: increase` で完全な版のまま上げる）。公開済みの 0.3.0 は
+  範囲のままなので、固定が効くのは次のリリースからである。
 - `specproof-check` は、設定ファイルがあるのに `layout.featuresDir` が無いとき警告
   `features-dir-unset` を出し、`--strict` で失敗する。未設定だと登録していない feature の
   ドラフトマーカー・止めるタグ・lint を黙って検査しておらず、設定の文書（必須）と食い違っていた。
@@ -48,6 +60,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- playwright の雛形は、ログイン後のセッション（storageState）を実行したディレクトリ基準で書き読み
+  していたので、リポジトリのルートなどから実行すると gitignore の外に書いた。書き手と読み手の両方を
+  e2e パッケージ基準にし（`setup: false` で手書きの storageState を指す project も同じ）、パッケージの外を
+  指すパスと、途中に symlink を含むパスは拒否する。認証済みの project が終わった後に `auth-teardown` の project で消すようにした
+  （中断・`--no-deps`・UI mode では消えないので README に手で消す方法を書いた）。
+  既に雛形を取り込んだリポジトリは、`src/config/env.ts`・`src/config/auth-state.ts`・
+  `src/setup/saveAuthState.ts`・`src/setup/auth.teardown.ts`・`playwright.config.ts` を手で取り込む
+  （`specproof init --force` は既存のファイルを上書きする）。
+- traceability が spec・実装・feature の本体を読むとき、manifest と同じく 1 ファイル 8 MiB までの
+  通常ファイルだけを読むようにした。これまでは大きさの上限が無く、FIFO を指すと待ち続けた。
+  8 MiB を超えるファイル（生成物など）を manifest から参照していると check・update はエラーで止まる
+  ので、そのファイルは manifest から外す。
+  CLI の `detect` と `init --adapter auto` が読む `package.json`・`pubspec.yaml`・`.env.example` も
+  1 MiB までの通常ファイルに限った。
+- spec の見出しとコードの区切りの解析で、時間が入力の長さの二乗に増える経路を無くした（20 万個の
+  空白を含む見出しで約 60 秒、単独の CR を含む行では約 200 秒）。閉じの `#` を外す処理は正規表現から
+  末尾の 1 回の走査に替え、CR・U+2028・U+2029 を含む行は照合の前に従来どおり見出し・区切りでないと
+  判定する。
+  CLI の `detect` は、`.env.example` の 256 文字を超えるキーを名前として扱わない。
 - traceability の CLI（check・update・list・stats）の出力が、GitHub Actions のログで
   ワークフローコマンドとして読まれないようにした。ランナーは行頭（空白を除く）の `::name::` と、
   行のどこかにある `##[name]` を読むので、link id・見出し・パス・ラベルを細工すると偽の注記や

@@ -29,13 +29,27 @@ Please include:
 
 ## Vulnerable dependencies
 
-Known vulnerabilities in the packages' npm dependencies, the npm dependencies of
-the Playwright scaffold template, and the GitHub Actions used by this
-repository's own workflows (`.github/workflows/`) are fixed in a release within
-these windows, counted from when the advisory is published or reported to us.
-The Flutter template's pub dependencies and the actions pinned in the scaffolded
-`specproof-drift-check.yml` workflows are not watched automatically yet; reports
-about them follow the same windows.
+Known vulnerabilities in the packages' npm dependencies (locked by
+`package-lock.json`), the dependency constraints written in the scaffold
+templates (npm for Playwright, pub for Flutter), and the GitHub Actions used by
+this repository's own workflows (`.github/workflows/`) and by the scaffolded
+`specproof-drift-check.yml` workflows are fixed in a release within these
+windows, counted from when the advisory is published or reported to us.
+
+Limits of that promise:
+
+- The templates ship no lockfile, so only the constraints they write are
+  watched; transitive dependencies are resolved when you install the scaffold.
+- A fix reaches the templates in the next release. Repositories that already
+  ran `specproof init` keep their copies and need to update them by hand.
+- `flutter_gherkin` is pinned to `3.0.0-rc.17`, its last release, because no
+  other Flutter BDD runner supports the Japanese Gherkin dialect. If it gets a
+  vulnerability with no upstream fix, we document the impact and any workaround
+  within the window instead of a fixed version.
+- The scaffolded workflows pin the same action versions as this repository's own
+  workflows, which a test enforces. `actions/github-script`, used only by the
+  scaffolded workflows, is not watched automatically; it is checked by hand
+  before each release.
 
 | Severity (GitHub advisory / CVSS) | Fixed within |
 |---|---|

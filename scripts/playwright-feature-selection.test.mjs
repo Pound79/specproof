@@ -28,6 +28,7 @@ const buildProjects = (config) => {
     },
     "./src/config/env": {
       loadDotenv() {},
+      resolveAuthStatePath: (file) => file,
       resolveBaseUrl: () => "http://localhost:5173",
       shouldStartWebServer: () => false,
     },
