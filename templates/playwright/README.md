@@ -53,6 +53,19 @@ E2E_USERNAME=user@example.com
 E2E_PASSWORD=YourPassword1!
 ```
 
+#### Sensitive data this scaffold creates
+
+| Data | Where | Protection |
+|---|---|---|
+| Variable names only | `.env.example` | Committed on purpose (`!.env.example` in `.gitignore`). Never put real values in it. |
+| Test account credentials | `.env` (and CI secrets) | Use dedicated test accounts, never real users' or production accounts. `.env` and `.env.*` are gitignored; keep them out of commits and logs. |
+| Logged-in browser state (cookies, localStorage) | `playwright/.auth/*.json`, written by the auth setup relative to the directory you run Playwright from | Gitignored. Run Playwright from this package so the files land here, do not upload them as CI artifacts, and delete them after runs on shared machines. |
+| Traces, screenshots and videos | `test-results/`, `playwright-report/` | A trace (kept on the first retry in CI) records the actions, including the typed login form, and the network. Treat these as sensitive: gitignored; if you upload them as CI artifacts, keep the retention short and do not publish them from public repositories. |
+
+`E2E_BASE_URL` defaults to `http://localhost:5173`. The scaffold sends the test
+credentials to whatever URL you set, so use `https://` for any host other than
+localhost.
+
 ### 4. (Optional) Create test users
 
 If your auth provider requires pre-created users, adapt and run:

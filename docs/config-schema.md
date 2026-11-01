@@ -22,6 +22,13 @@ traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `fea
 `strictUnregisteredImpl: "true"`、空文字列など）はエラーで止まる。
 設定したつもりの監査が、型違いで黙って無効になることを防ぐため。
 
+設定ファイルはリポジトリのルートの `specproof.config.yaml`（または `.yml`）で、1 MiB 以下の
+通常ファイルでなければエラーで止まる。旧名の `bdd-kit.config.yaml` / `.yml` も読むが、非推奨の
+警告を出す。エンジンが読まないキー（skill だけが読むキーを含む）は検証せずに無視する。ただし
+`layout` と `tags` は mapping でなければエラーになり、`tags.fixme` / `tags.skip` は書いてあるだけで
+エラーになる。`adapter: flutter` のとき、`language` はエンジンが読める `en` / `ja` の
+どちらかにする（それ以外は feature を読む段でエラーになる）。
+
 | フィールド | 要否 | 説明 |
 |---|---|---|
 | `adapter` | required | `playwright` \| `flutter`。framework 分岐キー。traceability は `flutter` のとき feature を Flutter の runner（Dart の gherkin）と同じ規則で読む。 |
@@ -34,7 +41,9 @@ traceability エンジンが読むキー（`layout.manifest` / `pagesDir` / `fea
 
 ## commands
 
-skill / CLI はこれらのコマンドをリポ**ルートから** `cwd` を変えずに spawn する。
+skill（AI エージェント）はこれらのコマンドをリポ**ルートから** `cwd` を変えずに実行する
+（specproof の CLI とエンジンはこれらを実行しない。他人のブランチで skill を走らせる前に差分を
+確かめる: [セキュリティモデル](security-model.md#読み書きする範囲信頼境界)）。
 `e2eRoot` がリポ直下でない場合（playwright の既定 `packages/e2e` 等）、コマンド文字列
 自体に `cd <e2eRoot> && ...` を含めること — `specproof init` は repo root の
 package.json に workspaces を注入しないため、`npm run <script>` を裸で書くと
@@ -52,6 +61,10 @@ package.json に workspaces を注入しないため、`npm run <script>` を裸
 | `traceabilityUpdate` / `traceabilityCheck` / `traceabilityList` / `traceabilityStats` | optional | `npx -y -p @pound79/specproof-traceability specproof-*` |
 
 ## layout（リポルート相対パス）
+
+パスはリポジトリのルートからの相対で書く。エンジンは `manifest`・`pagesDir`・`featuresDir` と
+`implGlobs` の走査の起点が、字句と実体（symlink の解決先）の両方でルートの内側に解決できることを確かめ、外側を指す・
+リンクが切れているときはエラーで止まる（[セキュリティモデル](security-model.md#読み書きする範囲信頼境界)）。
 
 | フィールド | 要否 | 説明 |
 |---|---|---|

@@ -14,6 +14,7 @@ spec <-> impl <-> feature のトレーサビリティ駆動 BDD フローを、f
 | 設定・adapter 境界 | [config-schema](docs/config-schema.md)、[adapter-contract](docs/adapter-contract.md) | `packages/traceability/src/config.ts`、`templates/*/specproof.config.yaml` |
 | Flutter 実行 | [Flutter template README](templates/flutter/README.md)、[残件](docs/flutter-readiness.md) | `templates/flutter/`、`cli/src/init.ts` |
 | skill・BDD 規則 | [methodology](docs/methodology.md)、対象 skill の `SKILL.md` | `plugins/specproof/skills/` |
+| セキュリティ・信頼境界 | [security-model](docs/security-model.md)、[SECURITY.md](SECURITY.md) | `packages/traceability/src/resolve.ts`、`cli/src/path-security.ts`、`templates/*/github-workflows/` |
 | scaffold・agent 導入 | [cli README](cli/README.md) | `cli/src/detect.ts` / `init.ts` / `setup-agent.ts` |
 
 ID 台帳は [ADR 0008](docs/adr/0008-flow-layer-separation.md) の採択済み未実装契約。

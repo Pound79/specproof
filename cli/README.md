@@ -58,7 +58,7 @@ hardlink を持つ既存ファイルは、`--force` で上書きする時に拒�
 | Option | Description |
 |---|---|
 | `--adapter <playwright\|flutter\|auto>` | Test framework adapter. **Required.** `auto` also accepts a lone medium-confidence match (e.g. a plain React app) — multiple or low-confidence-only candidates still require an explicit `--adapter`. |
-| `--dir <e2e-dir>` | Target directory for the e2e package. When it differs from the template default, the hardcoded paths inside the scaffolded `specproof.config.yaml` are rewritten to match. |
+| `--dir <e2e-dir>` | Target directory for the e2e package. It must stay inside the current directory (the repository root); a path outside it, or through a symlink, is rejected. When it differs from the template default, the hardcoded paths inside the scaffolded `specproof.config.yaml` are rewritten to match. |
 | `--force` | Overwrite existing files instead of skipping them. CI workflow files under `.github/workflows/` are never overwritten this way — merge those by hand. |
 | `--agent <claude\|codex>` | Tailor next-steps output to a specific agent. Omit for both. |
 
