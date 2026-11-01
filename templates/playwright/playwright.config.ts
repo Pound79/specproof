@@ -11,6 +11,7 @@ import {
   resolveBaseUrl,
   shouldStartWebServer,
 } from "./src/config/env";
+import { assertSecureBaseUrl } from "./src/config/base-url-guard";
 
 // ---------------------------------------------------------------------------
 // Load config → resolve environment → load dotenv
@@ -158,6 +159,18 @@ const webServer =
         stderr: "pipe" as const,
       }
     : undefined;
+
+// ---------------------------------------------------------------------------
+// Refuse plain http to a non-loopback host before any browser starts, when a
+// selected project logs in or reads credentials. Opt in per environment with
+// `allowInsecureHttp: true` (see src/config/base-url-guard.ts). Runs without
+// credentials (e.g. only the guest project) are not blocked.
+// ---------------------------------------------------------------------------
+
+const usesCredentials = cfg.projects.some(
+  (p) => (p.setup === true || p.credentialsEnv !== undefined) && isConditionMet(p.conditional, cfg),
+);
+if (usesCredentials) assertSecureBaseUrl(resolveBaseUrl(cfg), activeEnv);
 
 // ---------------------------------------------------------------------------
 // Export

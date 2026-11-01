@@ -1,6 +1,11 @@
 import { test as setup } from "@playwright/test";
-import { loadSpecproofConfig, isConditionMet } from "../config/specproof-config";
+import {
+  loadSpecproofConfig,
+  isConditionMet,
+  resolveActiveEnvironment,
+} from "../config/specproof-config";
 import { credentialsFor, missingCredentialEnv } from "../config/env";
+import { assertSecureBaseUrl } from "../config/base-url-guard";
 import { saveAuthState } from "./saveAuthState";
 
 /**
@@ -19,14 +24,19 @@ import { saveAuthState } from "./saveAuthState";
  * left by an earlier run, without having authenticated in this run.
  * All authenticated projects share the single "setup" project, so this failure
  * also stops the other authenticated projects until the env vars are fixed.
+ *
+ * Before logging in, the base URL is checked: plain http:// to a host other
+ * than localhost / 127.0.0.0/8 / ::1 fails unless the active environment
+ * profile sets `allowInsecureHttp: true` in specproof.config.yaml.
  */
 
 const cfg = loadSpecproofConfig();
+const activeEnv = resolveActiveEnvironment(cfg);
 
 for (const p of cfg.projects) {
   if (!p.setup) continue;
 
-  setup(`authenticate: ${p.name}`, async ({ page }) => {
+  setup(`authenticate: ${p.name}`, async ({ page, baseURL }) => {
     // Skip when the project's condition is not met (e.g. no admin account).
     if (!isConditionMet(p.conditional, cfg)) {
       setup.skip(
@@ -45,6 +55,8 @@ for (const p of cfg.projects) {
       );
     }
 
+    // 認証情報を送る前に、平文の http で loopback 以外へ送らないことを確かめる。
+    assertSecureBaseUrl(baseURL ?? "", activeEnv);
     await saveAuthState(page, creds, p.storageState);
   });
 }

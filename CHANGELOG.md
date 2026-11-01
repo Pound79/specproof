@@ -14,6 +14,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `playwright-report`）のうち足りない行を警告する。これまでは黙って残し、認証情報や保存したログイン状態が
   追跡されうることに気づけなかった。利用者のファイルは変えない。比べ方は `cli/README.md` を参照。
 
+### Changed
+
+- **破壊的変更（0.5.0）**: playwright の雛形は、選ばれた project が認証情報を使う（`setup: true` か
+  `credentialsEnv` を持つ）とき、`playwright.config.ts` の読み込みとログインの前に baseURL を確かめ、
+  `http://` でホストが loopback（`localhost`・`127.0.0.0/8`・`::1`）でなければ認証情報を送らずに失敗する。
+  `http://` でも `https://` でもない scheme も止める。これまでは README で https を勧めるだけで、平文の
+  http の検証環境にも認証情報を送っていた。
+  移行: https を用意できない環境だけ、`specproof.config.yaml` のその `environments[]` エントリに
+  `allowInsecureHttp: true` を足す（真偽値の `true` だけを許可とみなす）。雛形のファイルなので、取り込み済みの
+  足場には `src/config/base-url-guard.ts` を足し、`playwright.config.ts`・`src/setup/auth.setup.ts`・
+  `src/config/specproof-config.ts`（`EnvironmentProfile.allowInsecureHttp`）を差分に合わせて直す
+  （`specproof init --force` は手元の変更を上書きする）。フィールドは `docs/config-schema.md` を参照。
+
 ## [0.4.1] - 2026-11-01
 
 ### Changed
