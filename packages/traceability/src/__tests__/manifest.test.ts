@@ -47,8 +47,9 @@ describe("loadManifest validation", () => {
     expect(manifest.links[0].id).toBe("login");
   });
 
+  // A newer version (written by a newer specproof) is covered in manifest-version.test.ts.
   it("rejects a manifest with the wrong version", async () => {
-    await writeManifest("version: 2\nlinks: []\n");
+    await writeManifest("version: 0\nlinks: []\n");
 
     await expect(loadManifest(manifestPath)).rejects.toThrow(/version: 1/);
   });

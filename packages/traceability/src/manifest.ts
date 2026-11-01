@@ -130,8 +130,27 @@ const assertCriteria = (value: unknown, where: string): void => {
   }
 };
 
+// この specproof が読み書きする manifest の version（ADR 0010）。
+const SUPPORTED_MANIFEST_VERSION = 1;
+
 const assertManifestShape: (value: unknown) => asserts value is TraceabilityManifest = (value) => {
-  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.links)) {
+  // 新しい specproof が書いた manifest を、旧い規則で読んだり取り直したりしない（ADR 0010 の 3）。
+  if (
+    isRecord(value) &&
+    typeof value.version === "number" &&
+    Number.isInteger(value.version) &&
+    value.version > SUPPORTED_MANIFEST_VERSION
+  ) {
+    throw new Error(
+      `Unsupported traceability manifest: manifest version ${value.version} is newer than this specproof supports (${SUPPORTED_MANIFEST_VERSION}). ` +
+        "Written by a newer specproof — update @pound79/specproof-traceability (and the version pinned in your workflows) instead of re-blessing the hashes.",
+    );
+  }
+  if (
+    !isRecord(value) ||
+    value.version !== SUPPORTED_MANIFEST_VERSION ||
+    !Array.isArray(value.links)
+  ) {
     throw new Error("Invalid traceability manifest: expected { version: 1, links: [...] }");
   }
   if (value.links.length > MAX_LINKS) {

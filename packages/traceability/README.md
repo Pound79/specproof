@@ -239,6 +239,10 @@ manifest の `version` は、外部の読み手に向けた契約である。保
 キーの意味を変えるなら上げる。無視しても既存のキーの意味が変わらない追加では上げない。
 規則と理由は [ADR 0010](https://github.com/Pound79/specproof/blob/main/docs/adr/0010-manifest-version-policy.md)。
 
+この specproof が読み書きするのは version 1 だけ。知るより新しい version の manifest は、新しい
+specproof が書いたものとして、specproof の更新を促すエラーで止まる（旧い規則で hash を取り直さない）。
+旧い version からの移行の経路は、version を上げる変更と同じリリースで `specproof-update` に入れる。
+
 ### Manifest の criteria
 
 0.3.0 以降、version 1 の各 `links[]` に `criteria?: string[]` を指定できる。
