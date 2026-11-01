@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-01
+
 ### Changed
 
 - 同梱の drift-check のワークフローは、検査の前にリポジトリのルートの `specproof.config.yaml`
@@ -26,7 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   （`specproof-update` の manifest、`init` の設定の書き換え）は警告を出さない。
 - CLI は、`detect` と `init` の自動判定が表示するリポジトリ由来の文字列（`.env.example` のキーなど）と、
   最上位のエラー文から、制御文字・行区切り・bidi 制御文字を除いて表示する。
-
 ## [0.4.0] - 2026-11-01
 
 ### Added
@@ -638,7 +639,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/specproof/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Pound79/specproof/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Pound79/specproof/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Pound79/specproof/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/Pound79/specproof/compare/v0.2.1...v0.2.2
