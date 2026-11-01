@@ -31,6 +31,15 @@ describe("manifest のフィールドの検証", () => {
       "utf8",
     );
 
+  // 末尾の改行を落とす処理が、改行の長い連なりで 2 乗の時間にならないこと（長さの上限より先に
+  // 正規表現を当てると、上限を超える label でも時間がかかる）。
+  it("改行が長く続いたあとに文字がある長い label を、すぐに拒否する", async () => {
+    await write({ label: `${"\n".repeat(300_000)}x` });
+    const started = Date.now();
+    await expect(loadManifest(manifestPath)).rejects.toThrow(/label must be/);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  }, 10_000);
+
   it.each([HEX, "PENDING", "FILE_MISSING", "SECTION_MISSING"])(
     "hash %s を受け付ける",
     async (hash) => {

@@ -56,6 +56,13 @@ const isStorableHash = (hash: unknown): boolean =>
   typeof hash === "string" && (SHA256_HEX.test(hash) || NON_DIGEST_HASHES.includes(hash));
 const MAX_LABEL_LENGTH = 1024;
 
+/** YAML のブロック形式（`label: >` など）が末尾に付ける改行を、線形の時間で落とす。 */
+const withoutTrailingNewlines = (text: string): string => {
+  let end = text.length;
+  while (end > 0 && text.charCodeAt(end - 1) === 10) end -= 1;
+  return text.slice(0, end);
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
@@ -192,8 +199,13 @@ const assertManifestShape: (value: unknown) => asserts value is TraceabilityMani
     // YAML のブロック形式（label: > / label: |）は末尾に改行が付く。ラベルは表示にしか使わないので
     // 末尾の改行を除いて検査する。保存する値は変えない（update は元の YAML の hash だけを書き換え、
     // 読み込んだ値と元の YAML が一致することを確かめる）。
-    const label = typeof link.label === "string" ? link.label.replace(/\n+$/, "") : undefined;
-    if (label === undefined || label === "" || (link.label as string).length > MAX_LABEL_LENGTH) {
+    // 長さを先に確かめ、末尾の改行は後ろから走査して落とす（正規表現の /\n+$/ は改行の長い
+    // 連なりのあとに別の文字があると 2 乗の時間がかかる）。
+    const label =
+      typeof link.label === "string" && link.label.length <= MAX_LABEL_LENGTH
+        ? withoutTrailingNewlines(link.label)
+        : undefined;
+    if (label === undefined || label === "") {
       fail(
         `${where} (id: ${String(link.id)})`,
         `label must be a non-empty string of at most ${MAX_LABEL_LENGTH} characters`,
