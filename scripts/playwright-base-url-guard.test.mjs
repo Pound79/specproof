@@ -74,7 +74,8 @@ test("エラー文は URL の認証情報・パス・クエリを出さず、制
       !error.message.includes("token=abc") &&
       !error.message.includes(String.fromCharCode(27)) &&
       !error.message.includes(nul) &&
-      error.message.includes("example.com"),
+      // host（認証情報・パス・クエリを除いた部分）だけは示す。
+      /plain http to example\.com\. /.test(error.message),
   );
 });
 
