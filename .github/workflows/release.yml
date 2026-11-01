@@ -178,8 +178,8 @@ jobs:
         run: |
           PKG_VERSION=$(node -p "require('./cli/package.json').version")
           TAG="$GITHUB_REF_NAME"
-          # Belt-and-suspenders: `build` already refuses to run past this same
-          # check, and `publish` needs `build`, so this is unreachable via the
+          # Belt-and-suspenders: the build job already refuses to run past this
+          # same check, and publish needs build, so this is unreachable via the
           # normal path — kept in case this job is ever triggered independently.
           if [ "$TAG" != "v$PKG_VERSION" ]; then
             echo "::error::pushed tag $TAG does not match cli/package.json version v$PKG_VERSION — refusing to create a mismatched GitHub Release"
@@ -191,7 +191,8 @@ jobs:
             *-*) EXTRA_ARGS+=(--prerelease) ;;
           esac
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::notice::Release $TAG already exists — skipping"
+            echo "::notice::Release $TAG already exists — attaching the SBOM only"
+            gh release upload "$TAG" "$SBOM" --clobber --repo "$GITHUB_REPOSITORY"
           elif node scripts/changelog-section.mjs "$PKG_VERSION" > "$RUNNER_TEMP/release-notes.md" 2>/dev/null; then
             gh release create "$TAG" "$SBOM" --verify-tag --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md" "${EXTRA_ARGS[@]}"
           else

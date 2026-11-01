@@ -304,7 +304,21 @@ describe("release workflow", () => {
     const creates = runs.match(/gh release create[^\n]*/g) ?? [];
     expect(creates.length).toBeGreaterThan(0);
     for (const create of creates) expect(create).toContain('"$SBOM"');
-    expect(runs).not.toMatch(/\bnpm\s+(ci|install|i|run|exec|test|pack)\b|\bnpx\b/);
+    // A release that already exists still gets the SBOM.
+    expect(runs).toMatch(/gh release upload "\$TAG" "\$SBOM" --clobber/);
+    // Allow-list, like the publish job: npm only as `npm sbom --package-lock-only`,
+    // node only to read a version or the CHANGELOG section, no other package runners.
+    expect(runs).not.toMatch(OTHER_PACKAGE_RUNNERS);
+    for (const command of runs.split(COMMAND_SEPARATOR)) {
+      for (const { index } of command.matchAll(/\bnpm\b/g)) {
+        expect(command.slice(index ?? 0)).toMatch(/^npm sbom --package-lock-only\b/);
+      }
+      for (const { index } of command.matchAll(/\bnode\b/g)) {
+        expect(command.slice(index ?? 0)).toMatch(
+          /^node (-p "require\('\.\/cli\/package\.json'\)\.version"|scripts\/changelog-section\.mjs )/,
+        );
+      }
+    }
     expect(usesNoDependencyCache(releaseJob)).toBe(true);
   });
 
