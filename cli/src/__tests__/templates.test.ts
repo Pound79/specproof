@@ -289,6 +289,25 @@ describe("release workflow", () => {
     expect(packagingJobsUseNoCache(workflow)).toBe(true);
   });
 
+  // The GitHub Release carries a CycloneDX SBOM of the whole lockfile (runtime
+  // and development dependencies, marked as such). The release job holds
+  // `contents: write`, so it builds the SBOM from the lockfile alone and runs
+  // no dependency code: no install, no lifecycle scripts, no npx.
+  it("attaches a CycloneDX SBOM built from the lockfile to the GitHub Release", () => {
+    const releaseJob = jobOf(workflow, "release");
+    const runs = (releaseJob.steps ?? []).map((step) => step.run ?? "").join("\n");
+    expect(runs).toMatch(/npm sbom --package-lock-only --sbom-format cyclonedx\b/);
+    const sbomFile = runs.match(/npm sbom [^\n>]*>\s*"([^"]+)"/)?.[1];
+    expect(sbomFile).toBeDefined();
+    // The release step passes the same file, through a variable that names it.
+    expect(runs).toContain(`SBOM="${sbomFile}"`);
+    const creates = runs.match(/gh release create[^\n]*/g) ?? [];
+    expect(creates.length).toBeGreaterThan(0);
+    for (const create of creates) expect(create).toContain('"$SBOM"');
+    expect(runs).not.toMatch(/\bnpm\s+(ci|install|i|run|exec|test|pack)\b|\bnpx\b/);
+    expect(usesNoDependencyCache(releaseJob)).toBe(true);
+  });
+
   it("builds and tests in a job that cannot mint an npm publish credential", () => {
     const buildJob = jobOf(workflow, "build");
     expect(buildJob.permissions).toBeDefined();

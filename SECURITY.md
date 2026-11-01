@@ -63,6 +63,10 @@ fixed within **7 days** regardless of its severity. When a fix is not available
 upstream, we document a workaround or the reason the vulnerable code path is not
 reachable from specproof within the same window.
 
+Each GitHub Release has a CycloneDX SBOM (`specproof-<version>.cdx.json`) of the
+whole lockfile: the packages, their runtime dependencies, and the development
+dependencies used to build them (marked `cdx:npm:package:development`).
+
 How dependencies are watched:
 
 - Dependabot alerts and security updates are enabled for this repository.
