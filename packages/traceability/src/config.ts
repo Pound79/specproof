@@ -46,7 +46,7 @@ export interface TraceabilityConfig {
   configFile?: string;
   /** 設定ファイルにある、どの consumer も読まないキーの経路（出現順）。check が
    *  unknown-config-key として報告する。設定ファイルが無ければ空。 */
-  unknownConfigKeys: string[];
+  unknownConfigKeys?: string[];
 }
 
 export interface DiscoverConfigOverrides {
