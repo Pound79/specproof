@@ -11,26 +11,6 @@ description: Bootstrap a rich Gherkin .feature DRAFT from existing implementatio
 {{config:language}} Gherkin の `.feature` **ドラフト**として一気に立ち上げる。
 目的は薄い/欠落した E2E カバレッジを bootstrap すること。
 
-## 0. 設定の解決（最初に必ず実行）
-
-リポルートの `specproof.config.yaml` を読み、以降に登場する適用する adapter・手順に必要な `{{config:...}}` トークンを
-そのファイルの対応フィールド値で置き換えてから作業を開始すること。
-このファイルが存在しない場合は **STOP し、ユーザーに
-`specproof init --adapter <framework>` の実行を依頼する**。
-
-解決が必要な主な値:
-- マニフェストパス: `{{config:layout.manifest}}`
-- features/steps/pages の配置: `{{config:layout.featuresDir}}` / `{{config:layout.stepsDir}}` / `{{config:layout.pagesDir}}`
-- ドラフト出力先: `{{config:layout.scratchDir}}`
-- 生成・検証コマンド: `{{config:commands.generate}}` / `{{config:commands.typecheck}}` / `{{config:commands.smoke}}`
-- トレーサビリティコマンド: `{{config:commands.traceabilityUpdate}}` / `{{config:commands.traceabilityCheck}}` / `{{config:commands.traceabilityList}}`
-- タグ: `{{config:tags.slow}}` / `{{config:tags.generate}}` / `{{config:tags.admin}}` / `{{config:tags.user}}`
-- 状態タグ（固定・設定で変えない）: `@draft` / `@red-contract` / `@human` / `@out-of-scope`
-- ランナープロファイル: `{{config:projects}}`
-- 環境プロファイル: `{{config:environments}}`
-- fixture 名: `{{config:fixtures}}`
-
-
 ## 設定のコマンドを実行する前の確認
 
 `{{config:commands.*}}` は設定ファイルに書かれたシェルのコマンドで、展開してそのまま実行する。
@@ -52,6 +32,26 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 差分が無くても、コマンドはそのブランチのコードを実行する。信頼できないブランチで走らせるのは、PR を
 手元で checkout して `npm test` を実行するのと同じことで、この確認が見つけるのはコマンドや設定の
 差し替えだけである。
+
+## 0. 設定の解決（最初に必ず実行）
+
+リポルートの `specproof.config.yaml` を読み、以降に登場する適用する adapter・手順に必要な `{{config:...}}` トークンを
+そのファイルの対応フィールド値で置き換えてから作業を開始すること。
+このファイルが存在しない場合は **STOP し、ユーザーに
+`specproof init --adapter <framework>` の実行を依頼する**。
+
+解決が必要な主な値:
+- マニフェストパス: `{{config:layout.manifest}}`
+- features/steps/pages の配置: `{{config:layout.featuresDir}}` / `{{config:layout.stepsDir}}` / `{{config:layout.pagesDir}}`
+- ドラフト出力先: `{{config:layout.scratchDir}}`
+- 生成・検証コマンド: `{{config:commands.generate}}` / `{{config:commands.typecheck}}` / `{{config:commands.smoke}}`
+- トレーサビリティコマンド: `{{config:commands.traceabilityUpdate}}` / `{{config:commands.traceabilityCheck}}` / `{{config:commands.traceabilityList}}`
+- タグ: `{{config:tags.slow}}` / `{{config:tags.generate}}` / `{{config:tags.admin}}` / `{{config:tags.user}}`
+- 状態タグ（固定・設定で変えない）: `@draft` / `@red-contract` / `@human` / `@out-of-scope`
+- ランナープロファイル: `{{config:projects}}`
+- 環境プロファイル: `{{config:environments}}`
+- fixture 名: `{{config:fixtures}}`
+
 
 ## 位置づけ（他の BDD skill との違い）
 

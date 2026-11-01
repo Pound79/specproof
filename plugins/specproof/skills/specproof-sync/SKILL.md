@@ -10,21 +10,6 @@ description: Reconcile BDD features with the authoritative spec after detected s
 drift が検出されたリンクについて、変更内容を E2E feature・steps・page objects に反映し、
 検証してからマニフェストを更新し、PR を準備する。
 
-## 0. 設定の解決（最初に必ず実行）
-
-リポルートにある `specproof.config.yaml` を読み込み、このドキュメント内の
-`{{config:...}}` トークンをすべて実値へ解決してから以降のステップを実行すること。
-
-- マニフェストパス、コマンド、タグ、レイアウト、プロジェクト設定はすべてこのファイルから取得する。
-- `{{config:commands.traceabilityCheck}}` および traceability CLI が参照するのも同じファイルである。
-- `specproof.config.yaml` がリポルートに存在しない場合は**停止**し、ユーザーに
-  `specproof init --adapter <framework>` を実行するよう案内する。
-- 生成ガイド（prompts/system.md）は、このスキルと同じディレクトリに配置された
-  `prompts/system.md` を参照する。ただし `{{config:layout.idiomGuide}}` が設定されている場合は
-  そのリポルート相対パスのファイルを優先して使用する。ただし「ドラフトの点検」は
-  idiomGuide の有無にかかわらず `prompts/system.md` から読む。
-
-
 ## 設定のコマンドを実行する前の確認
 
 `{{config:commands.*}}` は設定ファイルに書かれたシェルのコマンドで、展開してそのまま実行する。
@@ -46,6 +31,21 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 差分が無くても、コマンドはそのブランチのコードを実行する。信頼できないブランチで走らせるのは、PR を
 手元で checkout して `npm test` を実行するのと同じことで、この確認が見つけるのはコマンドや設定の
 差し替えだけである。
+
+## 0. 設定の解決（最初に必ず実行）
+
+リポルートにある `specproof.config.yaml` を読み込み、このドキュメント内の
+`{{config:...}}` トークンをすべて実値へ解決してから以降のステップを実行すること。
+
+- マニフェストパス、コマンド、タグ、レイアウト、プロジェクト設定はすべてこのファイルから取得する。
+- `{{config:commands.traceabilityCheck}}` および traceability CLI が参照するのも同じファイルである。
+- `specproof.config.yaml` がリポルートに存在しない場合は**停止**し、ユーザーに
+  `specproof init --adapter <framework>` を実行するよう案内する。
+- 生成ガイド（prompts/system.md）は、このスキルと同じディレクトリに配置された
+  `prompts/system.md` を参照する。ただし `{{config:layout.idiomGuide}}` が設定されている場合は
+  そのリポルート相対パスのファイルを優先して使用する。ただし「ドラフトの点検」は
+  idiomGuide の有無にかかわらず `prompts/system.md` から読む。
+
 
 ## Arguments
 

@@ -11,21 +11,6 @@ description: Implement production code (and pending step bodies / page-object me
 実装を書いて **GREEN** にする。`feature → impl` 方向の TDD を skill 化し、毎回忘れがちな
 ガードレール（特に test gaming 防止）を常設する。
 
-## 0. 設定の解決（最初に必ず実行）
-
-リポルートの `specproof.config.yaml` を読み込み、適用する adapter・手順に必要な
-`{{config:...}}` トークンを実値へ解決してから以降のステップを実行すること。
-
-- manifest パス、コマンド、タグ、レイアウト、プロジェクト定義はすべてこのファイルから来る。
-- traceability CLI（`{{config:commands.traceabilityCheck}}` など）が参照するパスも同じファイルで定義されている。
-- **`specproof.config.yaml` がリポルートに存在しない場合は即座に停止し**、ユーザーに
-  `specproof init --adapter <framework>` を実行するよう伝えること。
-- **環境プロファイルの解決**: `{{config:environments}}` から `SPECPROOF_ENV`（未設定なら
-  `default: true` のエントリ）でアクティブプロファイルを特定する。
-  `{{config:auth.provider}}` / `{{config:auth.description}}` はアクティブプロファイルの
-  `auth` から解決する（`adapter-contract.md` §5 ルール 5）。
-
-
 ## 設定のコマンドを実行する前の確認
 
 `{{config:commands.*}}` は設定ファイルに書かれたシェルのコマンドで、展開してそのまま実行する。
@@ -47,6 +32,21 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 差分が無くても、コマンドはそのブランチのコードを実行する。信頼できないブランチで走らせるのは、PR を
 手元で checkout して `npm test` を実行するのと同じことで、この確認が見つけるのはコマンドや設定の
 差し替えだけである。
+
+## 0. 設定の解決（最初に必ず実行）
+
+リポルートの `specproof.config.yaml` を読み込み、適用する adapter・手順に必要な
+`{{config:...}}` トークンを実値へ解決してから以降のステップを実行すること。
+
+- manifest パス、コマンド、タグ、レイアウト、プロジェクト定義はすべてこのファイルから来る。
+- traceability CLI（`{{config:commands.traceabilityCheck}}` など）が参照するパスも同じファイルで定義されている。
+- **`specproof.config.yaml` がリポルートに存在しない場合は即座に停止し**、ユーザーに
+  `specproof init --adapter <framework>` を実行するよう伝えること。
+- **環境プロファイルの解決**: `{{config:environments}}` から `SPECPROOF_ENV`（未設定なら
+  `default: true` のエントリ）でアクティブプロファイルを特定する。
+  `{{config:auth.provider}}` / `{{config:auth.description}}` はアクティブプロファイルの
+  `auth` から解決する（`adapter-contract.md` §5 ルール 5）。
+
 
 ## 核心思想: 方向の非対称性
 

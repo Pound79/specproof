@@ -50,12 +50,13 @@ for (const dir of skillDirs) {
     assert.match(section, /差分が無くても/);
   });
 
-  test(`${path.basename(dir)}: 確認の節はコマンドを実行する手順より前に置く`, () => {
+  // 手順は「## 0.」から始まり、そこでコマンドを実行しうる（それより前は説明でコマンドに触れるだけ）。
+  test(`${path.basename(dir)}: 確認の節は最初の手順（## 0.）より前に置く`, () => {
     const skill = read(`${dir}/SKILL.md`);
     const start = skill.indexOf(HEADING);
-    const firstCommand = skill.indexOf("{{config:commands.", skill.indexOf("\n## ", skill.indexOf("\n## 0.") + 1));
-    assert.ok(start >= 0 && start < skill.indexOf("\n## ", skill.indexOf("\n## 0.") + 1) + 2, "right after section 0");
-    assert.ok(firstCommand < 0 || start < firstCommand);
+    const firstStep = skill.indexOf("\n## 0.");
+    assert.ok(firstStep >= 0, `${dir}: no "## 0." step`);
+    assert.ok(start >= 0 && start < firstStep, `${dir}: the section must come before "## 0."`);
   });
 }
 
