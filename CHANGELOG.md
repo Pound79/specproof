@@ -67,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `specproof init` が足場を書く途中で失敗したとき、それまでに書いたファイルが残り、半端な足場に
+  なっていた。その実行で作ったファイルを消し、`--force` で上書きしたファイルを元の内容と権限に戻し、
+  作ったディレクトリのうち空になったものを消してから、戻した件数を添えて止まる。取り消しはパスの安全の
+  検査をやり直し、この実行が触ったファイル（dev・inode が一致するもの）だけに触れる。
 - playwright の雛形は、ログイン後のセッション（storageState）を実行したディレクトリ基準で書き読み
   していたので、リポジトリのルートなどから実行すると gitignore の外に書いた。書き手と読み手の両方を
   e2e パッケージ基準にし（`setup: false` で手書きの storageState を指す project も同じ）、パッケージの外を

@@ -12,6 +12,7 @@ import {
   rewriteScaffoldConfig,
   shellCdCommand,
 } from "./scaffold-config.js";
+import { ScaffoldJournal } from "./scaffold-journal.js";
 
 export type AgentType = "claude" | "codex" | "all";
 
@@ -200,75 +201,92 @@ export function scaffoldTemplate(params: {
   const skipped: string[] = [];
   const skippedWorkflows: string[] = [];
   let layoutRewritten = false;
+  const journal = new ScaffoldJournal(repoRoot);
 
-  for (const rel of walkRegularFilesWithoutSymlinks(tplDir, isScaffoldExcluded)) {
-    // Templates ship these dotfiles WITHOUT the leading dot, restored on copy:
-    //   - "gitignore":   npm strips a file literally named ".gitignore" from
-    //                    the published tarball.
-    //   - "env.example": ".env.example" matches `**/.env.*` deny rules in many
-    //                    secret scanners / sandboxes (and CI), which blocks it
-    //                    from being read, staged, or packed. Shipping it dotless
-    //                    keeps it committable and packable everywhere; the
-    //                    consumer still gets ".env.example".
-    const base = path.basename(rel);
-    const restoredDotfile = DOTFILE_RESTORE[base];
-    const mappedRel = restoredDotfile ? path.join(path.dirname(rel), restoredDotfile) : rel;
+  try {
+    for (const rel of walkRegularFilesWithoutSymlinks(tplDir, isScaffoldExcluded)) {
+      // Templates ship these dotfiles WITHOUT the leading dot, restored on copy:
+      //   - "gitignore":   npm strips a file literally named ".gitignore" from
+      //                    the published tarball.
+      //   - "env.example": ".env.example" matches `**/.env.*` deny rules in many
+      //                    secret scanners / sandboxes (and CI), which blocks it
+      //                    from being read, staged, or packed. Shipping it dotless
+      //                    keeps it committable and packable everywhere; the
+      //                    consumer still gets ".env.example".
+      const base = path.basename(rel);
+      const restoredDotfile = DOTFILE_RESTORE[base];
+      const mappedRel = restoredDotfile ? path.join(path.dirname(rel), restoredDotfile) : rel;
 
-    const relParts = mappedRel.split(path.sep);
-    const isWorkflow = relParts[0] === "github-workflows";
-    const isConfig = mappedRel === "specproof.config.yaml";
+      const relParts = mappedRel.split(path.sep);
+      const isWorkflow = relParts[0] === "github-workflows";
+      const isConfig = mappedRel === "specproof.config.yaml";
 
-    // specproof.config.yaml belongs at the repo root; github-workflows/* belongs
-    // in .github/workflows/; everything else lands in the e2e package.
-    const dest = isConfig
-      ? path.join(repoRoot, "specproof.config.yaml")
-      : isWorkflow
-        ? path.join(repoRoot, ".github", "workflows", ...relParts.slice(1))
-        : path.join(e2eDir, mappedRel);
+      // specproof.config.yaml belongs at the repo root; github-workflows/* belongs
+      // in .github/workflows/; everything else lands in the e2e package.
+      const dest = isConfig
+        ? path.join(repoRoot, "specproof.config.yaml")
+        : isWorkflow
+          ? path.join(repoRoot, ".github", "workflows", ...relParts.slice(1))
+          : path.join(e2eDir, mappedRel);
 
-    assertSafeRepositoryWrite(repoRoot, dest);
+      assertSafeRepositoryWrite(repoRoot, dest);
 
-    // Workflow files never overwrite an existing consumer CI file, even with
-    // --force; everything else follows the usual --force semantics.
-    if (existsSync(dest) && (isWorkflow || !force)) {
-      (isWorkflow ? skippedWorkflows : skipped).push(path.relative(repoRoot, dest));
-      continue;
-    }
-
-    assertNotHardLinked(dest);
-    mkdirSync(path.dirname(dest), { recursive: true });
-
-    if (isConfig) {
-      const raw = readFileSync(path.join(tplDir, rel), "utf-8");
-      const content = rewriteScaffoldConfig(raw, templateDefaultDir, e2eRelPosix);
-      if (e2eRelPosix !== templateDefaultDir && content !== raw) layoutRewritten = true;
-      writeFileSync(dest, content);
-    } else if (base === "biome.template.json") {
-      const raw = readFileSync(path.join(tplDir, rel), "utf8");
-      let content = raw;
-      let parent = path.resolve(e2eDir);
-      const root = path.resolve(repoRoot);
-      while (parent !== root && path.dirname(parent) !== parent) {
-        parent = path.dirname(parent);
-        if (
-          existsSync(path.join(parent, "biome.json")) ||
-          existsSync(path.join(parent, "biome.jsonc"))
-        ) {
-          // 固定テンプレートに root がないことを確かめ、既存の書式を保つ。
-          const config = JSON.parse(raw);
-          if (Object.hasOwn(config, "root") || !raw.startsWith("{\n")) {
-            throw new Error("Biome template must start with an object and omit root");
-          }
-          content = raw.replace("{\n", '{\n  "root": false,\n');
-          break;
-        }
+      // Workflow files never overwrite an existing consumer CI file, even with
+      // --force; everything else follows the usual --force semantics.
+      if (existsSync(dest) && (isWorkflow || !force)) {
+        (isWorkflow ? skippedWorkflows : skipped).push(path.relative(repoRoot, dest));
+        continue;
       }
-      writeFileSync(dest, content);
-    } else {
-      copyFileSync(path.join(tplDir, rel), dest);
-    }
 
-    written.push(path.relative(repoRoot, dest));
+      assertNotHardLinked(dest);
+      journal.recordCreatedDir(mkdirSync(path.dirname(dest), { recursive: true }));
+      journal.recordBefore(dest);
+
+      if (isConfig) {
+        const raw = readFileSync(path.join(tplDir, rel), "utf-8");
+        const content = rewriteScaffoldConfig(raw, templateDefaultDir, e2eRelPosix);
+        if (e2eRelPosix !== templateDefaultDir && content !== raw) layoutRewritten = true;
+        writeFileSync(dest, content);
+      } else if (base === "biome.template.json") {
+        const raw = readFileSync(path.join(tplDir, rel), "utf8");
+        let content = raw;
+        let parent = path.resolve(e2eDir);
+        const root = path.resolve(repoRoot);
+        while (parent !== root && path.dirname(parent) !== parent) {
+          parent = path.dirname(parent);
+          if (
+            existsSync(path.join(parent, "biome.json")) ||
+            existsSync(path.join(parent, "biome.jsonc"))
+          ) {
+            // 固定テンプレートに root がないことを確かめ、既存の書式を保つ。
+            const config = JSON.parse(raw);
+            if (Object.hasOwn(config, "root") || !raw.startsWith("{\n")) {
+              throw new Error("Biome template must start with an object and omit root");
+            }
+            content = raw.replace("{\n", '{\n  "root": false,\n');
+            break;
+          }
+        }
+        writeFileSync(dest, content);
+      } else {
+        copyFileSync(path.join(tplDir, rel), dest);
+      }
+
+      journal.recordWritten(dest);
+      written.push(path.relative(repoRoot, dest));
+    }
+  } catch (error) {
+    // 半端な足場を残さない。この実行の書き込みを取り消してから知らせる。
+    const { undone, failed } = journal.rollback();
+    const reason = (error instanceof Error ? error.message : String(error)).replace(/\.$/, "");
+    const notRestored =
+      failed.length === 0
+        ? ""
+        : ` Could not restore: ${failed.map((file) => path.relative(repoRoot, file)).join(", ")}.`;
+    throw new Error(
+      `specproof init failed and rolled back ${undone} file(s) it had written: ${reason}.${notRestored}`,
+      { cause: error },
+    );
   }
 
   return { written, skipped, skippedWorkflows, layoutRewritten };
