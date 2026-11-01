@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { isMap, isScalar, parse, parseDocument, type Scalar, visit } from "yaml";
+import { printable } from "./display-text.js";
 
 export const assertScaffoldDirectory = (dir: string): void => {
   if (/[\x00-\x1f\x7f]/.test(dir)) {
@@ -7,12 +8,31 @@ export const assertScaffoldDirectory = (dir: string): void => {
   }
 };
 
-/** CDPATH や単独「-」に依存せず、相対配置先を現在地から指定する。 */
+// printf の書式で、表示に危険な文字を UTF-8 のバイトの 8 進表記にする（POSIX の printf が戻す）。
+const printfFormat = (text: string): string =>
+  [...text]
+    .map((char) => {
+      if (printable(char) !== char) {
+        return [...Buffer.from(char, "utf8")]
+          .map((byte) => `\\${byte.toString(8).padStart(3, "0")}`)
+          .join("");
+      }
+      if (char === "%") return "%%";
+      if (char === "\\") return "\\\\";
+      if (char === "'") return "'\\''";
+      return char;
+    })
+    .join("");
+
+/**
+ * 配置先へ移る cd のコマンド。CDPATH や単独「-」に依存せず、相対配置先を現在地から指定する。表示に危険な文字（制御文字・行区切り・bidi 制御文字・BOM）を含む
+ * 名前は、画面に生の文字を出さずに元の名前を指せるよう、printf で組み立てる形にする。
+ */
 export const shellCdCommand = (dir: string): string => {
   const operand = dir === "." ? "." : `./${dir}`;
-  return /^[A-Za-z0-9_./-]+$/.test(operand)
-    ? `cd ${operand}`
-    : `cd -- '${operand.replaceAll("'", "'\\''")}'`;
+  if (/^[A-Za-z0-9_./-]+$/.test(operand)) return `cd ${operand}`;
+  if (printable(operand) !== operand) return `cd -- "$(printf '${printfFormat(operand)}')"`;
+  return `cd -- '${operand.replaceAll("'", "'\\''")}'`;
 };
 
 interface ScalarEdit {
