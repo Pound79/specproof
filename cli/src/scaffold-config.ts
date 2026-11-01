@@ -25,7 +25,7 @@ interface ScalarEdit {
 const isPlainSafe = (value: string): boolean => {
   if (value === "" || /[\n\r]/.test(value)) return false;
   try {
-    return parse(`key: ${value}\n`)?.key === value;
+    return parse(`key: ${value}\n`, { logLevel: "error" })?.key === value;
   } catch {
     return false;
   }
@@ -59,7 +59,8 @@ export const rewriteScaffoldConfig = (
   templateDir: string,
   targetDir: string,
 ): string => {
-  const document = parseDocument(source);
+  // toJS() に警告を emitWarning で直接出させない（キーがコレクションのときなど）。
+  const document = parseDocument(source, { logLevel: "error" });
   if (document.errors.length > 0) throw document.errors[0];
   if (!isMap(document.contents)) throw new Error("Template config must be a YAML mapping");
   const edits: ScalarEdit[] = [];
@@ -101,7 +102,8 @@ export const rewriteScaffoldConfig = (
     .sort((a, b) => b.start - a.start)
     .reduce((text, edit) => text.slice(0, edit.start) + edit.text + text.slice(edit.end), source);
   // 差し替えた文字列が構文木での更新と同じ値になることを保存前に確かめる。
-  if (!isDeepStrictEqual(parse(rewritten), document.toJS())) {
+  // 比べるためだけの読み直しなので、yaml に警告を stderr へ直接出させない。
+  if (!isDeepStrictEqual(parse(rewritten, { logLevel: "error" }), document.toJS())) {
     throw new Error("Template config rewrite did not preserve the intended values");
   }
   return rewritten;

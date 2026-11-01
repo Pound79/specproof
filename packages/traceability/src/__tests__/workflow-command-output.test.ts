@@ -84,6 +84,81 @@ for (const [name, args] of [
     }));
 }
 
+// yaml は解決できないタグなどの警告を process.emitWarning で stderr に直接出す。タグ名は
+// PR の作者が書けるので、警告も出口を通す（YAML の警告そのものは消さずに知らせる）。
+const HOSTILE_TAG = "!<x##[error]\u001b[2J\u202etag>";
+const withYamlTagRepo = (
+  where: "config" | "manifest" | "none",
+  run: (root: string) => void,
+): void => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "specproof-yamlwarn-"));
+  try {
+    mkdirSync(path.join(root, "docs"));
+    writeFileSync(path.join(root, "docs/spec.md"), "# Doc\n\n## Spec\n\nbody\n");
+    writeFileSync(
+      path.join(root, "specproof.config.yaml"),
+      where === "config" ? `layout:\n  pagesDir: ${HOSTILE_TAG} pages\n` : "layout: {}\n",
+    );
+    const label = where === "manifest" ? `${HOSTILE_TAG} label` : "label";
+    writeFileSync(
+      path.join(root, "traceability.yaml"),
+      [
+        "version: 1",
+        "links:",
+        "  - id: a",
+        `    label: ${label}`,
+        "    spec:",
+        "      - path: docs/spec.md",
+        "        heading: Spec",
+        `        hash: "${"0".repeat(64)}"`,
+        "    impl: []",
+        "    features: []",
+        "",
+      ].join("\n"),
+    );
+    run(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+};
+
+for (const where of ["config", "manifest"] as const) {
+  for (const [name, args] of [
+    ["check", []],
+    ["update", []],
+  ] as const) {
+    test(`${where} の YAML の警告も出口を通す（${name}）`, () =>
+      withYamlTagRepo(where, (root) => {
+        const result = cli(root, name, [...args]);
+        // 警告は消さずに、どのファイルの警告かを示して出す。
+        assert.match(result.stderr, /Unresolved tag/, result.stderr);
+        const file = where === "config" ? "specproof.config.yaml" : "traceability.yaml";
+        assert.ok(result.stderr.includes(`warning: ${file}: `), result.stderr);
+        // 端末の制御シーケンスと bidi 制御文字も残さない。
+        assert.doesNotMatch(result.stderr, /[\u001b\u202e]/u);
+        assertNoCommandLines(result.stdout, `${name} stdout`);
+        assertNoCommandLines(result.stderr, `${name} stderr`);
+      }));
+  }
+}
+
+// yaml は toJS() の中でも、キーがコレクションのときに警告を process.emitWarning で直接出す
+// （文字列にしたキーを含む）。警告の発生源は parse() の警告だけではない。
+const COLLECTION_KEY = '? [ "##[add-mask]key" ]\n: 1\n';
+for (const where of ["config", "manifest"] as const) {
+  for (const name of ["check", "update"] as const) {
+    test(`${where} のコレクションのキーの警告も stderr に直接出さない（${name}）`, () =>
+      withYamlTagRepo("none", (root) => {
+        const file = where === "config" ? "specproof.config.yaml" : "traceability.yaml";
+        const target = path.join(root, file);
+        writeFileSync(target, readFileSync(target, "utf8") + COLLECTION_KEY);
+        const result = cli(root, name, []);
+        assertNoCommandLines(result.stdout, `${name} stdout`);
+        assertNoCommandLines(result.stderr, `${name} stderr`);
+      }));
+  }
+}
+
 test("JSON 出力は値を変えずに `##[` だけを読まれない書き方にする", () =>
   withRepo((root) => {
     const result = cli(root, "check", ["--json"]);

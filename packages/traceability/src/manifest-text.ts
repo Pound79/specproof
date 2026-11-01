@@ -8,7 +8,8 @@ export const replaceManifestHashes = (
   original: TraceabilityManifest,
   updated: TraceabilityManifest,
 ): string => {
-  const document = parseDocument(raw);
+  // 警告は parseRepositoryYaml が出口から出し済み。toJS() に emitWarning で直接出させない。
+  const document = parseDocument(raw, { logLevel: "error" });
   if (document.errors.length > 0) throw document.errors[0];
   if (!isDeepStrictEqual(document.toJS(), original)) {
     throw new Error("Manifest snapshot does not match the original manifest");
@@ -39,7 +40,8 @@ export const replaceManifestHashes = (
     .sort((a, b) => b.start - a.start)
     .reduce((text, edit) => text.slice(0, edit.start) + edit.value + text.slice(edit.end), raw);
   // alias や不正な呼出で hash 以外まで変わるなら書き込まない。
-  if (!isDeepStrictEqual(parse(result), updated)) {
+  // 読み直しは比べるためだけなので、yaml に警告（タグ名などを含む）を stderr へ直接出させない。
+  if (!isDeepStrictEqual(parse(result, { logLevel: "error" }), updated)) {
     throw new Error(
       "Manifest update must change hashes only; review structural changes separately",
     );
