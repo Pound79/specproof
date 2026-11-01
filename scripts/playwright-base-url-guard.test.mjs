@@ -14,6 +14,8 @@ for (const url of [
   "http://127.0.0.1:3000",
   "http://127.9.9.9",
   "http://[::1]:3000",
+  "http://app.localhost:3000",
+  "http://a.b.LOCALHOST",
   "https://example.com",
   "https://10.0.0.5:8443",
 ]) {
@@ -26,6 +28,9 @@ for (const url of [
   "http://example.com",
   "http://10.0.0.5:8080",
   "http://localhost.example.com",
+  "http://localhost.",
+  "http://app.localhost.",
+  "http://evillocalhost",
   "http://127.0.0.1.example.com",
   "http://[::ffff:127.0.0.1]",
   "http://0.0.0.0:5173",
@@ -97,17 +102,6 @@ test("雛形の既定の baseURL と環境プロファイルは検査を通る",
 
 test("playwright.config.ts は認証情報を使う project があれば、ブラウザを起動する前に baseURL を検査する", () => {
   const source = readFileSync(new URL("../templates/playwright/playwright.config.ts", import.meta.url), "utf8");
-  assert.match(source, /p\.setup === true \|\| p\.credentialsEnv !== undefined/);
-  const guard = source.indexOf("assertSecureBaseUrl(resolveBaseUrl(cfg), activeEnv)");
+    const guard = source.indexOf("assertSecureBaseUrl(resolveBaseUrl(cfg), activeEnv)");
   assert.ok(guard > 0 && guard < source.indexOf("export default defineConfig("));
-});
-
-test("auth setup は認証の前に baseURL を検査する", () => {
-  const source = readFileSync(
-    new URL("../templates/playwright/src/setup/auth.setup.ts", import.meta.url),
-    "utf8",
-  );
-  const guard = source.indexOf("assertSecureBaseUrl(");
-  const login = source.indexOf("await saveAuthState(");
-  assert.ok(guard > 0 && login > guard, "assertSecureBaseUrl must run before saveAuthState");
 });

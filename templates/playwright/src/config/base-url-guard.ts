@@ -2,7 +2,7 @@ import type { EnvironmentProfile } from "./specproof-config";
 
 // 認証情報を平文の http で送らないための検査。依存を持たないので、単体で検査できる。
 //
-// https は通す。loopback（localhost / 127.0.0.0/8 / ::1）への http も既定で許す。それ以外の
+// https は通す。loopback（localhost と *.localhost（RFC 6761）/ 127.0.0.0/8 / ::1）への http も既定で許す。それ以外の
 // http は、選ばれた環境プロファイルが allowInsecureHttp: true を明示したときだけ通す。
 // http でも https でもない scheme は止める。
 // ホスト名は URL の解釈に任せる（大文字・10 進表記の IPv4 などは正規化される）。
@@ -11,7 +11,9 @@ import type { EnvironmentProfile } from "./specproof-config";
 const printable = (text: string): string => text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, "?");
 
 const isLoopback = (hostname: string): boolean => {
-  if (hostname === "localhost" || hostname === "[::1]") return true;
+  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "[::1]") {
+    return true;
+  }
   const octets = hostname.split(".");
   return (
     octets.length === 4 &&
@@ -44,7 +46,7 @@ export function assertSecureBaseUrl(baseUrl: string, env: EnvironmentProfile): v
   const name = printable(env.name);
   throw new Error(
     `specproof: refusing to send credentials over plain http to ${printable(url.host)}. ` +
-      "Use https:// for any host other than localhost, 127.0.0.0/8 or ::1. " +
+      "Use https:// for any host other than localhost, *.localhost, 127.0.0.0/8 or ::1. " +
       `If this environment really has no https, opt in for it in specproof.config.yaml: ` +
       `add "allowInsecureHttp: true" to the environments[] entry "${name}".`,
   );
