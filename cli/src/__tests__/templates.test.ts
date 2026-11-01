@@ -289,6 +289,39 @@ describe("release workflow", () => {
     expect(packagingJobsUseNoCache(workflow)).toBe(true);
   });
 
+  // The GitHub Release carries a CycloneDX SBOM of the whole lockfile (runtime
+  // and development dependencies, marked as such). The release job holds
+  // `contents: write`, so it builds the SBOM from the lockfile alone and runs
+  // no dependency code: no install, no lifecycle scripts, no npx.
+  it("attaches a CycloneDX SBOM built from the lockfile to the GitHub Release", () => {
+    const releaseJob = jobOf(workflow, "release");
+    const runs = (releaseJob.steps ?? []).map((step) => step.run ?? "").join("\n");
+    expect(runs).toMatch(/npm sbom --package-lock-only --sbom-format cyclonedx\b/);
+    const sbomFile = runs.match(/npm sbom [^\n>]*>\s*"([^"]+)"/)?.[1];
+    expect(sbomFile).toBeDefined();
+    // The release step passes the same file, through a variable that names it.
+    expect(runs).toContain(`SBOM="${sbomFile}"`);
+    const creates = runs.match(/gh release create[^\n]*/g) ?? [];
+    expect(creates.length).toBeGreaterThan(0);
+    for (const create of creates) expect(create).toContain('"$SBOM"');
+    // A release that already exists still gets the SBOM.
+    expect(runs).toMatch(/gh release upload "\$TAG" "\$SBOM" --clobber/);
+    // Allow-list, like the publish job: npm only as `npm sbom --package-lock-only`,
+    // node only to read a version or the CHANGELOG section, no other package runners.
+    expect(runs).not.toMatch(OTHER_PACKAGE_RUNNERS);
+    for (const command of runs.split(COMMAND_SEPARATOR)) {
+      for (const { index } of command.matchAll(/\bnpm\b/g)) {
+        expect(command.slice(index ?? 0)).toMatch(/^npm sbom --package-lock-only\b/);
+      }
+      for (const { index } of command.matchAll(/\bnode\b/g)) {
+        expect(command.slice(index ?? 0)).toMatch(
+          /^node (-p "require\('\.\/cli\/package\.json'\)\.version"|scripts\/changelog-section\.mjs )/,
+        );
+      }
+    }
+    expect(usesNoDependencyCache(releaseJob)).toBe(true);
+  });
+
   it("builds and tests in a job that cannot mint an npm publish credential", () => {
     const buildJob = jobOf(workflow, "build");
     expect(buildJob.permissions).toBeDefined();

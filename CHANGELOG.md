@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GitHub Release に CycloneDX の SBOM（`specproof-<版>.cdx.json`）を添付する。lockfile 全体から作り、
+  公開する 2 パッケージ・実行時の依存・ビルドに使う開発用の依存（`cdx:npm:package:development` の印）を
+  含む。release ジョブは `npm sbom --package-lock-only` で lockfile だけを読み、依存のコードは動かさない。
+  Release が既にあるとき（ジョブの再実行など）も SBOM を添付する。
 - `docs/security-model.md` を追加した。読み書きする範囲（信頼境界）、外部への通信先、暗号の在庫
   （manifest の hash は変更の検知であり改ざんの検知ではないこと）、重い処理と上限、drift のゲートが
   保証しないこと（CODEOWNERS と必須ステータスチェックとの併用）を書いた。`SECURITY.md` に依存の
