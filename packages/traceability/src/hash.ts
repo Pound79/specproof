@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { readRegularFile } from "./bounded-read.js";
 
 // Sentinel hash values. They can never collide with a hex sha256 digest,
 // so a stored sentinel vs computed digest (or vice versa) always reads as drift.
@@ -20,10 +21,19 @@ const BOM = "﻿";
 const normalizeContent = (content: string): string =>
   (content.startsWith(BOM) ? content.slice(BOM.length) : content).replace(/\r\n/g, "\n");
 
+// spec・実装・feature の本体は PR の作者が書けるので、manifest と同じ上限で読む。FIFO や
+// デバイスを開いて待ち続けたり、1 つの巨大なファイルでメモリを使い切ったりさせない。上限は
+// ファイルごとで、合計は制限しない（同時に読むのは 32 件まで）。エラー文は公開の CI ログに
+// 出るので、実行環境の配置が分かる絶対パスでなくファイル名だけにする。
+const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
+
 export const readFileOrNull = async (absPath: string): Promise<string | null> => {
   try {
-    const content = await readFile(absPath, "utf8");
-    return normalizeContent(content);
+    const content = await readRegularFile(absPath, MAX_SOURCE_BYTES, {
+      tooLarge: () => new Error(`${path.basename(absPath)}: file exceeds 8 MiB`),
+      notRegular: () => new Error(`${path.basename(absPath)}: expected a regular file`),
+    });
+    return normalizeContent(content.toString("utf8"));
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT" || code === "ENOTDIR") {
@@ -74,7 +84,13 @@ export const hasDraftMarker = async (absPath: string): Promise<boolean> => {
 // (an info string is allowed on the opening fence but not the closing one).
 const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
+// 改行の正規化は CRLF だけなので、単独の CR が行に残りうる。`.` は CR に一致せず、CR を含む行は
+// 下の正規表現に一致しない（区切りでも見出しでもない）。照合すると後戻りで二乗の時間がかかるので、
+// 照合の前に同じ結果を返す。
+const hasCarriageReturn = (line: string): boolean => line.includes("\r");
+
 const parseFence = (line: string): { char: string; len: number; bare: boolean } | null => {
+  if (hasCarriageReturn(line)) return null;
   const match = line.match(FENCE_RE);
   if (match === null) {
     return null;
@@ -83,13 +99,28 @@ const parseFence = (line: string): { char: string; len: number; bare: boolean } 
   return { char: run[0], len: run.length, bare: match[2].trim() === "" };
 };
 
+const isSpaceOrTab = (char: string | undefined): boolean => char === " " || char === "\t";
+
+// CommonMark の閉じの # の並び（前が空白か行頭で、後ろは空白だけ）を外す。正規表現で書くと
+// 空白の長い並びで二乗の時間がかかる（PR の作者が書ける見出しで CI を止められる）ので、
+// 末尾から 1 回だけ走査する。
+const stripClosingSequence = (text: string): string => {
+  let end = text.length;
+  while (end > 0 && isSpaceOrTab(text[end - 1])) end -= 1;
+  let start = end;
+  while (start > 0 && text[start - 1] === "#") start -= 1;
+  const isClosing = start < end && (start === 0 || isSpaceOrTab(text[start - 1]));
+  return text.slice(0, isClosing ? start : end);
+};
+
 // CommonMark ATX: 0-3 spaces, 1-6 #, whitespace or EOL, optional closing #.
 const parseHeading = (line: string): { level: number; text: string } | null => {
+  if (hasCarriageReturn(line)) return null;
   const match = line.match(/^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/);
   if (!match) return null;
   return {
     level: match[1].length,
-    text: (match[2] ?? "").replace(/(?:^|[ \t]+)#+[ \t]*$/, "").trim(),
+    text: stripClosingSequence(match[2] ?? "").trim(),
   };
 };
 

@@ -1,5 +1,9 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { readSmallTextFile } from "./bounded-read.js";
+
+// 実行したディレクトリの検出用ファイルは信頼できない入力なので、大きさと種類を確かめて読む。
+const MAX_DETECT_FILE_BYTES = 1024 * 1024;
 
 export interface RepoSnapshot {
   rootFiles: string[];
@@ -267,13 +271,17 @@ export const selectAdapterCandidate = (result: DetectResult): AdapterCandidate |
   return medium.length === 1 ? medium[0] : undefined;
 };
 
+// 環境変数の名前としてありうる長さ。ENV_SUFFIX_PATTERN などの正規表現は、長い名前で二乗の
+// 時間がかかりうるので、それより長いキーは名前として扱わない。
+const MAX_ENV_KEY_LENGTH = 256;
+
 const parseEnvExampleKeys = (text: string): readonly string[] =>
   text
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith("#"))
     .map((line) => line.split("=")[0].trim())
-    .filter((key) => key.length > 0);
+    .filter((key) => key.length > 0 && key.length <= MAX_ENV_KEY_LENGTH);
 
 export async function collectSnapshot(root: string): Promise<RepoSnapshot> {
   const rootFiles = readdirSync(root).filter(
@@ -284,7 +292,7 @@ export async function collectSnapshot(root: string): Promise<RepoSnapshot> {
 
   const pkgPath = path.join(root, "package.json");
   if (existsSync(pkgPath)) {
-    const raw = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    const raw = JSON.parse(readSmallTextFile(pkgPath, MAX_DETECT_FILE_BYTES));
     snapshot.packageJson = {
       dependencies: raw.dependencies,
       devDependencies: raw.devDependencies,
@@ -294,7 +302,7 @@ export async function collectSnapshot(root: string): Promise<RepoSnapshot> {
 
   const pubspecPath = path.join(root, "pubspec.yaml");
   if (existsSync(pubspecPath)) {
-    const text = readFileSync(pubspecPath, "utf-8");
+    const text = readSmallTextFile(pubspecPath, MAX_DETECT_FILE_BYTES);
     snapshot.pubspecYaml = {
       hasFlutterSdk:
         /^[ \t]*flutter:[ \t]*(?:#.*)?\r?\n(?:[ \t]*(?:#.*)?\r?\n)*[ \t]+sdk:[ \t]*flutter[ \t]*(?:#.*)?$/m.test(
@@ -305,7 +313,9 @@ export async function collectSnapshot(root: string): Promise<RepoSnapshot> {
 
   const envExamplePath = path.join(root, ".env.example");
   if (existsSync(envExamplePath)) {
-    snapshot.envExampleKeys = parseEnvExampleKeys(readFileSync(envExamplePath, "utf-8"));
+    snapshot.envExampleKeys = parseEnvExampleKeys(
+      readSmallTextFile(envExamplePath, MAX_DETECT_FILE_BYTES),
+    );
   }
 
   return snapshot;
