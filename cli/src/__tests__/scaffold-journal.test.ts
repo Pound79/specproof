@@ -5,6 +5,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -94,5 +95,18 @@ describe("ScaffoldJournal.rollback", () => {
     journal.recordBefore(file);
     expect(journal.rollback().failed).toEqual([]);
     expect(readFileSync(file, "utf8")).toBe("original");
+  });
+
+  // copyFileSync はコピーの途中で失敗すると宛先を消す（Node の仕様）。上書きしていたファイルが
+  // 無くなっていても、記録した内容と権限で作り直す。
+  it("recreates a file it was overwriting when the failed copy deleted it", () => {
+    const journal = new ScaffoldJournal(repo);
+    const file = path.join(repo, "a.txt");
+    writeFileSync(file, "original", { mode: 0o600 });
+    journal.recordBefore(file);
+    rmSync(file); // コピーの失敗で宛先が消えた
+    expect(journal.rollback()).toEqual({ undone: 1, failed: [] });
+    expect(readFileSync(file, "utf8")).toBe("original");
+    expect(statSync(file).mode & 0o777).toBe(0o600);
   });
 });

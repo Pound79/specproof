@@ -102,9 +102,15 @@ export class ScaffoldJournal {
   }
 
   private undo(entry: Entry, result: RollbackResult): void {
-    // 無いもの（書き込む前に失敗した新規、別のプロセスが消した）は戻すものが無い。
     if (!existsSync(entry.file)) {
-      if (entry.kind === "overwritten") result.failed.push(entry.file);
+      // 書き込む前に失敗した新規のファイルは、戻すものが無い。
+      if (entry.kind === "created") return;
+      // copyFileSync はコピーの途中で失敗すると宛先を消す。上書きしていたファイルは記録した内容と
+      // 権限で作り直す。その間に別のものが置かれていれば上書きしないよう、排他的に作る（wx）。
+      assertSafeRepositoryWrite(this.repoRoot, entry.file);
+      writeFileSync(entry.file, entry.content, { flag: "wx", mode: entry.mode & 0o7777 });
+      chmodSync(entry.file, entry.mode & 0o7777);
+      result.undone += 1;
       return;
     }
     assertSafeRepositoryWrite(this.repoRoot, entry.file);
