@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { parse } from "yaml";
+import * as baseUrlGuard from "../templates/playwright/src/config/base-url-guard.ts";
 import * as configHelpers from "../templates/playwright/src/config/specproof-config.ts";
 
 // storageState はログイン後のセッション（Cookie・localStorage）を持つ機密データ。
@@ -32,7 +33,7 @@ const run = (file, imports, transform = (source) => source) => {
   return new Function("imports", source)(imports);
 };
 
-const buildConfig = (config) =>
+const buildConfig = (config, baseUrl = "http://localhost:5173") =>
   run(
     "templates/playwright/playwright.config.ts",
     {
@@ -43,10 +44,108 @@ const buildConfig = (config) =>
         loadSpecproofConfig: () => config,
         resolveActiveEnvironment: () => config.environments[0],
       },
-      "./src/config/env": envModule,
+      "./src/config/env": { ...envModule, resolveBaseUrl: () => baseUrl },
+      "./src/config/base-url-guard": baseUrlGuard,
     },
     (source) => source.replace("export default defineConfig(", "return defineConfig("),
   );
+
+// 認証情報を平文の http で loopback 以外へ送らない。ブラウザを起動する前、設定の読み込みで止める。
+test("認証情報を使う project があれば、loopback 以外への http の baseURL で設定の読み込みが止まる", () => {
+  assert.throws(() => buildConfig(templateConfig(), "http://staging.example.com"), /allowInsecureHttp: true/);
+});
+
+test("allowInsecureHttp: true の環境では、loopback 以外への http の baseURL でも設定を読める", () => {
+  const config = templateConfig();
+  const optedIn = {
+    ...config,
+    environments: [{ ...config.environments[0], allowInsecureHttp: true }, ...config.environments.slice(1)],
+  };
+  assert.doesNotThrow(() => buildConfig(optedIn, "http://staging.example.com"));
+});
+
+test("保存したセッションを読む project（storageState が空でない）も認証情報を使うとみなす", () => {
+  const config = templateConfig();
+  const sessionOnly = {
+    ...config,
+    projects: [
+      {
+        name: "session-only",
+        features: ["features/example.feature"],
+        storageState: "playwright/.auth/user.json",
+        setup: false,
+      },
+    ],
+  };
+  assert.throws(() => buildConfig(sessionOnly, "http://staging.example.com"), /allowInsecureHttp: true/);
+});
+
+// auth.setup.ts を、setup の登録と saveAuthState を差し替えて実行する。登録されたコールバックを返す。
+const loadAuthSetup = (envExtra = {}) => {
+  const config = templateConfig();
+  const environments = [{ ...config.environments[0], ...envExtra }, ...config.environments.slice(1)];
+  const active = { ...config, environments };
+  const registered = [];
+  const saved = [];
+  const setup = (name, fn) => registered.push({ name, fn });
+  setup.skip = () => {};
+  run("templates/playwright/src/setup/auth.setup.ts", {
+    "@playwright/test": { test: setup },
+    "../config/specproof-config": {
+      ...configHelpers,
+      loadSpecproofConfig: () => active,
+      resolveActiveEnvironment: () => environments[0],
+    },
+    "../config/env": {
+      credentialsFor: () => ({ username: "user", password: "pass" }),
+      missingCredentialEnv: () => [],
+    },
+    "../config/base-url-guard": baseUrlGuard,
+    "./saveAuthState": { saveAuthState: async (...args) => saved.push(args) },
+  });
+  const authed = registered.find((entry) => entry.name === "authenticate: authed");
+  assert.ok(authed, "auth.setup.ts must register the authed project");
+  return { authed, saved };
+};
+
+test("auth setup は loopback 以外への http の baseURL では、ログインせずに止まる", async () => {
+  const { authed, saved } = loadAuthSetup();
+  await assert.rejects(authed.fn({ page: {}, baseURL: "http://staging.example.com" }), /allowInsecureHttp/);
+  assert.equal(saved.length, 0);
+});
+
+test("auth setup は allowInsecureHttp: true の環境や https ではログインする", async () => {
+  const optedIn = loadAuthSetup({ allowInsecureHttp: true });
+  await optedIn.authed.fn({ page: {}, baseURL: "http://staging.example.com" });
+  assert.equal(optedIn.saved.length, 1);
+  const secure = loadAuthSetup();
+  await secure.authed.fn({ page: {}, baseURL: "https://staging.example.com" });
+  assert.equal(secure.saved.length, 1);
+});
+
+test("認証情報を使う project が無ければ、http の baseURL でも設定を読める", () => {
+  const config = templateConfig();
+  const guestOnly = {
+    ...config,
+    projects: config.projects
+      .filter((p) => !p.setup && !p.credentialsEnv)
+      .map((p) => ({ ...p })),
+  };
+  assert.ok(guestOnly.projects.length > 0);
+  assert.doesNotThrow(() => buildConfig(guestOnly, "http://staging.example.com"));
+});
+
+test("条件を満たさず作られない project の認証情報では止めない", () => {
+  const config = templateConfig();
+  const conditionalOnly = {
+    ...config,
+    env: { ...config.env, adminUsername: "SPECPROOF_TEST_UNSET_ADMIN" },
+    projects: config.projects.filter((p) => p.conditional || (!p.setup && !p.credentialsEnv)),
+  };
+  delete process.env.SPECPROOF_TEST_UNSET_ADMIN;
+  assert.ok(conditionalOnly.projects.some((p) => p.conditional && p.setup));
+  assert.doesNotThrow(() => buildConfig(conditionalOnly, "http://staging.example.com"));
+});
 
 test("storageState は実行した場所でなく e2e パッケージを基準に読む", () => {
   const config = templateConfig();

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { test } from "node:test";
 import { parse } from "yaml";
+import * as baseUrlGuard from "../templates/playwright/src/config/base-url-guard.ts";
 import * as configHelpers from "../templates/playwright/src/config/specproof-config.ts";
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -32,6 +33,7 @@ const buildProjects = (config) => {
       resolveBaseUrl: () => "http://localhost:5173",
       shouldStartWebServer: () => false,
     },
+    "./src/config/base-url-guard": baseUrlGuard,
   };
   return new Function("imports", script)(imports).projects;
 };

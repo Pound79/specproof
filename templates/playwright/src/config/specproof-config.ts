@@ -39,6 +39,11 @@ export interface EnvironmentProfile {
   readonly auth?: EnvironmentAuth;
   readonly excludeTags?: readonly string[];
   readonly envOverrides?: Readonly<Record<string, string>>;
+  /**
+   * true のときだけ、loopback 以外のホストへの http:// の baseURL で認証情報を送ってよい。
+   * 既定（未設定）は止める。真偽値の true 以外は許可とみなさない。
+   */
+  readonly allowInsecureHttp?: boolean;
 }
 
 export interface SpecproofConfig {

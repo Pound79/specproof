@@ -42,7 +42,7 @@ const sameIdentity = (stat: { dev: number; ino: number }, id: Identity | undefin
   id !== undefined && stat.dev === id.dev && stat.ino === id.ino;
 
 /**
- * init の書き込みの記録。途中で失敗したら、この実行で作ったファイルを消し、上書きしたファイルを
+ * init と setup-agent の書き込みの記録。途中で失敗したら、この実行で作ったファイルを消し、上書きしたファイルを
  * 元の内容と権限に戻し、この実行で作ったディレクトリのうち空になったものを消す。リポジトリを
  * 実行前の状態に揃え、半端な足場を残さない。
  *

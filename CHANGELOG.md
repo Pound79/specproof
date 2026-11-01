@@ -7,8 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `specproof init` は、配置先の既存の `.gitignore` を残すとき、雛形の `.gitignore` にある秘密と実行結果の
+  除外（`.env`・`.env.*`・`.npmrc`、playwright はさらに `playwright/.auth`・`test-results`・
+  `playwright-report`）のうち足りない行を警告する。これまでは黙って残し、認証情報や保存したログイン状態が
+  追跡されうることに気づけなかった。利用者のファイルは変えない。比べ方は `cli/README.md` を参照。
+  比べ方は git の規則の一部だけなので、`.env*` のような同等のパターンや親の `.gitignore` は判定できず、
+  まれに git の判定とずれる。
+
 ### Changed
 
+- **破壊的変更（0.5.0）**: playwright の雛形は、設定ファイルの project のどれかが認証情報を使う
+  （`setup: true`・`credentialsEnv`・空でない `storageState` のどれか）とき、`playwright.config.ts` の
+  読み込みとログインの前に baseURL を確かめ、`http://` でホストが loopback（`localhost`・`*.localhost`・
+  `127.0.0.0/8`・`::1`）でなければ認証情報を送らずに失敗する。`http://` でも `https://` でもない scheme も
+  止める。これまでは README で https を勧めるだけで、平文の http の検証環境にも認証情報を送っていた。
+  許可は環境ごとでホストには結び付かず、確かめるのは baseURL だけ（リダイレクト先は見ない）。
+  移行: https を用意できない環境だけ、`specproof.config.yaml` のその `environments[]` エントリに
+  `allowInsecureHttp: true` を足す（真偽値の `true` だけを許可とみなす）。雛形のファイルなので、取り込み済みの
+  足場には `src/config/base-url-guard.ts` を足し、`playwright.config.ts`・`src/setup/auth.setup.ts`・
+  `src/config/specproof-config.ts`（`EnvironmentProfile.allowInsecureHttp`）を差分に合わせて直す
+  （`specproof init --force` は手元の変更を上書きする）。フィールドは `docs/config-schema.md` を参照。
 - **破壊的変更**: `specproof-check` は、`specproof.config.yaml`（または `.yml`）にあってどの consumer
   （traceability エンジン・skill・テンプレートの設定読み込み）も読まないキーを、警告 `unknown-config-key`
   で 1 件ずつ知らせ、`--strict` で失敗する。これまでは綴りを誤ったキー（`layout.featureDir` など）が黙って
@@ -38,6 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `specproof setup-agent codex` は、skill のファイルを順にコピーする途中で失敗すると、それまでに書いた
+  ファイルを消し、`--force` で上書きしたファイルを元の内容と権限に戻し、作ったディレクトリのうち空に
+  なったものを消してから失敗を知らせる。`specproof init` と同じ取り消しで、半端な skill を残さない。
 - CLI の `detect` と `init --adapter auto` は、`package.json` の形を確かめて読む。トップレベルが object で
   ない（`null` など）と例外で止まり、`dependencies` の値が文字列でなくても依存として数え、`workspaces` の
   要素が文字列でなくても monorepo と判定していた。形が違うフィールドは無いものとして扱い、
