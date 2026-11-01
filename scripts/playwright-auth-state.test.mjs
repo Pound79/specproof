@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import os from "node:os";
 import path from "node:path";
@@ -106,3 +106,37 @@ test("storageState のパスは e2e パッケージの内側に限る（誤設�
     assert.throws(() => resolveAuthStatePath(bad, root), /inside the e2e package/, bad);
   }
 });
+
+// 文字列の上でパッケージの内側でも、途中のディレクトリが symlink なら実体は外にありうる。
+// 書き込み（setup）と削除（teardown）が外のファイルに届かないよう、パス上の symlink を拒否する。
+for (const linked of ["playwright", "playwright/.auth"]) {
+  test(`${linked} が外を指す symlink なら拒否し、teardown は外のファイルを消さない`, async () => {
+    const { resolveAuthStatePath } = await import("../templates/playwright/src/config/auth-state.ts");
+    const base = mkdtempSync(path.join(os.tmpdir(), "specproof-auth-link-"));
+    try {
+      const root = path.join(base, "e2e");
+      const outside = path.join(base, "shared");
+      mkdirSync(path.join(outside, ".auth"), { recursive: true });
+      writeFileSync(path.join(outside, ".auth/user.json"), "{}");
+      writeFileSync(path.join(outside, "user.json"), "{}");
+      mkdirSync(path.dirname(path.join(root, linked)), { recursive: true });
+      symlinkSync(linked === "playwright" ? outside : outside, path.join(root, linked));
+      const file = "playwright/.auth/user.json";
+      assert.throws(() => resolveAuthStatePath(file, root), /symbolic link/);
+      const registered = [];
+      run("templates/playwright/src/setup/auth.teardown.ts", {
+        "@playwright/test": { test: (name, fn) => registered.push(fn) },
+        "../config/specproof-config": {
+          loadSpecproofConfig: () => ({ projects: [{ setup: true, storageState: file }] }),
+        },
+        "../config/env": { resolveAuthStatePath: (f) => resolveAuthStatePath(f, root) },
+        "node:fs": { rmSync },
+      });
+      await assert.rejects(async () => registered[0](), /symbolic link/);
+      assert.ok(existsSync(path.join(outside, ".auth/user.json")));
+      assert.ok(existsSync(path.join(outside, "user.json")));
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+}

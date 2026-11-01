@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - playwright の雛形は、ログイン後のセッション（storageState）を実行したディレクトリ基準で書き読み
   していたので、リポジトリのルートなどから実行すると gitignore の外に書いた。書き手と読み手の両方を
   e2e パッケージ基準にし（`setup: false` で手書きの storageState を指す project も同じ）、パッケージの外を
-  指すパスは拒否する。認証済みの project が終わった後に `auth-teardown` の project で消すようにした
+  指すパスと、途中に symlink を含むパスは拒否する。認証済みの project が終わった後に `auth-teardown` の project で消すようにした
   （中断・`--no-deps`・UI mode では消えないので README に手で消す方法を書いた）。
   既に雛形を取り込んだリポジトリは、`src/config/env.ts`・`src/config/auth-state.ts`・
   `src/setup/saveAuthState.ts`・`src/setup/auth.teardown.ts`・`playwright.config.ts` を手で取り込む
