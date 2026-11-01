@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { printable } from "./display-text.js";
 import {
   assertNotHardLinked,
   assertSafeRepositoryWrite,
@@ -96,10 +97,10 @@ const setupCodex = (repoRoot: string, force: boolean): string[] => {
   }
 
   console.log(`specproof setup-agent codex — skills installed to .agents/skills/`);
-  for (const w of written) console.log(`  + ${w}`);
+  for (const w of written) console.log(`  + ${printable(w)}`);
   if (skipped.length > 0) {
     console.log(`\nSkipped ${skipped.length} existing file(s) (use --force to overwrite):`);
-    for (const s of skipped) console.log(`  = ${s}`);
+    for (const s of skipped) console.log(`  = ${printable(s)}`);
   }
   console.log(`
 Next steps:
