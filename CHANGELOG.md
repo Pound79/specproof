@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- traceability は、設定と manifest の YAML の警告（解決できないタグなど）を、制御文字を除き、ワークフローの
+  コマンドを無効にする出口を通して 1 行で出す。これまでは yaml が `process.emitWarning` で stderr に直接出し、
+  タグ名やコレクションのキーに書いた `##[` が CI のログでコマンドとして読まれえた。キーがコレクションのときの
+  警告（キーは文字列になる）は出さない。比べるためだけに読み直す箇所
+  （`specproof-update` の manifest、`init` の設定の書き換え）は警告を出さない。
+- CLI は、`detect` と `init` の自動判定が表示するリポジトリ由来の文字列（`.env.example` のキーなど）と、
+  最上位のエラー文から、制御文字・行区切り・bidi 制御文字を除いて表示する。
+
 ## [0.4.0] - 2026-11-01
 
 ### Added

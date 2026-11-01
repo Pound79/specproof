@@ -70,6 +70,19 @@ describe("runDetect の表示", () => {
     assert.match(text, /dev auth=google/);
   });
 
+  // .env.example のキーは利用者のリポジトリが書ける。端末の制御シーケンス・行区切り・bidi 制御文字で
+  // 表示を偽装させない（--json は JSON のエスケープに任せる）。
+  test("リポジトリ由来の文字列は制御文字を除いて表示する", async () => {
+    const hostile = "GOOGLE_CLIENT_\u001b[2J\u2028\u202eX";
+    const text = await run({
+      rootFiles: ["package.json", ".env.example"],
+      packageJson: { devDependencies: { "@playwright/test": "1" } },
+      envExampleKeys: [hostile],
+    });
+    assert.match(text, /GOOGLE_CLIENT_/);
+    assert.doesNotMatch(text, /[\u001b\u2028\u202e]/u);
+  });
+
   test("候補が競合すれば推奨せず明示指定を求める", async () => {
     const text = await run({
       rootFiles: ["package.json", "pubspec.yaml"],

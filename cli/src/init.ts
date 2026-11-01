@@ -12,6 +12,7 @@ import {
   rewriteScaffoldConfig,
   shellCdCommand,
 } from "./scaffold-config.js";
+import { printable } from "./display-text.js";
 import { ScaffoldJournal } from "./scaffold-journal.js";
 
 export type AgentType = "claude" | "codex" | "all";
@@ -113,7 +114,7 @@ export async function resolveAutoAdapter(
   const picked = selectAdapterCandidate(result);
   if (picked) {
     console.log(
-      `Auto-detected adapter: ${picked.adapter} (${picked.confidence} confidence — signals: ${picked.signals.join(", ")}). Re-run with --adapter to override.`,
+      `Auto-detected adapter: ${picked.adapter} (${picked.confidence} confidence — signals: ${printable(picked.signals.join(", "))}). Re-run with --adapter to override.`,
     );
     return { adapter: picked.adapter, dir: picked.dir };
   }
@@ -326,7 +327,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
     force,
   });
 
-  const e2eLabel = path.relative(repoRoot, e2eDir) || ".";
+  const e2eLabel = printable(path.relative(repoRoot, e2eDir) || ".");
   console.log(`specproof init (${adapter}) — scaffolded into ${e2eLabel}`);
   for (const w of written) console.log(`  + ${w}`);
   if (layoutRewritten) {
