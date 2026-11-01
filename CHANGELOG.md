@@ -14,19 +14,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   で 1 件ずつ知らせ、`--strict` で失敗する。これまでは綴りを誤ったキー（`layout.featureDir` など）が黙って
   無視され、設定したつもりの値が既定値に落ちていた。トップレベル・`layout`・`commands` など、キーの名前が
   決まっている節を検査し、名前を利用者が決める `fixtures` / `tags` / `env` / `environments[].envOverrides`
-  の中は見ない。メッセージはキーの経路だけを示し、値は出さない。100 件を超えると走査を止め、超えたことを
-  1 件の警告で示す。既知のキーと規則は
+  の中は見ない。メッセージはキーの経路（200 文字で切り詰める）だけを示し、値は出さない。100 件を超えると
+  走査を止め、超えたことを 1 件の警告で必ず示す。既知のキーと規則は
   `docs/config-schema.md` の「未知のキー」。
   移行: `specproof-check --json` の `unknown-config-key` が示すキーを、正しい綴りに直すか削除する。
+  たとえば v0.1.0〜v0.2.2 の雛形が書いていた `runner.authDir`（使われていない）は削除する。
   独自の情報を設定ファイルに置いていた場合は、別のファイルへ移す（警告を止める設定は無い）。
 - **破壊的変更**: manifest の読み込みは、参照の `hash` が sha256 の 16 進（小文字 64 桁）・仮の値
   `PENDING`・`FILE_MISSING` / `SECTION_MISSING` のどれでもなければエラーで止まる（値は出さない）。
   これまでは 256 文字以下の任意の文字列を受け付け、drift として報告していた。link の `label` と spec 参照の
-  `heading` は、link `id` と同じく制御文字・行区切りを含むとエラーで止まる（`heading` の水平タブは、
-  Markdown の見出しと旧い manifest のために受け付ける）。
+  `heading` は、link `id` と同じく制御文字・行区切りを含むとエラーで止まる（水平タブは、Markdown の
+  見出しと旧い manifest のために受け付ける。YAML のブロック形式 `label: >` / `label: |` が付ける
+  `label` の末尾の改行は検査で除き、ファイルの値はそのまま保つ）。
   移行: 手で書いた仮の値（空文字列や `TODO` など）は `PENDING` に置き換えて `specproof-update` を実行する。
   大文字の 16 進は小文字にする。`label` / `heading` の改行などの制御文字は取り除く（`heading` は
   spec の見出しの行と合わせる）。
+- API の型: `DriftWarning["kind"]` に `"unknown-config-key"` を、`DriftWarning` に任意の
+  `truncated` を、`TraceabilityConfig` に任意の `unknownConfigKeys` を足した。`kind` を網羅して
+  分岐する利用者は新しい値を扱う。`PENDING_HASH` を `FILE_MISSING` / `SECTION_MISSING` と同じく
+  パッケージの入口から公開する。
 - manifest を新しく書くときの先頭のコメントを、hash が sha256 の 16 進（新しい参照は `PENDING`）で、
   変更を確かめてから `specproof-update` で取り直すことが分かる文に改めた。
 

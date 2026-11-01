@@ -181,6 +181,9 @@ checked for `missing-then`. At most 10
 `possible-contradiction` warnings are printed; `--json` has them all.
 Likewise at most 20 `unknown-config-key` warnings are printed and annotated
 (a config file is PR-controlled); `--json` and the `--strict` verdict use all of them.
+Past 100 unknown keys the scan stops and one more warning (with
+`truncated: true`) says so; that warning is always printed. Each key path in a
+message is cut to 200 characters, ending with `…`.
 
 Because `unregistered-impl` / `unregistered-spec-heading` don't escalate
 under `--strict` without their opt-in flags, `check --json` annotates every
@@ -293,10 +296,12 @@ these limits:
 - links: 10,000
 - references: 1,000 per link and 20,000 total
 - path: 4,096 characters; id: 256; label/heading: 1,024
-- link `id` and `label` must not contain control or separator characters (like
-  criterion IDs); a spec reference's `heading` must not either, except a
-  horizontal tab (a Markdown heading line can hold one, and older manifests
-  stored it as-is)
+- link `id` must not contain control or separator characters (like criterion
+  IDs); a link `label` and a spec reference's `heading` must not either, except
+  a horizontal tab (a Markdown heading line can hold one, and older manifests
+  stored it as-is). Trailing line feeds of a `label` (as YAML block scalars
+  `label: >` / `label: |` produce) are ignored by this check and kept in the
+  file; a line break inside the label is rejected
 - each referenced spec / implementation / feature file: 8 MiB, regular files only
   (a FIFO or device is rejected before it is opened); the limit is per file
 

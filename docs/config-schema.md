@@ -114,7 +114,8 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 コマンドが効かないため。ほかの構造の警告と同じく `--strict` で失敗する（opt-out の設定は無い）。
 メッセージはキーの経路（`layout.featureDir`、`projects[0].tag`、識別子でないキーは
 `["a b"]` のように引用する）だけを示し、値は出さない。100 件を超えると走査を止め、最初の 100 件と、
-超えたことを示す 1 件を出す（テキストと annotation に出すのは 20 件まで、`--json` は全件）。`specproof-update` / `list` / `stats` は
+超えたことを示す 1 件（`truncated: true`）を出す。テキストと annotation に出すのは 20 件までで、超えたことを
+示す 1 件は必ず出す（`--json` は全件）。メッセージのキーの経路は 200 文字で切り詰め、末尾に `…` を付ける。`specproof-update` / `list` / `stats` は
 この警告を出さない。
 
 検査の深さの規則: consumer がキーの名前を決め打ちで読む mapping は、キーの集合を固定して検査する。

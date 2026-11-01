@@ -418,13 +418,13 @@ drift を検出できる。これがこの方法論全体を支える根幹の�
     - path: <spec-doc-path>
       heading: <見出し>        # 見出し行のテキスト（先頭の "#"+空白 は除く）
       headingLevel: 2          # 任意（既定 2 = "## "）。### を指すなら 3
-      hash: <sha256-hash>      # PENDING → bless コマンドで実ハッシュに更新
+      hash: PENDING            # 新規は PENDING。bless コマンドで実ハッシュ（小文字 16 進 64 桁）に更新
   impl:
     - path: <impl-file-path>
-      hash: <sha256-hash>
+      hash: PENDING
   features:
     - path: <feature-file-path>
-      hash: <sha256-hash>
+      hash: PENDING
 ```
 
 ハッシュは各 ref（`spec`/`impl`/`features` の各要素）に紐付く。
@@ -510,6 +510,7 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
       "kind": string,            // 下表参照
       "path": string,            // 対象ファイルパス（empty-link では省略）
       "message": string,
+      "truncated": true,          // unknown-config-key の上限（100 件）で走査を止めたことを示す 1 件だけに付く
       "failsUnderStrict": boolean // この warning が --strict で失敗扱いになるかの実効値（config の strictUnregisteredImpl / strictUnregisteredSpecHeadings を反映）。CLI（specproof-check --json）出力層で付与され、checkDrift 本体・DriftWarning 型には含まれない
     }
   ],
