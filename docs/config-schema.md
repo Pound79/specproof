@@ -141,6 +141,28 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 | `auth.description` | string | optional | 認証方式の人間向け説明。スキルがシナリオ実装時に参照する。 |
 | `excludeTags` | string[] | optional | この環境で除外するタグのリスト。ランナーがフィルタに使い、スキルが skip 判定に使う。各要素は単一のタグ（`/^@[^@\s()]+$/`）に限り、状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `envOverrides` | Record\<string, string\> | optional | dotenv 読み込み後に追加注入する環境変数。shell 既設定値は上書きしない。 |
+| `allowInsecureHttp` | boolean | optional | `true` のときだけ、この環境で loopback 以外のホストへの `http://` の baseURL に認証情報を送ってよい。既定（未設定・`false`・真偽値の `true` 以外）は止める。Playwright テンプレートだけが読む。0.5.0 で追加。詳細は後述。 |
+
+#### `environments[].allowInsecureHttp`
+
+Playwright テンプレートは baseURL（`env.baseUrl` が指す環境変数の値）を確かめる。選ばれた project の
+どれかが認証情報を使う（`setup: true` か `credentialsEnv` を持つ）とき、`playwright.config.ts` の読み込みで
+ブラウザを起動する前に確かめ、auth setup もログインの前にもう一度確かめる。`http://` で、ホストが
+loopback（`localhost`・`127.0.0.0/8`・`::1`）でなければ、選ばれた環境プロファイルに `allowInsecureHttp: true`
+が無い限り、認証情報を送らずに失敗する。`https://` と loopback への `http://` はこの設定に関係なく通り、
+`http://` でも `https://` でもない scheme はこの設定があっても止める。https を用意できない環境だけで、
+その `environments[]` エントリに明示して許可する。確かめるのは baseURL だけで、リダイレクト先や
+コードで直接指定した別の URL は見ない。
+
+```yaml
+environments:
+  - name: staging
+    dotenvFile: ".env.staging"
+    allowInsecureHttp: true   # この環境だけ平文の http を許す
+```
+
+`environments[]` のエントリに書けるキーは、上の表の `name`・`default`・`dotenvFile`・`auth`・`excludeTags`・
+`envOverrides`・`allowInsecureHttp` である。設定の未知キーを検査するときは、この一覧を既知のキーとする。
 
 ### 例
 
