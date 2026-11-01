@@ -1,11 +1,13 @@
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { printable } from "./display-text.js";
 import {
   assertNotHardLinked,
   assertSafeRepositoryWrite,
   walkRegularFilesWithoutSymlinks,
 } from "./path-security.js";
+import { ScaffoldJournal } from "./scaffold-journal.js";
 
 export type SupportedAgent = "codex" | "claude";
 const SUPPORTED_AGENTS: readonly SupportedAgent[] = ["codex", "claude"];
@@ -63,25 +65,42 @@ const setupCodex = (repoRoot: string, force: boolean): string[] => {
 
   const written: string[] = [];
   const skipped: string[] = [];
+  const journal = new ScaffoldJournal(repoRoot);
 
-  for (const rel of walkRegularFilesWithoutSymlinks(skillsSource)) {
-    const dest = path.join(targetDir, rel);
-    assertSafeRepositoryWrite(repoRoot, dest);
-    if (existsSync(dest) && !force) {
-      skipped.push(path.relative(repoRoot, dest));
-      continue;
+  try {
+    for (const rel of walkRegularFilesWithoutSymlinks(skillsSource)) {
+      const dest = path.join(targetDir, rel);
+      assertSafeRepositoryWrite(repoRoot, dest);
+      if (existsSync(dest) && !force) {
+        skipped.push(path.relative(repoRoot, dest));
+        continue;
+      }
+      assertNotHardLinked(dest);
+      journal.recordCreatedDir(mkdirSync(path.dirname(dest), { recursive: true }));
+      journal.recordBefore(dest);
+      copyFileSync(path.join(skillsSource, rel), dest);
+      journal.recordWritten(dest);
+      written.push(path.relative(repoRoot, dest));
     }
-    assertNotHardLinked(dest);
-    mkdirSync(path.dirname(dest), { recursive: true });
-    copyFileSync(path.join(skillsSource, rel), dest);
-    written.push(path.relative(repoRoot, dest));
+  } catch (error) {
+    // 半端な skill を残さない。この実行の書き込みを取り消してから知らせる（init と同じ）。
+    const { undone, failed } = journal.rollback();
+    const reason = (error instanceof Error ? error.message : String(error)).replace(/\.$/, "");
+    const notRestored =
+      failed.length === 0
+        ? ""
+        : ` Could not restore: ${failed.map((file) => path.relative(repoRoot, file)).join(", ")}.`;
+    throw new Error(
+      `specproof setup-agent codex failed and rolled back ${undone} file(s) it had written: ${reason}.${notRestored}`,
+      { cause: error },
+    );
   }
 
   console.log(`specproof setup-agent codex — skills installed to .agents/skills/`);
-  for (const w of written) console.log(`  + ${w}`);
+  for (const w of written) console.log(`  + ${printable(w)}`);
   if (skipped.length > 0) {
     console.log(`\nSkipped ${skipped.length} existing file(s) (use --force to overwrite):`);
-    for (const s of skipped) console.log(`  = ${s}`);
+    for (const s of skipped) console.log(`  = ${printable(s)}`);
   }
   console.log(`
 Next steps:
