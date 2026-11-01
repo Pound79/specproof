@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 設定の `commands.*` を実行する skill（specproof・bootstrap・implement・new-feature・sync）に、
+  「設定のコマンドを実行する前の確認」を足した。設定ファイルの `commands` やコマンドが呼ぶ
+  スクリプトが既定ブランチから変わっていれば、展開後の中身を示して人の承認を待ち、承認が無ければ
+  実行せずに停止する。PR で書き換えたコマンドを AI がそのまま実行しないようにするため。
 - Dependabot の対象に、Flutter の雛形の pub の依存を加えた。雛形の drift-check ワークフローが固定する
   actions は、specproof 自身のワークフロー（Dependabot が更新する）と同じ SHA であることをテストで
   確かめる（`scripts/dependency-watch.test.mjs`）。Dependabot が actions を上げる PR では、雛形の
