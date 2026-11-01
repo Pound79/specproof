@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 公開する 2 パッケージの実行時の依存 `yaml` を、範囲（`^2.9.1`）から完全な版（`2.9.1`）に固定した。
+  drift-check などは `npx` で lockfile 無しに取得するので、範囲だと取得のたびに新しい版（乗っ取られた
+  版を含む）が入りえた。`yaml` 自身は依存を持たないので、推移的な依存まで版が固定される。版の更新は
+  Dependabot の PR で行う（`versioning-strategy: increase` で完全な版のまま上げる）。公開済みの 0.3.0 は
+  範囲のままなので、固定が効くのは次のリリースからである。
 - `specproof-check` は、設定ファイルがあるのに `layout.featuresDir` が無いとき警告
   `features-dir-unset` を出し、`--strict` で失敗する。未設定だと登録していない feature の
   ドラフトマーカー・止めるタグ・lint を黙って検査しておらず、設定の文書（必須）と食い違っていた。
@@ -52,6 +57,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   既に雛形を取り込んだリポジトリは、`src/config/env.ts`・`src/config/auth-state.ts`・
   `src/setup/saveAuthState.ts`・`src/setup/auth.teardown.ts`・`playwright.config.ts` を手で取り込む
   （`specproof init --force` は既存のファイルを上書きする）。
+- traceability が spec・実装・feature の本体を読むとき、manifest と同じく 1 ファイル 8 MiB までの
+  通常ファイルだけを読むようにした。これまでは大きさの上限が無く、FIFO を指すと待ち続けた。
+  8 MiB を超えるファイル（生成物など）を manifest から参照していると check・update はエラーで止まる
+  ので、そのファイルは manifest から外す。
+  CLI の `detect` と `init --adapter auto` が読む `package.json`・`pubspec.yaml`・`.env.example` も
+  1 MiB までの通常ファイルに限った。
+- spec の見出しとコードの区切りの解析で、時間が入力の長さの二乗に増える経路を無くした（20 万個の
+  空白を含む見出しで約 60 秒、単独の CR を含む行では約 200 秒）。閉じの `#` を外す処理は正規表現から
+  末尾の 1 回の走査に替え、CR・U+2028・U+2029 を含む行は照合の前に従来どおり見出し・区切りでないと
+  判定する。
+  CLI の `detect` は、`.env.example` の 256 文字を超えるキーを名前として扱わない。
 - traceability の CLI（check・update・list・stats）の出力が、GitHub Actions のログで
   ワークフローコマンドとして読まれないようにした。ランナーは行頭（空白を除く）の `::name::` と、
   行のどこかにある `##[name]` を読むので、link id・見出し・パス・ラベルを細工すると偽の注記や
