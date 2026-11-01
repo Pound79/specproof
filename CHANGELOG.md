@@ -35,6 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- traceability の CLI（check・update・list・stats）の出力が、GitHub Actions のログで
+  ワークフローコマンドとして読まれないようにした。ランナーは行頭（空白を除く）の `::name::` と、
+  行のどこかにある `##[name]` を読むので、link id・見出し・パス・ラベルを細工すると偽の注記や
+  出力値の設定などを差し込めた。テキスト出力は行ごとに `##[` を `#?[`、行頭の `::` を `?:` にし、
+  JSON 出力は値を変えずに `##[` を `\u0023#[` と書く。`--github-annotations` の注記は従来どおり。
+  なお、`actions/setup-node` などが登録する problem matcher は `tsc` や `eslint` の出力に似た行から
+  注記を作るので、この対策では防げない。CI では `--json` の出力をファイルに書く使い方を勧める
+  （同梱の drift-check ワークフローはそうしている）。
 - drift-check ワークフローの雛形（playwright・flutter）の権限と依存の取り方を締めた。
   `pull-requests: write` は、checkout も PR・npm 由来のコードの実行もしない新しい `comment` ジョブ
   だけに付け、specproof-check を動かす `drift-check` ジョブは読み取り専用にした（report は artifact

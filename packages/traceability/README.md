@@ -341,6 +341,10 @@ methodology, config schema, and the adapter contract.
 環境変数 `SPECPROOF_DEBUG=1` を付けたときだけ続けて出す（このときは整形前のメッセージも出るので、
 公開の CI では付けない）。
 
+テキストと JSON の出力は、GitHub Actions のログでワークフローコマンドとして読まれない形にする。
+行頭（空白を除く）の `::` は `?:`、行のどこかにある `##[` は `#?[`（JSON では値を変えずに
+`\u0023#[`）と書く。`--github-annotations` が出す `::warning` だけが意図したコマンドになる。
+
 `layout.implGlobs` は `*` / `**` に加えてリテラルのファイルパスと先頭 `./` を受け付ける。
 `?` はワイルドカードではなく文字として扱う。
 `specproof-update` は変更ゼロなら保存せず、変更した hash だけを原子的に保存する。
