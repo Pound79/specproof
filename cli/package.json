@@ -36,7 +36,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "yaml": "^2.9.1"
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
