@@ -64,6 +64,22 @@ test("allowInsecureHttp: true の環境では、loopback 以外への http の b
   assert.doesNotThrow(() => buildConfig(optedIn, "http://staging.example.com"));
 });
 
+test("保存したセッションを読む project（storageState が空でない）も認証情報を使うとみなす", () => {
+  const config = templateConfig();
+  const sessionOnly = {
+    ...config,
+    projects: [
+      {
+        name: "session-only",
+        features: ["features/example.feature"],
+        storageState: "playwright/.auth/user.json",
+        setup: false,
+      },
+    ],
+  };
+  assert.throws(() => buildConfig(sessionOnly, "http://staging.example.com"), /allowInsecureHttp: true/);
+});
+
 test("認証情報を使う project が無ければ、http の baseURL でも設定を読める", () => {
   const config = templateConfig();
   const guestOnly = {

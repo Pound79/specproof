@@ -162,13 +162,19 @@ const webServer =
 
 // ---------------------------------------------------------------------------
 // Refuse plain http to a non-loopback host before any browser starts, when a
-// selected project logs in or reads credentials. Opt in per environment with
-// `allowInsecureHttp: true` (see src/config/base-url-guard.ts). Runs without
-// credentials (e.g. only the guest project) are not blocked.
+// project in specproof.config.yaml (whose `conditional` is met) logs in, reads
+// credentials, or reuses a saved session (non-empty storageState). Opt in per
+// environment with `allowInsecureHttp: true` (see src/config/base-url-guard.ts).
+// The decision uses the projects in the config file, not the ones picked with
+// `--project`: a config with only credential-free projects (like `guest`) is
+// not checked, but running `--project guest` from a config that also has
+// `authed` still is.
 // ---------------------------------------------------------------------------
 
 const usesCredentials = cfg.projects.some(
-  (p) => (p.setup === true || p.credentialsEnv !== undefined) && isConditionMet(p.conditional, cfg),
+  (p) =>
+    (p.setup === true || p.credentialsEnv !== undefined || Boolean(p.storageState)) &&
+    isConditionMet(p.conditional, cfg),
 );
 if (usesCredentials) assertSecureBaseUrl(resolveBaseUrl(cfg), activeEnv);
 
