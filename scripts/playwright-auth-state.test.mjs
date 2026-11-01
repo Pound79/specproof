@@ -80,6 +80,49 @@ test("保存したセッションを読む project（storageState が空でな�
   assert.throws(() => buildConfig(sessionOnly, "http://staging.example.com"), /allowInsecureHttp: true/);
 });
 
+// auth.setup.ts を、setup の登録と saveAuthState を差し替えて実行する。登録されたコールバックを返す。
+const loadAuthSetup = (envExtra = {}) => {
+  const config = templateConfig();
+  const environments = [{ ...config.environments[0], ...envExtra }, ...config.environments.slice(1)];
+  const active = { ...config, environments };
+  const registered = [];
+  const saved = [];
+  const setup = (name, fn) => registered.push({ name, fn });
+  setup.skip = () => {};
+  run("templates/playwright/src/setup/auth.setup.ts", {
+    "@playwright/test": { test: setup },
+    "../config/specproof-config": {
+      ...configHelpers,
+      loadSpecproofConfig: () => active,
+      resolveActiveEnvironment: () => environments[0],
+    },
+    "../config/env": {
+      credentialsFor: () => ({ username: "user", password: "pass" }),
+      missingCredentialEnv: () => [],
+    },
+    "../config/base-url-guard": baseUrlGuard,
+    "./saveAuthState": { saveAuthState: async (...args) => saved.push(args) },
+  });
+  const authed = registered.find((entry) => entry.name === "authenticate: authed");
+  assert.ok(authed, "auth.setup.ts must register the authed project");
+  return { authed, saved };
+};
+
+test("auth setup は loopback 以外への http の baseURL では、ログインせずに止まる", async () => {
+  const { authed, saved } = loadAuthSetup();
+  await assert.rejects(authed.fn({ page: {}, baseURL: "http://staging.example.com" }), /allowInsecureHttp/);
+  assert.equal(saved.length, 0);
+});
+
+test("auth setup は allowInsecureHttp: true の環境や https ではログインする", async () => {
+  const optedIn = loadAuthSetup({ allowInsecureHttp: true });
+  await optedIn.authed.fn({ page: {}, baseURL: "http://staging.example.com" });
+  assert.equal(optedIn.saved.length, 1);
+  const secure = loadAuthSetup();
+  await secure.authed.fn({ page: {}, baseURL: "https://staging.example.com" });
+  assert.equal(secure.saved.length, 1);
+});
+
 test("認証情報を使う project が無ければ、http の baseURL でも設定を読める", () => {
   const config = templateConfig();
   const guestOnly = {
