@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- traceability の loader は、知るより新しい manifest の `version`（2 以上）を、壊れた manifest と区別して
+  拒否し、`@pound79/specproof-traceability` の更新を促す（ADR 0010 の 3）。新しい specproof が書いた
+  manifest を旧い規則で読んだり取り直したりしない。
 - 設定の `commands.*` を実行する skill（specproof・bootstrap・implement・new-feature・sync）に、
   「設定のコマンドを実行する前の確認」を足した。設定ファイルの `commands` やコマンドが呼ぶ
   スクリプトが既定ブランチから変わっていれば、展開後の中身を示して人の承認を待ち、承認が無ければ
