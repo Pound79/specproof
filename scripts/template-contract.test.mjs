@@ -304,6 +304,102 @@ test("sync は spec の明示が無い確認を減らす変更を行わず停止
   assert.match(between(methodology, "### 既存シナリオを削除しない原則", "\n### "), /確認を減らす変更/);
 });
 
+// drift-check は PR のコードを checkout し、npm から取ったコードを実行する。そのジョブには書き込みの
+// トークンも認証情報も渡さず、コメントを書くジョブは PR や npm 由来のコードを一切実行しない。
+const DRIFT_WORKFLOWS = ["playwright", "flutter"].map(
+  (adapter) => `templates/${adapter}/github-workflows/specproof-drift-check.yml`,
+);
+const checkoutSteps = (workflow) =>
+  Object.values(workflow.jobs).flatMap((job) =>
+    (job.steps ?? []).filter((step) => String(step.uses ?? "").startsWith("actions/checkout@")),
+  );
+
+for (const file of DRIFT_WORKFLOWS) {
+  test(`${file}: 書き込みの権限はコードを実行しないコメントのジョブだけが持つ`, () => {
+    const workflow = parse(read(file));
+    assert.deepEqual(workflow.permissions, { contents: "read" });
+    // `permissions: write-all` のような文字列の指定も書き込みとみなす。
+    const writes = (permissions) =>
+      typeof permissions === "string"
+        ? permissions !== "read-all" && permissions !== "{}"
+        : Object.values(permissions ?? {}).includes("write");
+    const writers = Object.entries(workflow.jobs)
+      .filter(([, job]) => writes(job.permissions))
+      .map(([name]) => name);
+    assert.deepEqual(writers, ["comment"]);
+    const comment = workflow.jobs.comment;
+    assert.deepEqual(comment.permissions, { "pull-requests": "write" });
+    for (const step of comment.steps) {
+      assert.equal(step.run, undefined, `comment job must not run shell steps: ${step.name}`);
+      assert.ok(
+        /^actions\/(download-artifact|github-script)@[0-9a-f]{40}$/.test(step.uses),
+        `comment job may only download the report and post: ${step.uses}`,
+      );
+    }
+    assert.match(String(comment.if), /head\.repo\.full_name == github\.repository/);
+    // drift があって drift-check が失敗してもコメントする。取り消しには従う（always() は使わない）。
+    assert.equal(comment.needs, "drift-check");
+    assert.match(String(comment.if), /!cancelled\(\)/);
+    assert.doesNotMatch(String(comment.if), /always\(\)/);
+  });
+
+  test(`${file}: report の受け渡し（upload・download・読むファイル名）がそろっている`, () => {
+    const workflow = parse(read(file));
+    const upload = workflow.jobs["drift-check"].steps.find((s) =>
+      String(s.uses).startsWith("actions/upload-artifact@"),
+    );
+    const download = workflow.jobs.comment.steps.find((s) =>
+      String(s.uses).startsWith("actions/download-artifact@"),
+    );
+    const post = workflow.jobs.comment.steps.find((s) => s.name === "Comment on PR");
+    assert.match(upload.with.path, /\/drift-report\.json$/);
+    assert.match(post.with.script, /readFileSync\('drift-report\.json'/);
+    // ジョブの再実行で同じ名前の artifact を作り直しても失敗しない。
+    assert.equal(upload.with.overwrite, true);
+    assert.match(String(upload.if), /!cancelled\(\)/);
+    // 再実行で今回の report が作られなかったとき、同じ run に残る前回の artifact を名前で拾って
+    // 前の結果を表示しない。今回 upload が作った artifact の ID だけを渡し、無ければ取りに行かない。
+    const job = workflow.jobs["drift-check"];
+    const output = Object.entries(job.outputs ?? {}).find(([, value]) =>
+      String(value).includes(`steps.${upload.id}.outputs.artifact-id`),
+    );
+    assert.ok(upload.id && output, "drift-check must expose the uploaded artifact-id");
+    const ref = `needs.drift-check.outputs.${output[0]}`;
+    assert.equal(download.with.name, undefined, "download by name can pick up a stale artifact");
+    assert.equal(download.with["artifact-ids"], `\${{ ${ref} }}`);
+    assert.match(String(download.if), new RegExp(`${ref.replaceAll(".", "\\.")} != ''`));
+  });
+
+  test(`${file}: checkout は認証情報を残さない`, () => {
+    const steps = checkoutSteps(parse(read(file)));
+    assert.ok(steps.length > 0);
+    for (const step of steps) assert.equal(step.with?.["persist-credentials"], false);
+  });
+
+  test(`${file}: npx は checkout の外で、取得元を固定し、インストールスクリプトを止めて動かす`, () => {
+    const workflow = parse(read(file));
+    const step = workflow.jobs["drift-check"].steps.find((s) => s.id === "check");
+    assert.equal(step["working-directory"], "${{ runner.temp }}");
+    assert.equal(step.env?.npm_config_ignore_scripts, "true");
+    assert.match(step.run, /npx -y --registry=https:\/\/registry\.npmjs\.org -p @pound79\/specproof-traceability@/);
+    assert.match(step.run, /--root "\$GITHUB_WORKSPACE"/);
+  });
+
+  test(`${file}: どのジョブにも時間の上限がある`, () => {
+    for (const [name, job] of Object.entries(parse(read(file)).jobs)) {
+      assert.ok(Number.isInteger(job["timeout-minutes"]) && job["timeout-minutes"] <= 15, name);
+    }
+  });
+}
+
+test("specproof 自身の CI の checkout も認証情報を残さない", () => {
+  for (const file of [".github/workflows/ci.yml", ".github/workflows/release.yml"]) {
+    const steps = checkoutSteps(parse(read(file)));
+    assert.ok(steps.length > 0, file);
+    for (const step of steps) assert.equal(step.with?.["persist-credentials"], false, file);
+  }
+});
+
 // drift-check のコメント投稿スクリプトを、GitHub API を模したオブジェクトで実際に実行する。
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
 const runCommentScript = async (
@@ -311,7 +407,7 @@ const runCommentScript = async (
   { headSha, currentHeadSha, checkedSha = headSha, headAfterPagination, report, comments = [] },
 ) => {
   const workflow = parse(read(`templates/${adapter}/github-workflows/specproof-drift-check.yml`));
-  const step = workflow.jobs["drift-check"].steps.find((s) => s.name === "Comment on PR");
+  const step = workflow.jobs.comment.steps.find((s) => s.name === "Comment on PR");
   const calls = [];
   const github = {
     paginate: async () => {
@@ -466,6 +562,29 @@ for (const adapter of ["playwright", "flutter"]) {
     }
     // `<!--` などは文字としてコードスパンの中に残るだけなので、上の検査で足りる。
     assert.doesNotMatch(body, /^#+ (side|injected|forged)/m);
+  });
+
+  // npx 自体が失敗すると report は空になる。ジョブは赤でも、前のコミットの clean のコメントを
+  // 残さず、取得できなかったことに書き換える。既存のコメントが無ければ何も書かない。
+  test(`${adapter}: report を読めなければ既存のコメントを取得失敗の文に書き換える`, async () => {
+    const sha = "f".repeat(40);
+    const updated = await runCommentScript(adapter, {
+      headSha: sha,
+      currentHeadSha: sha,
+      report: undefined,
+      comments: [BOT_COMMENT],
+    });
+    assert.equal(updated.length, 1);
+    assert.equal(updated[0][0], "update");
+    assert.match(updated[0][1].body, /^<!-- specproof-drift-check -->/);
+    assert.match(updated[0][1].body, /could not be read/);
+    assert.match(updated[0][1].body, /Checked commit `fffffff`/);
+    const none = await runCommentScript(adapter, {
+      headSha: sha,
+      currentHeadSha: sha,
+      report: undefined,
+    });
+    assert.deepEqual(none, []);
   });
 
   test(`${adapter}: コメント探索中に head が進んだら作成も更新もしない`, async () => {
