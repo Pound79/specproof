@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `src/config/specproof-config.ts`（`EnvironmentProfile.allowInsecureHttp`）を差分に合わせて直す
   （`specproof init --force` は手元の変更を上書きする）。フィールドは `docs/config-schema.md` を参照。
 
+### Fixed
+
+- `specproof setup-agent codex` は、skill のファイルを順にコピーする途中で失敗すると、それまでに書いた
+  ファイルを消し、`--force` で上書きしたファイルを元の内容と権限に戻し、作ったディレクトリのうち空に
+  なったものを消してから失敗を知らせる。`specproof init` と同じ取り消しで、半端な skill を残さない。
+
 ## [0.4.1] - 2026-11-01
 
 ### Changed
