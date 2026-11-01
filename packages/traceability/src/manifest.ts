@@ -6,6 +6,7 @@ import { parseRepositoryYaml } from "./yaml-parse.js";
 import { writeFileAtomic } from "./atomic-write.js";
 import { replaceManifestHashes } from "./manifest-text.js";
 import { resolveWithinRoot } from "./resolve.js";
+import { FILE_MISSING, PENDING_HASH, SECTION_MISSING } from "./hash.js";
 
 export interface SpecRef {
   path: string;
@@ -37,12 +38,21 @@ export interface TraceabilityManifest {
 
 const MAX_PATH_LENGTH = 4096;
 const MAX_HEADING_LENGTH = 1024;
-const MAX_HASH_LENGTH = 256;
 const MAX_LINKS = 10_000;
 const MAX_REFS_PER_LINK = 1_000;
 const MAX_TOTAL_REFS = 20_000;
 const MAX_ID_LENGTH = 256;
 const CONTROL_OR_SEPARATOR = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u;
+// 見出しは CONTROL_OR_SEPARATOR から水平タブだけを除く。Markdown の見出しの行はタブを含みえて、
+// 旧い specproof が見出しのタブをそのまま保存した manifest を読めるようにする（行は偽装できない）。
+const HEADING_CONTROL_OR_SEPARATOR = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f\u2028\u2029]/u;
+// 保存できる hash は sha256 の 16 進（hash.ts が出す小文字 64 桁）と、決まった値だけ。
+// PENDING は新しい参照の仮の値、FILE_MISSING / SECTION_MISSING は旧い manifest や手で書いた
+// manifest に残りうる見つからない印（check は常に missing と報告し、update は書き込まない）。
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+const NON_DIGEST_HASHES: readonly string[] = [PENDING_HASH, FILE_MISSING, SECTION_MISSING];
+const isStorableHash = (hash: unknown): boolean =>
+  typeof hash === "string" && (SHA256_HEX.test(hash) || NON_DIGEST_HASHES.includes(hash));
 const MAX_LABEL_LENGTH = 1024;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -71,8 +81,12 @@ const assertFileRef: (value: unknown, where: string) => asserts value is FileRef
   ) {
     fail(where, `path must be 1-${MAX_PATH_LENGTH} characters without NUL`);
   }
-  if (typeof value.hash !== "string" || value.hash.length > MAX_HASH_LENGTH) {
-    fail(where, `hash must be a string of at most ${MAX_HASH_LENGTH} characters`);
+  // 値はエラーに出さない（PR の作者が書けるので、ログの行を偽装させない）。
+  if (!isStorableHash(value.hash)) {
+    fail(
+      where,
+      `hash must be a sha256 digest (64 lowercase hex characters), ${PENDING_HASH}, ${FILE_MISSING} or ${SECTION_MISSING}`,
+    );
   }
 };
 
@@ -84,6 +98,9 @@ const assertSpecRef: (value: unknown, where: string) => asserts value is SpecRef
   const record = value as FileRef & Record<string, unknown>;
   if (typeof record.heading !== "string" || record.heading.length > MAX_HEADING_LENGTH) {
     fail(where, `heading must be a string of at most ${MAX_HEADING_LENGTH} characters`);
+  } else if (HEADING_CONTROL_OR_SEPARATOR.test(record.heading)) {
+    // 見出しは check の報告と PR コメントにそのまま出る。link id と同じく行を偽装させない。
+    fail(where, "heading must not contain control or separator characters");
   }
   if (
     record.headingLevel !== undefined &&
@@ -180,6 +197,9 @@ const assertManifestShape: (value: unknown) => asserts value is TraceabilityMani
         `${where} (id: ${String(link.id)})`,
         `label must be a non-empty string of at most ${MAX_LABEL_LENGTH} characters`,
       );
+    } else if (CONTROL_OR_SEPARATOR.test(link.label)) {
+      // ラベルも list の出力と --json に出る。link id と同じく行を偽装させない。
+      fail(`${where} (id: ${link.id})`, "label must not contain control or separator characters");
     }
     assertRefArray(link.spec, `${where}.spec`, assertSpecRef);
     assertRefArray(link.impl, `${where}.impl`, assertFileRef);
@@ -238,7 +258,9 @@ export const saveManifest = async (
   });
   const header =
     "# Traceability manifest linking spec sections, implementation files, and\n" +
-    "# BDD feature files. Hashes are sha256; refresh them with:\n" +
+    "# BDD feature files. Each hash is the sha256 hex digest recorded at the last\n" +
+    "# update (a new ref may hold the placeholder PENDING). After reviewing a\n" +
+    "# change, refresh them with:\n" +
     "#   specproof-update\n";
   const source = original === undefined ? undefined : manifestSources.get(original);
   if (original !== undefined && source === undefined) {

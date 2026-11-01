@@ -6,6 +6,9 @@ import { readRegularFile } from "./bounded-read.js";
 // so a stored sentinel vs computed digest (or vice versa) always reads as drift.
 export const FILE_MISSING = "FILE_MISSING";
 export const SECTION_MISSING = "SECTION_MISSING";
+// manifest に新しく足した参照の仮の hash（specproof-new-feature が書き、specproof-update が実際の
+// digest で上書きする）。これも sha256 の 16 進とは衝突しない。
+export const PENDING_HASH = "PENDING";
 
 const sha256 = (content: string): string =>
   createHash("sha256").update(content, "utf8").digest("hex");

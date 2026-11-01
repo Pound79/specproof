@@ -49,9 +49,9 @@ describe("checkDrift の feature lint", () => {
         "    impl: []",
         "    features:",
         "      - path: features/a.feature",
-        "        hash: x",
+        "        hash: PENDING",
         "      - path: features/b.feature",
-        "        hash: x",
+        "        hash: PENDING",
         "",
       ].join("\n"),
     );

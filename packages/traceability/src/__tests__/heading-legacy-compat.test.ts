@@ -41,7 +41,7 @@ const manifestForHeading = (heading: string): TraceabilityManifest => ({
     {
       id: "account",
       label: "Account",
-      spec: [{ path: "spec.md", heading, hash: "stored" }],
+      spec: [{ path: "spec.md", heading, hash: "PENDING" }],
       impl: [],
       features: [],
     },
