@@ -86,8 +86,10 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 - [feature の登録と実行対象の確認](../specproof-new-feature/references/runner-registration.md) に従い、
   対象が生成・実行一覧に現れることを先に確認する。対象 0 件やタグ／環境による除外を
   GREEN や「実装不要」と扱わず、登録漏れなら意図した project の設定変更案を提示する。
-- **着手前に対象を実行して RED を確認**（既に緑なら「実装不要」で終了＝no-op 検出・gaming
-  検出のベースライン確立）。
+- **RED の基準は「step の本体を書いた後・製品を変える前」に取る**（手順 2）。stub が
+  `{{config:conventions.pendingStubBody}}` のままの段階で流しても全件が pending で落ちるだけで、
+  どれに製品の変更が要るかは分からない。対象の step がすでにすべて本体を持つ（pending が無い）なら、
+  着手前に流した結果をそのまま基準にする。基準は no-op 検出・gaming 検出のベースラインになる。
 - feature 差分だけでなく、traceability で結ばれた **spec/rationale doc・既存 impl パターン・
   既存 steps/page object・`{{config:layout.textConstants}}`** を読む（feature は黒箱で impl を underspecify する）。
 
@@ -95,10 +97,21 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 
 1. **文脈読み込み**: 対象 feature/scenario + traceability で結ばれた spec/rationale・
    既存 impl パターン・steps/page object・`{{config:layout.textConstants}}`。
-2. **RED 確認（ベースライン）**: 対象を実行（`{{config:tags.slow}}` は bddgen + pending/fail を確認）。
-   既に緑なら「実装不要」で終了。
-3. **実装計画**: feature の観測挙動 + spec/rationale の WHY・契約から必要変更（step 本体／
-   page object／`{{config:layout.textConstants}}`／製品 impl）を列挙。横断/共有が要るなら**停止して提案のみ**。
+2. **step の本体を書いてから RED 確認（ベースライン）**:
+   1. pending の step の本体と、要る page object・`{{config:layout.textConstants}}` を書く（ガードレール①と
+      手順 4 の規約はここから当てる）。**製品 impl はまだ変えない**。
+   2. 対象を実行し、シナリオごとに PASS / FAIL を記録する（`{{config:tags.slow}}` は bddgen と pending が無いことまで）。
+   3. FAIL は、feature が期待する観測（拒否のメッセージ・遷移先など）が出ないことによる失敗か、step の誤り
+      （探し方の違い・待ち不足）によるものかを分ける。step の誤りは製品を変えずに直して流し直す。
+      前者だけが製品の変更の対象になる。
+   4. PASS は、既存の実装ですでに満たされているシナリオ（brownfield ではよくある）。製品は変えない。
+      ただし step の本体は自分が書いたものなので、「通るように書いた」可能性を手順 6 の 5 と手順 7 で必ず確かめる。
+      確かめた後、レポートに「実装不要（既存の実装で満たす）」として挙げ、`@red-contract` が付いていれば外す
+      提案をする（外すのは人。Safety rules の「状態タグを変えない」）。
+   5. 全件 PASS なら、製品を変えずに手順 6・7 を経て「実装不要」で終了する。
+3. **実装計画**: 手順 2 で製品の変更が要ると分かったシナリオについて、feature の観測挙動 + spec/rationale の
+   WHY・契約から必要変更（step 本体／page object／`{{config:layout.textConstants}}`／製品 impl）を列挙。
+   横断/共有が要るなら**停止して提案のみ**。
 4. **実装（ガードレール①を遵守）**: 一般解で書く。ハードコード・テスト入力特例分岐・
    assertion を満たすだけの最小出力を禁止。`{{config:layout.stepFileExt}}` ファイルに
    画面の文言（UI 文字列）を直接埋め込まない。UI 文字列は `{{config:layout.textConstants}}`
@@ -122,15 +135,19 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
    **env が無く `{{config:commands.smoke}}` が実行できない場合**: `{{config:commands.generate}}` +
    `{{config:commands.typecheck}}` まで通し、smoke は **SKIPPED(理由)** としてレポートに明記する
    （**正直性契約**: green と偽らない）。
-6. **gaming 自己点検（①）＋入力バリエーション（④）**: 以下4項目を個別に判定し、
+6. **gaming 自己点検（①）＋入力バリエーション（④）**: 以下の項目を個別に判定し、
    レポートに項目別 OK/NG＋根拠1行で残す。
    1. テスト固有値のハードコードをしていないか
    2. テスト入力だけを特例処理する条件分岐がないか
    3. assertion を満たすだけの最小実装になっていないか
    4. 入力バリエーションを変えても成立するか（黒箱で困難なら適用範囲を限定し理由明記）
+   5. 手順 2 で PASS したシナリオの step が骨抜きになっていないか: 確認（ならば・かつ）の step が feature の期待
+      どおりの値・表示を肯定で確かめているか、期待と違う状態なら落ちるか（前提のデータや期待値を一時的に変えて
+      1 回流せるなら流し、変更は戻す。流せないなら step の該当行を根拠に書く）。該当シナリオが無ければ「対象なし」
 7. **独立 adversarial レビュー（②）**: `{{config:agents.codeReviewer}}` + `{{config:agents.securityReviewer}}` に加えて、
    feature と diff を渡し「テストを通すための偽実装になっていないか」を反証させる
-   gaming 観点のレビューを必ず通す（初版は {{config:agents.codeReviewer}} へその観点を明示指示。必要なら
+   gaming 観点のレビューを必ず通す。製品を変えずに PASS したシナリオがあれば、その step の本体も
+   「feature の期待を確かめずに通る step になっていないか」の観点で渡す（製品の diff が無くても省略しない）（初版は {{config:agents.codeReviewer}} へその観点を明示指示。必要なら
    専用 agent 化）。CRITICAL/HIGH を修正。
    **フォールバック**: `{{config:agents.*}}` が未設定（テンプレ既定）でも**この層を省略しない**。
    レビュー用エージェントが無ければ、同じ反証観点（gaming・セキュリティ）を自分でインラインに実施する。
@@ -176,8 +193,11 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
   **PASS / FAIL / SKIPPED(理由)** で。製品側のキーが未設定なら「未検証（未設定）」と書く。
   **正直性契約**: env が無く smoke 未実行なら green と偽らない。E2E 側の検査を製品側の検証として報告しない。
   smoke の FAIL は「FAIL（想定どおりの RED: @red-contract N 件）」と「FAIL（実際の失敗: M 件）」を分けて書く。
-- gaming 自己点検（①④）: 4項目（ハードコード／テスト入力特例分岐／assertion 骨抜き／入力バリエーション）
-  を項目別 OK/NG＋根拠1行で列挙。
+  `@red-contract` が付いたまま通ったシナリオは「PASS（@red-contract のまま: K 件。外す提案あり）」と分けて書く。
+- RED の基準（手順 2）: step の本体を書いた後・製品を変える前の PASS / FAIL の件数と、PASS したシナリオの一覧
+  （「実装不要（既存の実装で満たす）」と、外す提案をする `@red-contract`）。FAIL のうち step の誤りで直したものは分けて書く。
+- gaming 自己点検（①④）: 5項目（ハードコード／テスト入力特例分岐／assertion 骨抜き／入力バリエーション／
+  基準で PASS した step の骨抜き）を項目別 OK/NG＋根拠1行で列挙。
 - レビュー実施形態: **独立エージェント**（`{{config:agents.codeReviewer}}` 等）による反証レビュー／
   **自己レビューのみ（独立レビュー未実施）** のいずれかを必ず明記し、指摘と対応を記載。
 - `{{config:tags.slow}}`/`{{config:tags.generate}}`: 「実装済み・未実行」リスト

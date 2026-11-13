@@ -171,8 +171,8 @@ impl から生成した feature は「**今こう動いている**」の読め�
    未実装本体は `{{config:conventions.pendingStubBody}}`）。
    [feature の登録と実行対象の確認](../specproof-new-feature/references/runner-registration.md) に従い、
    移した feature を意図した project に登録する。既存の選択範囲を広げず、生成・実行一覧に
-   対象が現れることを確認する。その後 `specproof-implement` で RED を観測してから
-   pending step を実装し、検証する:
+   対象が現れることを確認する。その後 `specproof-implement` で pending step を実装し、製品を変える前に
+   RED を観測して（`specproof-implement` の手順 2）から、必要な製品の変更を行い、検証する:
    ```bash
    {{config:commands.generate}}        # Gherkin と step の対応
    {{config:commands.typecheck}}

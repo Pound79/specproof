@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `specproof-new-feature` の「新しいシナリオにはすべて `@red-contract`」に、brownfield（そのセクションを
   実装しているファイルがある）の扱いを足した。付けるのはこれまでどおりすべてだが、仮のものとし、
   `specproof-implement` の RED の基準で通ったシナリオからは外す提案が出ると報告する。
+- `specproof-implement` の RED の基準を「着手前」から「step の本体を書いた後・製品を変える前」に改めた。
+  pending の stub のまま流しても全件落ちるだけで、基準にならなかった。この時点で通ったシナリオは
+  「実装不要（既存の実装で満たす）」と報告し、`@red-contract` を外す提案をする。その step は自分で書いた
+  ものなので、骨抜きでないことを gaming 自己点検の 5 項目目と反証レビューで確かめる。
 
 ## [0.6.0] - 2026-11-13
 
