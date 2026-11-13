@@ -1,25 +1,24 @@
 import path from "node:path";
-import { existsSync, lstatSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import {
+  CONFIG_FILENAMES,
+  entryExists,
+  findConfigFileName,
+  isMapping,
+  parseConfigFile,
+  readConfigText,
+} from "./config-file.js";
+
+// The conventional manifest name; also a root marker when no config file is found first.
+const MANIFEST_MARKER = "traceability.yaml";
 
 // Files that mark a directory as the repo root, in precedence order.
-const ROOT_MARKERS = ["specproof.config.yaml", "specproof.config.yml", "traceability.yaml"];
+const ROOT_MARKERS = [...CONFIG_FILENAMES, MANIFEST_MARKER];
 
 // 改名（bdd-kit → specproof、0.2.0）前の設定ファイル名。0.4.0 で読むのをやめた。黙って無視すると
 // 置いた設定が効かないまま検査が通るので、現行の目印が無い段にこれがあれば名前の変更を案内して止める。
 const REMOVED_CONFIG_FILENAMES = ["bdd-kit.config.yaml", "bdd-kit.config.yml"];
-
-/** symlink そのものも含めて、その名前の項目があるか（リンク切れも「ある」とみなす）。 */
-const entryExists = (file: string): boolean => {
-  try {
-    lstatSync(file);
-    return true;
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" || code === "ENOTDIR") return false;
-    throw error;
-  }
-};
 
 /** `dir` に旧名の設定ファイルがあれば、名前の変更を案内して止める。 */
 export const assertNoRemovedConfig = (dir: string): void => {
@@ -39,11 +38,53 @@ export const normalizeMsysPath = (p: string): string => {
   return m ? `${m[1].toUpperCase()}:${m[2] ?? "/"}` : p;
 };
 
+/** 設定ファイルの `layout.manifest` を、その設定ファイルのあるディレクトリ基準の絶対パスにする。
+ *  読めない・書かれていないときは undefined（従来どおり manifest のあるディレクトリをルートにする）。 */
+const configuredManifestPath = (configDir: string, name: string): string | undefined => {
+  try {
+    const layout = parseConfigFile(name, readConfigText(configDir, name)).layout;
+    if (!isMapping(layout) || typeof layout.manifest !== "string" || layout.manifest === "") {
+      return undefined;
+    }
+    return path.resolve(configDir, layout.manifest);
+  } catch {
+    return undefined;
+  }
+};
+
+/** git のリポジトリの最上段（`.git` がある段）か。上への探索をここで止める。 */
+const isRepositoryTop = (dir: string): boolean => entryExists(path.join(dir, ".git"));
+
+/**
+ * `manifestDir` の traceability.yaml を `layout.manifest` で指す設定ファイルが上の階層にあれば、
+ * そのディレクトリを返す。manifest をサブディレクトリ（例: `e2e/traceability.yaml`）に置き、
+ * そこから CLI を流したときに、サブディレクトリをルートと取り違えて全参照を missing にしないため。
+ * 最も近い設定ファイルだけを見る。それが別の manifest を指すなら従来どおり manifest の段をルートにする。
+ * `.git` のある段より上は見ない（チェックアウトの外に置かれた設定ファイルでルートを広げさせない）。
+ */
+const findOwningConfigDir = (manifestDir: string): string | undefined => {
+  const manifestFile = path.join(manifestDir, MANIFEST_MARKER);
+  let dir = manifestDir;
+  if (isRepositoryTop(dir)) return undefined;
+  for (let parent = path.dirname(dir); parent !== dir; parent = path.dirname(dir)) {
+    dir = parent;
+    const name = findConfigFileName(dir);
+    if (name !== undefined) {
+      return configuredManifestPath(dir, name) === manifestFile ? dir : undefined;
+    }
+    if (isRepositoryTop(dir)) return undefined;
+  }
+  return undefined;
+};
+
 /**
  * Resolves the repo root by walking up from `startDir` (default
  * `process.cwd()`) looking for a specproof config or a traceability
  * manifest, then falling back to
- * `git rev-parse --show-toplevel`. Throws when neither strategy resolves.
+ * `git rev-parse --show-toplevel`. A config file wins over a bare manifest:
+ * when the first marker found is `traceability.yaml` and the nearest config
+ * file above it names that file in `layout.manifest`, the config's directory
+ * is the root. Throws when neither strategy resolves.
  *
  * A directory on the way up that has no marker but holds a removed
  * `bdd-kit.config.*` name stops with a rename message instead of being passed
@@ -58,10 +99,11 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
   const initialDir = path.resolve(startDir);
   let dir = initialDir;
   for (;;) {
-    for (const marker of ROOT_MARKERS) {
-      if (existsSync(path.join(dir, marker))) {
-        return dir;
-      }
+    if (CONFIG_FILENAMES.some((name) => existsSync(path.join(dir, name)))) {
+      return dir;
+    }
+    if (existsSync(path.join(dir, MANIFEST_MARKER))) {
+      return findOwningConfigDir(dir) ?? dir;
     }
     assertNoRemovedConfig(dir);
     const parent = path.dirname(dir);

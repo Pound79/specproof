@@ -12,6 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `specproof-update` の `Traceability manifest updated: N link(s) refreshed.` の N が、hash が変わった
   リンクの数ではなく manifest の全リンクの数だった。変わったリンクの数を出し、変わった参照（hash）の数を
   `(M hash(es) changed)` として添える（`--link-id` を付けたときも添える）。manifest に書く内容は変わらない。
+- manifest をサブディレクトリに置く構成（例: 設定ファイルの `layout.manifest: "e2e/traceability.yaml"`）で、
+  そのディレクトリから `specproof-check` などを流すと、そこをリポジトリのルートと取り違えて
+  全参照を missing と報告し、`BOTH spec and impl changed` まで出していた。親へたどって
+  `traceability.yaml` だけが見つかった段でも、その上の最も近い設定ファイルが `layout.manifest` で
+  その manifest を指していれば、設定ファイルの段をルートにする。設定ファイルが別の manifest を指す・
+  `layout.manifest` が無い・読めないときと、`.git` のある段より上の設定ファイルは、これまでどおり
+  manifest の段をルートにする。
+- `specproof-check` は manifest の参照が 1 件以上あってすべてファイルごと見つからないとき、ルートや
+  manifest の取り違えを疑う案内を出し、`BOTH spec and impl changed` と `specproof-update` の案内を
+  出さない。`--json` に `allReferencesMissing`（真偽値）を足し、このとき `bothSidesChanged` は空になる。
+  見出しだけが無い参照があれば従来どおり。`--github-annotations` でも同じ案内を注釈として出す。
+  drift として終了コード 1 で終わるのは変わらない。
+  ライブラリの `DriftReport` 型に必須の `allReferencesMissing` が増えたので、自前で `DriftReport` を
+  組み立てている TypeScript のコードはこの項目を足す必要がある。
 
 ### Changed
 

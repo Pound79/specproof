@@ -17,6 +17,12 @@ export const describeLinkHeading = (linkId: string): string => `link: ${printabl
 export const describeBothSidesChanged = (linkId: string): string =>
   `!! link "${printable(linkId)}": BOTH spec and impl changed — specproof-sync must stop and ask which side is authoritative`;
 
+// repoRoot は手元のテキスト出力にだけ渡す。注釈（CI のログと PR）には runner のパスを載せない。
+export const describeAllReferencesMissing = (referenceCount: number, repoRoot?: string): string =>
+  printable(
+    `!! all ${referenceCount} reference(s) in the manifest are missing${repoRoot === undefined ? "" : ` under ${repoRoot}`} — the repo root or manifest is likely wrong, not drifted. Re-run with --root <repo root> (and --manifest if needed) before syncing anything.`,
+  );
+
 export const describeWarning = (warning: DriftWarning, failsUnderStrict: boolean): string =>
   printable(`[${failsUnderStrict ? "warning" : "advisory"}] ${warning.message}`);
 
@@ -26,8 +32,10 @@ const escapeData = (value: string): string =>
 const escapeProperty = (value: string): string =>
   escapeData(value).replace(/:/g, "%3A").replace(/,/g, "%2C");
 
-export const toGithubWarningAnnotation = (warning: DriftWarning): string =>
-  `::warning::specproof traceability: ${escapeData(warning.message)}`;
+// 注釈に要るのは message だけ。warning の種類に当たらない案内（全参照 missing）も同じ形で出す。
+export const toGithubWarningAnnotation = (
+  warning: Pick<DriftWarning, "message"> & Partial<DriftWarning>,
+): string => `::warning::specproof traceability: ${escapeData(warning.message)}`;
 
 export interface IsCheckFailureOptions {
   /** Opt-in hard enforcement for unregistered-impl under --strict (config

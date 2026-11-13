@@ -72,6 +72,89 @@ describe("resolveRepoRoot", () => {
     expect(result).toBe(root);
   });
 
+  describe("manifest がサブディレクトリにあるとき", () => {
+    const setup = async (config: string | undefined): Promise<string> => {
+      const e2e = path.join(root, "e2e");
+      await mkdir(e2e, { recursive: true });
+      await writeFile(path.join(e2e, "traceability.yaml"), "version: 1\nlinks: []\n", "utf8");
+      if (config !== undefined) {
+        await writeFile(path.join(root, "specproof.config.yaml"), config, "utf8");
+      }
+      return e2e;
+    };
+
+    it("上の設定ファイルが layout.manifest でその manifest を指せば、設定ファイルの段をルートにする", async () => {
+      const e2e = await setup('layout:\n  manifest: "./e2e/traceability.yaml"\n');
+      expect(resolveRepoRoot(e2e)).toBe(root);
+    });
+
+    it("上の設定ファイルが別の manifest を指すなら、従来どおり manifest の段をルートにする", async () => {
+      const e2e = await setup('layout:\n  manifest: "other/traceability.yaml"\n');
+      expect(resolveRepoRoot(e2e)).toBe(e2e);
+    });
+
+    it("上の設定ファイルに layout.manifest が無ければ、従来どおり manifest の段をルートにする", async () => {
+      const e2e = await setup("version: 1\n");
+      expect(resolveRepoRoot(e2e)).toBe(e2e);
+    });
+
+    it("上の設定ファイルが読めなければ、止めずに従来どおり manifest の段をルートにする", async () => {
+      const e2e = await setup("layout: [unclosed\n");
+      expect(resolveRepoRoot(e2e)).toBe(e2e);
+    });
+
+    it("最も近い設定ファイルだけを見る（さらに上の設定ファイルが指していても採らない）", async () => {
+      const pkg = path.join(root, "pkg");
+      const e2e = path.join(pkg, "e2e");
+      await mkdir(e2e, { recursive: true });
+      await writeFile(path.join(e2e, "traceability.yaml"), "version: 1\nlinks: []\n", "utf8");
+      await writeFile(path.join(pkg, "specproof.config.yaml"), "version: 1\n", "utf8");
+      await writeFile(
+        path.join(root, "specproof.config.yaml"),
+        'layout:\n  manifest: "pkg/e2e/traceability.yaml"\n',
+        "utf8",
+      );
+      expect(resolveRepoRoot(e2e)).toBe(e2e);
+    });
+
+    it(".git のある段より上の設定ファイルは見ない", async () => {
+      const repo = path.join(root, "repo");
+      const e2e = path.join(repo, "e2e");
+      await mkdir(path.join(repo, ".git"), { recursive: true });
+      await mkdir(e2e, { recursive: true });
+      await writeFile(path.join(e2e, "traceability.yaml"), "version: 1\nlinks: []\n", "utf8");
+      await writeFile(
+        path.join(root, "specproof.config.yaml"),
+        'layout:\n  manifest: "repo/e2e/traceability.yaml"\n',
+        "utf8",
+      );
+      expect(resolveRepoRoot(e2e)).toBe(e2e);
+    });
+
+    it(".git のある段の設定ファイルは見る", async () => {
+      const e2e = await setup('layout:\n  manifest: "e2e/traceability.yaml"\n');
+      await mkdir(path.join(root, ".git"));
+      expect(resolveRepoRoot(e2e)).toBe(root);
+    });
+
+    it(".yml の設定ファイルと絶対パスの layout.manifest も読む", async () => {
+      const e2e = path.join(root, "e2e");
+      await mkdir(e2e, { recursive: true });
+      await writeFile(path.join(e2e, "traceability.yaml"), "version: 1\nlinks: []\n", "utf8");
+      await writeFile(
+        path.join(root, "specproof.config.yml"),
+        `layout:\n  manifest: ${JSON.stringify(path.join(e2e, "traceability.yaml"))}\n`,
+        "utf8",
+      );
+      expect(resolveRepoRoot(e2e)).toBe(root);
+    });
+
+    it("設定ファイルが無ければ manifest の段をルートにする", async () => {
+      const e2e = await setup(undefined);
+      expect(resolveRepoRoot(e2e)).toBe(e2e);
+    });
+  });
+
   it("throws when no marker file and not inside a git repo", async () => {
     expect(() => resolveRepoRoot(root)).toThrow(/Could not resolve a repo root/);
   });

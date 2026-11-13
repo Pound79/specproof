@@ -83,6 +83,10 @@ export interface DriftReport {
   // which side is authoritative, so it must stop and ask a human. Always
   // present (empty when there is no such link).
   bothSidesChanged: string[];
+  // manifest に参照が 1 件以上あり、そのすべてのファイルが見つからないとき true。ルート（--root）や
+  // manifest の取り違えでよく起きる形なので、このときは bothSidesChanged を空にし、
+  // 両側の変更として人に判断を求めない（CLI はルートを確かめる案内を出す）。
+  allReferencesMissing: boolean;
 }
 
 const isSentinel = (hash: string): boolean => hash === FILE_MISSING || hash === SECTION_MISSING;
@@ -447,9 +451,19 @@ export const checkDrift = async (
   const linkIdsWithImplChange = new Set(
     entries.filter((entry) => entry.side === "impl").map((entry) => entry.linkId),
   );
-  const bothSidesChanged = [...linkIdsWithSpecChange].filter((linkId) =>
-    linkIdsWithImplChange.has(linkId),
+  const referenceCount = manifest.links.reduce(
+    (total, link) => total + link.spec.length + link.impl.length + link.features.length,
+    0,
   );
+  const allReferencesMissing =
+    referenceCount > 0 &&
+    entries.length === referenceCount &&
+    // ルートを取り違えると参照はファイルごと見つからない。見出しだけが無い（SECTION_MISSING）のは
+    // ファイルが読めている証拠なので、本物の変更として扱う。
+    entries.every((entry) => entry.currentHash === FILE_MISSING);
+  const bothSidesChanged = allReferencesMissing
+    ? []
+    : [...linkIdsWithSpecChange].filter((linkId) => linkIdsWithImplChange.has(linkId));
 
   return {
     clean: entries.length === 0,
@@ -458,5 +472,6 @@ export const checkDrift = async (
     entries,
     warnings,
     bothSidesChanged,
+    allReferencesMissing,
   };
 };

@@ -4,6 +4,7 @@ import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
 import {
   attachFailsUnderStrict,
+  describeAllReferencesMissing,
   describeBothSidesChanged,
   describeEntry,
   describeHiddenWarnings,
@@ -41,7 +42,11 @@ const main = async (): Promise<void> => {
     for (const entry of report.entries) {
       console.error(toGithubAnnotation(entry));
     }
-    for (const warning of shownWarnings) {
+    // 参照ごとの注釈だけだと drift に見えるので、全参照 missing ならルートを確かめる案内も注釈にする。
+    const rootHint = report.allReferencesMissing
+      ? [{ message: describeAllReferencesMissing(report.driftCount) }]
+      : [];
+    for (const warning of [...shownWarnings, ...rootHint]) {
       console.error(toGithubWarningAnnotation(warning));
     }
   }
@@ -65,7 +70,14 @@ const main = async (): Promise<void> => {
         printText(`  ${describeEntry(entry)}`);
       }
     }
-    printText("\nNext: review the changes, sync features if needed, then run: specproof-update");
+    if (!report.allReferencesMissing) {
+      printText("\nNext: review the changes, sync features if needed, then run: specproof-update");
+    }
+  }
+
+  if (!flags.has("--json") && report.allReferencesMissing) {
+    printText("");
+    printText(describeAllReferencesMissing(report.driftCount, config.repoRoot));
   }
 
   if (!flags.has("--json") && report.bothSidesChanged.length > 0) {
