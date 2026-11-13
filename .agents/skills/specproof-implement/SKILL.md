@@ -101,8 +101,9 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
    page object／`{{config:layout.textConstants}}`／製品 impl）を列挙。横断/共有が要るなら**停止して提案のみ**。
 4. **実装（ガードレール①を遵守）**: 一般解で書く。ハードコード・テスト入力特例分岐・
    assertion を満たすだけの最小出力を禁止。`{{config:layout.stepFileExt}}` ファイルに
-   `{{config:language}}` テキストを直接埋め込まない。UI 文字列は `{{config:layout.textConstants}}`
-   定数（既存規約）。上流 i18n source は `{{config:layout.i18nSource}}`。
+   画面の文言（UI 文字列）を直接埋め込まない。UI 文字列は `{{config:layout.textConstants}}`
+   定数（既存規約）。上流 i18n source は `{{config:layout.i18nSource}}`。step の文とコメントの言語は
+   `../specproof-sync/prompts/system.md` の「コード規約」に従う。
 5. **高速検証ループ（緑確認）**:
    ```bash
    {{config:commands.generate}}          # Gherkin ↔ step 対応
@@ -196,7 +197,8 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
   `{{config:layout.implGlobs}}` のファイル群を保守的な既定スコープとする。
 - **自己修正2回上限**、超えたら停止報告。**テストが落ちた状態でコミットしない**（`@red-contract` のシナリオの RED は想定どおり。それ以外の失敗は 1 件でもコミットを止める）。`{{config:tags.slow}}`
   未実行を明示。
-- `{{config:layout.stepFileExt}}` ファイルに `{{config:language}}` テキストを直接書かない（UI 文字列は `{{config:layout.textConstants}}` 定数）。
+- `{{config:layout.stepFileExt}}` ファイルに画面の文言（UI 文字列）を直接書かない（UI 文字列は `{{config:layout.textConstants}}` 定数）。
+  step の文は feature と同じ `{{config:language}}` で書く。
 - **人間ゲート省略不可**（コミット/bless は人間）。製品コードは `{{config:agents.securityReviewer}}` 必須。
 - `{{config:layout.testRunnerConfig}}` のプロジェクト構成（{{config:projects}}）に整合しないタグの
   シナリオを緑化対象にしない。

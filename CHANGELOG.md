@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- skill の生成ガイドの「step ファイルに `language` のテキストを書かない（コメントも英語）」を書き直した。
+  `language: ja` では step の文を feature と一致させるために日本語で書く必要があり、規則と矛盾していた。
+  画面の文言を step にじかに書かず `textConstants` を通す規則は残し、step の文は `language` のまま書く、
+  コメントの言語は `idiomGuide` か既存の steps の書き方に従う、と分けた。`i18nLintPlugin: none` では
+  検査が無いことも明記した。
+
 ## [0.6.0] - 2026-11-13
 
 ### Fixed

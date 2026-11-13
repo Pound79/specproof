@@ -173,8 +173,13 @@ sync は表のほかの項目（否定だけの確認・値の無い確認・統
 
 ## コード規約 (steps / page objects)
 
-- `{{config:layout.stepFileExt}}` ファイルに `{{config:language}}` テキストを書かない
-  （コメントも英語。`{{config:conventions.i18nLintPlugin}}` が検査）
+- 画面の文言（UI 文字列）を `{{config:layout.stepFileExt}}` ファイルにじかに書かない。アサーションや
+  操作の対象にする文言は `{{config:layout.textConstants}}` の定数を通す
+  （`{{config:conventions.i18nLintPlugin}}` を設定していればそれが検査する。`none` なら検査は無く、この規則は目視で守る）
+- step の文（Given/When/Then に渡す文字列）は feature の行と完全に一致させる必要があるので、
+  `{{config:language}}` のまま書く。step の文は画面の文言ではなく、上の規則の対象外
+- コメントの言語は `{{config:language}}` からは決めない。`{{config:layout.idiomGuide}}` が決めていればそれに、
+  決めていなければ既存の steps・page object の書き方に合わせる
 - 肯定形 web-first assertion (`toHaveURL` / `toBeVisible`) を使うときは、
   非同期遷移の判定タイミングを `waitForURL` / `waitForLoadState` 等で明示する
   （操作直後の即時 green による silent pass を防ぐ）

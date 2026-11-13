@@ -203,7 +203,7 @@ impl から生成した feature は「**今こう動いている**」の読め�
 - **ドラフトには `# specproof: draft` マーカーを必ず入れる**。featuresDir へ移すのは人間が
   マーカーを削除した後（未査読ドラフトの実装を構造的に防ぐ＝同語反復ファイアウォール）。
 - ブラックボックス厳守（内部実装詳細を step 文に出さない）。
-- `.{{config:layout.stepFileExt}}` に {{config:language}} テキストを直書きしない。UI 文字列は `{{config:layout.textConstants}}` の定数を使う（上流は `{{config:layout.i18nSource}}`）。
+- `.{{config:layout.stepFileExt}}` に画面の文言（UI 文字列）を直書きしない。UI 文字列は `{{config:layout.textConstants}}` の定数を使う（上流は `{{config:layout.i18nSource}}`）。step の文とコメントの言語は生成ガイドの「コード規約」に従う。
 - 人間の査読ゲートを省略しない。テストが落ちた状態でコミットしない（`@red-contract` のシナリオが
   RED なのは想定どおり。それ以外の失敗は残さない）。
 - **観測可能な仕様を「テストが難しい」だけの理由で rationale に逃がさない**。

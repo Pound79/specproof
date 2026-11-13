@@ -191,12 +191,13 @@ feature / steps / page objects / manifest を変更しない。
 
 ## Safety rules
 
-- `{{config:layout.stepFileExt}}` ファイルに日本語文字列を書かない
+- `{{config:layout.stepFileExt}}` ファイルに画面の文言（UI 文字列）をじかに書かない
   (`{{config:conventions.agentsDoc}}` / `{{config:conventions.i18nLintPlugin}}`)。
   UI文字列のアサーションは `{{config:layout.textConstants}}` の定数を使うか、
   必要な定数を `{{config:layout.textConstants}}` に追加する
   (`{{config:layout.textConstants}}` は `{{config:layout.i18nSource}}` のミラー)。
-- steps / page objects のコメントは英語。
+  step の文と steps / page objects のコメントの言語は、生成ガイドの「コード規約」に従う
+  （step の文は feature と同じ `{{config:language}}`、コメントは idiomGuide か既存の書き方）。
 - テストが落ちた状態でコミットしない。`@red-contract` のシナリオの RED は想定どおりでコミットを止めないが、
   それ以外の失敗は 1 件でもコミットを止める。
 - 既存シナリオの状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）を、人の確認なしに付けたり
