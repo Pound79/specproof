@@ -103,7 +103,9 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
    assertion を満たすだけの最小出力を禁止。`{{config:layout.stepFileExt}}` ファイルに
    画面の文言（UI 文字列）を直接埋め込まない。UI 文字列は `{{config:layout.textConstants}}`
    定数（既存規約）。上流 i18n source は `{{config:layout.i18nSource}}`。step の文とコメントの言語は
-   `../specproof-sync/prompts/system.md` の「コード規約」に従う。
+   `../specproof-sync/prompts/system.md` の「コード規約」に従う。画面の操作の経路（page object の fixture を通すか、
+   既存の steps に倣って `page` を直接使うか）は同じファイルの「step 実装との対応」に従い、page object の fixture が
+   無い構成に page object を持ち込まない。
 5. **高速検証ループ（緑確認）**:
    ```bash
    {{config:commands.generate}}          # Gherkin ↔ step 対応

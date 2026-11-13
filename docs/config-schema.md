@@ -91,6 +91,10 @@ page object fixture 名 -> POM ファイルの map。skill が step skeleton の
 destructuring を生成するとき解決する（`mainOperationPage` 以外の fixture 名が
 素の config では欠落していた、という検証指摘への対応）。
 
+page object を持たない構成（`fixtures: {}`、または world・認証など page object でない fixture だけ）も
+そのまま書いてよい。その場合 skill は新しい page object を持ち込まず、既存の steps の書き方に倣う
+（生成ガイド `prompts/system.md` の「step 実装との対応」）。
+
 ## tags / projects / env / environments / implement / git / agents / conventions / examples
 
 | ブロック | 要否 | 要点 |

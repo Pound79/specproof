@@ -163,8 +163,12 @@ sync は表のほかの項目（否定だけの確認・値の無い確認・統
 - step 文は `{{config:layout.stepsDir}}/*{{config:layout.stepFileSuffix}}` の
   Given/When/Then 定義と完全一致が必要。
   新しい step を作る前に、既存 step で表現できないか必ず確認する
-- step 実装は page object fixture（`{{config:fixtures}}` で定義されたもの）を経由する。
-  直接 `page.locator` を steps に書かない
+- step 実装の画面の操作は、既存の steps と同じ経路を通す。
+  - `{{config:fixtures}}` に page object の fixture があれば、それを経由する。直接 `page.locator` を steps に書かない
+  - page object の fixture が無い（`fixtures` が空、または world・認証など page object でない fixture だけ）なら、
+    既存の steps の書き方（`page` を直接使う、など）に倣う。page object や新しい fixture を持ち込まない。
+    持ち込むべきだと考えたら、step を書かずに提案として報告する
+  - 既存の steps の書き方が混在しているときは、同じドメインの steps に合わせる
 - UI 文字列のアサーションは `{{config:layout.textConstants}}` の定数を使う。
   新しい文字列が必要なら `{{config:layout.i18nSource}}` の該当キーを確認して
   `{{config:layout.textConstants}}` に追加する

@@ -142,7 +142,8 @@ feature / steps / page objects / manifest を変更しない。
    - なければ適切な steps ファイルに追加し、必要なら page object
      (`{{config:layout.pagesDir}}`) にメソッドを追加する
    - page object には新 step が必要とする最小限のメソッドだけを足す
-     (`{{config:fixtures}}` に列挙された POM パターンを踏襲)
+     (`{{config:fixtures}}` に列挙された POM パターンを踏襲)。`{{config:fixtures}}` に page object の
+     fixture が無い構成では、生成ガイドの「step 実装との対応」に従い、既存の steps の書き方に倣う
 5. 既存シナリオは、リンクされた spec が当該機能の削除を明示している場合を除き
    **削除しない**。impl の削除・変更だけを根拠にしない。spec の明示があっても削除には
    人間の裁定を得る。変更の前後と根拠の spec 節を報告と PR 本文に必ず挙げる。

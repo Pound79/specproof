@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   画面の文言を step にじかに書かず `textConstants` を通す規則は残し、step の文は `language` のまま書く、
   コメントの言語は `idiomGuide` か既存の steps の書き方に従う、と分けた。`i18nLintPlugin: none` では
   検査が無いことも明記した。
+- 生成ガイドの「step は page object の fixture を通す。`page.locator` を steps に書かない」に、fixtures に
+  page object が無い構成の扱いを足した。その場合は既存の steps の書き方に倣い、page object や新しい
+  fixture を持ち込まない（持ち込むべきなら提案に留める）。
 
 ## [0.6.0] - 2026-11-13
 

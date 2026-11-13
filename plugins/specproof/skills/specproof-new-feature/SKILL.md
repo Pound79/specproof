@@ -112,7 +112,8 @@ specproof init --adapter <framework>
      `{{config:layout.textConstants}}` の定数を使う（上流: `{{config:layout.i18nSource}}`）。
      step の文は feature の行と一致させるので `{{config:language}}` のまま書き、コメントの言語は
      生成ガイドの「コード規約」に従う
-   - フィクスチャの destructure には `{{config:fixtures}}` の fixture 名を用いる
+   - フィクスチャの destructure には `{{config:fixtures}}` の fixture 名を用いる。page object の
+     fixture が無い構成では、既存の steps の書き方に倣う（生成ガイドの「step 実装との対応」）
 5. `{{config:layout.manifest}}` に新しいリンクを追加する
    (id / label / spec / impl / features。hash は `PENDING` にする。それ以外の仮の値は manifest の読み込みで拒否される):
 
