@@ -240,6 +240,7 @@ drift 検知（`specproof-check`）の後、`specproof-sync` は次の決定表�
 | **spec と impl の両方 changed** | **必ず停止。** 両方の diff を提示し、どちらを正とするかユーザーに確認。確認が取れるまで進めない。impl を正とする場合も、spec を先に更新し、feature の期待値は更新後の spec から導出する | リファクタ中・仕様変更中・マージ競合のいずれかの可能性が高く、ドメイン判断なしに「正」を決められない。自動追従すると意図しない仕様上書きや実装の巻き戻しが起きる |
 | feature のみ changed | 手動編集を bless。再生成せずハッシュ更新のみ | 人間の意図的な feature 編集を尊重する |
 | いずれかが missing | 自動同期しない。マニフェストのリンク定義修正をユーザーに提案 | リンク定義がないことはマニフェスト設計自体が不完全であり、ファイルを作成・削除する前に意図を確認すべき |
+| 全参照のファイルが missing（`allReferencesMissing`） | どのリンクも同期せず停止し、`--root` を付けて check をやり直すよう伝える | ほとんどがルート（cwd・`--root`）や manifest の取り違えで、drift ではない。両側の変更として裁定を求めない |
 
 ### 既存シナリオを削除しない原則
 
@@ -514,7 +515,8 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
       "failsUnderStrict": boolean // この warning が --strict で失敗扱いになるかの実効値（config の strictUnregisteredImpl / strictUnregisteredSpecHeadings を反映）。CLI（specproof-check --json）出力層で付与され、checkDrift 本体・DriftWarning 型には含まれない
     }
   ],
-  "bothSidesChanged": string[]   // spec と impl の両方が同一実行で drift した linkId 一覧（表 4 の「両方 changed」行）。specproof-sync はこの配列が空でない限り自動追従してはならない
+  "bothSidesChanged": string[],  // spec と impl の両方が同一実行で drift した linkId 一覧（表 4 の「両方 changed」行）。specproof-sync はこの配列が空でない限り自動追従してはならない。allReferencesMissing が true のときは空
+  "allReferencesMissing": boolean // manifest の参照が 1 件以上あり、すべてファイルごと見つからない（FILE_MISSING）とき true。見出しだけが無い参照があれば false。ルート（--root）や manifest の取り違えを疑う。specproof-sync は drift として扱わず停止し、ルートを確かめる
 }
 ```
 

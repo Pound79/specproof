@@ -4,6 +4,7 @@ import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
 import {
   attachFailsUnderStrict,
+  describeAllReferencesMissing,
   describeBothSidesChanged,
   describeEntry,
   describeHiddenWarnings,
@@ -38,10 +39,17 @@ const main = async (): Promise<void> => {
   const shownWarnings = display.shown;
 
   if (flags.has("--github-annotations")) {
-    for (const entry of report.entries) {
+    // 全参照 missing のときは、参照ごとの注釈（同期と update を勧める）を出さず、ルートを確かめる
+    // 案内 1 件に集約して先頭に出す。GitHub は 1 step の warning 注釈を 10 件までしか表示しないので、
+    // 後ろに置くと参照が 10 件以上ある manifest で案内が見えなくなる。
+    const rootHint = report.allReferencesMissing
+      ? [{ message: describeAllReferencesMissing(report.driftCount) }]
+      : [];
+    const annotatedEntries = report.allReferencesMissing ? [] : report.entries;
+    for (const entry of annotatedEntries) {
       console.error(toGithubAnnotation(entry));
     }
-    for (const warning of shownWarnings) {
+    for (const warning of [...rootHint, ...shownWarnings]) {
       console.error(toGithubWarningAnnotation(warning));
     }
   }
@@ -65,7 +73,14 @@ const main = async (): Promise<void> => {
         printText(`  ${describeEntry(entry)}`);
       }
     }
-    printText("\nNext: review the changes, sync features if needed, then run: specproof-update");
+    if (!report.allReferencesMissing) {
+      printText("\nNext: review the changes, sync features if needed, then run: specproof-update");
+    }
+  }
+
+  if (!flags.has("--json") && report.allReferencesMissing) {
+    printText("");
+    printText(describeAllReferencesMissing(report.driftCount, config.repoRoot));
   }
 
   if (!flags.has("--json") && report.bothSidesChanged.length > 0) {

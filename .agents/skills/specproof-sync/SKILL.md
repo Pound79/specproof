@@ -76,6 +76,10 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 「spec と impl の両方 changed」は自力でグルーピングしなくてよい。Step 1 で取得した JSON の
 `bothSidesChanged`（linkId の配列）にそのリンクの id が含まれていれば該当し、必ず停止する。
 
+JSON の `allReferencesMissing` が `true` のときは、上の表に当てはめない。manifest の参照が
+すべて missing なのは、ほとんどがルート（cwd・`--root`）や manifest の取り違えなので、どのリンクも
+同期せず停止し、`--root <リポジトリのルート>` を付けて check をやり直すようユーザーに伝える。
+
 #### 振る舞い変化の裁定（impl のみ changed で観測可能な振る舞いが変わった場合）
 
 ユーザーの裁定ごとに次へ遷移する。**どの分岐でも、ユーザー確認の後であっても、impl の diff・

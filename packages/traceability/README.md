@@ -367,7 +367,16 @@ methodology, config schema, and the adapter contract.
 | specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
 | specproof-stats | --root, --manifest, --strict, --json |
 
-`--root <dir>` は探索ルートを明示する。`--manifest <file>` は cwd 相対で解決するが、
+`--root <dir>` は探索ルートを明示する。省略時は cwd から親へたどり、設定ファイル
+（`specproof.config.yaml` / `.yml`）か `traceability.yaml` が最初に見つかった段をルートにする。
+`traceability.yaml` だけが見つかった段でも、その上の最も近い設定ファイルが `layout.manifest` で
+その manifest を指していれば、設定ファイルの段をルートにする（`e2e/traceability.yaml` のような
+構成で `e2e/` から流しても参照を取り違えない）。この探索は `.git` のある段より上を見ない。
+manifest の段や途中の段に設定ファイルの項目（リンク切れや旧名を含む）があれば親へ移らない。
+manifest の参照がすべてファイルごと見つからないときは、drift ではなくルートや manifest の
+取り違えを疑う案内を出し、`bothSidesChanged` を空にする（`--json` の `allReferencesMissing`）。
+
+`--manifest <file>` は cwd 相対で解決するが、
 指定した root 内に置く必要がある。`--candidate-suffix <suffix>` は候補の拡張子込み suffix
 （例: Page.ts / _page.dart）。`--github-annotations` は GitHub Actions 用の注釈を stderr に出す。
 未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。

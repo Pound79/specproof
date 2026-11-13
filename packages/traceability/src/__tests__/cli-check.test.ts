@@ -34,6 +34,7 @@ const cleanReport: DriftReport = {
   entries: [],
   warnings: [],
   bothSidesChanged: [],
+  allReferencesMissing: false,
 };
 
 describe("describeEntry", () => {

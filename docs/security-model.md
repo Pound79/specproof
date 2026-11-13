@@ -23,7 +23,12 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   それも無ければ `git rev-parse --show-toplevel`。たどる途中で、目印が無く改名前の
   `bdd-kit.config.yaml` / `.yml` だけがあるディレクトリに来たら、名前の変更を案内してエラーで止まる。
   ルートは git のリポジトリのルートとは限らない（サブディレクトリに `traceability.yaml` があれば
-  そこが、リポジトリより上に目印のファイルがあればそこがルートになる）。CI では `--root` で
+  そこが、リポジトリより上に目印のファイルがあればそこがルートになる）。ただし `traceability.yaml`
+  だけの段では、その上の最も近い設定ファイルを読み、`layout.manifest` がその manifest を指していれば
+  設定ファイルの段をルートにする（読めない設定ファイルは無視して従来どおり）。この探索は `.git` の
+  ある段より上を見ない（チェックアウトの外の設定ファイルでルートを広げさせない）。manifest の段に
+  設定ファイルの項目（リンク切れや旧名を含む）があれば親へ移らず、その段の検証を素通りさせない。途中の
+  段にそれがあるときも親の設定ファイルを採らない（manifest の段をルートにする）。CI では `--root` で
   明示するのが確実
 - **読む範囲**: 設定の `layout.manifest`・`layout.pagesDir`・`layout.featuresDir`、
   `layout.implGlobs` の走査の起点、manifest の参照パス、`--manifest` は、字句と実体（symlink の
