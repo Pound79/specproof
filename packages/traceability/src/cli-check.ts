@@ -39,14 +39,17 @@ const main = async (): Promise<void> => {
   const shownWarnings = display.shown;
 
   if (flags.has("--github-annotations")) {
-    for (const entry of report.entries) {
-      console.error(toGithubAnnotation(entry));
-    }
-    // 参照ごとの注釈だけだと drift に見えるので、全参照 missing ならルートを確かめる案内も注釈にする。
+    // 全参照 missing のときは、参照ごとの注釈（同期と update を勧める）を出さず、ルートを確かめる
+    // 案内 1 件に集約して先頭に出す。GitHub は 1 step の warning 注釈を 10 件までしか表示しないので、
+    // 後ろに置くと参照が 10 件以上ある manifest で案内が見えなくなる。
     const rootHint = report.allReferencesMissing
       ? [{ message: describeAllReferencesMissing(report.driftCount) }]
       : [];
-    for (const warning of [...shownWarnings, ...rootHint]) {
+    const annotatedEntries = report.allReferencesMissing ? [] : report.entries;
+    for (const entry of annotatedEntries) {
+      console.error(toGithubAnnotation(entry));
+    }
+    for (const warning of [...rootHint, ...shownWarnings]) {
       console.error(toGithubWarningAnnotation(warning));
     }
   }
