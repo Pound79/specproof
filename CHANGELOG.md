@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `specproof-update` の `Traceability manifest updated: N link(s) refreshed.` の N が、hash が変わった
+  リンクの数ではなく manifest の全リンクの数だった。変わったリンクの数を出し、変わった参照（hash）の数を
+  `(M hash(es) changed)` として添える（`--link-id` を付けたときも添える）。manifest に書く内容は変わらない。
+
 ### Changed
 
 - `specproof-check` のテキスト出力で表示の上限を超えた warning を省いたとき、`...and N more` の代わりに
