@@ -18,7 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `traceability.yaml` だけが見つかった段でも、その上の最も近い設定ファイルが `layout.manifest` で
   その manifest を指していれば、設定ファイルの段をルートにする。設定ファイルが別の manifest を指す・
   `layout.manifest` が無い・読めないときと、`.git` のある段より上の設定ファイルは、これまでどおり
-  manifest の段をルートにする。
+  manifest の段をルートにする。manifest の段に設定ファイルの項目（リンク切れや旧名の
+  `bdd-kit.config.*` を含む）があれば親へ移らず、これまでどおりその不備をエラーで知らせる。途中の段に
+  それがあるときも親の設定ファイルを採らず、これまでどおり manifest の段をルートにする。
 - `specproof-check` は manifest の参照が 1 件以上あってすべてファイルごと見つからないとき、ルートや
   manifest の取り違えを疑う案内を出し、`BOTH spec and impl changed` と `specproof-update` の案内を
   出さない。`--json` に `allReferencesMissing`（真偽値）を足し、このとき `bothSidesChanged` は空になる。

@@ -372,6 +372,7 @@ methodology, config schema, and the adapter contract.
 `traceability.yaml` だけが見つかった段でも、その上の最も近い設定ファイルが `layout.manifest` で
 その manifest を指していれば、設定ファイルの段をルートにする（`e2e/traceability.yaml` のような
 構成で `e2e/` から流しても参照を取り違えない）。この探索は `.git` のある段より上を見ない。
+manifest の段や途中の段に設定ファイルの項目（リンク切れや旧名を含む）があれば親へ移らない。
 manifest の参照がすべてファイルごと見つからないときは、drift ではなくルートや manifest の
 取り違えを疑う案内を出し、`bothSidesChanged` を空にする（`--json` の `allReferencesMissing`）。
 

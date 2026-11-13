@@ -55,24 +55,35 @@ const configuredManifestPath = (configDir: string, name: string): string | undef
 /** git のリポジトリの最上段（`.git` がある段）か。上への探索をここで止める。 */
 const isRepositoryTop = (dir: string): boolean => entryExists(path.join(dir, ".git"));
 
+/** 旧名の設定ファイルの項目があるか（リンク切れも「ある」とみなす）。 */
+const hasRemovedConfigEntry = (dir: string): boolean =>
+  REMOVED_CONFIG_FILENAMES.some((name) => entryExists(path.join(dir, name)));
+
+/** 現行名か旧名の設定ファイルの項目があるか（リンク切れも「ある」とみなす）。 */
+const hasConfigEntry = (dir: string): boolean =>
+  findConfigFileName(dir) !== undefined || hasRemovedConfigEntry(dir);
+
 /**
  * `manifestDir` の traceability.yaml を `layout.manifest` で指す設定ファイルが上の階層にあれば、
  * そのディレクトリを返す。manifest をサブディレクトリ（例: `e2e/traceability.yaml`）に置き、
  * そこから CLI を流したときに、サブディレクトリをルートと取り違えて全参照を missing にしないため。
  * 最も近い設定ファイルだけを見る。それが別の manifest を指すなら従来どおり manifest の段をルートにする。
  * `.git` のある段より上は見ない（チェックアウトの外に置かれた設定ファイルでルートを広げさせない）。
+ * manifest の段に設定ファイルの項目（リンク切れ・旧名を含む）があれば親へ移らない。移すとその段の
+ * 設定は読まれず、リンク切れや旧名の検出（readConfigFile / assertNoRemovedConfig）を素通りするため。
+ * 途中の段の旧名の設定ファイルも同じ理由で、親の設定ファイルを採らない。
  */
 const findOwningConfigDir = (manifestDir: string): string | undefined => {
   const manifestFile = path.join(manifestDir, MANIFEST_MARKER);
   let dir = manifestDir;
-  if (isRepositoryTop(dir)) return undefined;
+  if (hasConfigEntry(dir) || isRepositoryTop(dir)) return undefined;
   for (let parent = path.dirname(dir); parent !== dir; parent = path.dirname(dir)) {
     dir = parent;
     const name = findConfigFileName(dir);
     if (name !== undefined) {
       return configuredManifestPath(dir, name) === manifestFile ? dir : undefined;
     }
-    if (isRepositoryTop(dir)) return undefined;
+    if (hasRemovedConfigEntry(dir) || isRepositoryTop(dir)) return undefined;
   }
   return undefined;
 };
