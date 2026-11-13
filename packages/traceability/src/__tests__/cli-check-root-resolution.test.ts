@@ -71,7 +71,7 @@ describe("manifest がサブディレクトリにあるときのルートの解�
     assert.match(result.stdout, /all 2 reference\(s\) .*missing/);
     assert.match(result.stdout, /--root/);
     // 同期と update を勧めると、ルートを確かめる案内と矛盾する。
-    assert.doesNotMatch(result.stdout, /then run: specproof-update/);
+    assert.doesNotMatch(result.stdout, /specproof-update/);
   });
 
   test("見出しだけが消えた spec はルートの取り違えとみなさず、従来どおり BOTH changed を出す", () => {

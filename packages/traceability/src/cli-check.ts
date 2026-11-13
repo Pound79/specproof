@@ -9,6 +9,7 @@ import {
   describeEntry,
   describeHiddenWarnings,
   describeLinkHeading,
+  describeNextSteps,
   describeWarning,
   isCheckFailure,
   selectWarningsForDisplay,
@@ -74,7 +75,10 @@ const main = async (): Promise<void> => {
       }
     }
     if (!report.allReferencesMissing) {
-      printText("\nNext: review the changes, sync features if needed, then run: specproof-update");
+      printText("");
+      for (const line of describeNextSteps(report.entries)) {
+        printText(line);
+      }
     }
   }
 

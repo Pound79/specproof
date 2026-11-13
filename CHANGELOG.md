@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `specproof-check` のテキスト出力の最後の `Next: review the changes, sync features if needed, then run: specproof-update`
+  を、リンクごとに bless する `specproof-update --link-id <link-id>` の形に変えた。`--link-id` を付けずに流すと、
+  動きが変わった実装まで黙って bless していた。impl の drift があるときは、動きが変わったなら
+  `specproof-sync` の決定表で判断してから bless するよう 1 行添える。`--github-annotations` の注釈も同じ形にした。
+  互換: 出力の文言だけの変更で、終了コードと `--json` は変わらない。`specproof-update` を引数なしで流す使い方も
+  これまでどおり動く。文言に合わせて出力を照合しているスクリプトは直す必要がある。skill（new-feature・bootstrap・
+  sync）の bless も、対象のリンクに `--link-id` を付けて行う手順にした。
+
 - skill の生成ガイドの「step ファイルに `language` のテキストを書かない（コメントも英語）」を書き直した。
   `language: ja` では step の文を feature と一致させるために日本語で書く必要があり、規則と矛盾していた。
   画面の文言を step にじかに書かず `textConstants` を通す規則は残し、step の文は `language` のまま書く、

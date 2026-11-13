@@ -181,10 +181,25 @@ export const describeHiddenWarnings = (display: DisplayWarnings): string[] =>
     return `...and ${hiddenCount} more ${kind} (shown ${shownCount} of ${total}; run with --json for the full list)`;
   });
 
+// bless は link ごとに行う。引数なしの specproof-update は drift した全リンクを黙って bless するので勧めない。
+// link id は manifest 由来で空白やシェルの記号も通るため、コマンドには埋め込まず <link-id> の形で示す。
+const BLESS_ONE_LINK = "specproof-update --link-id <link-id>";
+const IMPL_BEHAVIOR_NOTE =
+  "if the observable behavior changed, decide with the specproof-sync decision table before blessing";
+
+export const describeNextSteps = (entries: DriftEntry[]): string[] => [
+  "Next: review each link's changes and sync features if needed, then bless one link at a time:",
+  `  ${BLESS_ONE_LINK}`,
+  ...(entries.some((entry) => entry.side === "impl")
+    ? [`[impl] drift: ${IMPL_BEHAVIOR_NOTE}.`]
+    : []),
+];
+
 export const toGithubAnnotation = (entry: DriftEntry): string => {
   const message =
     `Traceability drift in link "${entry.linkId}" (${entry.side}, ${entry.status})` +
     (entry.heading ? ` at heading "${entry.heading}"` : "") +
-    ". Sync the linked feature (specproof-sync) or run: specproof-update";
+    `. Sync the linked feature (specproof-sync) or bless this link: ${BLESS_ONE_LINK}` +
+    (entry.side === "impl" ? ` (${IMPL_BEHAVIOR_NOTE})` : "");
   return `::warning file=${escapeProperty(entry.path)}::${escapeData(message)}`;
 };

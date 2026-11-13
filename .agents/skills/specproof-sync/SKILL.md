@@ -178,9 +178,13 @@ feature / steps / page objects / manifest を変更しない。
 ### 5. マニフェスト更新とPR
 
 ```bash
-{{config:commands.traceabilityUpdate}}
-{{config:commands.traceabilityCheck}}   # clean になることを確認
+{{config:commands.traceabilityUpdate}} --link-id <同期したリンクの id>   # 同期したリンクごとに 1 回
+{{config:commands.traceabilityCheck}}   # 同期したリンクに drift が無いことを確認
 ```
+
+bless は Step 2 で扱いを決めて同期したリンクだけに、`--link-id` を付けて 1 つずつ行う。`--link-id` を付けないと、
+判断していないリンクの drift（動きが変わった実装を含む）まで黙って bless する。
+link id は manifest 由来でシェルの記号も通るので、コマンドに入れる前に `^[A-Za-z0-9._-]+$` に当たることを確かめ、当たらなければ流さずに id とともに人に示す。当たっても単一引用符で囲む（`--link-id 'perm-invite'`）。
 
 1. ブランチ作成: `{{config:git.branchPrefix}}<YYYY-MM-DD>` (main から。既に作業ブランチ上ならそのまま)
 2. conventional commit: `feat({{config:git.commitScope}}): sync BDD features with spec/impl drift (<link-ids>)`

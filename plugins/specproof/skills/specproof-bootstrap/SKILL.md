@@ -182,9 +182,11 @@ impl から生成した feature は「**今こう動いている**」の読め�
    ことを明示してから commit する。
 8. 既存 feature の拡張なら bless:
    ```bash
-   {{config:commands.traceabilityUpdate}}
-   {{config:commands.traceabilityCheck}}   # clean を確認
+   {{config:commands.traceabilityUpdate}} --link-id <拡張したリンクの id>
+   {{config:commands.traceabilityCheck}}   # 拡張したリンクに drift が無いことを確認
    ```
+   `--link-id` を付けないと、ほかのリンクの drift まで黙って bless する。ほかのリンクの drift は `specproof-sync` に回す。
+   link id は manifest 由来でシェルの記号も通るので、コマンドに入れる前に `^[A-Za-z0-9._-]+$` に当たることを確かめ、当たらなければ流さずに id とともに人に示す。当たっても単一引用符で囲む（`--link-id 'perm-invite'`）。
    新規リンクなら `{{config:layout.manifest}}` に追記（`specproof-new-feature` の手順に準拠）。
 
 ## なぜ層（rationale doc）は自動生成しない

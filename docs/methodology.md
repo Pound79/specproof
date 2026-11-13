@@ -435,8 +435,9 @@ drift を検出できる。これがこの方法論全体を支える根幹の�
 
 ハッシュは各 ref（`spec`/`impl`/`features` の各要素）に紐付く。
 新規リンク追加直後は各 `hash: PENDING` で構わない。
-`{{cmd_traceability_update}}` を実行することで実ハッシュに更新され、
-`{{cmd_traceability_check}}` が clean になる。
+`{{cmd_traceability_update}} --link-id <id>` を実行することで、そのリンクの参照が実ハッシュに更新され、
+`{{cmd_traceability_check}}` でそのリンクの drift が消える。`--link-id` を付けないと、ほかのリンクの drift
+（動きが変わった実装を含む）まで黙って bless するので、bless は確かめたリンクごとに行う。
 
 最初から実ハッシュを手書きするのは不可能（ファイル内容確定前に計算できない）。
 PENDING を仮値として使い、ツールで自動計算・上書きすることで、人手によるハッシュ管理ミスをなくす。
@@ -446,9 +447,9 @@ PENDING を仮値として使い、ツールで自動計算・上書きするこ
 | スキル | マニフェストに対する操作 |
 |---|---|
 | `specproof-check`（CLI） | ハッシュを比較して drift を報告（read-only） |
-| `specproof-sync` | drift 解決後に `{{cmd_traceability_update}}` → `{{cmd_traceability_check}}` で bless |
-| `specproof-new-feature` | 新規エントリを `hash: PENDING` で追加 → bless |
-| `specproof-bootstrap` | 既存 feature 拡張の場合は update/check を実行。新規リンクは `specproof-new-feature` 手順に準拠 |
+| `specproof-sync` | drift 解決後に、同期したリンクごとに `{{cmd_traceability_update}} --link-id <id>` → `{{cmd_traceability_check}}` で bless |
+| `specproof-new-feature` | 新規エントリを `hash: PENDING` で追加 → そのリンクだけを `--link-id` で bless |
+| `specproof-bootstrap` | 既存 feature 拡張の場合は、拡張したリンクに `--link-id` を付けて update/check を実行。新規リンクは `specproof-new-feature` 手順に準拠 |
 | `specproof-implement` | bless（コミットとともに）は人間が行う |
 
 ### 権限の節を各リンクに登録する

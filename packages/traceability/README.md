@@ -219,8 +219,9 @@ This means a file's hash no longer depends on its line-ending style or a BOM
 — useful on Windows / `autocrlf` checkouts. **This is a breaking change** for
 a manifest whose blessed hashes were computed against CRLF content before this
 normalization existed: those refs will show as drifted on the next `check`.
-Run `check` to see what changed, review it, then `specproof-update` to
-re-bless.
+Run `check` to see what changed, review it, then `specproof-update --link-id <id>`
+for each reviewed link to re-bless (plain `specproof-update` blesses every
+drifted link at once).
 
 ### ATX 見出しの互換性
 

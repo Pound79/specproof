@@ -124,12 +124,15 @@ specproof init --adapter <framework>
    (id / label / spec / impl / features。hash は `PENDING` にする。それ以外の仮の値は manifest の読み込みで拒否される):
 
    ```bash
-   {{config:commands.traceabilityUpdate}}
-   {{config:commands.traceabilityCheck}}   # clean を確認
+   {{config:commands.traceabilityUpdate}} --link-id <追加したリンクの id>
+   {{config:commands.traceabilityCheck}}   # 追加したリンクに drift が無いことを確認
    ```
 
    `PENDING` は実ハッシュと一致しないため、仮 hash を入れた直後は意図的に
-   drift が出るのが正常。追加後すぐ `{{config:commands.traceabilityUpdate}}` で実ハッシュに更新する。
+   drift が出るのが正常。追加後すぐ `--link-id` を付けた `{{config:commands.traceabilityUpdate}}` で、
+   追加したリンクだけを実ハッシュに更新する。`--link-id` を付けないと、ほかのリンクの drift（動きが変わった
+   実装を含む）まで黙って bless する。ほかのリンクに drift が出ていたら bless せず報告に挙げ、`specproof-sync` に回す。
+   link id は manifest 由来でシェルの記号も通るので、コマンドに入れる前に `^[A-Za-z0-9._-]+$` に当たることを確かめ、当たらなければ流さずに id とともに人に示す。当たっても単一引用符で囲む（`--link-id 'perm-invite'`）。
 
    [feature の登録と実行対象の確認](references/runner-registration.md) に従い、
    意図した認証ロールの project に新規 feature を登録し、生成・実行一覧に対象が現れるまで確認する。
