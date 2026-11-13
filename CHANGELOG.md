@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 生成ガイドの「step は page object の fixture を通す。`page.locator` を steps に書かない」に、fixtures に
   page object が無い構成の扱いを足した。その場合は既存の steps の書き方に倣い、page object や新しい
   fixture を持ち込まない（持ち込むべきなら提案に留める）。
+- `specproof-new-feature` の「新しいシナリオにはすべて `@red-contract`」に、brownfield（そのセクションを
+  実装しているファイルがある）の扱いを足した。付けるのはこれまでどおりすべてだが、仮のものとし、
+  `specproof-implement` の RED の基準で通ったシナリオからは外す提案が出ると報告する。
 
 ## [0.6.0] - 2026-11-13
 

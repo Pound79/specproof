@@ -88,9 +88,15 @@ specproof init --adapter <framework>
      キーワード集合は `{{config:language}}` から Cucumber i18n テーブル経由で導出する。
    - `機能:` ブロックに目的を散文で記述
    - happy path 2〜3 シナリオ + エラー系 1 シナリオを最低限カバー
-   - 新しいシナリオにはすべて `@red-contract`（実装待ち）を付ける。`@human` が付いていなければ E2E で実行し、実装が無いので落ちる
-     （RED）のが正しく、`@red-contract` が残っている間は完了にならない（`specproof-stats --strict`）。
-     `specproof-implement` で GREEN になったら、人がタグを外す
+   - 新しいシナリオにはすべて `@red-contract`（実装待ち）を付ける。`@human` が付いていなければ E2E で実行し、
+     step が `{{config:conventions.pendingStubBody}}` のままなので落ちる（RED）のが正しく、`@red-contract` が
+     残っている間は完了にならない（`specproof-stats --strict`）。
+     - greenfield（手順 2 でこのセクションを実装しているファイルが見つからない）: `specproof-implement` で
+       GREEN になったら、人がタグを外す
+     - brownfield（手順 2 で実装しているファイルが見つかった）: 既存の実装ですでに満たされるシナリオが混ざる。
+       ここでは実装を読んで見分けず、すべてに付けたまま渡す。`specproof-implement` が step の本体を書いた後・
+       製品を変える前に流し、その時点で通ったシナリオの `@red-contract` を外す提案をする（外すのは人）。
+       `@red-contract` が最後まで残るのは、本当に実装が無く、通るまで落ちるのを見続けるシナリオだけになる
    - 実 AI 生成を伴うシナリオには `{{config:tags.generate}} {{config:tags.slow}}`、管理者限定には `{{config:tags.admin}}`
    - **環境固有シナリオのタグ付け**: 特定の認証プロバイダや外部サービスに依存するシナリオ
      （例: Google OAuth の同意画面、実メール送信の検証）には、対応する環境でのみ実行される
@@ -135,7 +141,9 @@ specproof init --adapter <framework>
    {{config:commands.typecheck}}
    ```
 
-7. 作成物の一覧と、ユーザーが次に実装すべき pending step を報告する。あわせて、
+7. 作成物の一覧と、ユーザーが次に実装すべき pending step を報告する。brownfield なら、付けた
+   `@red-contract` は仮のもので、`specproof-implement` の RED の基準（step の本体を書いた後・製品を変える前）で
+   通ったシナリオからは外す提案が出ることも書く。あわせて、
    `../specproof-sync/prompts/system.md` の「ドラフトの点検」（否定だけの確認・値の無い確認・
    統制できない前提・権限との矛盾。`{{config:layout.idiomGuide}}` を設定していても、この節はここを読む）を
    作成したシナリオに当て、同じ節の「認可の点検」（拒否の欠落・未決。入力は spec の権限の節）を
