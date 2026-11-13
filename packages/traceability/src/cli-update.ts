@@ -28,8 +28,12 @@ const main = async (): Promise<void> => {
     return;
   }
 
-  const scope = linkId === undefined ? `${updated.links.length} link(s)` : `link "${linkId}"`;
-  printText(`\nTraceability manifest updated: ${scope} refreshed.`);
+  // 数えるのは hash が変わったリンクと参照だけ（manifest の全リンク数ではない）。
+  const changedLinkCount = new Set(updated.changes.map((change) => change.linkId)).size;
+  const scope = linkId === undefined ? `${changedLinkCount} link(s)` : `link "${linkId}"`;
+  printText(
+    `\nTraceability manifest updated: ${scope} refreshed (${updated.changes.length} hash(es) changed).`,
+  );
 };
 
 runCli("traceability update", main);
