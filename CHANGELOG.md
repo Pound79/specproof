@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- playwright の雛形の `trace` を `on-first-retry` から `retain-on-failure` にした。ローカルは
+  `retries: 0` なので再試行が起きず、trace が一度も残らなかった。失敗した回ごとに trace を残す
+  （CI では再試行で通ったテストの、失敗した 1 回目の trace も残る。CI の成果物には上げない前提）。trace には Cookie・localStorage・入力したログインフォームが入るので、
+  雛形の README と設定のコメントに「`test-results/`・`playwright-report/` を共有しない・CI の成果物に
+  上げない」と書いた（これまでの README は、成果物に上げる場合は保持期間を短くするよう勧めていた）。
+  取り込み済みの雛形は自動では変わらないので、使う場合は `playwright.config.ts` の `trace` を書き換える。
+
 - `specproof-check` のテキスト出力で表示の上限を超えた warning を省いたとき、`...and N more` の代わりに
   種類ごとに 1 行ずつ、省いた種類・表示した件数と全体の件数・`--json` で全件を見られることを出す
   （例: `...and 681 more unregistered-impl (shown 20 of 701; run with --json for the full list)`）。

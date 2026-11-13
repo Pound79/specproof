@@ -194,7 +194,12 @@ export default defineConfig({
     baseURL: resolveBaseUrl(cfg),
     locale,
     timezoneId,
-    trace: "on-first-retry",
+    // Keep the trace of every failed attempt, also locally where retries is 0
+    // (on-first-retry would never record one there). A trace holds cookies,
+    // localStorage, typed form values and network bodies, i.e. the test
+    // account's session: never share test-results/ or playwright-report/,
+    // and do not upload them as CI artifacts.
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
