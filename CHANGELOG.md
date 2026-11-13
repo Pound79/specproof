@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-13
+
 ### Fixed
 
 - `specproof-update` の `Traceability manifest updated: N link(s) refreshed.` の N が、hash が変わった
   リンクの数ではなく manifest の全リンクの数だった。変わったリンクの数を出し、変わった参照（hash）の数を
   `(M hash(es) changed)` として添える（`--link-id` を付けたときも添える）。manifest に書く内容は変わらない。
+  (#59)
 - manifest をサブディレクトリに置く構成（例: 設定ファイルの `layout.manifest: "e2e/traceability.yaml"`）で、
   そのディレクトリから `specproof-check` などを流すと、そこをリポジトリのルートと取り違えて
   全参照を missing と報告し、`BOTH spec and impl changed` まで出していた。親へたどって
@@ -20,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `layout.manifest` が無い・読めないときと、`.git` のある段より上の設定ファイルは、これまでどおり
   manifest の段をルートにする。manifest の段に設定ファイルの項目（リンク切れや旧名の
   `bdd-kit.config.*` を含む）があれば親へ移らず、これまでどおりその不備をエラーで知らせる。途中の段に
-  それがあるときも親の設定ファイルを採らず、これまでどおり manifest の段をルートにする。
+  それがあるときも親の設定ファイルを採らず、これまでどおり manifest の段をルートにする。(#58)
 - `specproof-check` は manifest の参照が 1 件以上あってすべてファイルごと見つからないとき、ルートや
   manifest の取り違えを疑う案内を出し、`BOTH spec and impl changed` と `specproof-update` の案内を
   出さない。`--json` に `allReferencesMissing`（真偽値）を足し、このとき `bothSidesChanged` は空になる。
@@ -29,25 +32,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   表示しない）。
   drift として終了コード 1 で終わるのは変わらない。
   ライブラリの `DriftReport` 型に必須の `allReferencesMissing` が増えたので、自前で `DriftReport` を
-  組み立てている TypeScript のコードはこの項目を足す必要がある。
+  組み立てている TypeScript のコードはこの項目を足す必要がある。(#58)
 
 ### Changed
 
 - playwright の雛形の `trace` を `on-first-retry` から `retain-on-failure` にした。ローカルは
   `retries: 0` なので再試行が起きず、trace が一度も残らなかった。失敗した回ごとに trace を残す
-  （CI では再試行で通ったテストの、失敗した 1 回目の trace も残る。CI の成果物には上げない前提）。trace には Cookie・localStorage・入力したログインフォームが入るので、
+  （CI では再試行で通ったテストの、失敗した 1 回目の trace も残る。CI の成果物には上げない前提）。
+  trace には Cookie・localStorage・入力したログインフォームが入るので、
   雛形の README と設定のコメントに「`test-results/`・`playwright-report/` を共有しない・CI の成果物に
   上げない」と書いた（これまでの README は、成果物に上げる場合は保持期間を短くするよう勧めていた）。
   取り込み済みの雛形は自動では変わらないので、使う場合は `playwright.config.ts` の `trace` を書き換える。
-
+  (#60)
 - `specproof-check` のテキスト出力で表示の上限を超えた warning を省いたとき、`...and N more` の代わりに
   種類ごとに 1 行ずつ、省いた種類・表示した件数と全体の件数・`--json` で全件を見られることを出す
   （例: `...and 681 more unregistered-impl (shown 20 of 701; run with --json for the full list)`）。
   これまでは合計の件数だけで、上限の無い種類（`missing-then`・`step-order`・`unreviewed-draft` など）まで
   省かれたように読めた。上限は `unregistered-impl`（20 件）・`possible-contradiction`（10 件）・
   `unknown-config-key`（20 件）だけで、ほかの種類は今どおり全件出す。
-  判定・終了コード・`--json` の中身は変わらない。
-
+  判定・終了コード・`--json` の中身は変わらない。(#57)
 ## [0.5.0] - 2026-11-01
 
 ### Added
@@ -740,7 +743,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/specproof/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Pound79/specproof/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Pound79/specproof/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Pound79/specproof/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Pound79/specproof/compare/v0.3.0...v0.4.0
