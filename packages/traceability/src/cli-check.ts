@@ -6,6 +6,7 @@ import {
   attachFailsUnderStrict,
   describeBothSidesChanged,
   describeEntry,
+  describeHiddenWarnings,
   describeLinkHeading,
   describeWarning,
   isCheckFailure,
@@ -33,7 +34,8 @@ const main = async (): Promise<void> => {
     strictUnregisteredSpecHeadings: config.strictUnregisteredSpecHeadings,
     strictFeatureLint: config.strictFeatureLint,
   };
-  const { shown: shownWarnings, hiddenCount } = selectWarningsForDisplay(report.warnings);
+  const display = selectWarningsForDisplay(report.warnings);
+  const shownWarnings = display.shown;
 
   if (flags.has("--github-annotations")) {
     for (const entry of report.entries) {
@@ -81,8 +83,8 @@ const main = async (): Promise<void> => {
     const hasHardWarning = shownWarnings.some((warning) =>
       warningFailsUnderStrict(warning.kind, strictOptions),
     );
-    if (hiddenCount > 0) {
-      printText(`...and ${hiddenCount} more`);
+    for (const line of describeHiddenWarnings(display)) {
+      printText(line);
     }
     if (!strict && hasHardWarning) {
       printText(

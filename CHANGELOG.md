@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `specproof-check` のテキスト出力で表示の上限を超えた warning を省いたとき、`...and N more` の代わりに
+  種類ごとに 1 行ずつ、省いた種類・表示した件数と全体の件数・`--json` で全件を見られることを出す
+  （例: `...and 681 more unregistered-impl (shown 20 of 701; run with --json for the full list)`）。
+  これまでは合計の件数だけで、上限の無い種類（`missing-then`・`step-order`・`unreviewed-draft` など）まで
+  省かれたように読めた。上限は `unregistered-impl`（20 件）・`possible-contradiction`（10 件）・
+  `unknown-config-key`（20 件）だけで、ほかの種類は今どおり全件出す。
+  判定・終了コード・`--json` の中身は変わらない。
+
 ## [0.5.0] - 2026-11-01
 
 ### Added
