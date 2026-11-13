@@ -117,14 +117,17 @@ export const attachFailsUnderStrict = (
     failsUnderStrict: warningFailsUnderStrict(warning.kind, options),
   }));
 
-// A-3: display-only truncation for unregistered-impl warnings (JSON output
-// always carries the full list — see checkDrift). A repo with implGlobs
-// pointed at a broad tree can produce hundreds of matches; printing all of
-// them buries the other warnings. Non-unregistered-impl warnings are never
-// truncated.
+// A-3: display-only truncation (JSON output always carries the full list —
+// see checkDrift). DISPLAY_LIMITS below is the single source of truth for
+// which kinds are capped and at what count; any kind not listed there is
+// never truncated. Warnings marked `truncated: true` (check's own summary
+// line) are always shown and do not count toward the cap.
 export interface DisplayWarnings {
   shown: DriftWarning[];
+  /** Total hidden across all kinds (kept for compatibility). */
   hiddenCount: number;
+  /** Hidden count per kind; only kinds with at least one hidden warning. */
+  hiddenByKind: Partial<Record<DriftWarning["kind"], number>>;
 }
 
 // Advisory kinds that can fire many times on a real suite are capped so they
@@ -139,15 +142,36 @@ const DISPLAY_LIMITS: Partial<Record<DriftWarning["kind"], number>> = {
 
 export const selectWarningsForDisplay = (warnings: DriftWarning[]): DisplayWarnings => {
   const seen = new Map<DriftWarning["kind"], number>();
+  const hidden = new Map<DriftWarning["kind"], number>();
   const shown = warnings.filter((warning) => {
     const limit = DISPLAY_LIMITS[warning.kind];
     if (limit === undefined || warning.truncated === true) return true;
     const count = (seen.get(warning.kind) ?? 0) + 1;
     seen.set(warning.kind, count);
-    return count <= limit;
+    if (count <= limit) return true;
+    hidden.set(warning.kind, (hidden.get(warning.kind) ?? 0) + 1);
+    return false;
   });
-  return { shown, hiddenCount: warnings.length - shown.length };
+  return {
+    shown,
+    hiddenCount: warnings.length - shown.length,
+    hiddenByKind: Object.fromEntries(hidden),
+  };
 };
+
+// One line per hidden kind, in the order the kinds were first hidden. Names
+// the kind and the shown/total counts so a reader does not mistake which
+// warnings were omitted, and points at --json for the full list. check's own
+// summary warning (`truncated: true`) is not an item of the list, so it is
+// left out of both counts; it is printed on its own line anyway.
+export const describeHiddenWarnings = (display: DisplayWarnings): string[] =>
+  Object.entries(display.hiddenByKind).map(([kind, hiddenCount = 0]) => {
+    const shownCount = display.shown.filter(
+      (warning) => warning.kind === kind && warning.truncated !== true,
+    ).length;
+    const total = shownCount + hiddenCount;
+    return `...and ${hiddenCount} more ${kind} (shown ${shownCount} of ${total}; run with --json for the full list)`;
+  });
 
 export const toGithubAnnotation = (entry: DriftEntry): string => {
   const message =

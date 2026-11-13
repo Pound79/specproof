@@ -3,6 +3,7 @@ import type { DriftEntry, DriftReport, DriftWarning } from "../check.js";
 import {
   attachFailsUnderStrict,
   describeEntry,
+  describeHiddenWarnings,
   describeWarning,
   isCheckFailure,
   selectWarningsForDisplay,
@@ -364,7 +365,7 @@ describe("selectWarningsForDisplay", () => {
     expect(result.hiddenCount).toBe(1);
   });
 
-  it("never truncates or counts non-unregistered-impl warnings toward the limit", () => {
+  it("never truncates or counts kinds without a display limit toward the limit", () => {
     const implWarnings = Array.from({ length: 25 }, (_, index) => implWarning(index));
     const warnings = [...implWarnings, emptyLinkWarning];
 
@@ -373,5 +374,101 @@ describe("selectWarningsForDisplay", () => {
     expect(result.shown).toContainEqual(emptyLinkWarning);
     expect(result.shown).toHaveLength(21);
     expect(result.hiddenCount).toBe(5);
+  });
+});
+
+describe("selectWarningsForDisplay の種類ごとの省略件数", () => {
+  const ofKind = (kind: DriftWarning["kind"], length: number): DriftWarning[] =>
+    Array.from({ length }, (_, i) => ({ kind, path: `p${i}`, message: `${kind} ${i}` }));
+
+  it("上限を超えた種類だけを hiddenByKind に数える", () => {
+    const warnings = [...ofKind("unregistered-impl", 701), ...ofKind("missing-then", 3)];
+
+    const result = selectWarningsForDisplay(warnings);
+
+    expect(result.hiddenByKind).toEqual({ "unregistered-impl": 681 });
+    expect(result.hiddenCount).toBe(681);
+  });
+
+  it("2 種類が上限を超えたら種類ごとに数える", () => {
+    const warnings = [...ofKind("unregistered-impl", 25), ...ofKind("possible-contradiction", 13)];
+
+    const result = selectWarningsForDisplay(warnings);
+
+    expect(result.hiddenByKind).toEqual({
+      "unregistered-impl": 5,
+      "possible-contradiction": 3,
+    });
+    expect(result.hiddenCount).toBe(8);
+  });
+
+  it("上限の無い種類は件数がいくつでも全件出し、数えない", () => {
+    const warnings = [
+      ...ofKind("unreviewed-draft", 300),
+      ...ofKind("missing-then", 300),
+      ...ofKind("step-order", 300),
+      ...ofKind("duplicate-scenario-name", 300),
+    ];
+
+    const result = selectWarningsForDisplay(warnings);
+
+    expect(result.shown).toEqual(warnings);
+    expect(result.hiddenByKind).toEqual({});
+    expect(result.hiddenCount).toBe(0);
+  });
+
+  it("上限ちょうどなら何も隠さない", () => {
+    const result = selectWarningsForDisplay(ofKind("unregistered-impl", 20));
+
+    expect(result.hiddenByKind).toEqual({});
+  });
+});
+
+describe("describeHiddenWarnings", () => {
+  const ofKind = (kind: DriftWarning["kind"], length: number): DriftWarning[] =>
+    Array.from({ length }, (_, i) => ({ kind, path: `p${i}`, message: `${kind} ${i}` }));
+
+  it("省いた種類名・表示した件数と全体の件数・--json の案内を出す", () => {
+    const warnings = [...ofKind("unregistered-impl", 701), ...ofKind("missing-then", 3)];
+
+    const lines = describeHiddenWarnings(selectWarningsForDisplay(warnings));
+
+    expect(lines).toEqual([
+      "...and 681 more unregistered-impl (shown 20 of 701; run with --json for the full list)",
+    ]);
+  });
+
+  it("省いた種類が複数なら種類ごとに 1 行ずつ出す", () => {
+    const warnings = [...ofKind("possible-contradiction", 13), ...ofKind("unregistered-impl", 25)];
+
+    const lines = describeHiddenWarnings(selectWarningsForDisplay(warnings));
+
+    expect(lines).toEqual([
+      "...and 3 more possible-contradiction (shown 10 of 13; run with --json for the full list)",
+      "...and 5 more unregistered-impl (shown 20 of 25; run with --json for the full list)",
+    ]);
+  });
+
+  it("check のまとめの 1 件（truncated）は表示した件数にも全体の件数にも数えない", () => {
+    const summary: DriftWarning = {
+      kind: "unknown-config-key",
+      truncated: true,
+      path: "specproof.config.yaml",
+      message: "more than 100 unknown keys",
+    };
+    const warnings = [...ofKind("unknown-config-key", 100), summary];
+
+    const display = selectWarningsForDisplay(warnings);
+
+    expect(display.shown).toContain(summary);
+    expect(describeHiddenWarnings(display)).toEqual([
+      "...and 80 more unknown-config-key (shown 20 of 100; run with --json for the full list)",
+    ]);
+  });
+
+  it("上限を超えていなければ何も出さない", () => {
+    const warnings = [...ofKind("unregistered-impl", 20), ...ofKind("unreviewed-draft", 500)];
+
+    expect(describeHiddenWarnings(selectWarningsForDisplay(warnings))).toEqual([]);
   });
 });

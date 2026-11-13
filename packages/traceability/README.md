@@ -183,7 +183,11 @@ Likewise at most 20 `unknown-config-key` warnings are printed and annotated
 (a config file is PR-controlled); `--json` and the `--strict` verdict use all of them.
 Past 100 unknown keys the scan stops and one more warning (with
 `truncated: true`) says so; that warning is always printed. Each key path in a
-message is cut to 200 characters, ending with `…`.
+message is cut to 200 characters, ending with `…`. At most 20
+`unregistered-impl` warnings are printed and annotated. Every other kind is
+always printed in full. When a capped kind goes past its limit, the text output
+adds one line per kind, such as
+`...and 681 more unregistered-impl (shown 20 of 701; run with --json for the full list)`.
 
 Because `unregistered-impl` / `unregistered-spec-heading` don't escalate
 under `--strict` without their opt-in flags, `check --json` annotates every
