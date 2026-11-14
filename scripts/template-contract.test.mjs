@@ -18,6 +18,7 @@ for (const adapter of ["playwright", "flutter"]) {
           "agents.codeReviewer",
           "agents.securityReviewer",
           "implement.blastRadiusGlobs",
+          "implement.productChanges",
           "commands.productLint",
           "commands.productTypecheck",
         ].includes(key)
@@ -78,6 +79,12 @@ test("編集範囲の省略には対象ドメインに限定する明示済み f
   const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
   assert.match(skill, /implement\.blastRadiusGlobs` が未設定なら/);
   assert.ok(skill.includes("対象ドメインに対応する"));
+});
+
+test("製品の変更を置く場所の省略は同じブランチに置く明示済み fallback がある", () => {
+  const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
+  assert.match(skill, /`\{\{config:implement\.productChanges\}\}` が未設定か `sameBranch` なら/);
+  assert.match(skill, /`separateBranch`/);
 });
 
 test("Flutter の smoke は projects のタグ条件を runner へ実際に渡す", () => {

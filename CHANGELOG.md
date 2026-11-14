@@ -37,6 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   反映するときに限り、決めた人と日付を添えて更新してよい。`# language:`・`# specproof: draft`・`@out-of-scope` の
   理由コメントは対象外。更新すると feature の drift になり、bless は人が行う。
 
+### Added
+
+- 設定に任意のキー `implement.productChanges`（`sameBranch` / `separateBranch`）を足した。`separateBranch` は
+  E2E のブランチをマージせず、製品の変更を製品の既定ブランチから切った別のブランチに置く運用で、
+  `specproof-implement` は製品の変更を別の作業ツリーに書き、修正が取り込まれるまで E2E の側の `@red-contract` を
+  外す提案をしない。互換: 未設定なら `sameBranch` でこれまでどおり。エンジンは読まず、`specproof-check` の
+  既知のキーに加えただけ。0.6.0 以前の CLI はこのキーを `unknown-config-key` として出し、`--strict` で失敗する。
+
 ## [0.6.0] - 2026-11-13
 
 ### Fixed

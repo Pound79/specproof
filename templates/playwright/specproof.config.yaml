@@ -178,10 +178,15 @@ env:
 # blastRadiusGlobs limits which files specproof-implement may touch. If omitted, it
 # defaults conservatively to the target domain's files under layout.implGlobs.
 # ---------------------------------------------------------------------------
+# productChanges: where specproof-implement puts product-code changes.
+#   sameBranch (default) = the same branch as the E2E changes.
+#   separateBranch = the E2E branch is not merged; product changes go on their own
+#   branch cut from the product's default branch (see specproof-implement).
 # implement:
 #   blastRadiusGlobs:
 #     - "src/pages/**"
 #     - "src/components/**"
+#   productChanges: sameBranch
 
 # ---------------------------------------------------------------------------
 # runner: Playwright-specific runner options

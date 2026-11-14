@@ -153,7 +153,7 @@ const EVERY_KNOWN_KEY = {
       allowInsecureHttp: true,
     },
   ],
-  implement: { blastRadiusGlobs: [] },
+  implement: { blastRadiusGlobs: [], productChanges: "sameBranch" },
   git: { commitScope: "s", branchPrefix: "p" },
   agents: { codeReviewer: "c", securityReviewer: "s" },
   conventions: {

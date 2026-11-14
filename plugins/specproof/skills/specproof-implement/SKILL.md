@@ -176,6 +176,29 @@ feature のうち**シナリオ**（`機能:`・`シナリオ:` などのキー�
    未実行」を明示。
 9. **レポート + 人間ゲート**: コミット/bless は人間（下記レポート様式）。
 
+## 製品の変更を別のブランチに置く場合
+
+`{{config:implement.productChanges}}` が未設定か `sameBranch` なら、製品の変更は E2E と同じブランチに置く
+（この節は当てない）。それ以外の値（綴りの誤りを含む）なら推測せず、キー名と値を示して停止し、
+どちらに置くかをユーザーに聞く。`separateBranch` は、E2E のブランチをマージせず、製品の変更を製品の既定ブランチから切った
+別のブランチに置く運用で、テストされる画面は製品の既定ブランチから作られる。修正が取り込まれるまで E2E は
+落ち続け、その間を `@red-contract` で表す。このときは手順 3 以降を次のように読み替える。
+
+1. 製品のブランチの基点とブランチ名を人に確かめる（推測しない）。
+2. 製品の変更は、そのブランチを checkout した別の作業ツリー（`git worktree add`）に書き、E2E のブランチには
+   コミットしない。作業ツリーを作れない環境では、作るコマンドを示して人に作ってもらう。
+3. blast radius（Safety rules）と製品の型検査・lint（`{{config:commands.productTypecheck}}` / `{{config:commands.productLint}}`）は、
+   製品の作業ツリーで当てる。
+4. smoke で GREEN を確かめられるのは、修正を含むビルドを `{{config:env.baseUrl}}` に用意できるときだけ。用意できなければ、
+   対象のシナリオは「FAIL（想定どおりの RED: @red-contract N 件）」か SKIPPED(理由) と書き、GREEN と書かない。
+   step の本体は手順 2 の RED の基準で、落ちる理由が feature の期待どおりかまで確かめておく。
+5. 製品の変更が要ったシナリオ（手順 2 の FAIL）の `@red-contract` は、修正が製品の既定ブランチに取り込まれ、
+   E2E を流して通るまで外す提案をしない（手順 2 で PASS したシナリオの提案はこれに縛られない）。
+6. 製品のファイルの impl hash は、E2E のブランチにある製品のファイルから取る。修正が取り込まれて E2E のブランチに
+   入るまで impl の drift は出ない。取り込み後の drift の bless は人が行う。
+7. レポートは E2E の側と製品の側のブランチを分け、それぞれの変更ファイルと残り（製品の PR、取り込み後の再実行と
+   `@red-contract` を外す提案）を書く。
+
 ## ガードレール（4層 anti-gaming）
 
 - **① 禁止ルール明文化＋自己点検**: gaming パターン（テスト値のハードコード／テスト入力
@@ -204,7 +227,8 @@ feature のうち**シナリオ**（`機能:`・`シナリオ:` などのキー�
 
 ## レポート様式（最終メッセージ内 Markdown）
 
-- 実装ファイル一覧（step／page object／`{{config:layout.textConstants}}`／製品 impl を区別）
+- 実装ファイル一覧（step／page object／`{{config:layout.textConstants}}`／製品 impl を区別）。
+  `separateBranch` なら E2E の側と製品の側のブランチを分けて書く
 - 検証結果: bddgen（`{{config:commands.generate}}`）/ E2E typecheck（`{{config:commands.typecheck}}`）/
   E2E lint（`{{config:commands.lint}}`）/ 製品 typecheck（`{{config:commands.productTypecheck}}`）/
   製品 lint（`{{config:commands.productLint}}`）/ smoke（`{{config:commands.smoke}}`）を
@@ -235,7 +259,8 @@ feature のうち**シナリオ**（`機能:`・`シナリオ:` などのキー�
 - **gaming 禁止**: ハードコード・テスト入力特例・assertion 骨抜きをしない。
 - **blast radius**: 対象ドメインの範囲（`{{config:implement.blastRadiusGlobs}}`）に限定。横断/共有
   ファイルは**停止して提案のみ**。`implement.blastRadiusGlobs` が未設定なら、対象ドメインに対応する
-  `{{config:layout.implGlobs}}` のファイル群を保守的な既定スコープとする。
+  `{{config:layout.implGlobs}}` のファイル群を保守的な既定スコープとする。`{{config:implement.productChanges}}` が
+  `separateBranch` なら、製品の変更は E2E のブランチに置かない（「製品の変更を別のブランチに置く場合」）。
 - **自己修正2回上限**、超えたら停止報告。**テストが落ちた状態でコミットしない**（`@red-contract` のシナリオの RED は想定どおり。それ以外の失敗は 1 件でもコミットを止める）。`{{config:tags.slow}}`
   未実行を明示。
 - `{{config:layout.stepFileExt}}` ファイルに画面の文言（UI 文字列）を直接書かない（UI 文字列は `{{config:layout.textConstants}}` 定数）。

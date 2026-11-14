@@ -95,7 +95,7 @@ const CONFIG_SCHEMA: KeySchema = mapping({
       allowInsecureHttp: VALUE,
     }),
   ),
-  implement: fixed(["blastRadiusGlobs"]),
+  implement: fixed(["blastRadiusGlobs", "productChanges"]),
   git: fixed(["commitScope", "branchPrefix"]),
   agents: fixed(["codeReviewer", "securityReviewer"]),
   conventions: fixed(["agentsDoc", "i18nLintPlugin", "stepFrameworkPattern", "pendingStubBody"]),

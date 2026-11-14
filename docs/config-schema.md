@@ -104,7 +104,7 @@ page object を持たない構成（`fixtures: {}`、または world・認証な
 | `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。Playwright テンプレートは `storageState` / `setup` / `credentialsEnv`（`username` / `password` / `newPassword`）も読む。`tags` には状態タグに触れる式と括弧の対応が取れていない式を書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `env` | required（baseUrl） | 環境変数の論理名。`adminUsername`<sup>+</sup> は authed-admin の条件判定。 |
 | `environments[]` | required（1エントリ以上） | 実行環境プロファイル。環境別の auth / dotenv / excludeTags を宣言。詳細は後述。 |
-| `implement`<sup>+</sup> | optional | `blastRadiusGlobs` = specproof-implement の編集許可スコープ（implGlobs とは別概念）。 |
+| `implement`<sup>+</sup> | optional | `blastRadiusGlobs` = specproof-implement の編集許可スコープ（implGlobs とは別概念）。`productChanges` = 製品の変更を置く場所。`sameBranch`（既定。E2E と同じブランチ）か `separateBranch`（E2E のブランチはマージせず、製品の変更は製品の既定ブランチから切った別のブランチに置く）。`separateBranch` の扱いは specproof-implement の「製品の変更を別のブランチに置く場合」。エンジンは読まない（skill だけが読む）。 |
 | `git`<sup>+</sup> | optional | `commitScope` / `branchPrefix`。specproof-sync 自動コミット用。 |
 | `agents`<sup>+</sup> | optional | `codeReviewer` / `securityReviewer` の識別子。 |
 | `conventions` | optional | `agentsDoc` / `i18nLintPlugin` / `stepFrameworkPattern` / `pendingStubBody`。 |
@@ -135,7 +135,7 @@ page object を持たない構成（`fixtures: {}`、または world・認証な
 | `projects[].credentialsEnv` | `username` / `password` / `newPassword` |
 | `environments[]` の各要素 | `name` / `default` / `dotenvFile` / `auth` / `excludeTags` / `envOverrides` / `allowInsecureHttp` |
 | `environments[].auth` | `provider` / `description` |
-| `implement` | `blastRadiusGlobs` |
+| `implement` | `blastRadiusGlobs` / `productChanges` |
 | `git` | `commitScope` / `branchPrefix` |
 | `agents` | `codeReviewer` / `securityReviewer` |
 | `conventions` | `agentsDoc` / `i18nLintPlugin` / `stepFrameworkPattern` / `pendingStubBody` |
