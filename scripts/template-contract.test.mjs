@@ -642,3 +642,13 @@ test("playwright の manifest 雛形の記入例は、リポジトリのルー�
   assert.match(template, /all paths are relative to the repo root/);
   assert.match(template, /e2eRoot/);
 });
+
+test("implement は全件 PASS で終えるときも、書いた E2E コードの生成・型検査・lint を通す", () => {
+  // RED の基準は step の本体を書いた後に取るので、全件 PASS でも E2E のコードは変わっている。
+  const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
+  const exit = skill.slice(skill.indexOf("5. 全件 PASS なら"), skill.indexOf("3. **実装計画**"));
+  assert.ok(exit.length > 0, "全件 PASS の終了の分岐が見つからない");
+  for (const key of ["generate", "typecheck", "lint"]) {
+    assert.ok(exit.includes(`{{config:commands.${key}}}`), key);
+  }
+});

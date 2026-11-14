@@ -140,7 +140,11 @@ feature のうち**シナリオ**（`機能:`・`シナリオ:` などのキー�
       ただし step の本体は自分が書いたものなので、「通るように書いた」可能性を手順 6 の 5 と手順 7 で必ず確かめる。
       確かめた後、レポートに「実装不要（既存の実装で満たす）」として挙げ、`@red-contract` が付いていれば外す
       提案をする（外すのは人。Safety rules の「状態タグを変えない」）。
-   5. 全件 PASS なら、製品を変えずに手順 6・7 を経て「実装不要」で終了する。
+   5. 全件 PASS なら製品は変えないが、step の本体・page object・`{{config:layout.textConstants}}` は書き換えている。
+      手順 5 のうち E2E 側の検証（`{{config:commands.generate}}`・`{{config:commands.typecheck}}`・`{{config:commands.lint}}`）を
+      通してから手順 6・7 を経て「実装不要」で終了する。シナリオが通っても、型検査・lint の失敗を残したまま終えない。
+      型検査・lint を直すために step・page object を変えたら、対象のシナリオを流し直して PASS を確かめる。
+      製品の型検査・lint は製品を変えていないので「SKIPPED（製品は未変更）」と書く。
 3. **実装計画**: 手順 2 で製品の変更が要ると分かったシナリオについて、feature の観測挙動 + spec/rationale の
    WHY・契約から必要変更（step 本体／page object／`{{config:layout.textConstants}}`／製品 impl）を列挙。
    横断/共有が要るなら**停止して提案のみ**。
