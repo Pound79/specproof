@@ -44,6 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `specproof-check --since-bless` を足した。drift した参照ごとに、manifest に記録した hash（前に bless した中身）と
+  同じ版を持つ最も新しいコミットを git の履歴（そのパスに触れた直近 200 コミット）から探し、
+  `git diff <完全なコミット id> -- ':(top,literal)<path>'` の形で示す（どこから流しても同じファイルを指す。
+  シェルで扱いにくい文字を含むパスはコマンドにせずコミットだけを示す）。spec は見出しの節の hash で照合する。
+  同じパスの参照は履歴と各版を 1 回だけ読み、全体で git の起動 2,000 回・60 秒を超えたら打ち切って、そのことを示す。
+  drift があるとき、`--json` では探した参照に `blessedCommit`（見つからなければ `null`）と、全体に
+  `gitHistoryAvailable`・`blessHistoryIncomplete` を足す。git はシェルを通さず、パスを文字どおりに扱わせ、
+  足りない版を取りに行かせずに起動する。互換: フラグを付けたときだけ動き、manifest の形・既定の出力・終了コードは
+  変えない。
 - skill に、環境の制限（sandbox で作業ツリーや `.git` に書けない、など）で検証ゲートのコマンドを流せないときに、
   人に 1 行のコマンドを渡し、貼られた結果を受けて続ける様式を足した（`specproof/references/command-handoff.md`）。
   ゲートごとに `&&` でつないだコマンドと照合できる期待結果（件数・clean・想定どおりの RED）を示し、

@@ -1,11 +1,15 @@
 #!/usr/bin/env node
+import { findBlessedCommits, MAX_COMMITS } from "./bless-history.js";
 import { checkDrift } from "./check.js";
 import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
 import {
   attachFailsUnderStrict,
   describeAllReferencesMissing,
+  describeBlessedCommit,
   describeBothSidesChanged,
+  GIT_HISTORY_UNAVAILABLE,
+  BLESS_HISTORY_INCOMPLETE,
   describeEntry,
   describeHiddenWarnings,
   describeLinkHeading,
@@ -17,6 +21,7 @@ import {
   toGithubWarningAnnotation,
   warningFailsUnderStrict,
 } from "./cli-check-format.js";
+import { loadManifest } from "./manifest.js";
 import { printJson, printText } from "./output.js";
 
 const main = async (): Promise<void> => {
@@ -38,6 +43,18 @@ const main = async (): Promise<void> => {
   };
   const display = selectWarningsForDisplay(report.warnings);
   const shownWarnings = display.shown;
+  // --since-bless は drift があるときだけ git を見る。全参照 missing はルートの取り違えなので探さない。
+  const history =
+    flags.has("--since-bless") && !report.clean && !report.allReferencesMissing
+      ? await findBlessedCommits(
+          config.repoRoot,
+          report.entries,
+          await loadManifest(config.manifestPath),
+        )
+      : undefined;
+  const blessedByEntry = new Map(
+    history?.available ? report.entries.map((entry, index) => [entry, history.commits[index]]) : [],
+  );
 
   if (flags.has("--github-annotations")) {
     // 全参照 missing のときは、参照ごとの注釈（同期と update を勧める）を出さず、ルートを確かめる
@@ -58,6 +75,14 @@ const main = async (): Promise<void> => {
   if (flags.has("--json")) {
     printJson({
       ...report,
+      // --since-bless を付けたときだけ、探した参照に blessedCommit（見つからなければ null）を足す。
+      entries: report.entries.map((entry) => {
+        const commit = blessedByEntry.get(entry);
+        return commit === undefined ? entry : { ...entry, blessedCommit: commit };
+      }),
+      ...(history === undefined
+        ? {}
+        : { gitHistoryAvailable: history.available, blessHistoryIncomplete: history.incomplete }),
       warnings: attachFailsUnderStrict(report.warnings, strictOptions),
     });
   } else if (report.clean) {
@@ -72,7 +97,22 @@ const main = async (): Promise<void> => {
       printText(`\n${describeLinkHeading(linkId)}`);
       for (const entry of entries) {
         printText(`  ${describeEntry(entry)}`);
+        const blessed = describeBlessedCommit(
+          entry,
+          blessedByEntry.get(entry),
+          MAX_COMMITS,
+          history?.prefix,
+        );
+        if (blessed !== undefined) {
+          printText(`    ${blessed}`);
+        }
       }
+    }
+    if (history !== undefined && !history.available) {
+      printText(`\n${GIT_HISTORY_UNAVAILABLE}`);
+    }
+    if (history?.incomplete === true) {
+      printText(`\n${BLESS_HISTORY_INCOMPLETE}`);
     }
     if (!report.allReferencesMissing) {
       printText("");

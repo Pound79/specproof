@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
 import { printable } from "./display-text.js";
 
@@ -194,6 +195,44 @@ export const describeNextSteps = (entries: DriftEntry[]): string[] => [
     ? [`[impl] drift: ${IMPL_BEHAVIOR_NOTE}.`]
     : []),
 ];
+
+// コマンドの形で示すのは、どのシェル（POSIX・PowerShell・cmd）でも引用の外に出られない文字だけのパス。
+// それ以外は、コマンドに埋めずにコミットだけを示す（パスは上の行に出ている）。
+const COMMAND_SAFE_PATH = /^[A-Za-z0-9._/@+-]+$/;
+
+/**
+ * --since-bless: bless した中身と同じ版のコミット（見つからなければ null、探していなければ undefined）。
+ * prefix は設定のルートの git の最上位からの相対パス。示すコマンドは完全なコミット id（同名のブランチ・タグに
+ * 負けない）と `:(top,literal)` のパス（どこから流しても同じファイルを指し、パスの記号を解釈させない）を使う。
+ */
+export const describeBlessedCommit = (
+  entry: DriftEntry,
+  commit: string | null | undefined,
+  maxCommits: number,
+  prefix = "",
+): string | undefined => {
+  if (commit === undefined) return undefined;
+  if (commit === null) {
+    return printable(
+      `blessed version: not found in the last ${maxCommits} commit(s) touching ${entry.path} (the blessed content may never have been committed, the file may have been renamed, or the history may be shallow)`,
+    );
+  }
+  const topPath = `${prefix}${path.posix.normalize(entry.path)}`;
+  if (path.posix.isAbsolute(entry.path) || !COMMAND_SAFE_PATH.test(topPath)) {
+    return printable(
+      `blessed version: ${commit} (the path has characters not shown in a command; compare that file at this commit)`,
+    );
+  }
+  return printable(
+    `blessed version: ${commit} — compare with: git diff ${commit} -- ':(top,literal)${topPath}'`,
+  );
+};
+
+export const BLESS_HISTORY_INCOMPLETE =
+  "--since-bless: stopped searching after reaching the limit on git calls or time; references without a result were not searched to the end.";
+
+export const GIT_HISTORY_UNAVAILABLE =
+  "--since-bless: git history is not available here (not a git work tree, git is not installed, or git refused the repository); blessed versions were not searched.";
 
 export const toGithubAnnotation = (entry: DriftEntry): string => {
   const message =

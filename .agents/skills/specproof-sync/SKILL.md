@@ -142,7 +142,10 @@ feature / steps / page objects / manifest を変更しない。
      step / page object で画面要素を探す手がかりとしてだけ読み、期待値の情報源にしない
      （impl のみ changed で振る舞いが変わったリンクは、Step 2 の裁定で「spec が新しい挙動を
      要求・許容している」となった場合にだけここへ来る）
-   - 変更の文脈が欲しい場合の補助として `git diff origin/main...HEAD -- <path>`
+   - 前に bless した中身からの差分は `{{config:commands.traceabilityCheck}} --since-bless` が示す
+     `compare with:` の行のコマンドをそのまま使って見る（どこから流しても同じファイルを指す形で示される。
+     bless した中身がコミットされていなければ見つからない）。
+     それ以外の補助として `git diff origin/main...HEAD -- <path>`
      または直近の変更コミット。ただし main 上の未コミット変更のみ・ベース
      ブランチが main でない等では diff が空になり得るため、空でも現在内容を分析対象として扱う。
      なお、feature の期待値の権威は spec のみとする
