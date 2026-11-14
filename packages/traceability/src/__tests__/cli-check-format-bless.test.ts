@@ -45,9 +45,16 @@ describe("describeBlessedCommit", () => {
   test("シェルで扱いにくい文字・絶対パスはコマンドにしない", () => {
     for (const refPath of ["src/x'; rm -rf ~; '.ts", "src/a b.ts", "/abs/a.ts", "src/$(id).ts"]) {
       const line = describeBlessedCommit(entry(refPath), commit, 200) ?? "";
-      assert.match(line, new RegExp(`blessed version: ${commit} \\(`));
+      assert.match(line, new RegExp(`blessed version: ${commit} `));
       assert.doesNotMatch(line, /git diff/);
     }
+  });
+
+  // コマンドにしないときも、比べるファイル（シンボリックリンクなら実体）は文字として示す。
+  test("コマンドにしないときも、辿ったパスを示す", () => {
+    const line = describeBlessedCommit(entry("src/alias.ts"), commit, 200, "", "src/a b.ts") ?? "";
+    assert.ok(line.includes('"src/a b.ts"'), line);
+    assert.doesNotMatch(line, /git diff/);
   });
 
   test("prefix も含めて文字を確かめる", () => {

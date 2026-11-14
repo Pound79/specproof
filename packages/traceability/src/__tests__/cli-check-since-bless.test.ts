@@ -215,4 +215,22 @@ describe("specproof-check --since-bless", () => {
     const text = run(checkCli, root, ["--since-bless"]).stdout;
     assert.ok(!text.includes("':(top,literal)src/alias.ts'"), text);
   });
+
+  test("リンク先のパスがコマンドにできない文字を含んでも、テキストに実体のパスを示す", () => {
+    writeFileSync(path.join(root, "src", "a b.ts"), "export const value = 1;\n");
+    symlinkSync("a b.ts", path.join(root, "src", "alias.ts"));
+    writeFileSync(
+      path.join(root, "traceability.yaml"),
+      MANIFEST.replace("src/a.ts", "src/alias.ts"),
+    );
+    const blessedCommit = commitAll(root, "v1");
+    assert.equal(run(updateCli, root).status, 0);
+    writeFileSync(path.join(root, "src", "a b.ts"), "export const value = 2;\n");
+    commitAll(root, "v2");
+
+    const text = run(checkCli, root, ["--since-bless"]).stdout;
+    assert.match(text, new RegExp(`blessed version: ${blessedCommit}`));
+    assert.ok(text.includes('"src/a b.ts"'), text);
+    assert.doesNotMatch(text, /git diff/);
+  });
 });

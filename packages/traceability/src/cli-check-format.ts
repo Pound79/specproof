@@ -222,7 +222,8 @@ export const describeBlessedCommit = (
   const topPath = `${prefix}${path.posix.normalize(searchedPath)}`;
   if (path.posix.isAbsolute(searchedPath) || !COMMAND_SAFE_PATH.test(topPath)) {
     return printable(
-      `blessed version: ${commit} (the path has characters not shown in a command; compare that file at this commit)`,
+      // コマンドには埋めないが、比べるファイル（シンボリックリンクなら実体）は文字として示す。
+      `blessed version: ${commit} — compare ${JSON.stringify(searchedPath)} at this commit (not shown as a command: the path has characters a shell would interpret)`,
     );
   }
   return printable(

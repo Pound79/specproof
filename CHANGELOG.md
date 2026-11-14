@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `specproof-check --since-bless` を足した。drift した参照ごとに、manifest に記録した hash（前に bless した中身）と
   同じ版を持つ最も新しいコミットを git の履歴（そのパスに触れた直近 200 コミット）から探し、
   `git diff <完全なコミット id> -- ':(top,literal)<path>'` の形で示す（どこから流しても同じファイルを指す。
-  シェルで扱いにくい文字を含むパスはコマンドにせずコミットだけを示す）。spec は見出しの節の hash で照合する。
+  シェルで扱いにくい文字を含むパスはコマンドにせず、コミットと比べるパスを文字として示す）。spec は見出しの節の hash で照合する。
   同じパスの参照は履歴と各版を 1 回だけ読み、全体で git の起動 2,000 回・60 秒を超えたら打ち切って、そのことを示す。
   drift があるとき、`--json` では探した参照に `blessedCommit`（見つからなければ `null`）と、全体に
   `gitHistoryAvailable`・`blessHistoryIncomplete` を足す。リポジトリ内のシンボリックリンクの参照は、hash と同じく
