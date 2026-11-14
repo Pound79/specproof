@@ -77,3 +77,18 @@ test("確認の節はすべての skill で同じ文面にする", () => {
   });
   assert.equal(new Set(sections).size, 1);
 });
+
+// 環境の制限でコマンドを流せないとき、検証ゲートを省かずに人へ渡して再開する様式を各 skill が参照する。
+test("検証ゲートのある skill は、人にコマンドを渡して再開する様式を参照する", () => {
+  const handoff = "plugins/specproof/skills/specproof/references/command-handoff.md";
+  const guide = read(handoff);
+  assert.match(guide, /&&/);
+  assert.match(guide, /期待する結果/);
+  assert.match(guide, /人の申告（出力未確認）/);
+  for (const dir of skillDirs) {
+    const skill = read(`${dir}/SKILL.md`);
+    const link = skill.match(/\]\(((?:\.\.\/specproof\/)?references\/command-handoff\.md)\)/);
+    assert.ok(link, `${dir}/SKILL.md must link command-handoff.md`);
+    assert.equal(path.posix.join(dir, link[1]), handoff, dir);
+  }
+});

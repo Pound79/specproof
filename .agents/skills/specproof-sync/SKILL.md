@@ -180,6 +180,8 @@ feature / steps / page objects / manifest を変更しない。
 {{config:commands.smoke}}          # {{config:tags.slow}} 以外を実行 ({{config:env.baseUrl}} 等の env が必要)
 ```
 
+- 環境の制限でコマンドを流せないときは、[人にコマンドを渡して再開する](../specproof/references/command-handoff.md)
+  の様式で人に渡し、貼られた結果を受けて続ける（Step 5 の manifest 更新も同じ）。
 - 失敗したら原因を診断して修正する。**自己修正は2回まで。**
   2回修正しても通らない場合は強行せず、停止して失敗内容をユーザーに報告する。
 - `{{config:commands.smoke}}` の実行環境 ({{config:env.baseUrl}} / {{config:env.username}} 等) が無い場合は

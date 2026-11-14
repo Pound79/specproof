@@ -158,6 +158,9 @@ specproof init --adapter <framework>
    {{config:commands.typecheck}}
    ```
 
+   環境の制限でコマンドを流せないときは、[人にコマンドを渡して再開する](../specproof/references/command-handoff.md)
+   の様式で手順 5・6 のコマンドを人に渡し、貼られた結果を受けて続ける。
+
 7. 作成物の一覧と、ユーザーが次に実装すべき pending step を報告する。brownfield なら、付けた
    `@red-contract` は仮のもので、`specproof-implement` の RED の基準（step の本体を書いた後・製品を変える前）で
    通ったシナリオからは外す提案が出ることも書く。あわせて、

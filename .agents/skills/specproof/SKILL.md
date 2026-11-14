@@ -183,7 +183,9 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 
 ## Safety rules
 
-- 重い副作用（`npm install` / `flutter create` / テスト実行）は自動実行せず案内する。
+- 重い副作用（`npm install` / `flutter create` / テスト実行）は自動実行せず案内する。案内と、環境の制限で
+  検証ゲートを流せないときの受け渡しは [人にコマンドを渡して再開する](references/command-handoff.md) の様式で行い、
+  貼られた結果を受けて続ける。
 - 検出が曖昧なら必ず 1 問確認（推測着手しない）。
 - 不可逆作業（bless・implement）はドメイン毎にゲート。`# specproof: draft` 残存 feature は実装しない。
 - テストが落ちた状態でコミットしない。`@red-contract` のシナリオの RED は想定どおりでコミットを止めないが、

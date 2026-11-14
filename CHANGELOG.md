@@ -44,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- skill に、環境の制限（sandbox で作業ツリーや `.git` に書けない、など）で検証ゲートのコマンドを流せないときに、
+  人に 1 行のコマンドを渡し、貼られた結果を受けて続ける様式を足した（`specproof/references/command-handoff.md`）。
+  ゲートごとに `&&` でつないだコマンドと照合できる期待結果（件数・clean・想定どおりの RED）を示し、
+  状態を変えるコマンド（update・コミット）は検証と別に渡す。出力の無い「通った」は PASS と扱わない。
 - 設定に任意のキー `implement.productChanges`（`sameBranch` / `separateBranch`）を足した。`separateBranch` は
   E2E のブランチをマージせず、製品の変更を製品の既定ブランチから切った別のブランチに置く運用で、
   `specproof-implement` は製品の変更を別の作業ツリーに書き、修正が取り込まれるまで E2E の側の `@red-contract` を

@@ -164,6 +164,8 @@ feature のうち**シナリオ**（`機能:`・`シナリオ:` などのキー�
    `commands.productTypecheck` / `commands.productLint` が未設定なら、製品側のコマンドを推測で
    埋めて実行せず、レポートに「製品側 typecheck / lint: 未検証（未設定）」と明記する。
    失敗は診断→修正、**自己修正は2回まで**。超えたら停止して報告。
+   環境の制限でコマンドを流せないとき（手順 2 の RED の基準を含む）は、
+   [人にコマンドを渡して再開する](../specproof/references/command-handoff.md) の様式で人に渡し、貼られた結果を受けて続ける。
    **env が無く `{{config:commands.smoke}}` が実行できない場合**: `{{config:commands.generate}}` +
    `{{config:commands.typecheck}}` まで通し、smoke は **SKIPPED(理由)** としてレポートに明記する
    （**正直性契約**: green と偽らない）。

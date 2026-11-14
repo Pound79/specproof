@@ -193,7 +193,8 @@ impl から生成した feature は「**今こう動いている**」の読め�
    {{config:commands.smoke}}    # pending step 実装後。{{config:env.baseUrl}} 等の env が必要
    ```
    smoke の実行環境が無い場合は `{{config:commands.generate}}` + `{{config:commands.typecheck}}` まで通し、smoke が未実行である
-   ことを明示してから commit する。
+   ことを明示してから commit する。環境の制限でコマンドを流せないときは、
+   [人にコマンドを渡して再開する](../specproof/references/command-handoff.md) の様式で人に渡し、貼られた結果を受けて続ける。
 8. 既存 feature の拡張なら bless:
    ```bash
    {{config:commands.traceabilityUpdate}} --link-id <拡張したリンクの id>
