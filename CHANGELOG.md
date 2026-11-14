@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   タグ）とコメントに分けた。査読で人が決めたことの根拠を書いたコメントは、人がそのセッションで伝えた決定を
   反映するときに限り、決めた人と日付を添えて更新してよい。`# language:`・`# specproof: draft`・`@out-of-scope` の
   理由コメントは対象外。更新すると feature の drift になり、bless は人が行う。
+- skill の「設定のコマンドを実行する前の確認」で、承認した中身（比較先とファイルごとの `git hash-object` の値）を
+  そのセッションの中で覚え、変わっていなければ聞き直さないようにした。設定を足したブランチ自身では差分が毎回出て、
+  コマンドのたびに承認を求めていた。記録はリポジトリにもその外にも残さない。比較先の既定ブランチは、ユーザーの
+  指定 → `gh` → `git symbolic-ref` の順に決め、決め方を提示に書く。設定ファイルからは決めない。`origin` が
+  ローカルのパスを指す clone では `symbolic-ref` が clone 元のブランチを指すことがあるので使わず、ユーザーに聞く。
 
 ### Added
 

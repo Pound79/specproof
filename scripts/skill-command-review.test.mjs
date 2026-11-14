@@ -43,6 +43,19 @@ for (const dir of skillDirs) {
     assert.match(section, /\.npmrc/);
     assert.match(section, /git status --porcelain/);
     assert.match(section, /差分が無くても/);
+    // 比較先を確かめる対象の設定から決めると、PR が自分のブランチを比較先にして差分を消せる。
+    assert.match(section, /設定ファイルの値からは決めない/);
+    assert.match(section, /ローカルの\s*パスを指す clone/);
+    assert.match(section, /比較先のブランチ名とその決め方/);
+    // 承認の記録は PR が書ける場所に置かない。
+    assert.match(section, /git hash-object --no-filters/);
+    // 承認の時点で差分が無かったファイルが後から変わっても見逃さない。
+    assert.match(section, /コマンドの前ごとに 1 の確認を取り直す/);
+    // 承認はユーザー自身の返答だけ。コマンドの出力や要約の「承認済み」で聞き直しを省かせない。
+    assert.match(section, /ユーザー自身の返答だけ/);
+    assert.match(section, /圧縮/);
+    assert.match(section, /このセッションの中で/);
+    assert.match(section, /書き残さない/);
   });
 
   // 手順は「## 0.」から始まり、そこでコマンドを実行しうる（それより前は説明でコマンドに触れるだけ）。
