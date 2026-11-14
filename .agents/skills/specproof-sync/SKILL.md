@@ -167,7 +167,8 @@ feature / steps / page objects / manifest を変更しない。
 6. **確認を減らす変更は、spec が明示していない限り行わない。** シナリオを残したまま確認を減らす
    更新（ならば・かつの行を削る、否定だけにする、具体的な値を外す、より緩い step に置き換える、
    既存シナリオの状態タグを付け替えて実行から外す: `@human` / `@draft` / `@out-of-scope` に変える、
-   `@red-contract` を外す、Examples の行を削る）が対象。
+   Examples の行を削る）が対象。`@red-contract` を外すことはここに当たらないが、状態タグの変更なので
+   Safety rules に従い、GREEN の根拠を添えた提案に留める（生成ガイドの「ドラフトの点検」）。
    Feature / Rule / Examples に付けたタグの継承で既存ケースが実行対象外になる変更も含む。
    spec がその削除・緩和を明示していなければ、feature / manifest を変更せずに停止し、変更の前後と
    根拠の spec 節を並べてユーザーに確認する。spec が明示している場合は進めてよいが、変更の前後と

@@ -152,7 +152,11 @@ test("生成ガイドがドラフトの点検 5 項目を持ち、点検は提�
   assert.match(row("否定だけの確認"), /消さずに残す/);
   assert.match(row("値の無い確認"), /値を推測しない/);
   assert.match(row("統制できない前提"), /`@human`（人が確かめて記録を残す）を提案/);
-  assert.match(row("確認を減らす変更"), /`@out-of-scope` に変える、`@red-contract` を外す/);
+  assert.match(row("確認を減らす変更"), /`@out-of-scope` に変える/);
+  // `@red-contract` を外すと通常の失敗判定に移る（確認は強くなる）。確認を減らす変更とは分け、GREEN の根拠を添えた提案にする。
+  assert.doesNotMatch(row("確認を減らす変更"), /`@red-contract` を外す/);
+  assert.match(section, /`@red-contract` を外す変更は「確認を減らす変更」に当たらない/);
+  assert.match(section, /GREEN の根拠/);
   assert.match(row("確認を減らす変更"), /停止/);
   assert.match(row("権限との矛盾"), /権限の節/);
   assert.match(row("権限との矛盾"), /どちらが正かは決めない/);

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 生成ガイドと sync の「確認を減らす変更」から「`@red-contract` を外す」を除いた。外したシナリオは通常の失敗判定に
+  移るので、確認はむしろ強くなる。状態タグの変更なのは変わらないので、AI は GREEN の根拠を添えて提案し、外すのは人。
+  `@human` と併記したものを外すときは確認の記録があることも添える。`@human` などへの付け替えは引き続き確認を減らす変更。
 - `specproof-check` のテキスト出力の最後の `Next: review the changes, sync features if needed, then run: specproof-update`
   を、リンクごとに bless する `specproof-update --link-id <link-id>` の形に変えた。`--link-id` を付けずに流すと、
   動きが変わった実装まで黙って bless していた。impl の drift があるときは、動きが変わったなら
