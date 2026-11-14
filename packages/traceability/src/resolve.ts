@@ -21,7 +21,7 @@ const physicalRootOf = (root: string, repoRoot: string): string => {
 };
 
 /** 存在する最長の祖先を realpath で解決し、未作成の残りをそのまま連結する。 */
-const physicalPathOf = (target: string): string => {
+export const physicalPathOf = (target: string): string => {
   const missing: string[] = [];
   let existing = target;
   for (;;) {

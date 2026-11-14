@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -186,5 +186,33 @@ describe("specproof-check --since-bless", () => {
     const result = run(checkCli, root, ["--since-bless"]);
     assert.match(result.stdout, new RegExp(`blessed version: ${blessedCommit}`));
     assert.doesNotMatch(result.stdout, /git diff/);
+  });
+
+  test("リポジトリ内のシンボリックリンクの参照も、実体と同じコミットを見つけ、実体のパスで差分を示す", () => {
+    symlinkSync("a.ts", path.join(root, "src", "alias.ts"));
+    writeFileSync(
+      path.join(root, "traceability.yaml"),
+      MANIFEST.replace(
+        "      - path: src/a.ts\n        hash: PENDING\n",
+        "      - path: src/a.ts\n        hash: PENDING\n      - path: src/alias.ts\n        hash: PENDING\n",
+      ),
+    );
+    const blessedCommit = commitAll(root, "v1");
+    assert.equal(run(updateCli, root).status, 0);
+    writeFileSync(path.join(root, "src", "a.ts"), "export const a = 2;\n");
+    commitAll(root, "v2");
+
+    const report = JSON.parse(run(checkCli, root, ["--since-bless", "--json"]).stdout);
+    type Entry = { path: string; blessedCommit?: string | null; blessedPath?: string };
+    const entries: Entry[] = report.entries;
+    const real = entries.find((entry) => entry.path === "src/a.ts");
+    const alias = entries.find((entry) => entry.path === "src/alias.ts");
+    assert.equal(real?.blessedCommit, blessedCommit);
+    assert.equal(alias?.blessedCommit, blessedCommit);
+    assert.equal(alias?.blessedPath, "src/a.ts");
+    assert.equal(real !== undefined && "blessedPath" in real, false);
+
+    const text = run(checkCli, root, ["--since-bless"]).stdout;
+    assert.ok(!text.includes("':(top,literal)src/alias.ts'"), text);
   });
 });

@@ -210,15 +210,17 @@ export const describeBlessedCommit = (
   commit: string | null | undefined,
   maxCommits: number,
   prefix = "",
+  /** 履歴を辿ったパス（シンボリックリンクなら実体）。省略時は参照のパス。 */
+  searchedPath: string = entry.path,
 ): string | undefined => {
   if (commit === undefined) return undefined;
   if (commit === null) {
     return printable(
-      `blessed version: not found in the last ${maxCommits} commit(s) touching ${entry.path} (the blessed content may never have been committed, the file may have been renamed, or the history may be shallow)`,
+      `blessed version: not found in the last ${maxCommits} commit(s) touching ${searchedPath} (the blessed content may never have been committed, the file may have been renamed, or the history may be shallow)`,
     );
   }
-  const topPath = `${prefix}${path.posix.normalize(entry.path)}`;
-  if (path.posix.isAbsolute(entry.path) || !COMMAND_SAFE_PATH.test(topPath)) {
+  const topPath = `${prefix}${path.posix.normalize(searchedPath)}`;
+  if (path.posix.isAbsolute(searchedPath) || !COMMAND_SAFE_PATH.test(topPath)) {
     return printable(
       `blessed version: ${commit} (the path has characters not shown in a command; compare that file at this commit)`,
     );

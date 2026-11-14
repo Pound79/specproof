@@ -8,11 +8,12 @@
 // - 探索の総量に上限を置く（git の起動回数と経過時間）。上限に達したら打ち切り、打ち切ったことを返す。
 // - 同じパスの参照は、履歴を 1 回だけ辿り、各版を 1 回だけ読む。
 import { execFile } from "node:child_process";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import type { DriftEntry } from "./check.js";
 import { hashFileContent, hashHeadingSectionContent, normalizeSourceContent } from "./hash.js";
 import type { TraceabilityManifest } from "./manifest.js";
-import { resolveWithinRoot } from "./resolve.js";
+import { physicalPathOf, resolveWithinRoot } from "./resolve.js";
 
 export const MAX_COMMITS = 200;
 const MAX_GIT_CALLS = 2_000;
@@ -41,6 +42,8 @@ export interface BlessHistory {
    * 探していない（hash が仮の値・履歴を辿れない・打ち切った）ときは undefined。
    */
   commits: (string | null | undefined)[];
+  /** entries と同じ順。履歴を辿る（辿った）パス（ルート相対。シンボリックリンクなら実体）。hash が仮の値なら undefined。 */
+  paths: (string | undefined)[];
 }
 
 type GitResult = { ok: true; stdout: string } | { ok: false };
@@ -97,13 +100,25 @@ const createGitRunner = (repoRoot: string, options: BlessSearchOptions): GitRunn
 };
 
 // 参照のパスをルート相対の POSIX 形にする（絶対パスで書かれた参照も、git に渡せる形にそろえる）。
-const relativePathOf = (repoRoot: string, refPath: string): string => {
-  // resolveWithinRoot は symlink 経由のルートでも root 側の表記に直したパスを返すので、それから相対にする。
+const toPosixRelative = (from: string, to: string): string =>
+  path.posix.normalize(path.relative(from, to).split(path.sep).join("/"));
+
+const isInside = (relative: string): boolean =>
+  relative !== ".." && !relative.startsWith("../") && !path.posix.isAbsolute(relative);
+
+// 参照のパスを、履歴を辿るパス（ルート相対の POSIX 形）にする。update と check はリポジトリ内のシンボリック
+// リンクを辿って実体の中身を hash にするので、履歴も実体のパスで辿る（リンクのパスの blob はリンク先の文字列）。
+// ファイルが無い（消えた）ときは、manifest のパスのまま辿る。
+const searchPathOf = (repoRoot: string, refPath: string): string => {
   const resolved = resolveWithinRoot(repoRoot, refPath);
-  const relative = path.isAbsolute(refPath)
-    ? path.relative(path.resolve(repoRoot), resolved)
-    : refPath;
-  return path.posix.normalize(relative.split(path.sep).join("/"));
+  const lexical = toPosixRelative(path.resolve(repoRoot), resolved);
+  // 消えたファイルでも、存在する最長の祖先を実体にする（親ディレクトリがリンクなら、git はリンクを通るパスを辿らない）。
+  try {
+    const physical = toPosixRelative(realpathSync(repoRoot), physicalPathOf(resolved));
+    return isInside(physical) ? physical : lexical;
+  } catch {
+    return lexical;
+  }
 };
 
 // 同じリンクに同じパス・見出しの参照が複数の見出しの段で登録されていれば、どの段でも照合する。
@@ -195,13 +210,21 @@ export const findBlessedCommits = async (
   const inside = await git.run(["rev-parse", "--is-inside-work-tree", "--show-prefix"]);
   const [isInside, prefix = ""] = inside.ok ? inside.stdout.split("\n") : [];
   if (isInside !== "true") {
-    return { available: false, incomplete: false, prefix: "", commits: results };
+    return {
+      available: false,
+      incomplete: false,
+      prefix: "",
+      commits: results,
+      paths: entries.map(() => undefined),
+    };
   }
 
+  const paths = entries.map((entry) =>
+    SHA256_HEX.test(entry.storedHash) ? searchPathOf(repoRoot, entry.path) : undefined,
+  );
   const byPath = new Map<string, PathSearch>();
-  entries.forEach((entry, index) => {
-    if (!SHA256_HEX.test(entry.storedHash)) return;
-    const relPath = relativePathOf(repoRoot, entry.path);
+  paths.forEach((relPath, index) => {
+    if (relPath === undefined) return;
     const search = byPath.get(relPath);
     if (search === undefined) byPath.set(relPath, { relPath, indexes: [index] });
     else search.indexes.push(index);
@@ -211,5 +234,5 @@ export const findBlessedCommits = async (
     await searchPath(git, search, entries, manifest, results);
     if (git.exhausted) break;
   }
-  return { available: true, incomplete: git.exhausted, prefix, commits: results };
+  return { available: true, incomplete: git.exhausted, prefix, commits: results, paths };
 };

@@ -57,7 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   シェルで扱いにくい文字を含むパスはコマンドにせずコミットだけを示す）。spec は見出しの節の hash で照合する。
   同じパスの参照は履歴と各版を 1 回だけ読み、全体で git の起動 2,000 回・60 秒を超えたら打ち切って、そのことを示す。
   drift があるとき、`--json` では探した参照に `blessedCommit`（見つからなければ `null`）と、全体に
-  `gitHistoryAvailable`・`blessHistoryIncomplete` を足す。git はシェルを通さず、パスを文字どおりに扱わせ、
+  `gitHistoryAvailable`・`blessHistoryIncomplete` を足す。リポジトリ内のシンボリックリンクの参照は、hash と同じく
+  リンク先の実体の履歴を辿り、差分も実体のパスで示す（`--json` では、辿ったパスが参照の書き方と違うとき `blessedPath`）。git はシェルを通さず、パスを文字どおりに扱わせ、
   足りない版を取りに行かせずに起動する。互換: フラグを付けたときだけ動き、manifest の形・既定の出力・終了コードは
   変えない。
 - skill に、環境の制限（sandbox で作業ツリーや `.git` に書けない、など）で検証ゲートのコマンドを流せないときに、

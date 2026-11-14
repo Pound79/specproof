@@ -58,6 +58,10 @@ const main = async (): Promise<void> => {
   const blessedByEntry = new Map(
     history?.available ? report.entries.map((entry, index) => [entry, history.commits[index]]) : [],
   );
+  // シンボリックリンクの参照は実体のパスで履歴を辿る。示す差分も実体のパスで取る。
+  const searchedPathByEntry = new Map(
+    history?.available ? report.entries.map((entry, index) => [entry, history.paths[index]]) : [],
+  );
 
   if (flags.has("--github-annotations")) {
     // 全参照 missing のときは、参照ごとの注釈（同期と update を勧める）を出さず、ルートを確かめる
@@ -81,7 +85,11 @@ const main = async (): Promise<void> => {
       // --since-bless を付けたときだけ、探した参照に blessedCommit（見つからなければ null）を足す。
       entries: report.entries.map((entry) => {
         const commit = blessedByEntry.get(entry);
-        return commit === undefined ? entry : { ...entry, blessedCommit: commit };
+        if (commit === undefined) return entry;
+        const searchedPath = searchedPathByEntry.get(entry);
+        return searchedPath === undefined || searchedPath === entry.path
+          ? { ...entry, blessedCommit: commit }
+          : { ...entry, blessedCommit: commit, blessedPath: searchedPath };
       }),
       ...(history === undefined
         ? {}
@@ -105,6 +113,7 @@ const main = async (): Promise<void> => {
           blessedByEntry.get(entry),
           MAX_COMMITS,
           history?.prefix,
+          searchedPathByEntry.get(entry),
         );
         if (blessed !== undefined) {
           printText(`    ${blessed}`);
