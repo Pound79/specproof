@@ -79,7 +79,7 @@ test("feature の作成・移動・実装前に登録と実ランナーの確認
     for (const [skill, before] of [
       ["specproof-new-feature", "6. 検証:"],
       ["specproof-bootstrap", "{{config:commands.generate}}        #"],
-      ["specproof-implement", "**着手前に対象を実行して RED を確認**"],
+      ["specproof-implement", "**RED の基準は「step の本体を書いた後・製品を変える前」に取る**"],
     ]) {
       const text = read(`${distribution}/${skill}/SKILL.md`);
       const registration = text.indexOf("runner-registration.md");

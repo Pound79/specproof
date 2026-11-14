@@ -28,6 +28,10 @@ export interface TraceabilityConfig {
    *  array) when the config omits it, so the engine can skip the audit
    *  entirely rather than warn about every file. */
   implGlobs?: string[];
+  /** `layout.implExcludeGlobs`: unregistered-impl から外すファイルの glob。 */
+  implExcludeGlobs?: string[];
+  /** `layout.specHeadingIgnore`: unregistered-spec-heading から外すファイル（`path`）・見出し（`path#見出し`）。 */
+  specHeadingIgnore?: string[];
   /** Opt-in hard enforcement (top-level `strictUnregisteredImpl`, default
    *  false) making --strict fail on unregistered-impl warnings. implGlobs is
    *  structurally noisier than the other warning kinds, so it stays warn-only
@@ -197,6 +201,8 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
   if (pagesDir !== undefined) resolveWithinRoot(repoRoot, pagesDir);
   if (featuresDir !== undefined) resolveWithinRoot(repoRoot, featuresDir);
   const implGlobs = readStringArray(layout.implGlobs, "layout.implGlobs");
+  const implExcludeGlobs = readStringArray(layout.implExcludeGlobs, "layout.implExcludeGlobs");
+  const specHeadingIgnore = readStringArray(layout.specHeadingIgnore, "layout.specHeadingIgnore");
   const strictUnregisteredImpl = readBoolean(
     fileConfig.strictUnregisteredImpl,
     "strictUnregisteredImpl",
@@ -222,6 +228,8 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     candidateSuffix,
     featuresDir,
     implGlobs,
+    implExcludeGlobs,
+    specHeadingIgnore,
     strictUnregisteredImpl,
     strictUnregisteredSpecHeadings,
     strictFeatureLint,

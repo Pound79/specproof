@@ -18,6 +18,7 @@ for (const adapter of ["playwright", "flutter"]) {
           "agents.codeReviewer",
           "agents.securityReviewer",
           "implement.blastRadiusGlobs",
+          "implement.productChanges",
           "commands.productLint",
           "commands.productTypecheck",
         ].includes(key)
@@ -78,6 +79,12 @@ test("編集範囲の省略には対象ドメインに限定する明示済み f
   const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
   assert.match(skill, /implement\.blastRadiusGlobs` が未設定なら/);
   assert.ok(skill.includes("対象ドメインに対応する"));
+});
+
+test("製品の変更を置く場所の省略は同じブランチに置く明示済み fallback がある", () => {
+  const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
+  assert.match(skill, /`\{\{config:implement\.productChanges\}\}` が未設定か `sameBranch` なら/);
+  assert.match(skill, /`separateBranch`/);
 });
 
 test("Flutter の smoke は projects のタグ条件を runner へ実際に渡す", () => {
@@ -634,4 +641,14 @@ test("playwright の manifest 雛形の記入例は、リポジトリのルー�
   assert.match(example, /default layout\.e2eRoot/);
   assert.match(template, /all paths are relative to the repo root/);
   assert.match(template, /e2eRoot/);
+});
+
+test("implement は全件 PASS で終えるときも、書いた E2E コードの生成・型検査・lint を通す", () => {
+  // RED の基準は step の本体を書いた後に取るので、全件 PASS でも E2E のコードは変わっている。
+  const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
+  const exit = skill.slice(skill.indexOf("5. 全件 PASS なら"), skill.indexOf("3. **実装計画**"));
+  assert.ok(exit.length > 0, "全件 PASS の終了の分岐が見つからない");
+  for (const key of ["generate", "typecheck", "lint"]) {
+    assert.ok(exit.includes(`{{config:commands.${key}}}`), key);
+  }
 });

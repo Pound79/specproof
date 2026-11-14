@@ -83,7 +83,7 @@ describe("toGithubAnnotation", () => {
     const result = toGithubAnnotation(baseEntry);
 
     expect(result).toBe(
-      '::warning file=src/login.ts::Traceability drift in link "login" (impl, changed). Sync the linked feature (specproof-sync) or run: specproof-update',
+      '::warning file=src/login.ts::Traceability drift in link "login" (impl, changed). Sync the linked feature (specproof-sync) or bless this link: specproof-update --link-id <link-id> (if the observable behavior changed, decide with the specproof-sync decision table before blessing)',
     );
   });
 

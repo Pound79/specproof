@@ -46,6 +46,12 @@ export const readFileOrNull = async (absPath: string): Promise<string | null> =>
   }
 };
 
+/** ファイルから読んだときと同じ正規化（BOM・CRLF）を、ほかから得た中身に当てる。 */
+export const normalizeSourceContent = (content: string): string => normalizeContent(content);
+
+/** computeFileHash と同じ hash を、正規化済みの中身から計算する。 */
+export const hashFileContent = (content: string): string => sha256(content);
+
 export const computeFileHash = async (absPath: string): Promise<string> => {
   const content = await readFileOrNull(absPath);
   return content === null ? FILE_MISSING : sha256(content);
@@ -255,7 +261,12 @@ export const computeHeadingSectionHash = async (
   if (content === null) {
     return FILE_MISSING;
   }
+  return hashHeadingSectionContent(content, heading, level);
+};
 
+// computeHeadingSectionHash の本体。ファイル以外（git の過去の版など）の中身にも同じ規則で当てる。
+// 中身は normalizeSourceContent を通したものを渡す。
+export const hashHeadingSectionContent = (content: string, heading: string, level = 2): string => {
   const lines = content.split("\n");
   const fenced = fencedLineMask(lines);
 

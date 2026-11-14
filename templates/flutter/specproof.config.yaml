@@ -49,6 +49,9 @@ layout:
   # not fail CI); set strictUnregisteredImpl: true (top-level) to harden it.
   implGlobs:
     - "lib/**/*.dart"
+  # [optional] leave tests / non-behavior headings out of the advisories:
+  # implExcludeGlobs: ["**/*.g.dart"]
+  # specHeadingIgnore: ["docs/glossary.md"]
   e2eReadme: "bdd_tests/README.md" # E2E package README; specproof-* skills link here
   i18nSource: lib/l10n/app_ja.arb
   testRunnerConfig: bdd_tests/integration_test/gherkin_suite_test.dart

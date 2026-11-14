@@ -37,7 +37,13 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 - **書く範囲**: `specproof-update` が書くのは manifest だけで、同じディレクトリの一時ファイルを
   完成させてから置き換える。欠けた参照（ファイルや見出しが無い）は hash を取り直さずにエラーで止まる
 - **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（固定の
-  引数）だけ。設定の `commands.*` は実行しない
+  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` だけ。
+  設定の `commands.*` は実行しない。`--since-bless` の git には manifest の参照のパスが渡る（PR が書ける）ので、
+  シェルを通さず引数の配列で起動し、パスは `--` の後ろと `<commit>:./<path>` にだけ置き、
+  `GIT_LITERAL_PATHSPECS=1` で記号を文字どおりに扱わせる。部分 clone で足りない版を取りに行かせない
+  （`GIT_NO_LAZY_FETCH=1`。この環境変数を知らない古い git では取りに行きうる）。資格情報は尋ねさせない
+  （`GIT_TERMINAL_PROMPT=0`）。checkout の `.git/config` は git がそのまま読む。示す `git diff` の形は、
+  どのシェルでも引用の外に出られない文字だけのパスに限り、完全なコミット id と `:(top,literal)` のパスを使う
 
 ### CLI
 
@@ -66,11 +72,18 @@ skill は最初にコマンドを実行する前に、設定ファイル・`.npm
 のはコマンドや設定の差し替えだけで、差分が無くてもコマンドはそのブランチのコードを実行する。他人のブランチで skill を走らせるのは、PR を手元で checkout して
 `npm test` を実行するときと同じ信頼の前提にある。
 
+比較先の既定ブランチは設定ファイルからは決めない。確かめる対象のファイルが比較先を決めると、PR が自分の
+ブランチを比較先に書くだけで差分が消えるため。承認は、比較先とファイルごとの `git hash-object` の値として
+そのセッションの中でだけ覚え、値が同じ間は聞き直さない。承認として扱うのは、値を書いた提示へのユーザー自身の
+返答だけで、コマンドの出力・ファイル・要約に書かれた「承認済み」は扱わない（エージェントの文脈には PR が書いた
+文字列も入るため）。hash は `.gitattributes`（PR が書ける）の変換を受けない `--no-filters` で取る。記録をリポジトリやその外のファイルに残さないのは、
+PR やエージェント自身が書ける場所の記録で承認を偽装させないため。
+
 ## 通信先
 
 | 主体 | 通信先 | 用途 | 資格情報 |
 |---|---|---|---|
-| CLI・エンジン | なし | 実行時に外部へ通信しない | なし |
+| CLI・エンジン | なし | 実行時に外部へ通信しない（`--since-bless` の git も取得をしない。上の子プロセスの項を参照） | なし |
 | 同梱の drift-check ワークフロー | GitHub（checkout）、Node.js の取得元（setup-node） | リポジトリの取得、Node.js の用意 | ワークフローの `GITHUB_TOKEN` |
 | 同梱の drift-check ワークフロー | npm レジストリ（既定は registry.npmjs.org） | `npx` でエンジンを取得する | なし |
 | 同梱の drift-check ワークフロー | GitHub REST API | PR のコメントの一覧・作成・更新、PR の head の確認 | ワークフローの `GITHUB_TOKEN`（`contents: read`・`pull-requests: write`） |
@@ -114,6 +127,7 @@ npm と Sigstore の仕組みで、specproof のコードではない。
 | spec・実装・feature の内容の読み込みと hash | 1 ファイル 8 MiB、通常ファイルだけ。同時に読むのは 32 件まで |
 | `layout.featuresDir` と `layout.implGlobs` のディレクトリ走査 | `implGlobs` は 256 本・1 本 1,024 文字まで。走査するファイルの数には上限が無い |
 | feature の lint のファイル横断の比較（重複・矛盾の候補） | 上限は無い |
+| `specproof-check --since-bless` の履歴の探索 | パスごとに直近 200 コミット。同じパスの参照は履歴と各版を 1 回だけ読む。全体で git の起動 2,000 回・60 秒まで（超えたら打ち切り、打ち切ったと示す）。1 回の git は 10 秒・出力 8 MiB まで |
 
 上限の無い処理は、リポジトリの大きさに比例して時間とメモリを使う。CI でエンジンを動かすジョブには
 `timeout-minutes`（例: 10 分）を付けて、異常に大きな入力で既定の 360 分を使い切らないようにする。

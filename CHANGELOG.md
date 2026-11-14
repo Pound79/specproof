@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `specproof-check` のテキスト出力の最後の `Next: review the changes, sync features if needed, then run: specproof-update`
+  を、リンクごとに bless する `specproof-update --link-id <link-id>` の形に変えた。`--link-id` を付けずに流すと、
+  動きが変わった実装まで黙って bless していた。impl の drift があるときは、動きが変わったなら
+  `specproof-sync` の決定表で判断してから bless するよう 1 行添える。`--github-annotations` の注釈も同じ形にした。
+  互換: 出力の文言だけの変更で、終了コードと `--json` は変わらない。`specproof-update` を引数なしで流す使い方も
+  これまでどおり動く。文言に合わせて出力を照合しているスクリプトは直す必要がある。skill（new-feature・bootstrap・
+  sync）の bless も、対象のリンクに `--link-id` を付けて行う手順にした。
+
+- skill の生成ガイドの「step ファイルに `language` のテキストを書かない（コメントも英語）」を書き直した。
+  `language: ja` では step の文を feature と一致させるために日本語で書く必要があり、規則と矛盾していた。
+  画面の文言を step にじかに書かず `textConstants` を通す規則は残し、step の文は `language` のまま書く、
+  コメントの言語は `idiomGuide` か既存の steps の書き方に従う、と分けた。`i18nLintPlugin: none` では
+  検査が無いことも明記した。
+- 生成ガイドの「step は page object の fixture を通す。`page.locator` を steps に書かない」に、fixtures に
+  page object が無い構成の扱いを足した。その場合は既存の steps の書き方に倣い、page object や新しい
+  fixture を持ち込まない（持ち込むべきなら提案に留める）。
+- `specproof-new-feature` の「新しいシナリオにはすべて `@red-contract`」に、brownfield（そのセクションを
+  実装しているファイルがある）の扱いを足した。付けるのはこれまでどおりすべてだが、仮のものとし、
+  `specproof-implement` の RED の基準で通ったシナリオからは外す提案が出ると報告する。
+- `specproof-implement` の RED の基準を「着手前」から「step の本体を書いた後・製品を変える前」に改めた。
+  pending の stub のまま流しても全件落ちるだけで、基準にならなかった。この時点で通ったシナリオは
+  「実装不要（既存の実装で満たす）」と報告し、`@red-contract` を外す提案をする。その step は自分で書いた
+  ものなので、骨抜きでないことを gaming 自己点検の 5 項目目と反証レビューで確かめる。
+- `specproof-implement` の「feature の本文を変えない」を、シナリオ（キーワードの行・step・例の表・doc string・
+  タグ）とコメントに分けた。査読で人が決めたことの根拠を書いたコメントは、人がそのセッションで伝えた決定を
+  反映するときに限り、決めた人と日付を添えて更新してよい。`# language:`・`# specproof: draft`・`@out-of-scope` の
+  理由コメントは対象外。更新すると feature の drift になり、bless は人が行う。
+- skill の「設定のコマンドを実行する前の確認」で、承認した中身（比較先とファイルごとの `git hash-object` の値）を
+  そのセッションの中で覚え、変わっていなければ聞き直さないようにした。設定を足したブランチ自身では差分が毎回出て、
+  コマンドのたびに承認を求めていた。記録はリポジトリにもその外にも残さない。比較先の既定ブランチは、ユーザーの
+  指定 → `gh` → `git symbolic-ref` の順に決め、決め方を提示に書く。設定ファイルからは決めない。`origin` が
+  ローカルのパスを指す clone では `symbolic-ref` が clone 元のブランチを指すことがあるので使わず、ユーザーに聞く。
+
+### Added
+
+- 設定に任意のキー `layout.implExcludeGlobs` と `layout.specHeadingIgnore` を足した。前者は `implGlobs` に
+  当たるファイルのうちテストなどを `unregistered-impl` から外し、後者はファイル（`"<path>"`）か見出し
+  （`"<path>#<見出し>"`）単位で、役割の一覧・用語など操作でない構成の見出しを `unregistered-spec-heading` から外す。
+  外した件数はテキスト出力に 1 行で出し、`--json` では `excludedAdvisories` に出す。登録済みの参照の drift と
+  `duplicate-heading` には影響しない。互換: 未設定なら出力も `--json` もこれまでどおり（`unregistered-spec-heading`
+  の警告に `heading` のフィールドが加わるだけ）。0.6.0 以前の CLI はこの 2 つのキーを `unknown-config-key` として出し、
+  `--strict` で失敗する。
+- `specproof-check --since-bless` を足した。drift した参照ごとに、manifest に記録した hash（前に bless した中身）と
+  同じ版を持つ最も新しいコミットを git の履歴（そのパスに触れた直近 200 コミット）から探し、
+  `git diff <完全なコミット id> -- ':(top,literal)<path>'` の形で示す（どこから流しても同じファイルを指す。
+  シェルで扱いにくい文字を含むパスはコマンドにせず、コミットと比べるパスを文字として示す）。spec は見出しの節の hash で照合する。
+  同じパスの参照は履歴と各版を 1 回だけ読み、全体で git の起動 2,000 回・60 秒を超えたら打ち切って、そのことを示す。
+  drift があるとき、`--json` では探した参照に `blessedCommit`（見つからなければ `null`）と、全体に
+  `gitHistoryAvailable`・`blessHistoryIncomplete` を足す。リポジトリ内のシンボリックリンクの参照は、hash と同じく
+  リンク先の実体の履歴を辿り、差分も実体のパスで示す（`--json` では、辿ったパスが参照の書き方と違うとき `blessedPath`）。git はシェルを通さず、パスを文字どおりに扱わせ、
+  足りない版を取りに行かせずに起動する。互換: フラグを付けたときだけ動き、manifest の形・既定の出力・終了コードは
+  変えない。
+- skill に、環境の制限（sandbox で作業ツリーや `.git` に書けない、など）で検証ゲートのコマンドを流せないときに、
+  人に 1 行のコマンドを渡し、貼られた結果を受けて続ける様式を足した（`specproof/references/command-handoff.md`）。
+  ゲートごとに `&&` でつないだコマンドと照合できる期待結果（件数・clean・想定どおりの RED）を示し、
+  状態を変えるコマンド（update・コミット）は検証と別に渡す。出力の無い「通った」は PASS と扱わない。
+- 設定に任意のキー `implement.productChanges`（`sameBranch` / `separateBranch`）を足した。`separateBranch` は
+  E2E のブランチをマージせず、製品の変更を製品の既定ブランチから切った別のブランチに置く運用で、
+  `specproof-implement` は製品の変更を別の作業ツリーに書き、修正が取り込まれるまで E2E の側の `@red-contract` を
+  外す提案をしない。互換: 未設定なら `sameBranch` でこれまでどおり。エンジンは読まず、`specproof-check` の
+  既知のキーに加えただけ。0.6.0 以前の CLI はこのキーを `unknown-config-key` として出し、`--strict` で失敗する。
+
 ## [0.6.0] - 2026-11-13
 
 ### Fixed

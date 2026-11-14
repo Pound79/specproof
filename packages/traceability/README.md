@@ -219,8 +219,9 @@ This means a file's hash no longer depends on its line-ending style or a BOM
 — useful on Windows / `autocrlf` checkouts. **This is a breaking change** for
 a manifest whose blessed hashes were computed against CRLF content before this
 normalization existed: those refs will show as drifted on the next `check`.
-Run `check` to see what changed, review it, then `specproof-update` to
-re-bless.
+Run `check` to see what changed, review it, then `specproof-update --link-id <id>`
+for each reviewed link to re-bless (plain `specproof-update` blesses every
+drifted link at once).
 
 ### ATX 見出しの互換性
 
@@ -362,7 +363,7 @@ methodology, config schema, and the adapter contract.
 
 | コマンド | 対応オプション |
 |---|---|
-| specproof-check | --root, --manifest, --strict, --json, --github-annotations |
+| specproof-check | --root, --manifest, --strict, --json, --github-annotations, --since-bless |
 | specproof-update | --root, --manifest, --link-id, --dry-run |
 | specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
 | specproof-stats | --root, --manifest, --strict, --json |
@@ -379,6 +380,19 @@ manifest の参照がすべてファイルごと見つからないときは、dr
 `--manifest <file>` は cwd 相対で解決するが、
 指定した root 内に置く必要がある。`--candidate-suffix <suffix>` は候補の拡張子込み suffix
 （例: Page.ts / _page.dart）。`--github-annotations` は GitHub Actions 用の注釈を stderr に出す。
+`--since-bless` は、drift した参照ごとに、manifest に記録した hash（前に bless した中身）と同じ版を持つ
+最も新しいコミットを git の履歴から探し、`git diff <commit> -- ':(top,literal)<path>'` の形で示す（完全な
+コミット id と、どこから流しても同じファイルを指すパス。シェルで扱いにくい文字を含むパスはコマンドにせず
+コミットと比べるパスを文字として示す）。spec は見出しの節の hash で照合する。探すのはパスごとに、そのパスに触れた直近 200 コミット
+まで。全体で git の起動 2,000 回・60 秒を超えたら打ち切り、打ち切ったことを示す。bless した中身がコミット
+されていない・ファイルの名前が変わった・履歴が浅い（shallow clone）ときは見つからない。drift があるとき、
+`--json` では探した参照に `blessedCommit`（見つからなければ `null`）と、全体に `gitHistoryAvailable` と
+`blessHistoryIncomplete` を足す（clean のときと全参照 missing のときは探さず、これらのキーも出さない）。
+リポジトリ内のシンボリックリンクの参照は、hash と同じくリンク先の実体の履歴を辿り、示す差分も実体のパスで取る
+（親ディレクトリがリンクのときも同じ）。`--json` では、辿ったパスが参照の書き方と違うとき（シンボリックリンクの
+実体、`./` や絶対パスで書いた参照）に、その参照に `blessedPath` として辿ったパスを足す。
+git の管理下でなければ 1 行の案内を出し、check の結果は変えない。フラグが無ければ git を起動しない。
+git に渡す制限は [security-model](../../docs/security-model.md) の子プロセスの項。
 未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。
 
 失敗したときは stderr に `<command> failed: <message>` を 1 行だけ出し、終了コード 2 で終わる。

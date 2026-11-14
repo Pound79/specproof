@@ -1,14 +1,20 @@
 #!/usr/bin/env node
+import { findBlessedCommits, MAX_COMMITS } from "./bless-history.js";
 import { checkDrift } from "./check.js";
 import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
 import {
   attachFailsUnderStrict,
   describeAllReferencesMissing,
+  describeBlessedCommit,
   describeBothSidesChanged,
+  GIT_HISTORY_UNAVAILABLE,
+  BLESS_HISTORY_INCOMPLETE,
   describeEntry,
+  describeExcludedAdvisories,
   describeHiddenWarnings,
   describeLinkHeading,
+  describeNextSteps,
   describeWarning,
   isCheckFailure,
   selectWarningsForDisplay,
@@ -16,6 +22,7 @@ import {
   toGithubWarningAnnotation,
   warningFailsUnderStrict,
 } from "./cli-check-format.js";
+import { loadManifest } from "./manifest.js";
 import { printJson, printText } from "./output.js";
 
 const main = async (): Promise<void> => {
@@ -24,6 +31,8 @@ const main = async (): Promise<void> => {
   const report = await checkDrift(config.manifestPath, config.repoRoot, {
     featuresDir: config.featuresDir,
     implGlobs: config.implGlobs,
+    implExcludeGlobs: config.implExcludeGlobs,
+    specHeadingIgnore: config.specHeadingIgnore,
     gherkin: config.gherkin,
     language: config.language,
     configFile: config.configFile,
@@ -37,6 +46,22 @@ const main = async (): Promise<void> => {
   };
   const display = selectWarningsForDisplay(report.warnings);
   const shownWarnings = display.shown;
+  // --since-bless は drift があるときだけ git を見る。全参照 missing はルートの取り違えなので探さない。
+  const history =
+    flags.has("--since-bless") && !report.clean && !report.allReferencesMissing
+      ? await findBlessedCommits(
+          config.repoRoot,
+          report.entries,
+          await loadManifest(config.manifestPath),
+        )
+      : undefined;
+  const blessedByEntry = new Map(
+    history?.available ? report.entries.map((entry, index) => [entry, history.commits[index]]) : [],
+  );
+  // シンボリックリンクの参照は実体のパスで履歴を辿る。示す差分も実体のパスで取る。
+  const searchedPathByEntry = new Map(
+    history?.available ? report.entries.map((entry, index) => [entry, history.paths[index]]) : [],
+  );
 
   if (flags.has("--github-annotations")) {
     // 全参照 missing のときは、参照ごとの注釈（同期と update を勧める）を出さず、ルートを確かめる
@@ -57,6 +82,18 @@ const main = async (): Promise<void> => {
   if (flags.has("--json")) {
     printJson({
       ...report,
+      // --since-bless を付けたときだけ、探した参照に blessedCommit（見つからなければ null）を足す。
+      entries: report.entries.map((entry) => {
+        const commit = blessedByEntry.get(entry);
+        if (commit === undefined) return entry;
+        const searchedPath = searchedPathByEntry.get(entry);
+        return searchedPath === undefined || searchedPath === entry.path
+          ? { ...entry, blessedCommit: commit }
+          : { ...entry, blessedCommit: commit, blessedPath: searchedPath };
+      }),
+      ...(history === undefined
+        ? {}
+        : { gitHistoryAvailable: history.available, blessHistoryIncomplete: history.incomplete }),
       warnings: attachFailsUnderStrict(report.warnings, strictOptions),
     });
   } else if (report.clean) {
@@ -71,10 +108,29 @@ const main = async (): Promise<void> => {
       printText(`\n${describeLinkHeading(linkId)}`);
       for (const entry of entries) {
         printText(`  ${describeEntry(entry)}`);
+        const blessed = describeBlessedCommit(
+          entry,
+          blessedByEntry.get(entry),
+          MAX_COMMITS,
+          history?.prefix,
+          searchedPathByEntry.get(entry),
+        );
+        if (blessed !== undefined) {
+          printText(`    ${blessed}`);
+        }
       }
     }
+    if (history !== undefined && !history.available) {
+      printText(`\n${GIT_HISTORY_UNAVAILABLE}`);
+    }
+    if (history?.incomplete === true) {
+      printText(`\n${BLESS_HISTORY_INCOMPLETE}`);
+    }
     if (!report.allReferencesMissing) {
-      printText("\nNext: review the changes, sync features if needed, then run: specproof-update");
+      printText("");
+      for (const line of describeNextSteps(report.entries)) {
+        printText(line);
+      }
     }
   }
 
@@ -106,6 +162,11 @@ const main = async (): Promise<void> => {
         "(run specproof-check --strict to treat the [warning] item(s) above as errors; [advisory] item(s) require an explicit opt-in — see docs/config-schema.md)",
       );
     }
+  }
+
+  const excludedLine = describeExcludedAdvisories(report.excludedAdvisories);
+  if (!flags.has("--json") && excludedLine !== undefined) {
+    printText(excludedLine);
   }
 
   process.exitCode = isCheckFailure(report, strict, strictOptions) ? 1 : 0;

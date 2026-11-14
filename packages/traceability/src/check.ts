@@ -21,6 +21,11 @@ import { resolveWithinRoot } from "./resolve.js";
 import { OUT_OF_SCOPE_TAG, DISALLOWED_TAGS } from "./config.js";
 import { auditUnregisteredImpl } from "./impl-audit.js";
 import { auditSpecHeadings } from "./spec-audit.js";
+import {
+  applyAdvisoryExclusions,
+  type AdvisoryExclusionOptions,
+  type ExcludedAdvisoryCounts,
+} from "./advisory-exclusions.js";
 import { lintFeatureSet, type FeatureLintKind, type FeatureSource } from "./feature-lint.js";
 import { createTaskLimiter, type RunTaskLimited } from "./concurrency.js";
 import { printable } from "./display-text.js";
@@ -61,6 +66,8 @@ export interface DriftWarning {
   // The offending file path (the feature, for unreviewed-draft). Absent for
   // empty-link, where the link itself — not a file — is the subject.
   path?: string;
+  // unregistered-spec-heading の見出し（layout.specHeadingIgnore の照合に使う）。
+  heading?: string;
   // unknown-config-key の上限で走査を止めたことを示す 1 件だけに付く。テキストと annotation の
   // 表示の上限に数えず、必ず出す。
   truncated?: true;
@@ -87,6 +94,8 @@ export interface DriftReport {
   // manifest の取り違えでよく起きる形なので、このときは bothSidesChanged を空にし、
   // 両側の変更として人に判断を求めない（CLI はルートを確かめる案内を出す）。
   allReferencesMissing: boolean;
+  // layout.implExcludeGlobs / layout.specHeadingIgnore のどちらかを設定したときだけ。外した advisory の件数。
+  excludedAdvisories?: ExcludedAdvisoryCounts;
 }
 
 const isSentinel = (hash: string): boolean => hash === FILE_MISSING || hash === SECTION_MISSING;
@@ -369,6 +378,10 @@ export interface CheckDriftOptions {
    *  implementation files that should be registered in some link's impl[].
    *  When unset, unregistered-impl auditing is skipped entirely (opt-in). */
   implGlobs?: string[];
+  /** unregistered-impl から外す glob（layout.implExcludeGlobs）。 */
+  implExcludeGlobs?: AdvisoryExclusionOptions["implExcludeGlobs"];
+  /** unregistered-spec-heading から外すファイル・見出し（layout.specHeadingIgnore）。 */
+  specHeadingIgnore?: AdvisoryExclusionOptions["specHeadingIgnore"];
   /** feature を読む規則。adapter: flutter なら dart（既定は js）。 */
   gherkin?: GherkinFlavor;
   /** runner の既定の Gherkin 言語。dart の規則で、宣言の無い feature に使う。 */
@@ -425,6 +438,10 @@ export const checkDrift = async (
 
   const specHeadingWarnings = await auditSpecHeadings(manifest, repoRoot);
   const implWarnings = await auditUnregisteredImpl(manifest, repoRoot, options.implGlobs);
+  const advisories = applyAdvisoryExclusions([...specHeadingWarnings, ...implWarnings], {
+    implExcludeGlobs: options.implExcludeGlobs,
+    specHeadingIgnore: options.specHeadingIgnore,
+  });
 
   const { configFile } = options;
   const warnings = [
@@ -441,8 +458,7 @@ export const checkDrift = async (
     ...featureWarningGroups.flat(),
     ...contentLintWarnings,
     ...unregisteredFeatureWarnings,
-    ...specHeadingWarnings,
-    ...implWarnings,
+    ...advisories.warnings,
   ];
 
   const linkIdsWithSpecChange = new Set(
@@ -473,5 +489,6 @@ export const checkDrift = async (
     warnings,
     bothSidesChanged,
     allReferencesMissing,
+    ...(advisories.excluded === undefined ? {} : { excludedAdvisories: advisories.excluded }),
   };
 };

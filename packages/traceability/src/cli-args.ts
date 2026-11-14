@@ -11,10 +11,16 @@ const VALUE_OPTIONS: Record<string, ValueOptionKey> = {
   "--candidate-suffix": "candidateSuffix",
   "--link-id": "linkId",
 };
-const BOOLEAN_OPTIONS = ["--strict", "--json", "--github-annotations", "--dry-run"];
+const BOOLEAN_OPTIONS = [
+  "--strict",
+  "--json",
+  "--github-annotations",
+  "--dry-run",
+  "--since-bless",
+];
 export type TraceabilityCommand = "check" | "update" | "list" | "stats";
 const COMMAND_OPTIONS: Record<TraceabilityCommand, readonly string[]> = {
-  check: ["--manifest", "--root", "--strict", "--json", "--github-annotations"],
+  check: ["--manifest", "--root", "--strict", "--json", "--github-annotations", "--since-bless"],
   update: ["--manifest", "--root", "--link-id", "--dry-run"],
   list: ["--manifest", "--root", "--pages-dir", "--candidate-suffix", "--json"],
   stats: ["--manifest", "--root", "--strict", "--json"],

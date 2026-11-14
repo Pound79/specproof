@@ -122,6 +122,8 @@ const EVERY_KNOWN_KEY = {
       "manifest",
       "specDir",
       "implGlobs",
+      "implExcludeGlobs",
+      "specHeadingIgnore",
       "scratchDir",
       "testRunnerConfig",
       "idiomGuide",
@@ -153,7 +155,7 @@ const EVERY_KNOWN_KEY = {
       allowInsecureHttp: true,
     },
   ],
-  implement: { blastRadiusGlobs: [] },
+  implement: { blastRadiusGlobs: [], productChanges: "sameBranch" },
   git: { commitScope: "s", branchPrefix: "p" },
   agents: { codeReviewer: "c", securityReviewer: "s" },
   conventions: {

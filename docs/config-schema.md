@@ -82,6 +82,8 @@ package.json に workspaces を注入しないため、`npm run <script>` を裸
 | `manifest` | required | traceability manifest path |
 | `specDir` | required | 設計根拠 doc dir |
 | `implGlobs` | optional | `unregistered-impl` 検知（`specproof-check`）の対象を絞る glob リスト（`*` / `**` のみ対応の自前マッチャー）。**未設定時は検知自体を行わない**（opt-in）。重複を除いて最大 256 本、1 本あたり 1,024 文字まで。超えると照合前にエラーで止まる。 |
+| `implExcludeGlobs` | optional | `implGlobs` に当たるファイルのうち、`unregistered-impl` から外すものの glob リスト（書き方と上限は `implGlobs` と同じ。例: `"**/__tests__/**"`）。外した件数は `specproof-check` の出力に 1 行で出し、`--json` では `excludedAdvisories.unregisteredImpl`。登録済みの参照の drift には影響しない。 |
+| `specHeadingIgnore` | optional | `unregistered-spec-heading` から外す対象のリスト。`"<path>"` はそのファイルの見出しすべて、`"<path>#<見出し>"` は 1 つの見出し（最初の `#` で分ける）。役割の一覧・用語・改訂履歴など操作でない構成の見出しに使う。外した件数は出力に 1 行で出し、`--json` では `excludedAdvisories.unregisteredSpecHeading`。登録済みの見出しの drift と `duplicate-heading` には影響しない。 |
 | `scratchDir` / `testRunnerConfig` / `idiomGuide` | optional | 補助参照 |
 | `e2eReadme` | optional | E2E パッケージの README パス。specproof-bootstrap / specproof-implement skill が `{{config:layout.e2eReadme}}` として参照する。**同梱の playwright / flutter テンプレートはこのパスに実体の README.md を同梱済み**（変更起点別フロー・bootstrap 一度きりの規約・rationale doc 規約などの節を含む）。カスタムテンプレートを組む場合もこの節を持つ README を配置すること。 |
 
@@ -90,6 +92,10 @@ package.json に workspaces を注入しないため、`npm run <script>` を裸
 page object fixture 名 -> POM ファイルの map。skill が step skeleton の fixture
 destructuring を生成するとき解決する（`mainOperationPage` 以外の fixture 名が
 素の config では欠落していた、という検証指摘への対応）。
+
+page object を持たない構成（`fixtures: {}`、または world・認証など page object でない fixture だけ）も
+そのまま書いてよい。その場合 skill は新しい page object を持ち込まず、既存の steps の書き方に倣う
+（生成ガイド `prompts/system.md` の「step 実装との対応」）。
 
 ## tags / projects / env / environments / implement / git / agents / conventions / examples
 
@@ -100,7 +106,7 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 | `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。Playwright テンプレートは `storageState` / `setup` / `credentialsEnv`（`username` / `password` / `newPassword`）も読む。`tags` には状態タグに触れる式と括弧の対応が取れていない式を書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `env` | required（baseUrl） | 環境変数の論理名。`adminUsername`<sup>+</sup> は authed-admin の条件判定。 |
 | `environments[]` | required（1エントリ以上） | 実行環境プロファイル。環境別の auth / dotenv / excludeTags を宣言。詳細は後述。 |
-| `implement`<sup>+</sup> | optional | `blastRadiusGlobs` = specproof-implement の編集許可スコープ（implGlobs とは別概念）。 |
+| `implement`<sup>+</sup> | optional | `blastRadiusGlobs` = specproof-implement の編集許可スコープ（implGlobs とは別概念）。`productChanges` = 製品の変更を置く場所。`sameBranch`（既定。E2E と同じブランチ）か `separateBranch`（E2E のブランチはマージせず、製品の変更は製品の既定ブランチから切った別のブランチに置く）。`separateBranch` の扱いは specproof-implement の「製品の変更を別のブランチに置く場合」。エンジンは読まない（skill だけが読む）。 |
 | `git`<sup>+</sup> | optional | `commitScope` / `branchPrefix`。specproof-sync 自動コミット用。 |
 | `agents`<sup>+</sup> | optional | `codeReviewer` / `securityReviewer` の識別子。 |
 | `conventions` | optional | `agentsDoc` / `i18nLintPlugin` / `stepFrameworkPattern` / `pendingStubBody`。 |
@@ -126,12 +132,12 @@ destructuring を生成するとき解決する（`mainOperationPage` 以外の 
 |---|---|
 | トップレベル | `adapter` / `bddRunner` / `bddGenTool` / `language` / `commands` / `layout` / `fixtures` / `tags` / `projects` / `env` / `environments` / `implement` / `git` / `agents` / `conventions` / `examples` / `runner` / `flutter` / `strictUnregisteredImpl` / `strictUnregisteredSpecHeadings` / `strictFeatureLint` |
 | `commands` | `generate` / `typecheck` / `lint` / `productTypecheck` / `productLint` / `smoke` / `install` / `traceabilityUpdate` / `traceabilityCheck` / `traceabilityList` / `traceabilityStats` |
-| `layout` | `e2eRoot` / `featuresDir` / `stepsDir` / `stepFileSuffix` / `stepFileExt` / `pagesDir` / `candidateSuffix` / `textConstants` / `i18nSource` / `manifest` / `specDir` / `implGlobs` / `scratchDir` / `testRunnerConfig` / `idiomGuide` / `e2eReadme` |
+| `layout` | `e2eRoot` / `featuresDir` / `stepsDir` / `stepFileSuffix` / `stepFileExt` / `pagesDir` / `candidateSuffix` / `textConstants` / `i18nSource` / `manifest` / `specDir` / `implGlobs` / `implExcludeGlobs` / `specHeadingIgnore` / `scratchDir` / `testRunnerConfig` / `idiomGuide` / `e2eReadme` |
 | `projects[]` の各要素 | `name` / `tags` / `features` / `storageState` / `setup` / `conditional` / `credentialsEnv` |
 | `projects[].credentialsEnv` | `username` / `password` / `newPassword` |
 | `environments[]` の各要素 | `name` / `default` / `dotenvFile` / `auth` / `excludeTags` / `envOverrides` / `allowInsecureHttp` |
 | `environments[].auth` | `provider` / `description` |
-| `implement` | `blastRadiusGlobs` |
+| `implement` | `blastRadiusGlobs` / `productChanges` |
 | `git` | `commitScope` / `branchPrefix` |
 | `agents` | `codeReviewer` / `securityReviewer` |
 | `conventions` | `agentsDoc` / `i18nLintPlugin` / `stepFrameworkPattern` / `pendingStubBody` |

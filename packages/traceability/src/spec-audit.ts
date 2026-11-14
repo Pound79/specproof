@@ -24,6 +24,7 @@ const flattenSpecRefs = (manifest: TraceabilityManifest): FlatSpecRef[] =>
 const unregisteredHeadingWarning = (relPath: string, heading: string): DriftWarning => ({
   kind: "unregistered-spec-heading",
   path: relPath,
+  heading,
   message: `spec heading is not registered in the manifest: "${heading}" in ${relPath}`,
 });
 

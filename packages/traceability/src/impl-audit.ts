@@ -43,14 +43,14 @@ const walkFiles = async (absDir: string): Promise<string[]> => {
 const MAX_IMPL_GLOBS = 256;
 const MAX_IMPL_GLOB_LENGTH = 1024;
 
-const assertGlobLimits = (patterns: string[]): void => {
+export const assertGlobLimits = (patterns: string[], key = "layout.implGlobs"): void => {
   if (patterns.length > MAX_IMPL_GLOBS) {
-    throw new Error(`layout.implGlobs: at most ${MAX_IMPL_GLOBS} distinct patterns are allowed`);
+    throw new Error(`${key}: at most ${MAX_IMPL_GLOBS} distinct patterns are allowed`);
   }
   const tooLong = patterns.find((pattern) => pattern.length > MAX_IMPL_GLOB_LENGTH);
   if (tooLong !== undefined) {
     throw new Error(
-      `layout.implGlobs: a pattern must be at most ${MAX_IMPL_GLOB_LENGTH} characters (got ${tooLong.length})`,
+      `${key}: a pattern must be at most ${MAX_IMPL_GLOB_LENGTH} characters (got ${tooLong.length})`,
     );
   }
 };

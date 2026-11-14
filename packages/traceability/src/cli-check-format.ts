@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
 import { printable } from "./display-text.js";
 
@@ -181,10 +182,76 @@ export const describeHiddenWarnings = (display: DisplayWarnings): string[] =>
     return `...and ${hiddenCount} more ${kind} (shown ${shownCount} of ${total}; run with --json for the full list)`;
   });
 
+// bless は link ごとに行う。引数なしの specproof-update は drift した全リンクを黙って bless するので勧めない。
+// link id は manifest 由来で空白やシェルの記号も通るため、コマンドには埋め込まず <link-id> の形で示す。
+const BLESS_ONE_LINK = "specproof-update --link-id <link-id>";
+const IMPL_BEHAVIOR_NOTE =
+  "if the observable behavior changed, decide with the specproof-sync decision table before blessing";
+
+export const describeNextSteps = (entries: DriftEntry[]): string[] => [
+  "Next: review each link's changes and sync features if needed, then bless one link at a time:",
+  `  ${BLESS_ONE_LINK}`,
+  ...(entries.some((entry) => entry.side === "impl")
+    ? [`[impl] drift: ${IMPL_BEHAVIOR_NOTE}.`]
+    : []),
+];
+
+// コマンドの形で示すのは、どのシェル（POSIX・PowerShell・cmd）でも引用の外に出られない文字だけのパス。
+// それ以外は、コマンドに埋めずにコミットだけを示す（パスは上の行に出ている）。
+const COMMAND_SAFE_PATH = /^[A-Za-z0-9._/@+-]+$/;
+
+/**
+ * --since-bless: bless した中身と同じ版のコミット（見つからなければ null、探していなければ undefined）。
+ * prefix は設定のルートの git の最上位からの相対パス。示すコマンドは完全なコミット id（同名のブランチ・タグに
+ * 負けない）と `:(top,literal)` のパス（どこから流しても同じファイルを指し、パスの記号を解釈させない）を使う。
+ */
+export const describeBlessedCommit = (
+  entry: DriftEntry,
+  commit: string | null | undefined,
+  maxCommits: number,
+  prefix = "",
+  /** 履歴を辿ったパス（シンボリックリンクなら実体）。省略時は参照のパス。 */
+  searchedPath: string = entry.path,
+): string | undefined => {
+  if (commit === undefined) return undefined;
+  if (commit === null) {
+    return printable(
+      `blessed version: not found in the last ${maxCommits} commit(s) touching ${searchedPath} (the blessed content may never have been committed, the file may have been renamed, or the history may be shallow)`,
+    );
+  }
+  const topPath = `${prefix}${path.posix.normalize(searchedPath)}`;
+  if (path.posix.isAbsolute(searchedPath) || !COMMAND_SAFE_PATH.test(topPath)) {
+    return printable(
+      // コマンドには埋めないが、比べるファイル（シンボリックリンクなら実体）は文字として示す。
+      `blessed version: ${commit} — compare ${JSON.stringify(searchedPath)} at this commit (not shown as a command: the path has characters a shell would interpret)`,
+    );
+  }
+  return printable(
+    `blessed version: ${commit} — compare with: git diff ${commit} -- ':(top,literal)${topPath}'`,
+  );
+};
+
+export const BLESS_HISTORY_INCOMPLETE =
+  "--since-bless: stopped searching after reaching the limit on git calls or time; references without a result were not searched to the end.";
+
+// 設定で外した advisory の件数。外した対象を黙って消えたように見せない。
+export const describeExcludedAdvisories = (
+  excluded: DriftReport["excludedAdvisories"],
+): string | undefined => {
+  if (excluded === undefined) return undefined;
+  const { unregisteredImpl, unregisteredSpecHeading } = excluded;
+  if (unregisteredImpl + unregisteredSpecHeading === 0) return undefined;
+  return `(excluded ${unregisteredImpl} unregistered-impl item(s) by layout.implExcludeGlobs and ${unregisteredSpecHeading} unregistered-spec-heading item(s) by layout.specHeadingIgnore)`;
+};
+
+export const GIT_HISTORY_UNAVAILABLE =
+  "--since-bless: git history is not available here (not a git work tree, git is not installed, or git refused the repository); blessed versions were not searched.";
+
 export const toGithubAnnotation = (entry: DriftEntry): string => {
   const message =
     `Traceability drift in link "${entry.linkId}" (${entry.side}, ${entry.status})` +
     (entry.heading ? ` at heading "${entry.heading}"` : "") +
-    ". Sync the linked feature (specproof-sync) or run: specproof-update";
+    `. Sync the linked feature (specproof-sync) or bless this link: ${BLESS_ONE_LINK}` +
+    (entry.side === "impl" ? ` (${IMPL_BEHAVIOR_NOTE})` : "");
   return `::warning file=${escapeProperty(entry.path)}::${escapeData(message)}`;
 };
