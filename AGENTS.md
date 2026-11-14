@@ -52,7 +52,8 @@ main の作業ツリー・既存 PR を保護し、新規 branch で小さい PR
 ## Invariants
 
 - **impl -> feature 再生成は一度きりの bootstrap 専用**。継続再生成は同語反復で禁止。
-- **feature 本文を黙って書き換えない**。修正は提案のみ。
+- **feature 本文を黙って書き換えない**。シナリオの修正は提案のみ。人が決めたことを反映するコメントは、
+  決めた人と日付を添えて更新し、報告する（specproof-implement の「feature のコメントの更新」）。
 - **`# specproof: draft` マーカーが残る feature は実装しない**。
 - **ブラックボックス厳守**: step 文に内部 API 名・セレクタを書かない。
 - **AI は提示し、人間が裁定する**。spec <-> impl の矛盾は人間に返す。
