@@ -11,6 +11,7 @@ import {
   GIT_HISTORY_UNAVAILABLE,
   BLESS_HISTORY_INCOMPLETE,
   describeEntry,
+  describeExcludedAdvisories,
   describeHiddenWarnings,
   describeLinkHeading,
   describeNextSteps,
@@ -30,6 +31,8 @@ const main = async (): Promise<void> => {
   const report = await checkDrift(config.manifestPath, config.repoRoot, {
     featuresDir: config.featuresDir,
     implGlobs: config.implGlobs,
+    implExcludeGlobs: config.implExcludeGlobs,
+    specHeadingIgnore: config.specHeadingIgnore,
     gherkin: config.gherkin,
     language: config.language,
     configFile: config.configFile,
@@ -150,6 +153,11 @@ const main = async (): Promise<void> => {
         "(run specproof-check --strict to treat the [warning] item(s) above as errors; [advisory] item(s) require an explicit opt-in — see docs/config-schema.md)",
       );
     }
+  }
+
+  const excludedLine = describeExcludedAdvisories(report.excludedAdvisories);
+  if (!flags.has("--json") && excludedLine !== undefined) {
+    printText(excludedLine);
   }
 
   process.exitCode = isCheckFailure(report, strict, strictOptions) ? 1 : 0;

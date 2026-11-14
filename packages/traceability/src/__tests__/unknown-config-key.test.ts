@@ -122,6 +122,8 @@ const EVERY_KNOWN_KEY = {
       "manifest",
       "specDir",
       "implGlobs",
+      "implExcludeGlobs",
+      "specHeadingIgnore",
       "scratchDir",
       "testRunnerConfig",
       "idiomGuide",

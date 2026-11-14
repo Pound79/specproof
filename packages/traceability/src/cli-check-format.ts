@@ -231,6 +231,16 @@ export const describeBlessedCommit = (
 export const BLESS_HISTORY_INCOMPLETE =
   "--since-bless: stopped searching after reaching the limit on git calls or time; references without a result were not searched to the end.";
 
+// 設定で外した advisory の件数。外した対象を黙って消えたように見せない。
+export const describeExcludedAdvisories = (
+  excluded: DriftReport["excludedAdvisories"],
+): string | undefined => {
+  if (excluded === undefined) return undefined;
+  const { unregisteredImpl, unregisteredSpecHeading } = excluded;
+  if (unregisteredImpl + unregisteredSpecHeading === 0) return undefined;
+  return `(excluded ${unregisteredImpl} unregistered-impl item(s) by layout.implExcludeGlobs and ${unregisteredSpecHeading} unregistered-spec-heading item(s) by layout.specHeadingIgnore)`;
+};
+
 export const GIT_HISTORY_UNAVAILABLE =
   "--since-bless: git history is not available here (not a git work tree, git is not installed, or git refused the repository); blessed versions were not searched.";
 

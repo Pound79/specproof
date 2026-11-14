@@ -64,6 +64,8 @@ const CONFIG_SCHEMA: KeySchema = mapping({
     "manifest",
     "specDir",
     "implGlobs",
+    "implExcludeGlobs",
+    "specHeadingIgnore",
     "scratchDir",
     "testRunnerConfig",
     "idiomGuide",

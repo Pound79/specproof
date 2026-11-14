@@ -78,6 +78,13 @@ layout:
     # not fail CI); set strictUnregisteredImpl: true (top-level) to harden it.
     - "src/**/*.ts"
     - "src/**/*.tsx"
+  # [optional] files under implGlobs to leave out of "unregistered-impl" (e.g. tests)
+  # implExcludeGlobs:
+  #   - "**/__tests__/**"
+  # [optional] spec files ("<path>") or headings ("<path>#<heading>") to leave out of
+  # "unregistered-spec-heading" (role lists, glossaries, revision history)
+  # specHeadingIgnore:
+  #   - "docs/glossary.md"
   scratchDir: ".specproof/drafts" # [optional] temporary output for bootstrap drafts
   e2eReadme: "packages/e2e/README.md" # [optional] E2E package README; specproof-* skills link here
   i18nSource: packages/e2e/src/config/text.ts

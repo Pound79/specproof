@@ -44,6 +44,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 設定に任意のキー `layout.implExcludeGlobs` と `layout.specHeadingIgnore` を足した。前者は `implGlobs` に
+  当たるファイルのうちテストなどを `unregistered-impl` から外し、後者はファイル（`"<path>"`）か見出し
+  （`"<path>#<見出し>"`）単位で、役割の一覧・用語など操作でない構成の見出しを `unregistered-spec-heading` から外す。
+  外した件数はテキスト出力に 1 行で出し、`--json` では `excludedAdvisories` に出す。登録済みの参照の drift と
+  `duplicate-heading` には影響しない。互換: 未設定なら出力も `--json` もこれまでどおり（`unregistered-spec-heading`
+  の警告に `heading` のフィールドが加わるだけ）。0.6.0 以前の CLI はこの 2 つのキーを `unknown-config-key` として出し、
+  `--strict` で失敗する。
 - `specproof-check --since-bless` を足した。drift した参照ごとに、manifest に記録した hash（前に bless した中身）と
   同じ版を持つ最も新しいコミットを git の履歴（そのパスに触れた直近 200 コミット）から探し、
   `git diff <完全なコミット id> -- ':(top,literal)<path>'` の形で示す（どこから流しても同じファイルを指す。
