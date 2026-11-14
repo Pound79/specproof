@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pending の stub のまま流しても全件落ちるだけで、基準にならなかった。この時点で通ったシナリオは
   「実装不要（既存の実装で満たす）」と報告し、`@red-contract` を外す提案をする。その step は自分で書いた
   ものなので、骨抜きでないことを gaming 自己点検の 5 項目目と反証レビューで確かめる。
+- `specproof-implement` の「feature の本文を変えない」を、シナリオ（キーワードの行・step・例の表・doc string・
+  タグ）とコメントに分けた。査読で人が決めたことの根拠を書いたコメントは、人がそのセッションで伝えた決定を
+  反映するときに限り、決めた人と日付を添えて更新してよい。`# language:`・`# specproof: draft`・`@out-of-scope` の
+  理由コメントは対象外。更新すると feature の drift になり、bless は人が行う。
 
 ## [0.6.0] - 2026-11-13
 
