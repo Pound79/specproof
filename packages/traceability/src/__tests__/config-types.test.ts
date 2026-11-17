@@ -99,7 +99,9 @@ describe("エラーメッセージ", () => {
   it.each(["specproof.config.yaml", "specproof.config.yml"])("実際に読んだ %s を示す", (name) =>
     withFile(name, "layout:\n  manifest: [a]\n", (root) => {
       expect(() => discoverConfig({ root })).toThrow(
-        new RegExp(`^${name.replace(/\./g, "\\.")}: `),
+        expect.objectContaining({
+          message: expect.toSatisfy((message: string) => message.startsWith(`${name}: `)),
+        }),
       );
     }),
   );

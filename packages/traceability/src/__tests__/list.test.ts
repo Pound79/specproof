@@ -15,6 +15,20 @@ describe("toDomainName", () => {
     expect(toDomainName("SfMatchingDebugPage")).toBe("sf-matching-debug");
     expect(toDomainName("APACModelPage")).toBe("apac-model");
   });
+
+  it("splits every acronym run that is followed by a capitalized word", () => {
+    expect(toDomainName("HTTPServerURLParserPage")).toBe("http-server-url-parser");
+    expect(toDomainName("AABcDEfPage")).toBe("aa-bc-d-ef");
+    expect(toDomainName("ABCPage")).toBe("abc");
+    expect(toDomainName("XPage")).toBe("x");
+  });
+
+  it("大文字だけが長く続く入力でも線形時間で終わる", () => {
+    const input = `${"A".repeat(50_000)}!`;
+    const start = performance.now();
+    toDomainName(input);
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
 });
 
 describe("buildDomainList", () => {

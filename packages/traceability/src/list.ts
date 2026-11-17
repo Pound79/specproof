@@ -42,11 +42,13 @@ export interface BuildDomainListOptions {
  * e.g. "CompanyDataPage" -> "company-data", "SfMatchingDebugPage" ->
  * "sf-matching-debug". The acronym pass runs before the lower-upper pass so
  * runs like "APACModel" split as "apac-model", not "a-p-a-c-model".
+ * The acronym pass uses a fixed-width lookahead instead of `([A-Z]+)` so a long
+ * all-uppercase input cannot cause quadratic backtracking (ReDoS).
  */
 export const toDomainName = (pageBaseName: string): string =>
   pageBaseName
     .replace(/Page$/, "")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .replace(/([A-Z])(?=[A-Z][a-z])/g, "$1-")
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
     .toLowerCase();
 
