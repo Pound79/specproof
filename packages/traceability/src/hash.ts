@@ -6,6 +6,15 @@ import { readRegularFile } from "./bounded-read.js";
 // so a stored sentinel vs computed digest (or vice versa) always reads as drift.
 export const FILE_MISSING = "FILE_MISSING";
 export const SECTION_MISSING = "SECTION_MISSING";
+
+export const isSentinel = (hash: string): boolean =>
+  hash === FILE_MISSING || hash === SECTION_MISSING;
+
+// A missing file/section must always be reported, even when the stored hash is
+// already the same sentinel (e.g. a hand-edited manifest). Only a matching
+// real digest counts as clean. check と update（--spec-ref の impl の判定）で共有する。
+export const isClean = (storedHash: string, currentHash: string): boolean =>
+  storedHash === currentHash && !isSentinel(currentHash);
 // manifest に新しく足した参照の仮の hash（specproof-new-feature が書き、specproof-update が実際の
 // digest で上書きする）。これも sha256 の 16 進とは衝突しない。
 export const PENDING_HASH = "PENDING";

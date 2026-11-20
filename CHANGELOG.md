@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `specproof-update --spec-ref '<path>#<見出し>'` を足した。その仕様の節の spec 側の hash だけを、それを参照する
+  全リンクで取り直す。共通の決まりを書いた 1 つの節を多くのリンクが参照していると、関係の無い決まりを 1 つ
+  足しただけで全リンクが drift し、リンクごとに bless し直すしかなかった。impl も drift したリンクは、spec 側だけを
+  bless すると「spec と impl の両方が変わった」の信号が消えるので、書き換えずに飛ばし、終了コードを 1 にする
+  （impl の判定は check と同じで、無くなったファイルも drift と数える）。
+  深さの違う同名の節に当たる指定や、bless した版がリンクごとに違う（`PENDING` を含む）ときは、何も書かずに
+  失敗する。`check` は、同じ節が 2 つ以上のリンクで drift したときに Next でこの形を示す。ライブラリには `specRefs` と
+  結果の `skipped`（`specRefs` を指定したときだけ）を足した。sync の skill にも使う条件を書いた。
+
 ### Changed
 
 - `specproof-update` の `--link-id` を重ねて指定できるようにした（`--link-id a --link-id b`）。指定したリンクを

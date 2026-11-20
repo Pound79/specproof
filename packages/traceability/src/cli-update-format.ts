@@ -1,6 +1,6 @@
 import { printable } from "./display-text.js";
 import { PENDING_HASH } from "./hash.js";
-import type { UpdateChange } from "./update.js";
+import type { UpdateChange, UpdateSkip } from "./update.js";
 
 // "PENDING" is the placeholder hash specproof-new-feature writes for a freshly
 // scaffolded ref (see docs/methodology.md); showing it verbatim instead of an
@@ -25,3 +25,8 @@ export const describeUpdateScope = (
   const quoted = ids.map((id) => JSON.stringify(id)).join(", ");
   return printable(ids.length === 1 ? `link ${quoted}` : `links ${quoted}`);
 };
+
+export const describeSkip = (skip: UpdateSkip): string =>
+  printable(
+    `skipped link ${JSON.stringify(skip.linkId)}: its impl also drifted (changed or missing), so blessing only the spec side would hide "both spec and impl changed" — decide with specproof-sync, then bless it with --link-id <link-id>`,
+  );

@@ -364,7 +364,7 @@ methodology, config schema, and the adapter contract.
 | コマンド | 対応オプション |
 |---|---|
 | specproof-check | --root, --manifest, --strict, --json, --github-annotations, --since-bless |
-| specproof-update | --root, --manifest, --link-id, --dry-run |
+| specproof-update | --root, --manifest, --link-id, --spec-ref, --dry-run |
 | specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
 | specproof-stats | --root, --manifest, --strict, --json |
 
@@ -372,6 +372,25 @@ methodology, config schema, and the adapter contract.
 （`--link-id a --link-id b`）、指定したリンクをまとめて bless する。同じ id は 1 つとして扱う。manifest に無い
 id が 1 つでもあれば、manifest を書かずに失敗し、無い id をすべて示す。1 つの値に空白区切りで複数の id を
 入れる書き方は受け付けない（1 つの id として扱われ、無い id として失敗する）。
+
+`specproof-update --spec-ref '<path>#<見出し>'` は、その仕様の節の spec 側の hash だけを、それを参照する全リンクで
+取り直す。共通の決まりを書いた節を多くのリンクが参照していて、変更がそれらのリンクに関係しないと確かめたときに
+使う。impl・feature の hash と、ほかの節の hash は変えない。`<path>#<見出し>` は `layout.specHeadingIgnore` と
+同じく最初の `#` で分ける。重ねて指定でき、`--link-id` と合わせるとそのリンクの中だけで取り直す。
+
+- どのリンクも参照していない節や、見出しの無い指定があれば、manifest を書かずに失敗する
+- 照合はパスと見出しを別々に比べる（パスは posix で正規化し、どちらも前後の空白を除く）。深さ
+  （`headingLevel`）の違う同名の節に当たる指定は、どちらの節か決められないので失敗する
+- パスに `#` を含む参照は、最初の `#` で分けるため `--spec-ref` では選べない（該当なしで失敗する）。`--link-id` を使う
+- 取り直すのは、その節の hash が今の版と違うリンクだけ。それらのリンクで bless した版（保存済みの hash）が
+  揃っていない、または `PENDING` なら、人が確かめた 1 つの変更として扱えないので、manifest を書かずに失敗する。
+  そのときはリンクごとに確かめて `--link-id` で bless する
+- impl も drift した（変わった・無くなった）リンクは書き換えずに飛ばし、`skipped link "<id>"` と示して終了コード 1 にする。spec 側だけを
+  bless すると、次の `check` で「spec と impl の両方が変わった」が impl だけの drift に見え、`specproof-sync` が
+  止まって人に聞く信号が消えるため。飛ばしたリンクは sync で決めてから `--link-id` で bless する
+- `check` は、同じ節が 2 つ以上のリンクで drift したときに、この形を Next に示す（パスと見出しは埋めない）
+- ライブラリの `updateManifestHashes` では `specRefs` で指定し、飛ばしたリンクは結果の `skipped` に入る
+  （`specRefs` を指定したときだけ付く）
 
 `--root <dir>` は探索ルートを明示する。省略時は cwd から親へたどり、設定ファイル
 （`specproof.config.yaml` / `.yml`）か `traceability.yaml` が最初に見つかった段をルートにする。
