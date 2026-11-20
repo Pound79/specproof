@@ -71,7 +71,8 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 
 1. リポルートの `specproof.config.yaml` を探す。
    - **既にある** → 検証モード。`{{config:commands.traceabilityCheck}}` で drift を確認し、
-     必要なら §3 / §5 のサイクルへ。
+     必要なら §3 / §5 のサイクルへ。specproof の版を上げるときは、`specproof-setup` の §7「版を上げるとき」に従い、
+     新しい版で足された設定のキーを提案する。
    - **無い** → `specproof-setup` ムーブメントを駆動して導入する: `npx -y @pound79/specproof detect --json`
      で adapter を検出（曖昧なら「ブラウザで操作する Web アプリですか？」と 1 問だけ確認）→
      `npx -y @pound79/specproof init --adapter <adapter> --dir <dir>` で scaffold →
