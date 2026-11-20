@@ -199,6 +199,20 @@ warning line the same way: `[warning]` when `failsUnderStrict` is `true`,
 consumer) separate hard failures from noise instead of showing every warning
 as if it blocks the check.
 
+The text output also sorts the warnings into two groups and prints the group
+to fix first, under `To fix:` and then `For reference:`, after a one-line count
+such as `Warnings: 15 to fix (step-order 15); 30 for reference
+(unregistered-spec-heading 24, possible-contradiction 6)` (counted before the
+display caps). `To fix` holds every kind that fails under `--strict` with the
+resolved config, plus the feature authoring mistakes (`missing-then`,
+`step-order`, `duplicate-scenario-name`, `duplicate-scenario`) even when they
+are `[advisory]`; `For reference` holds `unregistered-impl`,
+`unregistered-spec-heading` (unless opted in) and `possible-contradiction`.
+Within `To fix`, the kinds that fail under `--strict` come first. A capped
+kind's `...and N more` line is printed at the end of its own group.
+`--github-annotations` uses the same order, so the group to fix is not pushed
+out of GitHub's per-step annotation limit. `--json` keeps the original order.
+
 ### `--dry-run` output example
 
 ```

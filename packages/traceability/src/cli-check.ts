@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { findBlessedCommits, MAX_COMMITS } from "./bless-history.js";
-import { checkDrift } from "./check.js";
+import { checkDrift, type DriftWarning } from "./check.js";
 import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
 import {
@@ -23,6 +23,12 @@ import {
   toGithubWarningAnnotation,
   warningFailsUnderStrict,
 } from "./cli-check-format.js";
+import {
+  describeWarningSummary,
+  orderWarningsByGroup,
+  type WarningGroup,
+  warningGroup,
+} from "./cli-check-warning-groups.js";
 import { loadManifest } from "./manifest.js";
 import { printJson, printText } from "./output.js";
 
@@ -45,7 +51,8 @@ const main = async (): Promise<void> => {
     strictUnregisteredSpecHeadings: config.strictUnregisteredSpecHeadings,
     strictFeatureLint: config.strictFeatureLint,
   };
-  const display = selectWarningsForDisplay(report.warnings);
+  // 直すものを先に並べる（テキストと注釈の両方。GitHub は 1 step の注釈を 10 件までしか出さない）。
+  const display = selectWarningsForDisplay(orderWarningsByGroup(report.warnings, strictOptions));
   const shownWarnings = display.shown;
   // --since-bless は drift があるときだけ git を見る。全参照 missing はルートの取り違えなので探さない。
   const history =
@@ -158,15 +165,34 @@ const main = async (): Promise<void> => {
 
   if (!flags.has("--json") && shownWarnings.length > 0) {
     printText("");
-    for (const warning of shownWarnings) {
-      printText(describeWarning(warning, warningFailsUnderStrict(warning.kind, strictOptions)));
+    const summary = describeWarningSummary(report.warnings, strictOptions);
+    if (summary !== undefined) printText(summary);
+    // 隠した件数の行は、その種類の組の末尾に出す（参考の見出しの下に直すものの残りを出さない）。
+    const hiddenLinesOf = (group: WarningGroup): string[] =>
+      describeHiddenWarnings({
+        ...display,
+        hiddenByKind: Object.fromEntries(
+          Object.entries(display.hiddenByKind).filter(
+            ([kind]) => warningGroup(kind as DriftWarning["kind"], strictOptions) === group,
+          ),
+        ),
+      });
+    for (const group of ["fix", "reference"] as const) {
+      const members = shownWarnings.filter(
+        (warning) => warningGroup(warning.kind, strictOptions) === group,
+      );
+      if (members.length === 0) continue;
+      printText(group === "fix" ? "To fix:" : "For reference:");
+      for (const warning of members) {
+        printText(describeWarning(warning, warningFailsUnderStrict(warning.kind, strictOptions)));
+      }
+      for (const line of hiddenLinesOf(group)) {
+        printText(line);
+      }
     }
     const hasHardWarning = shownWarnings.some((warning) =>
       warningFailsUnderStrict(warning.kind, strictOptions),
     );
-    for (const line of describeHiddenWarnings(display)) {
-      printText(line);
-    }
     if (!strict && hasHardWarning) {
       printText(
         "(run specproof-check --strict to treat the [warning] item(s) above as errors; [advisory] item(s) require an explicit opt-in — see docs/config-schema.md)",
