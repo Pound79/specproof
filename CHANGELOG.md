@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `docs/playwright-ci.md` に、別のリポジトリのバックエンドが要る Playwright の E2E を CI で流す手引きを足し、
+  雛形の README から参照した。定期実行と、2 つのリポジトリの SHA の組による変更の検知、非公開リポジトリを
+  読むだけの GitHub App のトークンでの checkout、docker compose の注意（Linux の runner でのファイルの持ち主、
+  準備を待つ、migration、初回の遅さ、使い捨ての秘密を伏せる）、ログと成果物の扱いを書いた。trace などを
+  CI の成果物に上げない方針は変えない。
+
 ## [0.7.0] - 2026-11-17
 
 ### Changed
