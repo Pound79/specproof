@@ -43,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `specproof-check` のテキスト出力で、`layout.implExcludeGlobs` が未設定のまま、テストや生成物らしいファイル
+  （`*.test.*`・`*.spec.*`・`__tests__/`・`__mocks__/`・`*_test.dart`・`*.g.dart`・`*.freezed.dart`・`*.mocks.dart`）が `unregistered-impl` に
+  5 件以上あるとき、このキーを 1 行で案内するようにした。版を上げてキーが使えるようになっても、設定に足さなければ
+  テストのファイルが並び続け、気づくきっかけが無かった。案内にパスは載せない。互換: 終了コードと `--json` は
+  変わらない。
+
 - `specproof-check` のテキスト出力で、warning を「直すもの」（`To fix:`）と「参考」（`For reference:`）に分け、
   直すものを先に出すようにした。先頭に組ごとの種類と件数のまとめ（`Warnings: 15 to fix (step-order 15); 30 for
   reference (...)`）を 1 行出す。直すものは、設定で `--strict` の対象になる種類と、`[advisory]` でも feature の
