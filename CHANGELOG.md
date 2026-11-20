@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Playwright の雛形の README の「新しい feature を追加するとき」を、`projects` の構成によらない書き方に
+  直した。README は生成した時点の固定の文で、setup が `projects` を変えても書き換わらない。guest や
+  ロールごとの project がある前提の文だったので、それらを消して 1 つの project にまとめた構成では手順が
+  合わなかった。追加先は、シナリオをどの認証状態（ログイン前か、どのロールか）で確かめるかで決め、
+  project の `tags` が選ぶことは必要条件に留めた（タグ無しのシナリオは guest の `tags` にも合うため）。
+  ログインせずに実行する project には、ログイン前の画面を確かめる feature だけを足す。skill の feature の
+  登録手順も同じ書き方に揃えた。
+
 ## [0.7.0] - 2026-11-17
 
 ### Changed

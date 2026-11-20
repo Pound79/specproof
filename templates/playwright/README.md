@@ -192,12 +192,15 @@ All runner behaviour is derived from `specproof.config.yaml`:
 
 ### 新しい feature を追加するとき
 
-manifest の登録に加えて、`projects[].features` に意図した認証ロールの project だけを選び、
-新しいファイルのパスを追加する。パスは E2E パッケージ相対。既定は明示列挙なので、
-features ディレクトリへ置くだけでは生成・実行されない。既存の guest の認証専用範囲や
-タグ・環境条件を広げない。同じ feature にロール付きシナリオがあっても、guest は `@admin` と
-`@user` を除外する。`npm run bddgen` の後に
-`npx playwright test --list --project <project-name>` で対象シナリオを確認する。
+manifest の登録に加えて、その feature のシナリオをどの認証状態で確かめるか（ログイン前か、
+どのロールでログインした後か）から追加先の project を決め、その project の `tags` が対象のシナリオを
+選ぶことを確かめてから、`specproof.config.yaml` の `projects[].features` にパスを追加する。
+タグが合うだけでは追加しない。シナリオのロールが複数の project に分かれるなら、それぞれに追加する。
+パスは E2E パッケージ相対。既定は明示列挙なので、features ディレクトリへ置くだけでは生成・実行されない。
+ログインせずに実行することを前提にした project（雛形では `guest`。step の中でログインする project は
+含めない）には、ログイン前の画面を確かめる feature だけを追加し、ロール付きのタグのシナリオも、
+認証が要るタグ無しのシナリオもそこで実行させない。既存の project の `tags`・`conditional`・環境条件は広げない。
+`npm run bddgen` の後に `npx playwright test --list --project <project-name>` で対象シナリオを確認する。
 一覧に無ければ登録・`conditional`・タグ条件を確認し、未実行を GREEN と扱わない。
 
 ---
