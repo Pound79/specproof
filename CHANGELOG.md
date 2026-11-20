@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Playwright の雛形の README に「テストの前に環境を確かめる」を足した。古いビルド・別のブランチの
+  バックエンド・起動直後の遅さなど、環境の崩れでシナリオがまとめて落ちるのを、始める前に止める
+  `globalSetup` の例（バックエンドが動いているか、期待するコミットを含むか、配信中のビルドが今の
+  チェックアウトのものか、温める要求）を載せた。ヘルスチェックは転送を追わず、その URL 自身が 200 を
+  返すかを確かめる（ログイン画面への転送先の 200 で通さない）。雛形のコードと設定のキーは変えていない。
+  Project Structure の `auth.setup.ts` の説明を「global setup」から「setup project」に直した。
+
 ### Changed
 
 - `specproof-implement` の gaming 自己点検に 6 項目目「経路の確かめ」を足した。失敗・例外・拒否の経路を
