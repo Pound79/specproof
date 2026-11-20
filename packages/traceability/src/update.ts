@@ -124,6 +124,11 @@ export interface UpdateOptions {
    *  stored hashes are left untouched. Only changed hash scalars are replaced;
    *  comments and unrelated text are preserved. A no-op never writes the file. */
   linkId?: string;
+  /** Like `linkId`, for several links at once. Combined with `linkId` as one
+   *  set. Every id must exist in the manifest, or nothing is written. An empty
+   *  array is an error (not "every link"): a caller that filtered the ids down
+   *  to none must not bless the drift it did not review. Omit it to update all. */
+  linkIds?: readonly string[];
   /** Compute (and return) the same changes as a normal run, but never write
    *  the manifest file. Sentinel rejection (FILE_MISSING / SECTION_MISSING)
    *  still throws in dry-run — a dry run previews hash churn, it does not
@@ -147,13 +152,26 @@ export const updateManifestHashes = async (
   const manifestPath = resolveWithinRoot(repoRoot, path.resolve(requestedManifestPath));
   const manifest = await loadManifest(manifestPath);
   const runLimited = createTaskLimiter(MAX_CONCURRENT_FILE_READS);
-  const { linkId, dryRun = false } = options;
-  if (linkId !== undefined && !manifest.links.some((link) => link.id === linkId)) {
-    throw new Error(`Cannot update: no link with id "${linkId}" in the manifest.`);
+  const { dryRun = false } = options;
+  const requested = [
+    ...new Set([
+      ...(options.linkId === undefined ? [] : [options.linkId]),
+      ...(options.linkIds ?? []),
+    ]),
+  ];
+  if (options.linkIds !== undefined && requested.length === 0) {
+    throw new Error("Cannot update: linkIds is empty; omit it to update every link.");
   }
+  const known = new Set(manifest.links.map((link) => link.id));
+  const unknown = requested.filter((id) => !known.has(id));
+  if (unknown.length > 0) {
+    const ids = unknown.map((id) => JSON.stringify(id)).join(", ");
+    throw new Error(`Cannot update: no link with id ${ids} in the manifest.`);
+  }
+  const selected = requested.length === 0 ? undefined : new Set(requested);
   const results = await Promise.all(
     manifest.links.map((link) =>
-      linkId === undefined || link.id === linkId
+      selected === undefined || selected.has(link.id)
         ? refreshLink(link, repoRoot, runLimited)
         : Promise.resolve({ link, changes: [] as UpdateChange[] }),
     ),

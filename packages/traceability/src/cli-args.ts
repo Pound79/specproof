@@ -33,7 +33,8 @@ export interface ParsedCliArgs {
   root?: string;
   pagesDir?: string;
   candidateSuffix?: string;
-  linkId?: string;
+  /** `--link-id` は重ねて指定でき、指定した順に集める（重複はそのまま。除くのは使う側）。 */
+  linkIds?: string[];
 }
 
 /** 引数の誤り。利用者が直す入力なので、スタックを出さずにメッセージだけを示す。 */
@@ -49,7 +50,8 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
     command ? COMMAND_OPTIONS[command] : [...Object.keys(VALUE_OPTIONS), ...BOOLEAN_OPTIONS],
   );
   const flags = new Set<string>();
-  const values: Partial<Record<ValueOptionKey, string>> = {};
+  const values: Partial<Record<Exclude<ValueOptionKey, "linkId">, string>> = {};
+  const linkIds: string[] = [];
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -65,11 +67,15 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
     if (value === undefined || value.length === 0 || looksLikeOption(value)) {
       throw new CliUsageError(`${arg} requires a value`);
     }
-    values[key] = value;
+    if (key === "linkId") {
+      linkIds.push(value);
+    } else {
+      values[key] = value;
+    }
     i += 1;
   }
 
-  return { flags, ...values };
+  return { flags, ...values, ...(linkIds.length > 0 ? { linkIds } : {}) };
 };
 
 /**
