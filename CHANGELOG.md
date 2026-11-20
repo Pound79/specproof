@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   足しただけで全リンクが drift し、リンクごとに bless し直すしかなかった。impl も drift したリンクは、spec 側だけを
   bless すると「spec と impl の両方が変わった」の信号が消えるので、書き換えずに飛ばし、終了コードを 1 にする
   （impl の判定は check と同じで、無くなったファイルも drift と数える）。
+  manifest に保存した参照は空白を残したまま照合し、旧形式の見出しや空白で区別されるファイルを取り違えない。
+  `#` の前後に空白のある指定は、似た名前の別の節を選ばずに失敗する。
   深さの違う同名の節に当たる指定や、bless した版がリンクごとに違う（`PENDING` を含む）ときは、何も書かずに
   失敗する。`check` は、同じ節が 2 つ以上のリンクで drift したときに Next でこの形を示す。ライブラリには `specRefs` と
   結果の `skipped`（`specRefs` を指定したときだけ）を足した。sync の skill にも使う条件を書いた。
