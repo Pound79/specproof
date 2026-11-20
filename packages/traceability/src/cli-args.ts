@@ -2,7 +2,7 @@
 import { printable } from "./display-text.js";
 import { printErrorText } from "./output.js";
 
-type ValueOptionKey = "manifest" | "root" | "pagesDir" | "candidateSuffix" | "linkId";
+type ValueOptionKey = "manifest" | "root" | "pagesDir" | "candidateSuffix" | "linkId" | "specRef";
 
 const VALUE_OPTIONS: Record<string, ValueOptionKey> = {
   "--manifest": "manifest",
@@ -10,6 +10,7 @@ const VALUE_OPTIONS: Record<string, ValueOptionKey> = {
   "--pages-dir": "pagesDir",
   "--candidate-suffix": "candidateSuffix",
   "--link-id": "linkId",
+  "--spec-ref": "specRef",
 };
 const BOOLEAN_OPTIONS = [
   "--strict",
@@ -21,7 +22,7 @@ const BOOLEAN_OPTIONS = [
 export type TraceabilityCommand = "check" | "update" | "list" | "stats";
 const COMMAND_OPTIONS: Record<TraceabilityCommand, readonly string[]> = {
   check: ["--manifest", "--root", "--strict", "--json", "--github-annotations", "--since-bless"],
-  update: ["--manifest", "--root", "--link-id", "--dry-run"],
+  update: ["--manifest", "--root", "--link-id", "--spec-ref", "--dry-run"],
   list: ["--manifest", "--root", "--pages-dir", "--candidate-suffix", "--json"],
   stats: ["--manifest", "--root", "--strict", "--json"],
 };
@@ -35,6 +36,8 @@ export interface ParsedCliArgs {
   candidateSuffix?: string;
   /** `--link-id` は重ねて指定でき、指定した順に集める（重複はそのまま。除くのは使う側）。 */
   linkIds?: string[];
+  /** `--spec-ref` も重ねて指定でき、指定した順に集める。 */
+  specRefs?: string[];
 }
 
 /** 引数の誤り。利用者が直す入力なので、スタックを出さずにメッセージだけを示す。 */
@@ -50,8 +53,9 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
     command ? COMMAND_OPTIONS[command] : [...Object.keys(VALUE_OPTIONS), ...BOOLEAN_OPTIONS],
   );
   const flags = new Set<string>();
-  const values: Partial<Record<Exclude<ValueOptionKey, "linkId">, string>> = {};
+  const values: Partial<Record<Exclude<ValueOptionKey, "linkId" | "specRef">, string>> = {};
   const linkIds: string[] = [];
+  const specRefs: string[] = [];
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -69,13 +73,20 @@ export const parseCliArgs = (argv: string[], command?: TraceabilityCommand): Par
     }
     if (key === "linkId") {
       linkIds.push(value);
+    } else if (key === "specRef") {
+      specRefs.push(value);
     } else {
       values[key] = value;
     }
     i += 1;
   }
 
-  return { flags, ...values, ...(linkIds.length > 0 ? { linkIds } : {}) };
+  return {
+    flags,
+    ...values,
+    ...(linkIds.length > 0 ? { linkIds } : {}),
+    ...(specRefs.length > 0 ? { specRefs } : {}),
+  };
 };
 
 /**

@@ -1,6 +1,8 @@
 import path from "node:path";
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
 import { printable } from "./display-text.js";
+import { PENDING_HASH } from "./hash.js";
+import { sectionKey, selectableBySpecRef } from "./spec-ref-selector.js";
 
 export const describeEntry = (entry: DriftEntry): string => {
   const location = entry.heading ? `${entry.path} § ${entry.heading}` : entry.path;
@@ -188,9 +190,42 @@ const BLESS_ONE_LINK = "specproof-update --link-id <link-id>";
 const IMPL_BEHAVIOR_NOTE =
   "if the observable behavior changed, decide with the specproof-sync decision table before blessing";
 
+// 同じ spec の節（path と見出し）が 2 つ以上のリンクで変わっているか。共通の決まりを書いた節を多くの
+// リンクが参照していると、関係の無い変更でも全リンクが drift する。節は --spec-ref と同じ規則で数え、
+// 見出しが無くなったもの（missing）は --spec-ref で bless できないので数えない。
+const hasSpecSectionSharedByLinks = (entries: DriftEntry[]): boolean => {
+  const linksBySection = new Map<string, Set<string>>();
+  for (const entry of entries) {
+    // --spec-ref が受け付けない節（missing、前後に空白・パスに `#`、一度も bless していない PENDING）は数えない。
+    if (
+      entry.side !== "spec" ||
+      entry.heading === undefined ||
+      entry.status !== "changed" ||
+      !selectableBySpecRef(entry.path, entry.heading) ||
+      entry.storedHash === PENDING_HASH
+    )
+      continue;
+    const key = sectionKey(entry.path, entry.heading);
+    const links = linksBySection.get(key) ?? new Set<string>();
+    links.add(entry.linkId);
+    linksBySection.set(key, links);
+    if (links.size > 1) return true;
+  }
+  return false;
+};
+
+// path と見出しは manifest 由来でシェルの記号も通るので、コマンドには埋めず <path>#<heading> の形で示す。
+const BLESS_ONE_SPEC_SECTION = "specproof-update --spec-ref '<path>#<heading>'";
+
 export const describeNextSteps = (entries: DriftEntry[]): string[] => [
   "Next: review each link's changes and sync features if needed, then bless one link at a time:",
   `  ${BLESS_ONE_LINK}`,
+  ...(hasSpecSectionSharedByLinks(entries)
+    ? [
+        "A spec section drifted in several links. If the change does not affect them, bless only that section's spec side in every link that references it:",
+        `  ${BLESS_ONE_SPEC_SECTION}`,
+      ]
+    : []),
   ...(entries.some((entry) => entry.side === "impl")
     ? [`[impl] drift: ${IMPL_BEHAVIOR_NOTE}.`]
     : []),

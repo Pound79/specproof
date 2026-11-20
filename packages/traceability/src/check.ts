@@ -7,6 +7,8 @@ import {
   containsDraftMarker,
   DRAFT_MARKER,
   FILE_MISSING,
+  isClean,
+  isSentinel,
   readFileOrNull,
   SECTION_MISSING,
 } from "./hash.js";
@@ -98,16 +100,8 @@ export interface DriftReport {
   excludedAdvisories?: ExcludedAdvisoryCounts;
 }
 
-const isSentinel = (hash: string): boolean => hash === FILE_MISSING || hash === SECTION_MISSING;
-
 const statusFor = (currentHash: string): DriftEntry["status"] =>
   isSentinel(currentHash) ? "missing" : "changed";
-
-// A missing file/section must always be reported, even when the stored hash is
-// already the same sentinel (e.g. a hand-edited manifest). Only a matching
-// real digest counts as clean.
-const isClean = (storedHash: string, currentHash: string): boolean =>
-  storedHash === currentHash && !isSentinel(currentHash);
 
 const checkLink = async (
   link: TraceabilityLink,

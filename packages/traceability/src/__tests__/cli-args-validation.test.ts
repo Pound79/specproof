@@ -7,7 +7,14 @@ for (const args of [["--stric"], ["--strict=true"], ["unexpected"], ["--json", "
     assert.throws(() => parseCliArgs(args), /Unknown option or argument/);
   });
 }
-for (const option of ["--manifest", "--root", "--pages-dir", "--candidate-suffix", "--link-id"]) {
+for (const option of [
+  "--manifest",
+  "--root",
+  "--pages-dir",
+  "--candidate-suffix",
+  "--link-id",
+  "--spec-ref",
+]) {
   test(`${option} の値の欠落を拒否する`, () => {
     for (const tail of [[], ["--strict"], ["-h"], [""]]) {
       assert.throws(() => parseCliArgs([option, ...tail]), /requires a value/);
@@ -16,6 +23,7 @@ for (const option of ["--manifest", "--root", "--pages-dir", "--candidate-suffix
 }
 for (const [command, option] of [
   ["check", "--dry-run"],
+  ["check", "--spec-ref"],
   ["update", "--strict"],
   ["list", "--strict"],
   ["stats", "--github-annotations"],

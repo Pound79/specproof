@@ -58,6 +58,7 @@ export {
   type UpdateChange,
   type UpdateOptions,
   type UpdateResult,
+  type UpdateSkip,
 } from "./update.js";
 
 export {

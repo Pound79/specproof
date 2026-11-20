@@ -206,6 +206,15 @@ bless は Step 2 で扱いを決めて同期したリンクだけに、`--link-i
 `--link-id` を重ねて 1 回で bless できる）。`--link-id` を付けないと、
 判断していないリンクの drift（動きが変わった実装を含む）まで黙って bless する。
 link id は manifest 由来でシェルの記号も通るので、コマンドに入れる前に `^[A-Za-z0-9._-]+$` に当たることを確かめ、当たらなければ流さずに id とともに人に示す。当たっても単一引用符で囲む（`--link-id 'perm-invite'`）。重ねるときも id ごとに確かめ、1 つでも当たらなければコマンド全体を流さない。
+1 つの仕様の節が多くのリンクで drift し、その変更がどのリンクのシナリオにも関係しないことを各リンクの feature で
+確かめたときは、`{{config:commands.traceabilityUpdate}} --spec-ref '<path>#<見出し>'` でその節の spec 側だけをまとめて
+bless してよい。`--spec-ref` はその節を参照する全リンクを bless するので、関係するリンクが 1 つでもあれば使わないか、
+関係しないリンクだけを `--link-id` で絞って合わせる。impl も drift したリンクは CLI が飛ばす（終了コード 1）ので、
+そのリンクは決定表で扱いを決めてから `--link-id` で bless する。深さの違う同名の節に当たる、bless した版がリンクごとに
+違う（PENDING を含む）ときは CLI が何も書かずに止まるので、リンクごとに確かめて `--link-id` で bless する。
+path と見出しは manifest 由来なので、path が `^[A-Za-z0-9._/-]+$` に当たり、見出しが単一引用符・`#`・制御文字
+（C0・C1・DEL）・U+2028/U+2029・BOM・双方向の制御文字を含まないときだけ、単一引用符で囲んで流す。当たらなければ
+流さずに人に示す。
 
 1. ブランチ作成: `{{config:git.branchPrefix}}<YYYY-MM-DD>` (main から。既に作業ブランチ上ならそのまま)
 2. conventional commit: `feat({{config:git.commitScope}}): sync BDD features with spec/impl drift (<link-ids>)`
