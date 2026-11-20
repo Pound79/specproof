@@ -43,6 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `specproof-check` のテキスト出力で、warning を「直すもの」（`To fix:`）と「参考」（`For reference:`）に分け、
+  直すものを先に出すようにした。先頭に組ごとの種類と件数のまとめ（`Warnings: 15 to fix (step-order 15); 30 for
+  reference (...)`）を 1 行出す。直すものは、設定で `--strict` の対象になる種類と、`[advisory]` でも feature の
+  書き方の誤りである `missing-then`・`step-order`・`duplicate-scenario-name`・`duplicate-scenario`。参考は
+  `unregistered-impl`・`unregistered-spec-heading`（opt-in していなければ）・`possible-contradiction`。直すものの中では
+  `--strict` で落ちるものを先にし、表示の上限で隠した件数の行はその種類の組の末尾に出す。これまでは
+  種類を問わず 1 つの列に並び、本当の書き方の誤りが多数の参考の中に埋もれていた。`--github-annotations` の
+  注釈も同じ順にした（GitHub は 1 step の注釈を 10 件までしか出さない）。互換: `[warning]` / `[advisory]` の
+  意味、終了コード、`--json`（元の順）は変わらない。テキストや注釈の順を照合しているスクリプトは直す必要がある。
+
 - `specproof-check` のテキスト出力に、2 つ以上のリンクで drift した spec の節のまとめ（「Spec sections that drifted
   in several links」、節ごとのリンクの数を多い順に 10 節まで）を足した。共通の決まりを書いた節を多くのリンクが
   参照していると、リンクごとの一覧からはどの節が変わったかを読み取れず、関係を確かめるために feature を探し回って
