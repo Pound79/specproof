@@ -27,7 +27,7 @@ describe("parseCliArgs", () => {
     expect(parsed.root).toBe("/repo");
     expect(parsed.pagesDir).toBe("src/pages");
     expect(parsed.candidateSuffix).toBe("_page.dart");
-    expect(parsed.linkId).toBe("auth");
+    expect(parsed.linkIds).toEqual(["auth"]);
     expect(parsed.flags.size).toBe(0);
   });
 
@@ -57,7 +57,7 @@ describe("parseCliArgs の値の判定", () => {
     expect(parseCliArgs(["--candidate-suffix", "-page.ts"], "list").candidateSuffix).toBe(
       "-page.ts",
     );
-    expect(parseCliArgs(["--link-id", "-legacy"], "update").linkId).toBe("-legacy");
+    expect(parseCliArgs(["--link-id", "-legacy"], "update").linkIds).toEqual(["-legacy"]);
   });
 
   it("オプションやヘルプ指定を値として取り込まない", () => {

@@ -2,15 +2,15 @@
 import { updateManifestHashes } from "./update.js";
 import { discoverConfig } from "./config.js";
 import { parseCliArgs, runCli } from "./cli-args.js";
-import { describeChange } from "./cli-update-format.js";
+import { describeChange, describeUpdateScope } from "./cli-update-format.js";
 import { printText } from "./output.js";
 
 const main = async (): Promise<void> => {
-  const { flags, manifest, root, linkId } = parseCliArgs(process.argv.slice(2), "update");
+  const { flags, manifest, root, linkIds } = parseCliArgs(process.argv.slice(2), "update");
   const config = discoverConfig({ manifest, root });
   const dryRun = flags.has("--dry-run");
   const updated = await updateManifestHashes(config.manifestPath, config.repoRoot, {
-    linkId,
+    linkIds,
     dryRun,
   });
 
@@ -30,7 +30,7 @@ const main = async (): Promise<void> => {
 
   // 数えるのは hash が変わったリンクと参照だけ（manifest の全リンク数ではない）。
   const changedLinkCount = new Set(updated.changes.map((change) => change.linkId)).size;
-  const scope = linkId === undefined ? `${changedLinkCount} link(s)` : `link "${linkId}"`;
+  const scope = describeUpdateScope(linkIds, changedLinkCount);
   printText(
     `\nTraceability manifest updated: ${scope} refreshed (${updated.changes.length} hash(es) changed).`,
   );

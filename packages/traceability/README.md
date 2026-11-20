@@ -22,7 +22,7 @@ All commands auto-discover `specproof.config.yaml` / `traceability.yaml` from th
 
 ```bash
 npx specproof-check --json     # detect drift (exit non-zero on drift; --strict for lint gates)
-npx specproof-update           # bless current hashes (single link: --link-id <id>)
+npx specproof-update           # bless current hashes (some links: --link-id <id> [--link-id <id> ...])
 npx specproof-list             # registered domains + bootstrap candidates
 npx specproof-stats            # scenario census (phase / verification / out-of-scope; --strict for done gate)
 ```
@@ -367,6 +367,11 @@ methodology, config schema, and the adapter contract.
 | specproof-update | --root, --manifest, --link-id, --dry-run |
 | specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
 | specproof-stats | --root, --manifest, --strict, --json |
+
+`specproof-update --link-id <id>` はそのリンクだけを bless する。`--link-id` は重ねて指定でき
+（`--link-id a --link-id b`）、指定したリンクをまとめて bless する。同じ id は 1 つとして扱う。manifest に無い
+id が 1 つでもあれば、manifest を書かずに失敗し、無い id をすべて示す。1 つの値に空白区切りで複数の id を
+入れる書き方は受け付けない（1 つの id として扱われ、無い id として失敗する）。
 
 `--root <dir>` は探索ルートを明示する。省略時は cwd から親へたどり、設定ファイル
 （`specproof.config.yaml` / `.yml`）か `traceability.yaml` が最初に見つかった段をルートにする。

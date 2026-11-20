@@ -14,3 +14,14 @@ export const describeChange = (change: UpdateChange): string => {
     `${change.linkId} ${change.side} ${location}: ${shortHash(change.oldHash)} -> ${shortHash(change.newHash)}`,
   );
 };
+
+// --link-id を付けたときは、指定したリンクを示す（重複は 1 つにまとめる）。付けなければ変わったリンクの数。
+export const describeUpdateScope = (
+  linkIds: readonly string[] | undefined,
+  changedLinkCount: number,
+): string => {
+  const ids = [...new Set(linkIds ?? [])];
+  if (ids.length === 0) return `${changedLinkCount} link(s)`;
+  const quoted = ids.map((id) => JSON.stringify(id)).join(", ");
+  return printable(ids.length === 1 ? `link ${quoted}` : `links ${quoted}`);
+};

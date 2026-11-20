@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `specproof-update` の `--link-id` を重ねて指定できるようにした（`--link-id a --link-id b`）。指定したリンクを
+  まとめて bless する。これまでは重ねると、黙って最後の 1 つだけが効いていた。manifest に無い id が 1 つでも
+  あれば、何も書かずに失敗し、無い id をすべて示す。完了の行は複数のときに `links "a", "b" refreshed` になる。
+  ライブラリの `updateManifestHashes` に `linkIds` を足した（`linkId` はこれまでどおり使え、合わせた集合を更新する。
+  空の `linkIds` は全リンクの更新ではなくエラーにする）。
+  sync の skill の bless の手順にも、同じ扱いに決めたリンクは重ねて 1 回で bless できることを書いた。
+
 ## [0.7.0] - 2026-11-17
 
 ### Changed
