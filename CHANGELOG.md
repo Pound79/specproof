@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Playwright の雛形の README に「テストの前に環境を確かめる」を足した。古いビルド・別のブランチの
+  バックエンド・起動直後の遅さなど、環境の崩れでシナリオがまとめて落ちるのを、始める前に止める
+  `globalSetup` の例（バックエンドが動いているか、期待するコミットを含むか、配信中のビルドが今の
+  チェックアウトのものか、温める要求）を載せた。雛形のコードと設定のキーは変えていない。
+  Project Structure の `auth.setup.ts` の説明を「global setup」から「setup project」に直した。
+
 ## [0.7.0] - 2026-11-17
 
 ### Changed
