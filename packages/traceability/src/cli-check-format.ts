@@ -2,7 +2,7 @@ import path from "node:path";
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
 import { printable } from "./display-text.js";
 import { PENDING_HASH } from "./hash.js";
-import { sectionKey } from "./spec-ref-selector.js";
+import { normalizePath, sectionKey } from "./spec-ref-selector.js";
 
 export const describeEntry = (entry: DriftEntry): string => {
   const location = entry.heading ? `${entry.path} § ${entry.heading}` : entry.path;
@@ -190,13 +190,18 @@ const BLESS_ONE_LINK = "specproof-update --link-id <link-id>";
 const IMPL_BEHAVIOR_NOTE =
   "if the observable behavior changed, decide with the specproof-sync decision table before blessing";
 
-// 同じ spec の節（path と見出し）が 2 つ以上のリンクで変わっているか。共通の決まりを書いた節を多くの
-// リンクが参照していると、関係の無い変更でも全リンクが drift する。節は --spec-ref と同じ規則で数え、
-// 見出しが無くなったもの（missing）は --spec-ref で bless できないので数えない。
-const hasSpecSectionSharedByLinks = (entries: DriftEntry[]): boolean => {
-  const linksBySection = new Map<string, Set<string>>();
+interface SharedSpecSection {
+  path: string;
+  heading: string;
+  linkCount: number;
+}
+
+// 2 つ以上のリンクで変わった spec の節（path と見出し）を、リンクの数の多い順に返す。共通の決まりを書いた節を
+// 多くのリンクが参照していると、関係の無い変更でも全リンクが drift する。節は --spec-ref と同じ規則で数え、
+// 見出しが無くなったもの（missing）と一度も bless していないもの（PENDING）は --spec-ref が受け付けないので数えない。
+const groupSharedSpecSections = (entries: DriftEntry[]): SharedSpecSection[] => {
+  const sections = new Map<string, { path: string; heading: string; links: Set<string> }>();
   for (const entry of entries) {
-    // 一度も bless していない（PENDING）節は --spec-ref が受け付けないので数えない。
     if (
       entry.side !== "spec" ||
       entry.heading === undefined ||
@@ -205,12 +210,40 @@ const hasSpecSectionSharedByLinks = (entries: DriftEntry[]): boolean => {
     )
       continue;
     const key = sectionKey(entry.path, entry.heading);
-    const links = linksBySection.get(key) ?? new Set<string>();
-    links.add(entry.linkId);
-    linksBySection.set(key, links);
-    if (links.size > 1) return true;
+    const section = sections.get(key) ?? {
+      path: normalizePath(entry.path),
+      heading: entry.heading.trim(),
+      links: new Set<string>(),
+    };
+    section.links.add(entry.linkId);
+    sections.set(key, section);
   }
-  return false;
+  return [...sections.values()]
+    .filter((section) => section.links.size > 1)
+    .map((section) => ({
+      path: section.path,
+      heading: section.heading,
+      linkCount: section.links.size,
+    }))
+    .sort((left, right) => right.linkCount - left.linkCount);
+};
+
+const SHARED_SECTION_LIMIT = 10;
+
+/** テキスト出力: 2 つ以上のリンクで変わった節のまとめ。該当が無ければ空。 */
+export const describeSharedSpecSections = (entries: DriftEntry[]): string[] => {
+  const sections = groupSharedSpecSections(entries);
+  if (sections.length === 0) return [];
+  const hidden = sections.length - SHARED_SECTION_LIMIT;
+  return [
+    "Spec sections that drifted in several links:",
+    ...sections
+      .slice(0, SHARED_SECTION_LIMIT)
+      .map((section) =>
+        printable(`  ${section.path} § ${section.heading} — ${section.linkCount} link(s)`),
+      ),
+    ...(hidden > 0 ? [`  ...and ${hidden} more section(s) (run with --json for every entry)`] : []),
+  ];
 };
 
 // path と見出しは manifest 由来でシェルの記号も通るので、コマンドには埋めず <path>#<heading> の形で示す。
@@ -219,7 +252,7 @@ const BLESS_ONE_SPEC_SECTION = "specproof-update --spec-ref '<path>#<heading>'";
 export const describeNextSteps = (entries: DriftEntry[]): string[] => [
   "Next: review each link's changes and sync features if needed, then bless one link at a time:",
   `  ${BLESS_ONE_LINK}`,
-  ...(hasSpecSectionSharedByLinks(entries)
+  ...(groupSharedSpecSections(entries).length > 0
     ? [
         "A spec section drifted in several links. If the change does not affect them, bless only that section's spec side in every link that references it:",
         `  ${BLESS_ONE_SPEC_SECTION}`,

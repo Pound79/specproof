@@ -11,7 +11,8 @@ export interface SpecRefSelector {
   heading: string;
 }
 
-const normalizePath = (relPath: string): string => path.posix.normalize(relPath.trim());
+/** --spec-ref と check のまとめで共有する、参照のパスの正規化。 */
+export const normalizePath = (relPath: string): string => path.posix.normalize(relPath.trim());
 
 export const parseSpecRefSelector = (value: string): SpecRefSelector => {
   const hash = value.indexOf("#");

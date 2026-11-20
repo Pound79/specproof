@@ -388,7 +388,9 @@ id が 1 つでもあれば、manifest を書かずに失敗し、無い id を�
 - impl も drift した（変わった・無くなった）リンクは書き換えずに飛ばし、`skipped link "<id>"` と示して終了コード 1 にする。spec 側だけを
   bless すると、次の `check` で「spec と impl の両方が変わった」が impl だけの drift に見え、`specproof-sync` が
   止まって人に聞く信号が消えるため。飛ばしたリンクは sync で決めてから `--link-id` で bless する
-- `check` は、同じ節が 2 つ以上のリンクで drift したときに、この形を Next に示す（パスと見出しは埋めない）
+- `check` は、同じ節が 2 つ以上のリンクで drift したときに、テキスト出力で「Spec sections that drifted in several
+  links」として節ごとのリンクの数を多い順にまとめ（10 節まで）、この形を Next に示す（コマンドにパスと見出しは
+  埋めない）。`--json` の出力は変えない
 - ライブラリの `updateManifestHashes` では `specRefs` で指定し、飛ばしたリンクは結果の `skipped` に入る
   （`specRefs` を指定したときだけ付く）
 
