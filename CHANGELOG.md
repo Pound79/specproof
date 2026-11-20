@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `specproof-setup` に「版を上げるとき」を足した。導入済みのリポジトリで版を上げるとき、固定した版を
+  設定とワークフローから読み、上げる先までの CHANGELOG から足された設定のキーを列挙し、上げる先の版の
+  `specproof-check --json` の warning の件数と例を根拠に、使う値を提案する（例: テストのファイルが
+  `unregistered-impl` に多ければ `layout.implExcludeGlobs`）。設定の書き換えは承認の後で、版の固定は設定と
+  ワークフローを同じ変更で上げる。版の番号だけを上げると、足された設定を知らないまま古い出力を見続けていた。
+  作業は既定ブランチから切った新しいブランチで行い、流すのは版とレジストリを固定した `npx` だけにする。
+  取得した CHANGELOG と CLI の出力はデータとして扱う。`docs/security-model.md` の通信先にも載せた。
+
 - Playwright の雛形の README に「テストの前に環境を確かめる」を足した。古いビルド・別のブランチの
   バックエンド・起動直後の遅さなど、環境の崩れでシナリオがまとめて落ちるのを、始める前に止める
   `globalSetup` の例（バックエンドが動いているか、期待するコミットを含むか、配信中のビルドが今の
