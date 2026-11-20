@@ -292,11 +292,11 @@ test(
 );
 
 test(
-  "パスは正規化し、前後の空白を除いて照合する",
+  "パスは正規化し、値全体の前後の空白だけを除いて照合する",
   withRepo(
     manifestOf(specLink("a", [{ heading: "Common", hash: OLD, path: "./docs/spec.md" }])),
     (root) => {
-      const result = run(root, ["--spec-ref", " docs/spec.md # Common "]);
+      const result = run(root, ["--spec-ref", "  docs/spec.md#Common\n"]);
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /^a spec /m);
     },
@@ -402,3 +402,121 @@ test(
     },
   ),
 );
+
+// 前後の空白を除くのは CLI に書いた値だけにする。manifest に保存した参照は hash の計算と同じ規則で区別する
+// （旧形式の見出し `##  Rule` の参照 " Rule" や、末尾に空白のあるファイル名は、別の節・別のファイル）。
+const withBlessedFiles = (
+  files: Record<string, string>,
+  links: { id: string; path: string; heading: string }[],
+  body: (root: string, blessed: Link[]) => void,
+) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "specproof-spec-ref-identity-"));
+  try {
+    for (const [name, content] of Object.entries(files))
+      writeFileSync(path.join(root, name), content);
+    const manifest = `version: 1\nlinks:\n${links
+      .map(
+        (link) =>
+          `  - id: ${link.id}\n    label: ${link.id}\n    spec:\n      - path: ${JSON.stringify(link.path)}\n        heading: ${JSON.stringify(link.heading)}\n        hash: PENDING\n    impl: []\n    features: []\n`,
+      )
+      .join("")}`;
+    writeFileSync(path.join(root, "traceability.yaml"), manifest);
+    assert.equal(run(root, []).status, 0);
+    body(root, readLinks(root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+};
+
+test("前後の空白で区別される保存済みの見出しを、指定した見出しと同じ節として bless しない", () => {
+  withBlessedFiles(
+    {
+      "spec.md": "# Spec\n\n## Rule\n\nFirst approved rule.\n\n##  Rule\n\nSecond approved rule.\n",
+    },
+    [
+      { id: "intended", path: "spec.md", heading: "Rule" },
+      { id: "legacy-distinct", path: "spec.md", heading: " Rule" },
+    ],
+    (root, blessed) => {
+      writeFileSync(
+        path.join(root, "spec.md"),
+        "# Spec\n\n## Rule\n\nFirst approved rule.\n\n##  Rule\n\nSecond rule changed.\n",
+      );
+      const result = run(root, ["--spec-ref", "spec.md#Rule"]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.doesNotMatch(result.stdout, /^legacy-distinct /m);
+      const after = readLinks(root);
+      assert.equal(
+        after.find((l) => l.id === "legacy-distinct")?.spec[0].hash,
+        blessed.find((l) => l.id === "legacy-distinct")?.spec[0].hash,
+      );
+    },
+  );
+});
+
+test("末尾に空白のある別のファイルの参照を、指定したファイルと同じものとして bless しない", () => {
+  withBlessedFiles(
+    { "spec.md": "## Rule\n\na\n", "spec.md ": "## Rule\n\nb\n" },
+    [
+      { id: "intended", path: "spec.md", heading: "Rule" },
+      { id: "other-file", path: "spec.md ", heading: "Rule" },
+    ],
+    (root, blessed) => {
+      writeFileSync(path.join(root, "spec.md "), "## Rule\n\nb changed\n");
+      const result = run(root, ["--spec-ref", "spec.md#Rule"]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.doesNotMatch(result.stdout, /^other-file /m);
+      const after = readLinks(root);
+      assert.equal(
+        after.find((l) => l.id === "other-file")?.spec[0].hash,
+        blessed.find((l) => l.id === "other-file")?.spec[0].hash,
+      );
+    },
+  );
+});
+
+test("`#` の前後に空白のある指定は、似た名前の別の節を選ばずに失敗する", () => {
+  withBlessedFiles(
+    { "spec.md": "# Spec\n\n## Rule\n\nFirst.\n\n##  Rule\n\nSecond.\n" },
+    [
+      { id: "intended", path: "spec.md", heading: "Rule" },
+      { id: "legacy-distinct", path: "spec.md", heading: " Rule" },
+    ],
+    (root) => {
+      writeFileSync(
+        path.join(root, "spec.md"),
+        "# Spec\n\n## Rule\n\nFirst changed.\n\n##  Rule\n\nSecond.\n",
+      );
+      const before = readFileSync(path.join(root, "traceability.yaml"), "utf8");
+      for (const value of ["spec.md# Rule", "spec.md #Rule"]) {
+        const result = run(root, ["--spec-ref", value]);
+        assert.equal(result.status, 2, value);
+        assert.match(result.stderr, /whitespace around '#'/);
+      }
+      assert.equal(readFileSync(path.join(root, "traceability.yaml"), "utf8"), before);
+    },
+  );
+});
+
+test("describeNextSteps は --spec-ref で選べない節（前後に空白、パスに #）を数えない", () => {
+  const entry = (linkId: string, entryPath: string, heading: string): DriftEntry => ({
+    linkId,
+    side: "spec",
+    path: entryPath,
+    heading,
+    storedHash: "a".repeat(64),
+    currentHash: "b".repeat(64),
+    status: "changed",
+  });
+  for (const [entryPath, heading] of [
+    ["spec.md", " Rule"],
+    ["spec.md ", "Rule"],
+    ["docs/a#b.md", "Rule"],
+  ]) {
+    const text = describeNextSteps([
+      entry("a", entryPath, heading),
+      entry("b", entryPath, heading),
+    ]).join("\n");
+    assert.doesNotMatch(text, /--spec-ref/, JSON.stringify([entryPath, heading]));
+  }
+});
