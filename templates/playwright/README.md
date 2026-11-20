@@ -162,7 +162,7 @@ packages/e2e/              <- this package
       LoginPage.ts         <- Page Object — adapt selectors to your app
       ExamplePage.ts       <- Page Object — post-login landmark assertion
     setup/
-      auth.setup.ts        <- Playwright global setup — saves auth storage state
+      auth.setup.ts        <- setup project (runs before authed projects) — saves auth storage state
       saveAuthState.ts     <- reusable auth-save helper
       global-teardown.ts   <- no-op teardown stub
   scripts/
@@ -202,6 +202,101 @@ manifest の登録に加えて、その feature のシナリオをどの認証�
 認証が要るタグ無しのシナリオもそこで実行させない。既存の project の `tags`・`conditional`・環境条件は広げない。
 `npm run bddgen` の後に `npx playwright test --list --project <project-name>` で対象シナリオを確認する。
 一覧に無ければ登録・`conditional`・タグ条件を確認し、未実行を GREEN と扱わない。
+
+### テストの前に環境を確かめる
+
+E2E が落ちた原因が、テスト対象のコードでなく環境にあることは多い。画面が古いビルドのまま、
+バックエンドが別のブランチ、DB の migration を流していない、seed が失敗している、起動し直した
+直後の遅さで最初のシナリオが待ちの上限を超える、などだ。テストを流すまで気づけないと、
+変えていないシナリオまで落ちて切り分けに時間を使う。
+
+specproof の CLI は環境を確かめない。確かめたい項目は Playwright の `globalSetup` に置き、
+満たさなければシナリオを始める前に止める。雛形には `globalSetup` のファイルが無く、
+`specproof.config.yaml` にもそのキーは無いので、ファイルを作り、`playwright.config.ts` の
+`defineConfig` に `globalSetup: "./src/setup/preflight.ts"` を直接足す。（`auth.setup.ts` は
+setup project で、`globalSetup` ではない。混ぜない。）次は置ける確認の例で、使うものだけを残す。
+確かめる URL は、テストと同じく `playwright.config.ts` が決めた `baseURL` を使う。
+
+```ts
+// src/setup/preflight.ts（例）
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import type { FullConfig } from "@playwright/test";
+
+// 応答の確認と温める要求。資格情報は送らない。転送は既定で追い、ヘルスチェックだけ追わない（1 を参照）。
+// 認証の要る URL にするなら、先に src/config/base-url-guard.ts の assertSecureBaseUrl() で
+// その URL を確かめ、別のホストへ資格情報を持ち出さないよう redirect: "error" を付ける。
+const get = async (
+  url: string,
+  { timeoutMs = 30_000, redirect = "follow" }: { timeoutMs?: number; redirect?: RequestRedirect } = {},
+): Promise<Response> => {
+  try {
+    const res = await fetch(url, { redirect, signal: AbortSignal.timeout(timeoutMs) });
+    await res.arrayBuffer().catch(() => undefined); // 本文を読み切って接続を残さない
+    return res;
+  } catch (error) {
+    throw new Error(`preflight: ${url} did not respond: ${String(error)}`);
+  }
+};
+
+export default async function preflight(config: FullConfig): Promise<void> {
+  const baseUrl = config.projects.find((project) => project.use.baseURL)?.use.baseURL;
+  if (!baseUrl) throw new Error("preflight: baseURL is not set");
+
+  // 1. バックエンドが動いているか（認証の要らない URL 自身が 200 を返すか）。転送は追わない。追うと、
+  //    認証の要る URL を指していてもログイン画面への転送先の 200 で通ってしまう。
+  const healthUrl = process.env.E2E_API_HEALTH_URL;
+  if (healthUrl) {
+    const health = await get(healthUrl, { redirect: "manual" });
+    if (health.status !== 200) {
+      const location = health.headers.get("location");
+      const hint = location ? ` (redirect to ${location}; set E2E_API_HEALTH_URL to the final URL)` : "";
+      throw new Error(`preflight: API health check returned ${health.status}${hint}`);
+    }
+  }
+
+  // 2. バックエンドのチェックアウトが、期待する修正のコミットを含むか。
+  //    E2E_API_CHECKOUT は自分が管理するチェックアウトの絶対パスにする。
+  const apiDir = process.env.E2E_API_CHECKOUT;
+  const commit = process.env.E2E_API_REQUIRED_COMMIT;
+  if (apiDir && commit) {
+    if (!/^[0-9a-f]{7,40}$/i.test(commit)) {
+      throw new Error("preflight: E2E_API_REQUIRED_COMMIT must be a commit hash");
+    }
+    try {
+      execFileSync("git", ["-C", apiDir, "merge-base", "--is-ancestor", commit, "HEAD"], {
+        stdio: "ignore",
+      });
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      // 1 は「含まない」。それ以外（コミットが無い・リポジトリでない・git が無い）は取り違えない。
+      if (status === 1) throw new Error(`preflight: E2E_API_CHECKOUT does not contain ${commit}`);
+      throw new Error(`preflight: could not check ${commit} in E2E_API_CHECKOUT (git exit ${status ?? "n/a"})`);
+    }
+  }
+
+  // 3. 画面が今のチェックアウトから作ったビルドで動いているか。ビルドの ID の置き場所は
+  //    フレームワークごとに違うので、ビルドの出力にある ID が配信中の HTML に出るかで比べる例。
+  const buildIdFile = process.env.E2E_WEB_BUILD_ID_FILE;
+  if (buildIdFile) {
+    const buildId = readFileSync(buildIdFile, "utf8").trim();
+    if (!buildId) throw new Error("preflight: the build id file is empty");
+    const res = await fetch(baseUrl, { signal: AbortSignal.timeout(30_000) });
+    if (!res.ok) throw new Error(`preflight: the app returned ${res.status}`);
+    if (!(await res.text()).includes(buildId)) {
+      throw new Error("preflight: the served app is not this checkout's build");
+    }
+  }
+
+  // 4. 温める。開発モードの初回の遅さで、最初のシナリオが待ちの上限を超えないようにする。
+  //    初回のコンパイルを待てるよう、上限は webServer の timeout と同じくらい長くする。
+  //    ログイン画面への転送が正常なアプリもあるので、ここは転送を追う。
+  await get(baseUrl, { timeoutMs: 120_000 });
+}
+```
+
+止まったときは、原因を直してから流し直す。確認を外して流し、落ちたシナリオを
+テスト対象の不具合として扱わない。
 
 ---
 
