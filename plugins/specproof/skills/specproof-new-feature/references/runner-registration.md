@@ -7,11 +7,15 @@ E2E は実行されない。既存 feature の本文・状態タグや、project
 
 1. `{{config:projects}}` と `{{config:layout.testRunnerConfig}}` を読み、対象の認証ロールを
    確認する。各 `projects[].features` は E2E パッケージ相対のパス／glob なので、対象 feature が
-   意図した project に含まれるか照合する。feature 内のシナリオごとにタグを見て、実行させる
-   すべての project を決める。`{{config:tags.admin}}` とタグ無しのシナリオが混在するなら、
-   管理者 project と一般の認証 project の両方に登録する。
+   意図した project に含まれるか照合する。feature 内のシナリオごとに、どの認証状態（ログイン前か、
+   どのロールでログインした後か）で確かめるかを決め、そのロールの project のうち `tags` がシナリオを
+   選ぶものを、実行させる project にする。タグが合うだけでは選ばない（例: 雛形の既定の構成で
+   `{{config:tags.admin}}` とタグ無しのシナリオが混在するなら、管理者 project と一般の認証 project の両方）。
+   project の構成は利用者が変えていることがあるので、雛形の既定の project 名を前提にしない。
 2. 新規 feature が未登録なら、意図した project の `features` にそのファイルのパスだけを
-   追記する。既存の明示列挙を全件 glob へ変えず、認証専用 guest の範囲を広げない。
+   追記する。既存の明示列挙を全件 glob へ変えない。ログインせずに実行することを前提にした project（雛形では guest。
+   step の中でログインする project は含めない）には、ログイン前の画面を確かめる feature だけを登録し、
+   認証が要るシナリオ（タグ無しを含む）を含む feature を追加しない。
    `conditional`、`tags`、アクティブ環境の `excludeTags`、smoke の `{{config:tags.slow}}` 除外も確認する。
    認証ロールや実行環境が不明なら、候補 project と変更案を示して停止する。
 3. `{{config:commands.generate}}` を実行し、E2E パッケージ内で、導入済み Playwright の
