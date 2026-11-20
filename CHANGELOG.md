@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Playwright の雛形の README の「新しい feature を追加するとき」を、`projects` の構成によらない書き方に
+  直した。README は生成した時点の固定の文で、setup が `projects` を変えても書き換わらない。guest や
+  ロールごとの project がある前提の文だったので、それらを消して 1 つの project にまとめた構成では手順が
+  合わなかった。追加先は、シナリオをどの認証状態（ログイン前か、どのロールか）で確かめるかで決め、
+  project の `tags` が選ぶことは必要条件に留めた（タグ無しのシナリオは guest の `tags` にも合うため）。
+  ログインせずに実行する project には、ログイン前の画面を確かめる feature だけを足す。skill の feature の
+  登録手順も同じ書き方に揃えた。
+
 - `specproof-implement` の gaming 自己点検に 6 項目目「経路の確かめ」を足した。失敗・例外・拒否の経路を
   確かめるシナリオでは、その経路に入ったこと（要求が送られた、失敗の応答を受けた、など）を step の本体で
   肯定で確かめる。表示だけを見る step は、送る前の入力の検証で止まったときのように別の経路から同じ表示が
