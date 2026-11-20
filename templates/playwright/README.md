@@ -376,3 +376,4 @@ rationale, reproducing the spec rot specproof exists to catch.
 - [Playwright docs](https://playwright.dev/)
 - [specproof config schema](https://github.com/Pound79/specproof/blob/main/docs/config-schema.md)
 - [specproof methodology](https://github.com/Pound79/specproof/blob/main/docs/methodology.md)
+- [Running E2E that needs a separate backend in CI](https://github.com/Pound79/specproof/blob/main/docs/playwright-ci.md)

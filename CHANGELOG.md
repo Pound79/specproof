@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `docs/playwright-ci.md` に、別のリポジトリのバックエンドが要る Playwright の E2E を CI で流す手引きを足し、
+  雛形の README から参照した。定期実行と、2 つのリポジトリの SHA の組による変更の検知、非公開リポジトリを
+  読むだけの GitHub App のトークンでの checkout、docker compose の注意（Linux の runner でのファイルの持ち主、
+  準備を待つ、migration、初回の遅さ、使い捨ての秘密を伏せる）、ログと成果物の扱いを書いた。trace などを
+  CI の成果物に上げない方針は変えない。
+
 - `specproof-setup` に「版を上げるとき」を足した。導入済みのリポジトリで版を上げるとき、固定した版を
   設定とワークフローから読み、上げる先までの CHANGELOG から足された設定のキーを列挙し、上げる先の版の
   `specproof-check --json` の warning の件数と例を根拠に、使う値を提案する（例: テストのファイルが
