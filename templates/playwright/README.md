@@ -220,12 +220,15 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import type { FullConfig } from "@playwright/test";
 
-// 応答の確認と温める要求。資格情報は送らないので、転送（ログイン画面へ等）は追ってよい。
+// 応答の確認と温める要求。資格情報は送らない。転送は既定で追い、ヘルスチェックだけ追わない（1 を参照）。
 // 認証の要る URL にするなら、先に src/config/base-url-guard.ts の assertSecureBaseUrl() で
 // その URL を確かめ、別のホストへ資格情報を持ち出さないよう redirect: "error" を付ける。
-const get = async (url: string, timeoutMs = 30_000): Promise<Response> => {
+const get = async (
+  url: string,
+  { timeoutMs = 30_000, redirect = "follow" }: { timeoutMs?: number; redirect?: RequestRedirect } = {},
+): Promise<Response> => {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const res = await fetch(url, { redirect, signal: AbortSignal.timeout(timeoutMs) });
     await res.arrayBuffer().catch(() => undefined); // 本文を読み切って接続を残さない
     return res;
   } catch (error) {
@@ -237,11 +240,16 @@ export default async function preflight(config: FullConfig): Promise<void> {
   const baseUrl = config.projects.find((project) => project.use.baseURL)?.use.baseURL;
   if (!baseUrl) throw new Error("preflight: baseURL is not set");
 
-  // 1. バックエンドが動いているか（認証の要らない URL が 200 を返すか）
+  // 1. バックエンドが動いているか（認証の要らない URL 自身が 200 を返すか）。転送は追わない。追うと、
+  //    認証の要る URL を指していてもログイン画面への転送先の 200 で通ってしまう。
   const healthUrl = process.env.E2E_API_HEALTH_URL;
   if (healthUrl) {
-    const health = await get(healthUrl);
-    if (health.status !== 200) throw new Error(`preflight: API health check returned ${health.status}`);
+    const health = await get(healthUrl, { redirect: "manual" });
+    if (health.status !== 200) {
+      const location = health.headers.get("location");
+      const hint = location ? ` (redirect to ${location}; set E2E_API_HEALTH_URL to the final URL)` : "";
+      throw new Error(`preflight: API health check returned ${health.status}${hint}`);
+    }
   }
 
   // 2. バックエンドのチェックアウトが、期待する修正のコミットを含むか。
@@ -279,7 +287,8 @@ export default async function preflight(config: FullConfig): Promise<void> {
 
   // 4. 温める。開発モードの初回の遅さで、最初のシナリオが待ちの上限を超えないようにする。
   //    初回のコンパイルを待てるよう、上限は webServer の timeout と同じくらい長くする。
-  await get(baseUrl, 120_000);
+  //    ログイン画面への転送が正常なアプリもあるので、ここは転送を追う。
+  await get(baseUrl, { timeoutMs: 120_000 });
 }
 ```
 
