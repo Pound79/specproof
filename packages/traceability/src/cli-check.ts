@@ -29,6 +29,7 @@ import {
   type WarningGroup,
   warningGroup,
 } from "./cli-check-warning-groups.js";
+import { describeImplExcludeHint } from "./impl-exclude-hint.js";
 import { loadManifest } from "./manifest.js";
 import { printJson, printText } from "./output.js";
 
@@ -203,6 +204,12 @@ const main = async (): Promise<void> => {
   const excludedLine = describeExcludedAdvisories(report.excludedAdvisories);
   if (!flags.has("--json") && excludedLine !== undefined) {
     printText(excludedLine);
+  }
+
+  // 表示の上限で隠す前の全件で数える。
+  const implExcludeHint = describeImplExcludeHint(report.warnings, config.implExcludeGlobs);
+  if (!flags.has("--json") && implExcludeHint !== undefined) {
+    printText(implExcludeHint);
   }
 
   process.exitCode = isCheckFailure(report, strict, strictOptions) ? 1 : 0;
