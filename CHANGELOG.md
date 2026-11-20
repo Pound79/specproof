@@ -43,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `specproof-check` のテキスト出力に、2 つ以上のリンクで drift した spec の節のまとめ（「Spec sections that drifted
+  in several links」、節ごとのリンクの数を多い順に 10 節まで）を足した。共通の決まりを書いた節を多くのリンクが
+  参照していると、リンクごとの一覧からはどの節が変わったかを読み取れず、関係を確かめるために feature を探し回って
+  いた。互換: 終了コードと `--json` は変わらない。テキストの出力を照合しているスクリプトは、Next の前に行が
+  増えることに注意する。
+
 - `specproof-update` の `--link-id` を重ねて指定できるようにした（`--link-id a --link-id b`）。指定したリンクを
   まとめて bless する。これまでは重ねると、黙って最後の 1 つだけが効いていた。manifest に無い id が 1 つでも
   あれば、何も書かずに失敗し、無い id をすべて示す。完了の行は複数のときに `links "a", "b" refreshed` になる。

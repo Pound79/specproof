@@ -13,8 +13,9 @@ export interface SpecRefSelector {
   heading: string;
 }
 
-// `./docs/x.md` と `docs/x.md` は同じファイル。空白は区別する（ファイル名の一部になりうる）。
-const normalizePath = (relPath: string): string => path.posix.normalize(relPath);
+// --spec-ref と check のまとめで共有する、参照のパスの正規化。`./docs/x.md` と `docs/x.md` は同じファイル。
+// 空白は区別する（ファイル名の一部になりうる）。
+export const normalizePath = (relPath: string): string => path.posix.normalize(relPath);
 
 // 値全体の前後の空白（貼り付けた改行など）だけを除く。`#` の前後の空白は黙って除かずに拒否する。除くと、
 // 旧形式の見出し ` X` を見て `path# X` と書いた利用者が、別の節 `X` を bless してしまう。

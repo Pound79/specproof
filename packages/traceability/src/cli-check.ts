@@ -15,6 +15,7 @@ import {
   describeHiddenWarnings,
   describeLinkHeading,
   describeNextSteps,
+  describeSharedSpecSections,
   describeWarning,
   isCheckFailure,
   selectWarningsForDisplay,
@@ -125,6 +126,15 @@ const main = async (): Promise<void> => {
     }
     if (history?.incomplete === true) {
       printText(`\n${BLESS_HISTORY_INCOMPLETE}`);
+    }
+    const sharedSections = report.allReferencesMissing
+      ? []
+      : describeSharedSpecSections(report.entries);
+    if (sharedSections.length > 0) {
+      printText("");
+      for (const line of sharedSections) {
+        printText(line);
+      }
     }
     if (!report.allReferencesMissing) {
       printText("");
