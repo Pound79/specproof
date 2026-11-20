@@ -2,7 +2,7 @@ import path from "node:path";
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
 import { printable } from "./display-text.js";
 import { PENDING_HASH } from "./hash.js";
-import { sectionKey } from "./spec-ref-selector.js";
+import { sectionKey, selectableBySpecRef } from "./spec-ref-selector.js";
 
 export const describeEntry = (entry: DriftEntry): string => {
   const location = entry.heading ? `${entry.path} § ${entry.heading}` : entry.path;
@@ -196,11 +196,12 @@ const IMPL_BEHAVIOR_NOTE =
 const hasSpecSectionSharedByLinks = (entries: DriftEntry[]): boolean => {
   const linksBySection = new Map<string, Set<string>>();
   for (const entry of entries) {
-    // 一度も bless していない（PENDING）節は --spec-ref が受け付けないので数えない。
+    // --spec-ref が受け付けない節（missing、前後に空白・パスに `#`、一度も bless していない PENDING）は数えない。
     if (
       entry.side !== "spec" ||
       entry.heading === undefined ||
       entry.status !== "changed" ||
+      !selectableBySpecRef(entry.path, entry.heading) ||
       entry.storedHash === PENDING_HASH
     )
       continue;
