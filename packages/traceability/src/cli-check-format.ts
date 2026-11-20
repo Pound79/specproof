@@ -2,7 +2,7 @@ import path from "node:path";
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
 import { printable } from "./display-text.js";
 import { PENDING_HASH } from "./hash.js";
-import { normalizePath, sectionKey } from "./spec-ref-selector.js";
+import { normalizePath, sectionKey, selectableBySpecRef } from "./spec-ref-selector.js";
 
 export const describeEntry = (entry: DriftEntry): string => {
   const location = entry.heading ? `${entry.path} § ${entry.heading}` : entry.path;
@@ -197,22 +197,23 @@ interface SharedSpecSection {
 }
 
 // 2 つ以上のリンクで変わった spec の節（path と見出し）を、リンクの数の多い順に返す。共通の決まりを書いた節を
-// 多くのリンクが参照していると、関係の無い変更でも全リンクが drift する。節は --spec-ref と同じ規則で数え、
-// 見出しが無くなったもの（missing）と一度も bless していないもの（PENDING）は --spec-ref が受け付けないので数えない。
+// 多くのリンクが参照していると、関係の無い変更でも全リンクが drift する。節は --spec-ref と同じ規則で数える。
 const groupSharedSpecSections = (entries: DriftEntry[]): SharedSpecSection[] => {
   const sections = new Map<string, { path: string; heading: string; links: Set<string> }>();
   for (const entry of entries) {
+    // --spec-ref が受け付けない節（missing、前後に空白・パスに `#`、一度も bless していない PENDING）は数えない。
     if (
       entry.side !== "spec" ||
       entry.heading === undefined ||
       entry.status !== "changed" ||
+      !selectableBySpecRef(entry.path, entry.heading) ||
       entry.storedHash === PENDING_HASH
     )
       continue;
     const key = sectionKey(entry.path, entry.heading);
     const section = sections.get(key) ?? {
       path: normalizePath(entry.path),
-      heading: entry.heading.trim(),
+      heading: entry.heading,
       links: new Set<string>(),
     };
     section.links.add(entry.linkId);
