@@ -174,6 +174,133 @@ jobs:
           key: ${{ needs.e2e.outputs.key }}
 ```
 
+### バックエンドのブランチを入力で選ぶとき
+
+画面のリポジトリのブランチは run の ref で選べる（手順 2）が、バックエンドのリポジトリのブランチは run の ref では
+選べないので、`workflow_dispatch` の入力で選ぶしかない。上の骨組みのように 1 つのジョブで App の秘密鍵を使い、
+同じジョブでバックエンドのコード（docker のビルド・依存のインストール・seed・アプリ）を動かすと、入力で選んだ
+ブランチのコードから鍵と App のトークンを読める。Environment の制限（使えるブランチ）は画面のリポジトリの run の
+ref にしか効かないので、これを防がない。
+
+鍵をブランチのコードから離すには、ジョブを分ける。鍵を使ってバックエンドを取ってくるジョブ（`fetch-backend`）は
+バックエンドのコードを動かさず、ソースを成果物に入れて渡すだけにする。テストを流すジョブ（`e2e`）は秘密を持たない。
+分けて離れるのは、ジョブごとに新しい runner（GitHub がホストする runner か、ジョブごとに捨てる runner）のときだけ。
+使い回す self-hosted の runner では、`e2e` で動いたコードが残したものが、次の `fetch-backend` で鍵を読める。
+
+- 入力は空を既定にし、空の回（`schedule` と、入力を空のまま手で流した回）は既定ブランチを取る。印と trace は、
+  手順 2・5 と同じく入力が空の回にだけ付ける（`inputs.backend-branch == ''`）
+- 入力はブランチとしてだけ解決する（`branches/<名前>` の API。`commits/<名前>` はタグやコミットの SHA も解決する）
+- `fetch-backend` では、取ってきたソースの中のものを何も実行しない（ビルド・依存のインストール・compose・
+  バックエンドのリポジトリの action やスクリプト）。`actions/checkout` は既定で LFS と submodule を取らないので、
+  その既定を変えない
+- ソースは tar にまとめて成果物にする。`actions/upload-artifact` は v4.4.0 から `.` で始まるファイルとディレクトリを
+  既定で含めず、zip にするとファイルのパーミッションも落ちる
+- 成果物は、画面のリポジトリを読める人が取れる（同じ run の後のジョブだけではない）。また、入力を選べるのは画面の
+  リポジトリに書き込める人で、その人はバックエンドを読めなくても、バックエンドのどのブランチでも成果物にして
+  取り出せる。どちらかを許せないとき（画面のリポジトリが公開のときを含む）は、この型を使わない。`retention-days` は
+  短くする（それでも、その間は取れる）
+- `e2e` は、受け取った中身を「入力で選んだブランチのコード」として扱う。秘密を持たないので鍵は読まれないが、run の
+  ref は既定ブランチなので、そのコードは実行時のトークンで既定ブランチの範囲の cache と成果物に書ける（手順 2 の
+  「読むだけにしても、悪意のあるコードは防げない」）。ジョブを分けても、これは防げない。入力を変えた回に印を
+  付けないのは、うっかり付けないための手段で、偽の印を書かれることは防げない（印は合否の証拠にしない。手順 1）
+- `e2e` に secrets・`environment:`・書き込みの `permissions` を足さない。足すと、この型の前提が崩れる。バックエンドの
+  ビルドに非公開の依存が要るなら、バックエンドのコードを動かさずに取れるときだけ、`fetch-backend` で取って tar に
+  入れる。取れないなら、この型は使えない
+- 秘密や信頼が要るジョブ（`fetch-backend`・印の `mark`）は、この成果物を受け取らない（`e2e` のコードは、同じ名前の
+  成果物を差し替えられる）
+- 印を付けるなら、骨組みの `mark` を `needs: [fetch-backend, e2e]` にし、キーを `github.sha` と
+  `needs.fetch-backend.outputs.backend` から作り、`if:` に `inputs.backend-branch == ''` を足す
+
+```yaml
+# バックエンドのブランチを入力で選ぶ型。<...> は自分の値に、各 action はコミットの SHA に固定して使う。
+on:
+  schedule:
+    - cron: "0 18 * * *" # UTC
+  workflow_dispatch:
+    inputs:
+      backend-branch:
+        type: string
+        default: "" # 空は既定ブランチ
+
+permissions: {}
+
+concurrency:
+  group: e2e
+  cancel-in-progress: false
+
+jobs:
+  fetch-backend:
+    runs-on: ubuntu-latest
+    environment: e2e # 秘密鍵はこのジョブにだけ入れる
+    permissions: {} # App のトークンだけを使う
+    outputs:
+      backend: ${{ steps.sha.outputs.backend }}
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@<sha> # vX.Y.Z
+        with:
+          client-id: ${{ vars.<APP_CLIENT_ID> }}
+          private-key: ${{ secrets.<APP_PRIVATE_KEY> }}
+          owner: <owner>
+          repositories: <backend-repo>
+          permission-contents: read
+      - id: sha
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          INPUT: ${{ inputs.backend-branch }}
+        run: |
+          BRANCH="${INPUT:-<バックエンドの既定ブランチ>}"
+          [[ "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]] && git check-ref-format --branch "$BRANCH" > /dev/null || exit 1
+          # 返った名前も入力と比べ、別の名前のブランチに解決されたとき（名前を変えたブランチなど）は止める。
+          read -r name backend < <(gh api "repos/<owner>/<backend-repo>/branches/$BRANCH" --jq '.name + " " + .commit.sha')
+          [[ "$name" == "$BRANCH" && "$backend" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@<sha> # vX.Y.Z
+        with:
+          repository: <owner>/<backend-repo>
+          ref: ${{ steps.sha.outputs.backend }}
+          path: backend
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+      # ここでバックエンドのコードを動かさない。まとめて渡すだけ。
+      - run: tar -cf "$RUNNER_TEMP/backend.tar" --exclude=./.git -C backend .
+      - uses: actions/upload-artifact@<sha> # vX.Y.Z
+        with:
+          name: backend-source
+          path: ${{ runner.temp }}/backend.tar
+          retention-days: 1
+
+  e2e:
+    needs: fetch-backend
+    runs-on: ubuntu-latest # environment を付けない（秘密を持たない）
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@<sha> # vX.Y.Z
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@<sha> # vX.Y.Z
+        with:
+          name: backend-source
+          path: ${{ runner.temp }}/backend-source
+      - run: |
+          mkdir "$RUNNER_TEMP/backend"
+          tar -xf "$RUNNER_TEMP/backend-source/backend.tar" -C "$RUNNER_TEMP/backend"
+      # ...バックエンドの起動（手順 4。compose はこの展開先で動かす）・テスト。
+      # 入力が空でない回は、印を付けず、trace も上げない。
+```
+
+ジョブを分けられないときの最低限（どれか 1 つでは足りない。できるものを重ねる）:
+
+- Environment に承認する人（required reviewers）を付け、自分の run を自分で承認させない（prevent self-review）。
+  承認する人が見られるのは入力の名前だけで、承認の後にそのブランチへ push されたコードも鍵と一緒に動く。中身を
+  見て承認するなら、先に SHA を解決して出すジョブ（バックエンドのコードを動かさない）を、承認する人の付かない
+  別の Environment に鍵を置いて動かし、承認の後のジョブはブランチの名前でなく、そのジョブが出した SHA で
+  checkout する
+- バックエンドの入力を、既定ブランチ（または保護されたブランチ）の一覧と完全に一致するものに限り、それ以外なら
+  鍵を使う前に止める（`type: choice` にしてもよい）。ブランチとしてだけ解決する（上の `branches/<名前>`）
+- 入力が空でない回は、印を付けず、trace も上げない
+
 ## 4. バックエンドを docker compose で立ち上げる
 
 - **ファイルの持ち主**: Linux の runner では、コンテナの中の root が書いたファイルはホストでも root の

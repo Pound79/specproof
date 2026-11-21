@@ -8,12 +8,21 @@ test("Playwright の CI の手引きは、trace を成果物に上げない方�
   // 雛形の README は trace・スクリーンショット・動画・保存したセッションを CI の成果物に上げないとしている。
   const guide = read("docs/playwright-ci.md");
   assert.match(guide, /CI の成果物に上げない/);
-  // 成果物に上げるのは、条件付きの例外の節の中だけ。
+  // 成果物に上げるのは、条件付きの例外の節（trace）と、バックエンドのソースを渡す型の節の中だけ。
+  // 後者が上げるのはソースの tar だけで、trace などは上げない（playwright-ci-backend-input.test.mjs）。
   const exceptionFrom = guide.indexOf("### 例外: 落ちた run の trace を短く残す");
   assert.ok(exceptionFrom >= 0, "trace の例外の節が無い");
   const exceptionTo = guide.indexOf("\n## ", exceptionFrom);
   const exception = guide.slice(exceptionFrom, exceptionTo < 0 ? undefined : exceptionTo);
-  assert.equal(guide.split("upload-artifact").length - 1, exception.split("upload-artifact").length - 1);
+  const backendFrom = guide.indexOf("### バックエンドのブランチを入力で選ぶとき");
+  assert.ok(backendFrom >= 0, "バックエンドのブランチを入力で選ぶ節が無い");
+  const backendTo = guide.indexOf("\n## 4. ", backendFrom);
+  assert.ok(backendTo > backendFrom, "手順 4 の見出しが無い");
+  const backend = guide.slice(backendFrom, backendTo);
+  // 文中の言及でなく、使っている箇所（`uses: actions/upload-artifact@<sha>`）を数える。
+  const count = (text) => text.split("upload-artifact@").length - 1;
+  assert.equal(count(backend), 1);
+  assert.equal(count(guide), count(exception) + count(backend));
   for (const dir of ["test-results/", "playwright-report/", "playwright/.auth/"]) {
     assert.ok(guide.includes(dir), dir);
   }
