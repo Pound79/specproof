@@ -31,6 +31,7 @@ export {
   type StatsReport,
   type FeatureScenarios,
 } from "./stats.js";
+export { QUESTION_TAG_PREFIX, type SpecQuestion } from "./spec-questions.js";
 
 export { resolveWithinRoot } from "./resolve.js";
 

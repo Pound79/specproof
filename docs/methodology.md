@@ -163,6 +163,12 @@ bootstrap 後の変更はすべて feature-first（人間が `.feature` を先�
   `specproof-stats` も拒否する。同じシナリオに `@out-of-scope` と `@red-contract` を両方付けることも
   `specproof-stats` がエラーにする。
 
+状態タグとは別に、仕様に答えの無い問いに依存するシナリオには `@question:<ID>` を付ける（ID は人が仕様の側に
+載せた問いの番号）。状態タグではないので、実行と完了の判定は変えない。期待値が答えに依存して書けないシナリオは
+`@draft` と併用し、答えに依存しない確認だけのシナリオは `@question:<ID>` だけでよい。`specproof-stats` は問いの
+ID ごとに条件の数と feature を出すので、答えが出たときに見直す feature を引ける。問いを仕様に載せるのも、タグを
+付け外しするのも人で、AI は案を示す。権限の節に未決が残るときに sync が停止する規則は、このタグで置き換えない。
+
 runner のテンプレートは `@draft` / `@human` / `@out-of-scope` を常に実行から外し、`@red-contract` は
 テンプレートの絞り込みでは除外しない。ただし `@red-contract` のシナリオも、プロジェクトの `tags`（`@admin` など）・
 コマンドラインの `--grep`・smoke コマンドの `--grep-invert @slow` といった絞り込みには従うので、そこで選ばれなかった

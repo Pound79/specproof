@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- シナリオが仕様の未決の問いに依存していることを表す `@question:<ID>` タグを決め、`specproof-stats` が問いの
+  ID ごとに、依存するシナリオの数と feature を出すようにした（テキストの「Open spec questions」、`--json` の
+  `questions: [{ id, scenarios, features }]`）。Feature・Rule に付けたタグは配下に継承する。状態タグではないので、
+  実行と done の判定は変えない。既存のキーは変えない。生成ガイドのタグ規約にも書いた。
 - `specproof-update --spec-ref '<path>#<見出し>'` を足した。その仕様の節の spec 側の hash だけを、それを参照する
   全リンクで取り直す。共通の決まりを書いた 1 つの節を多くのリンクが参照していると、関係の無い決まりを 1 つ
   足しただけで全リンクが drift し、リンクごとに bless し直すしかなかった。impl も drift したリンクは、spec 側だけを
