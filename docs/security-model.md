@@ -37,7 +37,10 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 - **書く範囲**: `specproof-update` が書くのは manifest だけで、同じディレクトリの一時ファイルを
   完成させてから置き換える。欠けた参照（ファイルや見出しが無い）は hash を取り直さずにエラーで止まる
 - **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（固定の
-  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` だけ。
+  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git merge-base --is-ancestor` だけ。
+  作業ツリーを読む git（`status`・`diff`）は `.gitattributes` のフィルタを起動しうるので使わず、版の中身は
+  `git show <commit>:<path>` で読む。fsmonitor・署名の検証・`log.follow` の設定は切り、作業ツリーの中の bare
+  リポジトリを暗黙に見つけさせない（`safe.bareRepository=explicit`）。
   設定の `commands.*` は実行しない。`--since-bless` の git には manifest の参照のパスが渡る（PR が書ける）ので、
   シェルを通さず引数の配列で起動し、パスは `--` の後ろと `<commit>:./<path>` にだけ置き、
   `GIT_LITERAL_PATHSPECS=1` で記号を文字どおりに扱わせる。部分 clone で足りない版を取りに行かせない
@@ -133,7 +136,7 @@ npm と Sigstore の仕組みで、specproof のコードではない。
 | spec・実装・feature の内容の読み込みと hash | 1 ファイル 8 MiB、通常ファイルだけ。同時に読むのは 32 件まで |
 | `layout.featuresDir` と `layout.implGlobs` のディレクトリ走査 | `implGlobs` は 256 本・1 本 1,024 文字まで。走査するファイルの数には上限が無い |
 | feature の lint のファイル横断の比較（重複・矛盾の候補） | 上限は無い |
-| `specproof-check --since-bless` の履歴の探索 | パスごとに直近 200 コミット。同じパスの参照は履歴と各版を 1 回だけ読む。全体で git の起動 2,000 回・60 秒まで（超えたら打ち切り、打ち切ったと示す）。1 回の git は 10 秒・出力 8 MiB まで |
+| `specproof-check --since-bless` の履歴の探索とコミットごとのまとめ | パスごとに直近 200 コミット。同じパスの参照は履歴と各版を 1 回だけ読む。まとめは bless した版とパスの組ごとに 200 コミットまで（並べ替えは first-parent の列を 1 回、20,000 件まで読む）。全体で git の起動 2,000 回・60 秒まで（超えたら打ち切り、打ち切ったと示す）。1 回の git は 10 秒・出力 8 MiB まで |
 
 上限の無い処理は、リポジトリの大きさに比例して時間とメモリを使う。CI でエンジンを動かすジョブには
 `timeout-minutes`（例: 10 分）を付けて、異常に大きな入力で既定の 360 分を使い切らないようにする。

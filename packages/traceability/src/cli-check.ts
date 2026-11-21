@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { groupChangesSinceBless } from "./bless-changes.js";
 import { findBlessedCommits, MAX_COMMITS } from "./bless-history.js";
 import { checkDrift, type DriftWarning } from "./check.js";
 import { discoverConfig } from "./config.js";
@@ -29,6 +30,11 @@ import {
   type WarningGroup,
   warningGroup,
 } from "./cli-check-warning-groups.js";
+import {
+  CHANGES_SINCE_BLESS_INCOMPLETE,
+  describeChangesSinceBless,
+} from "./cli-check-changes-format.js";
+import { createGitRunner } from "./git-runner.js";
 import { describeImplExcludeHint } from "./impl-exclude-hint.js";
 import { loadManifest } from "./manifest.js";
 import { printJson, printText } from "./output.js";
@@ -56,13 +62,22 @@ const main = async (): Promise<void> => {
   const display = selectWarningsForDisplay(orderWarningsByGroup(report.warnings, strictOptions));
   const shownWarnings = display.shown;
   // --since-bless は drift があるときだけ git を見る。全参照 missing はルートの取り違えなので探さない。
-  const history =
+  // 探索とコミットごとのまとめは、git の起動の上限を共有する。
+  const git =
     flags.has("--since-bless") && !report.clean && !report.allReferencesMissing
-      ? await findBlessedCommits(
-          config.repoRoot,
-          report.entries,
-          await loadManifest(config.manifestPath),
-        )
+      ? createGitRunner(config.repoRoot)
+      : undefined;
+  const sinceBlessManifest =
+    git === undefined ? undefined : await loadManifest(config.manifestPath);
+  const history =
+    git === undefined || sinceBlessManifest === undefined
+      ? undefined
+      : await findBlessedCommits(config.repoRoot, report.entries, sinceBlessManifest, {
+          runner: git,
+        });
+  const changes =
+    git !== undefined && sinceBlessManifest !== undefined && history?.available === true
+      ? await groupChangesSinceBless(git, report.entries, history, sinceBlessManifest)
       : undefined;
   const blessedByEntry = new Map(
     history?.available ? report.entries.map((entry, index) => [entry, history.commits[index]]) : [],
@@ -103,6 +118,17 @@ const main = async (): Promise<void> => {
       ...(history === undefined
         ? {}
         : { gitHistoryAvailable: history.available, blessHistoryIncomplete: history.incomplete }),
+      // --since-bless を付けて履歴を辿れたときだけ、bless の後に参照を変えたコミットのまとめを足す。
+      ...(changes === undefined
+        ? {}
+        : {
+            sinceBless: {
+              commits: changes.commits,
+              uncommitted: changes.uncommitted,
+              notGrouped: changes.notGrouped,
+              incomplete: changes.incomplete,
+            },
+          }),
       warnings: attachFailsUnderStrict(report.warnings, strictOptions),
     });
   } else if (report.clean) {
@@ -132,8 +158,18 @@ const main = async (): Promise<void> => {
     if (history !== undefined && !history.available) {
       printText(`\n${GIT_HISTORY_UNAVAILABLE}`);
     }
+    const changeLines = changes === undefined ? [] : describeChangesSinceBless(changes);
+    if (changeLines.length > 0) {
+      printText("");
+      for (const line of changeLines) {
+        printText(line);
+      }
+    }
     if (history?.incomplete === true) {
       printText(`\n${BLESS_HISTORY_INCOMPLETE}`);
+    }
+    if (changes?.incomplete === true) {
+      printText(`\n${CHANGES_SINCE_BLESS_INCOMPLETE}`);
     }
     const sharedSections = report.allReferencesMissing
       ? []

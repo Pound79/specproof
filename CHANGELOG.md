@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `specproof-check --since-bless` が、drift した参照を、bless した版の後にそれを変えたコミットごとにまとめて
+  出すようにした（`Changes since bless, by commit`）。HEAD の first-parent の列で辿るので、PR のマージや squash の
+  コミットが 1 件として、件名（PR の番号を含むことが多い）と一緒に出る。spec の見出しの参照は節の単位で、
+  ほかはファイルの単位で、そのコミットで変わったものだけを割り当て、bless した版を持ち込んだだけのマージは
+  外す。コミットしていない変更は `(uncommitted)` にまとめる。`--json` には `sinceBless`（`commits`・`uncommitted`・
+  `notGrouped`・`incomplete`）を足した。既存のキーは変えず、`--since-bless` を付けないときの出力も変わらない。
+  git の起動の上限（2,000 回・60 秒）は bless した版の探索と共有する。
+- `--since-bless` の git は、利用者やリポジトリの設定の署名の検証（gpg）・`log.follow` を切り、作業ツリーの中の
+  bare リポジトリを暗黙に見つけないようにした。
 - `specproof-update --spec-ref '<path>#<見出し>'` を足した。その仕様の節の spec 側の hash だけを、それを参照する
   全リンクで取り直す。共通の決まりを書いた 1 つの節を多くのリンクが参照していると、関係の無い決まりを 1 つ
   足しただけで全リンクが drift し、リンクごとに bless し直すしかなかった。impl も drift したリンクは、spec 側だけを
