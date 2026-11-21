@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- シナリオが仕様の未決の問いに依存していることを表す `@question:<ID>` タグを決め、`specproof-stats` が問いの
+  ID ごとに、依存するシナリオの数と feature を出すようにした（テキストの「Open spec questions」、`--json` の
+  `questions: [{ id, scenarios, features }]`）。Feature・Rule に付けたタグは配下に継承する。状態タグではないので、
+  実行と done の判定は変えない。既存のキーは変えない。生成ガイドのタグ規約にも書いた。
+
 - 前提の状態を操作で使い切るシナリオ（未読を開くと既読になる、など）の扱いを足した。seed が run ごとに 1 回しか
   入らないと、CI の再試行で前提が成り立たず、期待する要求を待って理由の分からない時間切れになる。
   `specproof-implement` の自己点検に 7 項目目「状態を使い切るシナリオ」を足し（レポートの自己点検も 7 項目）、

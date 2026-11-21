@@ -1,6 +1,7 @@
 import type { ScannedScenario } from "./feature-scan.js";
 import { OUT_OF_SCOPE_TAG, DISALLOWED_TAGS } from "./config.js";
 import { printable } from "./display-text.js";
+import { collectSpecQuestions, formatSpecQuestions, type SpecQuestion } from "./spec-questions.js";
 
 // A static scenario census per domain (feature file). Whether a scenario is
 // actually GREEN is a runner concern this static engine cannot know.
@@ -24,6 +25,8 @@ export interface StatsReport {
   // yet) remains and no disallowed tag is left. GREEN runs and human
   // confirmation records are outside this static engine.
   done: boolean;
+  /** `@question:<ID>` で、仕様の未決の問いに依存すると示したシナリオ（問いの ID ごと）。done には影響しない。 */
+  questions?: SpecQuestion[];
 }
 
 export interface FeatureScenarios {
@@ -107,7 +110,12 @@ export const buildStats = (features: FeatureScenarios[]): StatsReport => {
     }),
     emptyStats("TOTAL"),
   );
-  return { domains, totals, done: totals.phase.pending === 0 && totals.disallowed === 0 };
+  return {
+    domains,
+    totals,
+    done: totals.phase.pending === 0 && totals.disallowed === 0,
+    questions: collectSpecQuestions(features),
+  };
 };
 
 export const formatStats = (report: StatsReport): string => {
@@ -137,5 +145,6 @@ export const formatStats = (report: StatsReport): string => {
     "",
     pendingLine,
     ...disallowedLine,
+    ...formatSpecQuestions(report.questions ?? []),
   ].join("\n");
 };
