@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   作って捨てるもので、鍵をテストのプロセスに渡さず、データは合成で DB も捨て、公開リポジトリでないときだけ。
   既定の「trace を上げない」は変えず、雛形の README と `playwright.config.ts` のコメントから例外を参照した。
 
+- Playwright の雛形の README の「テストの前に環境を確かめる」に、確認の例を 2 つ足した。5 は、
+  `E2E_API_MAX_RESPONSE_MS` を設定したときだけ、温めた後のヘルスチェックを 3 回計り、上限を超えたら
+  「バックエンドが遅い」で止める（ヘルスチェックが 200 でも全要求が遅く、待ちの上限を超えて落ちる崩れを拾う）。
+  6 は、`E2E_EXPECT_API_ORIGIN` を設定したときだけ chromium で `baseURL`（または `E2E_API_PROBE_PATH`）を開き、
+  画面がその origin に fetch / xhr を送るかを確かめる（ビルドに埋め込む API の URL が空のまま作られ、画面が
+  自分自身に要求を送る崩れを拾う）。どちらも新しい変数を設定したときだけ動くので、既存の例を写して使っている
+  利用者の動きは変わらない。例の要求が届かないときの文は、URL のパスとクエリを写さず origin だけを出すようにした。
+
 - `specproof-update --spec-ref '<path>#<見出し>'` を足した。その仕様の節の spec 側の hash だけを、それを参照する
   全リンクで取り直す。共通の決まりを書いた 1 つの節を多くのリンクが参照していると、関係の無い決まりを 1 つ
   足しただけで全リンクが drift し、リンクごとに bless し直すしかなかった。impl も drift したリンクは、spec 側だけを
