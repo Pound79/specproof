@@ -148,6 +148,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ログインせずに実行する project には、ログイン前の画面を確かめる feature だけを足す。skill の feature の
   登録手順も同じ書き方に揃えた。
 
+- Playwright の CI の手引き（`docs/playwright-ci.md`）の「成果物の名前を印にしない」に、
+  `workflow_run.head_repository_id` でも絞った後に残る経路（既定ブランチの run の中で動く、入力で指定したブランチや
+  バックエンドのコード、固定した依存、既定ブランチで動くほかのワークフロー）と、それが cache の印にも当てはまることを
+  足した。経路ごとに閉じるか（入力のブランチは run の ref で選べば閉じる）・閉じないか（ほかは閉じない。checkout
+  しない `mark` ジョブは保存の手順を守るだけ）を書き分け、印は合否の証拠にしないことと、それでも cache を使う理由を
+  書いた。成果物の名前の印から切り替えるときの手順（印を上げる手順を消す・最初の回は変更が無くても流れる・
+  消すために `actions: write` を足さない・`actions: read` を外す）も書いた。
+
 - `specproof-implement` の gaming 自己点検に 6 項目目「経路の確かめ」を足した。失敗・例外・拒否の経路を
   確かめるシナリオでは、その経路に入ったこと（要求が送られた、失敗の応答を受けた、など）を step の本体で
   肯定で確かめる。表示だけを見る step は、送る前の入力の検証で止まったときのように別の経路から同じ表示が
