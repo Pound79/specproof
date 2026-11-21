@@ -187,6 +187,36 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     ]);
   });
 
+  it("記録の前に、HEAD と ref で paths の中身を比べ、違うパスを返す", async () => {
+    const develop = git(sourceDir, ["rev-parse", "develop"]);
+    // HEAD が ref と同じコミット。
+    expect(await readSourceToRecord(root, source())).toMatchObject({
+      head: develop,
+      headMismatch: [],
+    });
+    // HEAD を別のブランチに移し、paths の外だけ変える: 中身は同じ。
+    git(sourceDir, ["switch", "-q", "-c", "topic"]);
+    writeFileSync(path.join(sourceDir, "top.md"), "changed\n");
+    const topic = commitAll(sourceDir, "outside");
+    expect(await readSourceToRecord(root, source())).toMatchObject({
+      commit: develop,
+      head: topic,
+      headMismatch: [],
+    });
+    // paths を省くとツリー全体で比べる。
+    expect((await readSourceToRecord(root, source({ paths: [] })))?.headMismatch).toEqual(["."]);
+    // paths の中を変える。
+    writeFileSync(path.join(sourceDir, "master", "p.yml"), "b\n");
+    commitAll(sourceDir, "inside");
+    expect((await readSourceToRecord(root, source()))?.headMismatch).toEqual(["master"]);
+    // HEAD を解決できない（unborn）ときは全部を違うとし、head を返さない。
+    git(sourceDir, ["switch", "-q", "--orphan", "empty"]);
+    const unborn = await readSourceToRecord(root, source({ paths: ["master", "top.md"] }));
+    expect(unborn?.head).toBeUndefined();
+    expect(unborn?.headMismatch).toEqual(["master", "top.md"]);
+    expect((await readSourceToRecord(root, source({ paths: [] })))?.headMismatch).toEqual(["."]);
+  });
+
   it("manifest に記録し、記録し直し、ほかの名前を同じ mapping に足す", async () => {
     const manifestPath = path.join(root, "traceability.yaml");
     const first = "a".repeat(40);
