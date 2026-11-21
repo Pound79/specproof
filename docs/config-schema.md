@@ -146,8 +146,8 @@ specSources:
 - `repo` は取り込み元のチェックアウトのルートにする。直下に実体の `.git` ディレクトリ（シンボリックリンク・ファイル
   でない）があり、自分が持ち主で、部分 clone でないときだけ読む（サブディレクトリ・`git worktree` の作業ツリー・
   submodule・bare リポジトリ・部分 clone は使えない）。
-  読むときは `--git-dir` で明示し、transport を禁じ、外部のプログラムを起動しない設定で `git rev-parse` /
-  `git ls-tree` だけを実行する。`importCommand` は CLI では実行しない
+  読むときは `--git-dir` で明示し、transport を禁じ、外部のプログラムを起動しない設定で `git config --null --list`
+  （部分 clone の判定）/ `git rev-parse` / `git ls-tree` だけを実行する。`paths` に `.` を含めばリポジトリ全体を比べる。`importCommand` は CLI では実行しない
 - manifest の `specSources` は、名前も値も引用した `"<name>": "<commit>"` の形で書く（数値や真偽値に見える名前も
   文字列として扱う）
 

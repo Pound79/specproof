@@ -388,4 +388,38 @@ describe("写した仕様の取り込み元（specSources）", () => {
     assert.equal(result.status, 2);
     assert.match(result.stderr, /has no "mastr"/);
   });
+
+  test("paths に . を含めばリポジトリ全体を比べる", () => {
+    writeFileSync(
+      path.join(root, "specproof.config.yaml"),
+      config(SOURCE_FIELDS.replace("paths: [master]", "paths: [., master]")),
+    );
+    assert.equal(run(updateCli, root, ["--record-spec-source", "permissions"]).status, 0);
+    advanceDevelop("other/notes.md", "changed\n");
+    const report = JSON.parse(run(checkCli, root, ["--spec-sources", "--json"]).stdout);
+    assert.equal(report.specSources[0].status, "outdated");
+  });
+
+  test("値が空の specSources: の行は、その行のまま記録する", () => {
+    const manifestPath = path.join(root, "traceability.yaml");
+    writeFileSync(manifestPath, `${readFileSync(manifestPath, "utf8")}specSources: # 取り込み元\n`);
+    const result = run(updateCli, root, ["--record-spec-source", "permissions"]);
+    assert.equal(result.status, 0, result.stderr);
+    const develop = git(source, ["rev-parse", "develop"]);
+    assert.ok(
+      readFileSync(manifestPath, "utf8").endsWith(
+        `specSources: # 取り込み元\n  "permissions": "${develop}"\n`,
+      ),
+    );
+  });
+
+  test("specSources の形の誤りは、フラグの無い check や stats でも止める", () => {
+    writeFileSync(
+      path.join(root, "specproof.config.yaml"),
+      config(SOURCE_FIELDS.replace("paths: [master]", "paths: notarray")),
+    );
+    assert.equal(run(checkCli, root).status, 2);
+    const statsCli = fileURLToPath(new URL("../../dist/cli-stats.js", import.meta.url));
+    assert.equal(run(statsCli, root).status, 2);
+  });
 });

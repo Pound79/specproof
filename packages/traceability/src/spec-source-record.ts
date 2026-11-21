@@ -18,13 +18,15 @@ const withRecorded = (raw: string, name: string, commit: string): string => {
   const document = parseDocument(raw, YAML_OPTIONS);
   if (document.errors.length > 0) throw new Error("Cannot read the manifest as YAML");
   const node = document.get("specSources", true);
-  if (node === undefined || (isScalar(node) && node.value === null && node.range)) {
-    if (node !== undefined) {
-      // `specSources:`（空）の行を置き換える。
-      throw new Error(CANNOT_UPDATE);
-    }
+  if (node === undefined) {
     const separator = raw.length === 0 || raw.endsWith("\n") ? "" : newline;
     return `${raw}${separator}specSources:${newline}  ${entry}${newline}`;
+  }
+  // `specSources:`（値が空）の行は、その行のまま mapping にする。
+  if (isScalar(node) && node.value === null) {
+    const line = /^specSources:[ \t]*(?:#[^\r\n]*)?(?=\r?$)/m;
+    if (raw.match(new RegExp(line.source, "gm"))?.length !== 1) throw new Error(CANNOT_UPDATE);
+    return raw.replace(line, (found) => `${found}${newline}  ${entry}`);
   }
   if (!isMap(node) || node.flow === true || !node.range) throw new Error(CANNOT_UPDATE);
   const pair = node.items.find((item) => isScalar(item.key) && String(item.key.value) === name);

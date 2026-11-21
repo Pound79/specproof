@@ -62,6 +62,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 設定と manifest のトップレベルの `specSources` を検査するようにした。これまでは未知のキーとして読み飛ばして
+  いた（設定では `unknown-config-key` の警告）が、今は形が誤っていると、`--spec-sources` の有無にかかわらず
+  check・update・list・stats が読み込みで止まる。別の用途で `specSources` を書いていた場合は、名前を変えるか
+  `docs/config-schema.md` の形に直す。
+
 - `specproof-check` のテキスト出力で、`layout.implExcludeGlobs` が未設定のまま、テストや生成物らしいファイル
   （`*.test.*`・`*.spec.*`・`__tests__/`・`__mocks__/`・`*_test.dart`・`*.g.dart`・`*.freezed.dart`・`*.mocks.dart`）が `unregistered-impl` に
   5 件以上あるとき、このキーを 1 行で案内するようにした。版を上げてキーが使えるようになっても、設定に足さなければ

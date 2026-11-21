@@ -73,7 +73,8 @@ const normalizeSourcePath = (entry: string): string | undefined => {
 const isInsidePath = (entry: unknown): entry is string =>
   isNonEmptyString(entry) &&
   !path.posix.isAbsolute(entry) &&
-  !path.posix.normalize(entry).startsWith("..");
+  path.posix.normalize(entry) !== ".." &&
+  !path.posix.normalize(entry).startsWith("../");
 
 const readSource = (item: unknown, at: string, names: Set<string>): SpecSource => {
   if (!isMapping(item)) throw new Error(`${at} must be a mapping`);
@@ -110,9 +111,11 @@ const readSource = (item: unknown, at: string, names: Set<string>): SpecSource =
     name,
     repo,
     ref,
-    paths: Array.isArray(paths)
-      ? paths.map(normalizeSourcePath).filter((entry) => entry !== undefined)
-      : [],
+    // `.` を含めばリポジトリ全体（空）として比べる。
+    paths:
+      Array.isArray(paths) && paths.every((entry) => normalizeSourcePath(entry) !== undefined)
+        ? paths.map((entry) => normalizeSourcePath(entry) as string)
+        : [],
     ...(typeof specDir === "string" ? { specDir } : {}),
     ...(typeof importCommand === "string" ? { importCommand } : {}),
   };
@@ -166,15 +169,19 @@ const isPartialClone = async (git: GitRunner): Promise<boolean | undefined> => {
   });
 };
 
-const sourceGit = async (repoRoot: string, source: SpecSource): Promise<GitRunner | undefined> => {
+const sourceGit = async (
+  repoRoot: string,
+  source: SpecSource,
+): Promise<{ git: GitRunner; repoPath: string } | undefined> => {
   const gitDir = sourceGitDir(repoRoot, source);
   if (gitDir === undefined) return undefined;
-  const git = createGitRunner(path.dirname(gitDir), {
+  const repoPath = path.dirname(gitDir);
+  const git = createGitRunner(repoPath, {
     gitDir,
     maxGitCalls: 2 * MAX_PATHS + 8,
     deadlineMs: 20_000,
   });
-  return (await isPartialClone(git)) === false ? git : undefined;
+  return (await isPartialClone(git)) === false ? { git, repoPath } : undefined;
 };
 
 const resolveCommit = async (git: GitRunner, rev: string): Promise<string | undefined> => {
@@ -227,16 +234,17 @@ export const readSourceToRecord = async (
   repoRoot: string,
   source: SpecSource,
 ): Promise<SourceToRecord | undefined> => {
-  const git = await sourceGit(repoRoot, source);
+  const opened = await sourceGit(repoRoot, source);
+  const git = opened?.git;
   const commit = git === undefined ? undefined : await resolveCommit(git, source.ref);
-  if (git === undefined || commit === undefined) return undefined;
+  if (opened === undefined || git === undefined || commit === undefined) return undefined;
   const missingPaths: string[] = [];
   for (const entry of source.paths) {
     const id = await objectIdAt(git, commit, entry);
     if (id === undefined) return undefined;
     if (id === null) missingPaths.push(entry);
   }
-  return { commit, repoPath: path.dirname(sourceGitDir(repoRoot, source) as string), missingPaths };
+  return { commit, repoPath: opened.repoPath, missingPaths };
 };
 
 const compareSource = async (
@@ -277,7 +285,7 @@ export const checkSpecSources = async (
       results.push({ name: source.name, status: "unrecorded" });
       continue;
     }
-    const git = await sourceGit(repoRoot, source);
+    const git = (await sourceGit(repoRoot, source))?.git;
     const current = git === undefined ? undefined : await resolveCommit(git, source.ref);
     // 取り込み元が手元に無い・ref や記録したコミットを持っていないときは飛ばす（fetch しない）。
     if (

@@ -38,7 +38,8 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   完成させてから置き換える。欠けた参照（ファイルや見出しが無い）は hash を取り直さずにエラーで止まる
 - **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（固定の
   引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` と、`specproof-update --record-spec-source`・
-  `specproof-check --spec-sources` を付けたときの取り込み元のチェックアウトでの `git rev-parse` / `git ls-tree` だけ。
+  `specproof-check --spec-sources` を付けたときの取り込み元のチェックアウトでの `git config --null --list`（部分 clone の
+  判定）/ `git rev-parse` / `git ls-tree` だけ。
   `specSources[].importCommand` は実行しない。取り込み元の `repo` は設定の値でルートの外も指せるので、ルートの中に
   限る原則の例外になる。読むのは `<repo>/.git` が実体のディレクトリで、自分が持ち主で、`commondir` が無く、部分 clone
   （`extensions.partialClone`・`remote.*.promisor`）でないときだけで、`--git-dir` で明示して親のリポジトリや bare
