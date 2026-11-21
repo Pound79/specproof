@@ -102,6 +102,7 @@ const CONFIG_SCHEMA: KeySchema = mapping({
   agents: fixed(["codeReviewer", "securityReviewer"]),
   conventions: fixed(["agentsDoc", "i18nLintPlugin", "stepFrameworkPattern", "pendingStubBody"]),
   examples: fixed(["domainName", "specDoc", "internalConstants"]),
+  specSources: arrayOf(fixed(["name", "repo", "ref", "paths", "specDir", "importCommand"])),
   runner: fixed(["device", "webServerCommand", "globalTeardown", "i18nLocaleStorageKey"]),
   flutter: fixed([
     "gherkinParser",

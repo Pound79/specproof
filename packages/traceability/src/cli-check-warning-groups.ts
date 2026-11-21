@@ -25,6 +25,8 @@ const DEFAULT_GROUP: Record<DriftWarning["kind"], WarningGroup> = {
   "unregistered-impl": "reference",
   "unregistered-spec-heading": "reference",
   "possible-contradiction": "reference",
+  "spec-source-outdated": "reference",
+  "spec-source-unrecorded": "reference",
 };
 
 /** 設定で --strict の対象にした種類（strictUnregisteredImpl など）は「直すもの」に上げる。 */

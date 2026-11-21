@@ -88,7 +88,12 @@ export const warningFailsUnderStrict = (
   ) {
     return options.strictFeatureLint === true;
   }
-  if (kind === "possible-contradiction") {
+  // 取り込み元の古さは、取り込み元が手元にある環境でだけ分かる。環境で結果の変わるものでは落とさない。
+  if (
+    kind === "possible-contradiction" ||
+    kind === "spec-source-outdated" ||
+    kind === "spec-source-unrecorded"
+  ) {
     return false;
   }
   return true;

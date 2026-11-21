@@ -1,3 +1,4 @@
+import { readSpecSources, type SpecSource } from "./spec-sources.js";
 import path from "node:path";
 import { collectUnknownConfigKeys } from "./config-keys.js";
 import {
@@ -57,6 +58,8 @@ export interface TraceabilityConfig {
   /** 設定ファイルにある、どの consumer も読まないキーの経路（出現順）。check が
    *  unknown-config-key として報告する。設定ファイルが無ければ空。 */
   unknownConfigKeys?: string[];
+  /** `specSources`: 写した仕様の取り込み元。省略なら空。 */
+  specSources?: SpecSource[];
 }
 
 export interface DiscoverConfigOverrides {
@@ -221,6 +224,7 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
   // Flutter の runner は Dart の gherkin で feature を読む（キーワードの書式が Gherkin と違う）。
   const gherkin: GherkinFlavor = adapter === "flutter" ? "dart" : "js";
   const language = readString(fileConfig.language, "language");
+  const specSources = readSpecSources(fileConfig.specSources, sourceName);
   return {
     repoRoot,
     manifestPath,
@@ -237,5 +241,6 @@ export const discoverConfig = (overrides: DiscoverConfigOverrides = {}): Traceab
     language,
     configFile: source?.name,
     unknownConfigKeys: source === null ? [] : collectUnknownConfigKeys(source.config),
+    ...(specSources.length > 0 ? { specSources } : {}),
   };
 };

@@ -2,7 +2,14 @@
 import { printable } from "./display-text.js";
 import { printErrorText } from "./output.js";
 
-type ValueOptionKey = "manifest" | "root" | "pagesDir" | "candidateSuffix" | "linkId" | "specRef";
+type ValueOptionKey =
+  | "manifest"
+  | "root"
+  | "pagesDir"
+  | "candidateSuffix"
+  | "linkId"
+  | "specRef"
+  | "recordSpecSource";
 
 const VALUE_OPTIONS: Record<string, ValueOptionKey> = {
   "--manifest": "manifest",
@@ -11,6 +18,7 @@ const VALUE_OPTIONS: Record<string, ValueOptionKey> = {
   "--candidate-suffix": "candidateSuffix",
   "--link-id": "linkId",
   "--spec-ref": "specRef",
+  "--record-spec-source": "recordSpecSource",
 };
 const BOOLEAN_OPTIONS = [
   "--strict",
@@ -18,11 +26,20 @@ const BOOLEAN_OPTIONS = [
   "--github-annotations",
   "--dry-run",
   "--since-bless",
+  "--spec-sources",
 ];
 export type TraceabilityCommand = "check" | "update" | "list" | "stats";
 const COMMAND_OPTIONS: Record<TraceabilityCommand, readonly string[]> = {
-  check: ["--manifest", "--root", "--strict", "--json", "--github-annotations", "--since-bless"],
-  update: ["--manifest", "--root", "--link-id", "--spec-ref", "--dry-run"],
+  check: [
+    "--manifest",
+    "--root",
+    "--strict",
+    "--json",
+    "--github-annotations",
+    "--since-bless",
+    "--spec-sources",
+  ],
+  update: ["--manifest", "--root", "--link-id", "--spec-ref", "--dry-run", "--record-spec-source"],
   list: ["--manifest", "--root", "--pages-dir", "--candidate-suffix", "--json"],
   stats: ["--manifest", "--root", "--strict", "--json"],
 };
@@ -34,6 +51,8 @@ export interface ParsedCliArgs {
   root?: string;
   pagesDir?: string;
   candidateSuffix?: string;
+  /** `--record-spec-source <name>`: 取り込み元のコミットを manifest に記録する（hash は更新しない）。 */
+  recordSpecSource?: string;
   /** `--link-id` は重ねて指定でき、指定した順に集める（重複はそのまま。除くのは使う側）。 */
   linkIds?: string[];
   /** `--spec-ref` も重ねて指定でき、指定した順に集める。 */
