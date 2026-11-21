@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-21
+
 ### Added
 
 - 写した仕様の取り込み元を設定の `specSources`（`name` / `repo` / `ref` / `paths` / `specDir` / `importCommand`）に
@@ -22,28 +24,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ref` から読む形なら `--allow-head-mismatch` で記録できる。HEAD を解決できないときも記録しない。コミットして
   いない変更は見ない。`docs/config-schema.md` に、取り込みのコマンドを `ref` から読む形にするときに守ること（CLI と
   同じ制限で git を起動する、コミット id を 1 度だけ決める、通常のファイルだけを写し `..`・`.git` を含むパスで止める、
-  `cat-file blob` で読む）と、`git worktree` の作業ツリーを `repo` に使えない理由を書いた。
+  `cat-file blob` で読む）と、`git worktree` の作業ツリーを `repo` に使えない理由を書いた。(#81, #86)
 - `--since-bless` と取り込み元の git は、transport を禁じ（`protocol.allow=never`）、受け継いだ `GIT_DIR` などの
-  環境変数を消して起動する。
+  環境変数を消して起動する。(#81)
 - 取り込み元の `paths` に明示したファイルは、中身（object id）と mode（通常のファイル・実行できるファイル・
   シンボリックリンク）を合わせて比べる。通常のファイルの中身とシンボリックリンクの指す先の文字列が同じだと
   object id も同じになるため。ディレクトリやリポジトリ全体の比べも mode の違いを含む（tree の id に含まれる）。
   mode だけが変わったとき（実行ビットの付け外しを含む）も `spec-source-outdated` になる。同じ名前のエントリが
-  重複した壊れた tree は、比べずに読めないもの（`unavailable`）とする。
+  重複した壊れた tree は、比べずに読めないもの（`unavailable`）とする。(#88)
 - `specproof-check --since-bless` が、drift した参照を、bless した版の後にそれを変えたコミットごとにまとめて
   出すようにした（`Changes since bless, by commit`）。HEAD の first-parent の列で辿るので、PR のマージや squash の
   コミットが 1 件として、件名（PR の番号を含むことが多い）と一緒に出る。spec の見出しの参照は節の単位で、
   ほかはファイルの単位で、そのコミットで変わったものだけを割り当て、bless した版を持ち込んだだけのマージは
   外す。コミットしていない変更は `(uncommitted)` にまとめる。`--json` には `sinceBless`（`commits`・`uncommitted`・
   `notGrouped`・`incomplete`）を足した。既存のキーは変えず、`--since-bless` を付けないときの出力も変わらない。
-  git の起動の上限（2,000 回・60 秒）は bless した版の探索と共有する。
+  git の起動の上限（2,000 回・60 秒）は bless した版の探索と共有する。(#79)
 - `--since-bless` の git は、利用者やリポジトリの設定の署名の検証（gpg）・`log.follow` を切り、作業ツリーの中の
-  bare リポジトリを暗黙に見つけないようにした。
+  bare リポジトリを暗黙に見つけないようにした。(#79)
 
 - シナリオが仕様の未決の問いに依存していることを表す `@question:<ID>` タグを決め、`specproof-stats` が問いの
   ID ごとに、依存するシナリオの数と feature を出すようにした（テキストの「Open spec questions」、`--json` の
   `questions: [{ id, scenarios, features }]`）。Feature・Rule に付けたタグは配下に継承する。状態タグではないので、
-  実行と done の判定は変えない。既存のキーは変えない。生成ガイドのタグ規約にも書いた。
+  実行と done の判定は変えない。既存のキーは変えない。生成ガイドのタグ規約にも書いた。(#80)
 
 - 前提の状態を操作で使い切るシナリオ（未読を開くと既読になる、など）の扱いを足した。seed が run ごとに 1 回しか
   入らないと、CI の再試行で前提が成り立たず、期待する要求を待って理由の分からない時間切れになる。
@@ -51,18 +53,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   前提の step の本体で試行ごとに専用の状態を作ること、作れなければ操作の前に前提を確かめて理由付きで止めることを
   確かめる。生成ガイドの「ドラフトの点検」の「統制できない前提」に、この種のシナリオと提案（前提の step で状態を
   明示する・試行ごとか専用の seed で状態を作る）を足した。提案だけで、feature と共有の seed は変えない。
-  `docs/methodology.md` にも同じ規則を足した。
+  `docs/methodology.md` にも同じ規則を足した。(#78)
 
 - `docs/playwright-ci.md` に「キャッシュは読むだけにする」の節を足した。別のブランチを流すときは、入力で
   ブランチを指定せず、run の ref をそのブランチにして起動する。入力で指定する作りでは、ジョブの中のコードが
   cache に直接書けること、Environment の制限が効かないこと、印を付けないことを書いた。依存のキャッシュは
-  `actions/cache/restore` で読むだけにし、`actions/setup-node` には `package-manager-cache: false` を付ける。
+  `actions/cache/restore` で読むだけにし、`actions/setup-node` には `package-manager-cache: false` を付ける。(#77)
 - 同じ手引きに、流したかの印の 2 つの付け方（通ったときだけ・落ちても付ける）とそれぞれの注意、画面のビルドの
   設定を雛形からコピーしてからビルドすること、E2E の前に E2E 側の Node の版を入れ直すことを足した。骨組みの例は、
-  印の保存を checkout しない別のジョブ（`mark`）に移した。
+  印の保存を checkout しない別のジョブ（`mark`）に移した。(#77)
 - 同じ手引きに、落ちた run の `test-results/` を短く残す条件付きの例外を足した。認証情報とセッションが実行ごとに
   作って捨てるもので、鍵をテストのプロセスに渡さず、データは合成で DB も捨て、公開リポジトリでないときだけ。
-  既定の「trace を上げない」は変えず、雛形の README と `playwright.config.ts` のコメントから例外を参照した。
+  既定の「trace を上げない」は変えず、雛形の README と `playwright.config.ts` のコメントから例外を参照した。(#77)
 
 - Playwright の雛形の README の「テストの前に環境を確かめる」に、確認の例を 2 つ足した。5 は、
   `E2E_API_MAX_RESPONSE_MS` を設定したときだけ、温めた後のヘルスチェックを 3 回計り、上限を超えたら
@@ -70,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   6 は、`E2E_EXPECT_API_ORIGIN` を設定したときだけ chromium で `baseURL`（または `E2E_API_PROBE_PATH`）を開き、
   画面がその origin に fetch / xhr を送るかを確かめる（ビルドに埋め込む API の URL が空のまま作られ、画面が
   自分自身に要求を送る崩れを拾う）。どちらも新しい変数を設定したときだけ動くので、既存の例を写して使っている
-  利用者の動きは変わらない。例の要求が届かないときの文は、URL のパスとクエリを写さず origin だけを出すようにした。
+  利用者の動きは変わらない。例の要求が届かないときの文は、URL のパスとクエリを写さず origin だけを出すようにした。(#76)
 
 - `specproof-update --spec-ref '<path>#<見出し>'` を足した。その仕様の節の spec 側の hash だけを、それを参照する
   全リンクで取り直す。共通の決まりを書いた 1 つの節を多くのリンクが参照していると、関係の無い決まりを 1 つ
@@ -81,13 +83,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `#` の前後に空白のある指定は、似た名前の別の節を選ばずに失敗する。
   深さの違う同名の節に当たる指定や、bless した版がリンクごとに違う（`PENDING` を含む）ときは、何も書かずに
   失敗する。`check` は、同じ節が 2 つ以上のリンクで drift したときに Next でこの形を示す。ライブラリには `specRefs` と
-  結果の `skipped`（`specRefs` を指定したときだけ）を足した。sync の skill にも使う条件を書いた。
+  結果の `skipped`（`specRefs` を指定したときだけ）を足した。sync の skill にも使う条件を書いた。(#72)
 
 - `docs/playwright-ci.md` に、別のリポジトリのバックエンドが要る Playwright の E2E を CI で流す手引きを足し、
   雛形の README から参照した。定期実行と、2 つのリポジトリの SHA の組による変更の検知、非公開リポジトリを
   読むだけの GitHub App のトークンでの checkout、docker compose の注意（Linux の runner でのファイルの持ち主、
   準備を待つ、migration、初回の遅さ、使い捨ての秘密を伏せる）、ログと成果物の扱いを書いた。trace などを
-  CI の成果物に上げない方針は変えない。
+  CI の成果物に上げない方針は変えない。(#70)
 
 - `docs/playwright-ci.md` の手順 3 に「バックエンドのブランチを入力で選ぶとき」を足した。バックエンドのリポジトリの
   ブランチは run の ref で選べないので入力で選ぶしかなく、1 つのジョブで App の秘密鍵とバックエンドのコードを
@@ -98,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   取り出せること（許せない・公開のときは使わない）、`upload-artifact` が隠しファイルを既定で除くこと、受け取った
   ものを選んだブランチのコードとして扱い cache への書き込みは防げないこと、`e2e` に秘密を足さないことを書いた。
   分けられないときの最低限（承認する人と自己承認の禁止・入力を一覧と完全に一致するものに限る・印も trace も
-  残さない）も書いた。
+  残さない）も書いた。(#87)
 
 - `specproof-setup` に「版を上げるとき」を足した。導入済みのリポジトリで版を上げるとき、固定した版を
   設定とワークフローから読み、上げる先までの CHANGELOG から足された設定のキーを列挙し、上げる先の版の
@@ -106,14 +108,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `unregistered-impl` に多ければ `layout.implExcludeGlobs`）。設定の書き換えは承認の後で、版の固定は設定と
   ワークフローを同じ変更で上げる。版の番号だけを上げると、足された設定を知らないまま古い出力を見続けていた。
   作業は既定ブランチから切った新しいブランチで行い、流すのは版とレジストリを固定した `npx` だけにする。
-  取得した CHANGELOG と CLI の出力はデータとして扱う。`docs/security-model.md` の通信先にも載せた。
+  取得した CHANGELOG と CLI の出力はデータとして扱う。`docs/security-model.md` の通信先にも載せた。(#68)
 
 - Playwright の雛形の README に「テストの前に環境を確かめる」を足した。古いビルド・別のブランチの
   バックエンド・起動直後の遅さなど、環境の崩れでシナリオがまとめて落ちるのを、始める前に止める
   `globalSetup` の例（バックエンドが動いているか、期待するコミットを含むか、配信中のビルドが今の
   チェックアウトのものか、温める要求）を載せた。ヘルスチェックは転送を追わず、その URL 自身が 200 を
   返すかを確かめる（ログイン画面への転送先の 200 で通さない）。雛形のコードと設定のキーは変えていない。
-  Project Structure の `auth.setup.ts` の説明を「global setup」から「setup project」に直した。
+  Project Structure の `auth.setup.ts` の説明を「global setup」から「setup project」に直した。(#67)
 
 ### Changed
 
@@ -126,18 +128,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   バッククォートを除いて長さを限り、PR 本文ではコードブロックに入れる（`docs/security-model.md` にも書いた）。
   これまでは「impl の drift が多いときは」まとめを見る、という任意の書き方で、テキストの出力（20 コミットで切れる）
   を手で PR に対応させると、bless した版より後の PR を取りこぼすことがあった。互換: CLI の出力と終了コードは
-  変わらない。
+  変わらない。(#83)
 
 - 設定と manifest のトップレベルの `specSources` を検査するようにした。これまでは未知のキーとして読み飛ばして
   いた（設定では `unknown-config-key` の警告）が、今は形が誤っていると、`--spec-sources` の有無にかかわらず
   check・update・list・stats が読み込みで止まる。別の用途で `specSources` を書いていた場合は、名前を変えるか
-  `docs/config-schema.md` の形に直す。
+  `docs/config-schema.md` の形に直す。(#81)
 
 - `specproof-check` のテキスト出力で、`layout.implExcludeGlobs` が未設定のまま、テストや生成物らしいファイル
   （`*.test.*`・`*.spec.*`・`__tests__/`・`__mocks__/`・`*_test.dart`・`*.g.dart`・`*.freezed.dart`・`*.mocks.dart`）が `unregistered-impl` に
   5 件以上あるとき、このキーを 1 行で案内するようにした。版を上げてキーが使えるようになっても、設定に足さなければ
   テストのファイルが並び続け、気づくきっかけが無かった。案内にパスは載せない。互換: 終了コードと `--json` は
-  変わらない。
+  変わらない。(#75)
 
 - `specproof-check` のテキスト出力で、warning を「直すもの」（`To fix:`）と「参考」（`For reference:`）に分け、
   直すものを先に出すようにした。先頭に組ごとの種類と件数のまとめ（`Warnings: 15 to fix (step-order 15); 30 for
@@ -147,13 +149,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--strict` で落ちるものを先にし、表示の上限で隠した件数の行はその種類の組の末尾に出す。これまでは
   種類を問わず 1 つの列に並び、本当の書き方の誤りが多数の参考の中に埋もれていた。`--github-annotations` の
   注釈も同じ順にした（GitHub は 1 step の注釈を 10 件までしか出さない）。互換: `[warning]` / `[advisory]` の
-  意味、終了コード、`--json`（元の順）は変わらない。テキストや注釈の順を照合しているスクリプトは直す必要がある。
+  意味、終了コード、`--json`（元の順）は変わらない。テキストや注釈の順を照合しているスクリプトは直す必要がある。(#74)
 
 - `specproof-check` のテキスト出力に、2 つ以上のリンクで drift した spec の節のまとめ（「Spec sections that drifted
   in several links」、節ごとのリンクの数を多い順に 10 節まで）を足した。共通の決まりを書いた節を多くのリンクが
   参照していると、リンクごとの一覧からはどの節が変わったかを読み取れず、関係を確かめるために feature を探し回って
   いた。互換: 終了コードと `--json` は変わらない。テキストの出力を照合しているスクリプトは、Next の前に行が
-  増えることに注意する。
+  増えることに注意する。(#73)
 
 - Playwright の CI の手引き（`docs/playwright-ci.md`）の「例外: 落ちた run の trace を短く残す」の条件を、
   例の YAML の直前に、上げる前のチェックリストとして並べ直した（HTML レポートを含めない・入力でブランチを
@@ -162,14 +164,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   その副作用、エラー以外の応答や画面のサーバーにも詳細が出ること、404 と GraphQL のエラーでも確かめること、
   切れないなら例外を使わないことを足した。使い捨ての鍵の渡し方は、手段（env ファイル）でなく「テストのプロセスの
   環境変数・引数・作業ディレクトリに入れない」という条件にし、env ファイルは例にした。条件に、バックエンドの
-  チェックアウトの中の本物の鍵を読ませないことと、バックエンドのログをテストで添付しないことを足した。
+  チェックアウトの中の本物の鍵を読ませないことと、バックエンドのログをテストで添付しないことを足した。(#85)
 
 - `specproof-update` の `--link-id` を重ねて指定できるようにした（`--link-id a --link-id b`）。指定したリンクを
   まとめて bless する。これまでは重ねると、黙って最後の 1 つだけが効いていた。manifest に無い id が 1 つでも
   あれば、何も書かずに失敗し、無い id をすべて示す。完了の行は複数のときに `links "a", "b" refreshed` になる。
   ライブラリの `updateManifestHashes` に `linkIds` を足した（`linkId` はこれまでどおり使え、合わせた集合を更新する。
   空の `linkIds` は全リンクの更新ではなくエラーにする）。
-  sync の skill の bless の手順にも、同じ扱いに決めたリンクは重ねて 1 回で bless できることを書いた。
+  sync の skill の bless の手順にも、同じ扱いに決めたリンクは重ねて 1 回で bless できることを書いた。(#71)
 
 - Playwright の雛形の README の「新しい feature を追加するとき」を、`projects` の構成によらない書き方に
   直した。README は生成した時点の固定の文で、setup が `projects` を変えても書き換わらない。guest や
@@ -177,7 +179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   合わなかった。追加先は、シナリオをどの認証状態（ログイン前か、どのロールか）で確かめるかで決め、
   project の `tags` が選ぶことは必要条件に留めた（タグ無しのシナリオは guest の `tags` にも合うため）。
   ログインせずに実行する project には、ログイン前の画面を確かめる feature だけを足す。skill の feature の
-  登録手順も同じ書き方に揃えた。
+  登録手順も同じ書き方に揃えた。(#69)
 
 - Playwright の CI の手引き（`docs/playwright-ci.md`）で、`cache-mode` で cache に書けるジョブを限るようにした。
   骨組みはワークフローの最上位を `cache-mode: read` にし、印を保存する `mark` だけを `cache-mode: write-only` に
@@ -187,7 +189,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   取ると今回の組の印は付けさせられる）、確かめ方（`gh cache list`）を書いた。
   これに合わせて、手順 1 の成果物の印の項（cache の印は手順 2 の前提の下でこの経路を閉じる。成果物の印は閉じない）、手順 2 の
   「読むだけにしても防げない」（`cache-mode` が無いときの話にした）、手順 3 のバックエンドのブランチを入力で選ぶ型を
-  直した。cache の action を通さない書き込みは docs に明記が無いので、依存を作り直すなどの重ねた守りは残す。
+  直した。cache の action を通さない書き込みは docs に明記が無いので、依存を作り直すなどの重ねた守りは残す。(#89)
 
 - Playwright の CI の手引き（`docs/playwright-ci.md`）の「成果物の名前を印にしない」に、
   `workflow_run.head_repository_id` でも絞った後に残る経路（既定ブランチの run の中で動く、入力で指定したブランチや
@@ -195,7 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   足した。経路ごとに閉じるか（入力のブランチは run の ref で選べば閉じる）・閉じないか（ほかは閉じない。checkout
   しない `mark` ジョブは保存の手順を守るだけ）を書き分け、印は合否の証拠にしないことと、それでも cache を使う理由を
   書いた。成果物の名前の印から切り替えるときの手順（印を上げる手順を消す・最初の回は変更が無くても流れる・
-  消すために `actions: write` を足さない・`actions: read` を外す）も書いた。
+  消すために `actions: write` を足さない・`actions: read` を外す）も書いた。(#84)
 
 - `specproof-implement` の gaming 自己点検に 6 項目目「経路の確かめ」を足した。失敗・例外・拒否の経路を
   確かめるシナリオでは、その経路に入ったこと（要求が送られた、失敗の応答を受けた、など）を step の本体で
@@ -205,16 +207,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   戻した版の用意と実行は人に渡すのを既定とし、自分で流すのは別の作業ツリーに置けて手元で起動できる
   ときだけにした（今の作業ツリーで戻さない、コミットしない）。確かめられなければ、確かめていないことを
   レポートに書く。トレースを根拠にするときは、写すのを要求のメソッド・パス・状態コードに限る。
-  反証レビューに渡す観点とレポートの自己点検も 6 項目にした。
+  反証レビューに渡す観点とレポートの自己点検も 6 項目にした。(#66)
 
 ### Fixed
 
+- `specproof-list`（ライブラリの `toDomainName`）がページのファイル名からドメイン名を作る正規表現を、
+  大文字が長く続く名前で二次的なバックトラックを起こさない形にした（CodeQL の ReDoS の指摘）。
+  作られる名前は変わらない。(#63)
 - `scripts/release.sh` が失敗したときの復元に使うスナップショット（一時ディレクトリ）を、`TMPDIR` があれば
   その下に作るようにした（無ければこれまでどおり `mktemp -d` の既定の場所）。macOS の `mktemp -d` は
   テンプレートを渡さないと `TMPDIR` を見ないことがあり、`TMPDIR` を書ける場所に向けた sandbox の中では、
   release 系と signal 系のテストがスナップショットを作れずに落ちていた。リリースの手順と、公開する
-  パッケージは変わらない。
-
+  パッケージは変わらない。(#82)
 ## [0.7.0] - 2026-11-17
 
 ### Changed
@@ -1022,7 +1026,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/specproof/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Pound79/specproof/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Pound79/specproof/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Pound79/specproof/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Pound79/specproof/compare/v0.4.1...v0.5.0
