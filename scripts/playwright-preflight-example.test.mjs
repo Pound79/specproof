@@ -94,7 +94,7 @@ export const chromium = {
 const runPreflight = async (
   healthStatus,
   healthLocation,
-  { healthDelayMs = 0, pageRequests = [], pageStatus = 200, env = {} } = {},
+  { healthDelayMs = 0, pageRequests = [], pageStatus = 200, env = {}, basePath = "", onlyPath } = {},
 ) => {
   const server = createServer((req, res) => {
     if (req.url === "/health") {
@@ -104,7 +104,9 @@ const runPreflight = async (
       }, healthDelayMs);
     } else {
       const requests = pageRequests.map((r) => (typeof r === "string" ? { url: r } : r));
-      res.writeHead(pageStatus, { "content-type": "text/html", "x-test-requests": JSON.stringify(requests) });
+      // onlyPath を指定したときは、そのパスのページだけがある（ほかは 404）。
+      const status = onlyPath !== undefined && req.url !== onlyPath ? 404 : pageStatus;
+      res.writeHead(status, { "content-type": "text/html", "x-test-requests": JSON.stringify(requests) });
       res.end("<html>login</html>");
     }
   });
@@ -120,7 +122,7 @@ const runPreflight = async (
   writeFileSync(path.join(dir, "node_modules", "@playwright", "test", "index.js"), BROWSER_STUB);
   writeFileSync(
     path.join(dir, "run.mjs"),
-    `import preflight from "./preflight.ts";\nawait preflight({ projects: [{ use: { baseURL: ${JSON.stringify(base)} } }] });\nconsole.log("passed");\n`,
+    `import preflight from "./preflight.ts";\nawait preflight({ projects: [{ use: { baseURL: ${JSON.stringify(`${base}${basePath}`)} } }] });\nconsole.log("passed");\n`,
   );
   try {
     // spawnSync はイベントループを止めてサーバが応答できないので、非同期で起動する。
@@ -218,6 +220,17 @@ test("README の preflight の例は、画面が期待するバックエンド�
   const broken = await runPreflight(200, undefined, { pageStatus: 500, env: { E2E_EXPECT_API_ORIGIN: API } });
   assert.notEqual(broken.code, 0);
   assert.match(broken.out, /the probe page returned 500/);
+});
+
+test("README の preflight の例は、probe を指定しなければ baseURL（パス付きを含む）をそのまま開く", async () => {
+  // baseURL がパスを持つアプリ（/app/ の下で配信）で、ルートにページが無くても確認できる。
+  const result = await runPreflight(200, undefined, {
+    basePath: "/app/",
+    onlyPath: "/app/",
+    pageRequests: [{ url: `${API}/widgets/1`, type: "fetch" }],
+    env: { E2E_EXPECT_API_ORIGIN: API },
+  });
+  assert.equal(result.code, 0, result.out);
 });
 
 test("README の preflight の例は、行き先の確認の設定の誤りを、値を写さずに止める", async () => {

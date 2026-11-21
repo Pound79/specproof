@@ -338,7 +338,9 @@ export default async function preflight(config: FullConfig): Promise<void> {
     if (api.origin === app.origin) {
       throw new Error("preflight: E2E_EXPECT_API_ORIGIN has the same origin as baseURL; this check cannot tell them apart");
     }
-    const probeUrl = new URL(process.env.E2E_API_PROBE_PATH?.trim() || "/", app);
+    // 指定が無ければ baseURL（パスを含む）をそのまま開く。
+    const probePath = process.env.E2E_API_PROBE_PATH?.trim();
+    const probeUrl = probePath ? new URL(probePath, app) : app;
     if (probeUrl.origin !== app.origin || probeUrl.username || probeUrl.password) {
       throw new Error("preflight: E2E_API_PROBE_PATH must be a path on baseURL");
     }
