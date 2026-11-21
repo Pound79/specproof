@@ -37,7 +37,16 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 - **書く範囲**: `specproof-update` が書くのは manifest だけで、同じディレクトリの一時ファイルを
   完成させてから置き換える。欠けた参照（ファイルや見出しが無い）は hash を取り直さずにエラーで止まる
 - **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（固定の
-  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` だけ。
+  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` と、`specproof-update --record-spec-source`・
+  `specproof-check --spec-sources` を付けたときの取り込み元のチェックアウトでの `git rev-parse` / `git ls-tree` だけ。
+  `specSources[].importCommand` は実行しない。取り込み元の `repo` は設定の値でルートの外も指せるので、ルートの中に
+  限る原則の例外になる。読むのは `<repo>/.git` が実体のディレクトリで、自分が持ち主で、`commondir` が無く、部分 clone
+  （`extensions.partialClone`・`remote.*.promisor`）でないときだけで、`--git-dir` で明示して親のリポジトリや bare
+  リポジトリを探させない。足りないオブジェクトを取りに行かせない防御は、部分 clone を読まないことと
+  `GIT_NO_LAZY_FETCH=1` で、コマンドラインの `protocol.allow=never` と内蔵の transport ごとの `never` はその上に重ねる
+  （リポジトリの設定の `protocol.<名前>.allow` に上書きされうるので、これだけには頼らない）。`GIT_NO_REPLACE_OBJECTS=1`
+  で差し替えを読まず、受け継いだ `GIT_DIR`・`GIT_CONFIG_*` などの環境変数を消す。`ref` は名前の形だけを受けて `--end-of-options` の後ろに置く。それでも、その
+  リポジトリの存在とコミットの id は出力に出るので、PR の CI では `--spec-sources` を付けない（既定では読まない）。
   作業ツリーを読む git（`status`・`diff`）は `.gitattributes` のフィルタを起動しうるので使わず、版の中身は
   `git show <commit>:<path>` で読む。fsmonitor・署名の検証・`log.follow` の設定は切り、作業ツリーの中の bare
   リポジトリを暗黙に見つけさせない（`safe.bareRepository=explicit`）。

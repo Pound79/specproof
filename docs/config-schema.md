@@ -111,6 +111,45 @@ page object を持たない構成（`fixtures: {}`、または world・認証な
 | `agents`<sup>+</sup> | optional | `codeReviewer` / `securityReviewer` の識別子。 |
 | `conventions` | optional | `agentsDoc` / `i18nLintPlugin` / `stepFrameworkPattern` / `pendingStubBody`。 |
 | `examples` | optional | `domainName` / `specDoc`<sup>+</sup> / `internalConstants`。 |
+| `specSources[]` | optional | 写した仕様の取り込み元。下の [specSources](#specsources)。 |
+
+## specSources
+
+別のリポジトリにある仕様を、利用側のスクリプトで `layout.specDir` などに写しているときに、取り込んだコミットを
+記録し、取り込み元が先に進んだら check で知らせる。取り込み自体は利用側のスクリプトが行い、specproof の CLI は
+実行しない。
+
+```yaml
+specSources:
+  - name: permissions                 # 必須。英数字と . _ -（manifest の記録の名前）
+    repo: ../backend                  # 必須。取り込み元のチェックアウト（ルート相対か絶対）
+    ref: origin/develop               # 必須。比べる ref（ブランチ・タグ・リモートのブランチの名前）
+    paths: [config/permissions]       # 任意。取り込み元の中で比べるパス（省略時はリポジトリ全体）
+    specDir: docs/specs/permissions   # 任意。写した先（警告の場所と skill の案内に使う）
+    importCommand: scripts/import-permissions.sh  # 任意。skill だけが読み、人の確認を得てから実行する
+```
+
+- 記録: 取り込んだ後に `specproof-update --record-spec-source <name>` を実行すると、`repo` で `ref` が指すコミットを
+  manifest の `specSources.<name>` に書く（hash は更新しない。`--dry-run` も使える）。記録するのは ref が指す
+  コミットで、取り込みのコマンドが実際に写した中身を確かめるものではない。読んだ取り込み元の絶対パスを出すので、
+  取り込んだものと同じかを確かめる。取り込み元が無い・`ref` を解決できない・`paths` が今の ref に無いときは
+  何も書かずに失敗する。手元の ref を読むだけで、fetch しない（先に `git -C <repo> fetch` する）
+- 確かめ: `specproof-check --spec-sources` は、記録したコミットと今の `ref` の間で `paths` の中身が違えば
+  `spec-source-outdated` を、今の `ref` に `paths` のどれかが無ければ（書き誤り・取り込み元での移動）同じ種類で
+  そのことを、記録が無ければ `spec-source-unrecorded` を参考の警告として出す。取り込み元が手元に無い・`ref` か
+  記録したコミットを持っていないときは警告を出さずに飛ばす（記録が無いことは manifest だけで分かるので出す）。
+  どれも `--strict` でも失敗しない。`--json` には全体に `specSources: [{ name, status, recorded, current, missingPaths }]`
+  を足す（`status` は `current` / `outdated` / `path-missing` / `unrecorded` / `unavailable`）
+- `--spec-sources` を付けないと、check は取り込み元を読まず、出力も変えない。`repo` は設定の値なので PR で変えられる。
+  PR の CI（既定のワークフロー）で、PR が指すディレクトリの git を起動しないための opt-in で、手元や取り込み元を
+  checkout したジョブで付ける
+- `repo` は取り込み元のチェックアウトのルートにする。直下に実体の `.git` ディレクトリ（シンボリックリンク・ファイル
+  でない）があり、自分が持ち主で、部分 clone でないときだけ読む（サブディレクトリ・`git worktree` の作業ツリー・
+  submodule・bare リポジトリ・部分 clone は使えない）。
+  読むときは `--git-dir` で明示し、transport を禁じ、外部のプログラムを起動しない設定で `git rev-parse` /
+  `git ls-tree` だけを実行する。`importCommand` は CLI では実行しない
+- manifest の `specSources` は、名前も値も引用した `"<name>": "<commit>"` の形で書く（数値や真偽値に見える名前も
+  文字列として扱う）
 
 ## 未知のキー
 

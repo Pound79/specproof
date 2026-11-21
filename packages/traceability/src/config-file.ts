@@ -17,6 +17,7 @@ export interface PartialConfigFile {
   strictUnregisteredImpl?: unknown;
   strictUnregisteredSpecHeadings?: unknown;
   strictFeatureLint?: unknown;
+  specSources?: unknown;
 }
 
 export const isMapping = (value: unknown): value is Record<string, unknown> =>

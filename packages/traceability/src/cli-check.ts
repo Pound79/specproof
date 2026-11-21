@@ -37,12 +37,14 @@ import {
 import { createGitRunner } from "./git-runner.js";
 import { describeImplExcludeHint } from "./impl-exclude-hint.js";
 import { loadManifest } from "./manifest.js";
+import { specSourceWarnings } from "./spec-source-warnings.js";
+import { checkSpecSources } from "./spec-sources.js";
 import { printJson, printText } from "./output.js";
 
 const main = async (): Promise<void> => {
   const { flags, manifest, root } = parseCliArgs(process.argv.slice(2), "check");
   const config = discoverConfig({ manifest, root });
-  const report = await checkDrift(config.manifestPath, config.repoRoot, {
+  const driftReport = await checkDrift(config.manifestPath, config.repoRoot, {
     featuresDir: config.featuresDir,
     implGlobs: config.implGlobs,
     implExcludeGlobs: config.implExcludeGlobs,
@@ -52,6 +54,25 @@ const main = async (): Promise<void> => {
     configFile: config.configFile,
     unknownConfigKeys: config.unknownConfigKeys ?? [],
   });
+  // 写した仕様の取り込み元。--spec-sources を付けたときだけ読む（既定では、設定が指すディレクトリで git を
+  // 起動しない）。取り込み元が手元に無ければ警告を出さずに飛ばす。
+  const specSources =
+    config.specSources === undefined || !flags.has("--spec-sources")
+      ? undefined
+      : await checkSpecSources(
+          config.repoRoot,
+          config.specSources,
+          (await loadManifest(config.manifestPath)).specSources ?? {},
+        );
+  const report = {
+    ...driftReport,
+    warnings: [
+      ...driftReport.warnings,
+      ...(specSources === undefined || config.specSources === undefined
+        ? []
+        : specSourceWarnings(config.specSources, specSources)),
+    ],
+  };
   const strict = flags.has("--strict");
   const strictOptions = {
     strictUnregisteredImpl: config.strictUnregisteredImpl,
@@ -130,6 +151,7 @@ const main = async (): Promise<void> => {
             },
           }),
       warnings: attachFailsUnderStrict(report.warnings, strictOptions),
+      ...(specSources === undefined ? {} : { specSources }),
     });
   } else if (report.clean) {
     printText("Traceability check: clean (no drift detected).");

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 写した仕様の取り込み元を設定の `specSources`（`name` / `repo` / `ref` / `paths` / `specDir` / `importCommand`）に
+  書けるようにした。`specproof-update --record-spec-source <name>` が、取り込み元のチェックアウトで `ref` が指す
+  コミットを manifest の `specSources` に記録し、`specproof-check --spec-sources` は取り込み元の `ref` が記録した
+  コミットから `paths` の中で進んでいれば（今の ref に無ければ）`spec-source-outdated`、記録が無ければ
+  `spec-source-unrecorded` を参考の警告として出す（`--strict` でも失敗しない。`--json` には `specSources` を足す）。
+  取り込み元が手元に無い環境では警告を出さずに飛ばし、fetch もしない。`--spec-sources` を付けなければ取り込み元を
+  読まず、PR の CI で PR が指すディレクトリの git を起動しない。`importCommand` は CLI では実行せず、sync の skill が
+  毎回、人の承認を得てから実行する。設定に `specSources` が無ければ、出力も manifest も変わらない。
+- `--since-bless` と取り込み元の git は、transport を禁じ（`protocol.allow=never`）、受け継いだ `GIT_DIR` などの
+  環境変数を消して起動する。
 - `specproof-check --since-bless` が、drift した参照を、bless した版の後にそれを変えたコミットごとにまとめて
   出すようにした（`Changes since bless, by commit`）。HEAD の first-parent の列で辿るので、PR のマージや squash の
   コミットが 1 件として、件名（PR の番号を含むことが多い）と一緒に出る。spec の見出しの参照は節の単位で、

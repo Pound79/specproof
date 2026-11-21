@@ -34,6 +34,8 @@ export interface TraceabilityLink {
 export interface TraceabilityManifest {
   version: 1;
   links: TraceabilityLink[];
+  /** 写した仕様の取り込み元ごとに、取り込んだコミット（specproof-update --record-spec-source が書く）。 */
+  specSources?: Record<string, string>;
 }
 
 const MAX_PATH_LENGTH = 4096;
@@ -246,6 +248,33 @@ const assertManifestShape: (value: unknown) => asserts value is TraceabilityMani
       `Invalid traceability manifest: duplicate link id(s): ${[...duplicates].join(", ")}`,
     );
   }
+  assertSpecSources(value.specSources);
+};
+
+const SPEC_SOURCE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const COMMIT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+const MAX_SPEC_SOURCES = 256;
+
+const assertSpecSources = (value: unknown): void => {
+  if (value === undefined || value === null) return;
+  if (!isRecord(value)) {
+    throw new Error(
+      "Invalid traceability manifest: specSources must be a mapping of name to commit id",
+    );
+  }
+  const entries = Object.entries(value);
+  if (entries.length > MAX_SPEC_SOURCES) {
+    throw new Error(
+      `Invalid traceability manifest: at most ${MAX_SPEC_SOURCES} specSources are allowed`,
+    );
+  }
+  for (const [name, commit] of entries) {
+    if (!SPEC_SOURCE_NAME.test(name) || typeof commit !== "string" || !COMMIT_ID.test(commit)) {
+      throw new Error(
+        'Invalid traceability manifest: specSources must map a source name (letters, digits, ".", "_" or "-") to a full commit id',
+      );
+    }
+  }
 };
 
 const manifestSources = new WeakMap<TraceabilityManifest, string>();
@@ -292,7 +321,7 @@ export const saveManifest = async (
  * update は repoRoot を渡し、hash 計算中に外へ差し替わったリンクもここで拒否する。
  * 検証した実体パスを writer に渡し、元のリンクを再び辿らせない。
  */
-const writeTargetOf = async (manifestPath: string, repoRoot?: string): Promise<string> => {
+export const writeTargetOf = async (manifestPath: string, repoRoot?: string): Promise<string> => {
   let target: string;
   try {
     target = await realpath(manifestPath);

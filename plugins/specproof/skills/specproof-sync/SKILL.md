@@ -77,6 +77,18 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 
 対象リンクの `entries` を取得する。clean なら「同期不要」と報告して終了。
 
+設定（`specproof.config.yaml`）に `specSources` があれば、`{{config:commands.traceabilityCheck}} --spec-sources --json` も
+流す。`warnings` に `spec-source-outdated`（写した仕様の取り込み元が記録したコミットから先に進んでいる、または
+`paths` が今の ref に無い）か `spec-source-unrecorded`（記録が無い）があれば、写した仕様が古いまま同期しないよう、
+先に人に知らせる。取り込みは `specSources[]` の該当の `importCommand` で行う（設定に無ければ人に頼む）。これは
+設定に書かれたシェルのコマンドで、取り込み元（`repo`。PR で変えられ、リポジトリの外も指せる）のスクリプトや
+依存も動かし、リポジトリの外も書き換えうる。そのため「設定のコマンドを実行する前の確認」の差分の確認や前に得た
+承認では足りないとし、毎回、展開した後のコマンド・`repo` を解決した絶対パス・呼ぶスクリプト（取り込み元のものを
+含む）を示して、その回の承認を得てから実行する。承認の後で設定・`repo` の中身が変わったら聞き直す。承認が無ければ
+実行せず、取り込みを人に頼んで止まる。取り込み元の ref は手元のものなので、必要なら先に取り込み元で `git fetch`
+してもらう。取り込んだ後は spec の drift として同期し、bless の前に
+`{{config:commands.traceabilityUpdate}} --record-spec-source <name>` で取り込んだコミットを記録する。
+
 ### 2. リンクごとに「正」(authoritative side)を決定
 
 | drift の組み合わせ              | 扱い                                                                                                                                                        |

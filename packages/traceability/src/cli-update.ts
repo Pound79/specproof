@@ -1,17 +1,82 @@
 #!/usr/bin/env node
 import { updateManifestHashes } from "./update.js";
 import { discoverConfig } from "./config.js";
-import { parseCliArgs, runCli } from "./cli-args.js";
+import { CliUsageError, parseCliArgs, runCli } from "./cli-args.js";
+import { printable } from "./display-text.js";
+import { recordSpecSource } from "./spec-source-record.js";
+import { readSourceToRecord } from "./spec-sources.js";
+import type { TraceabilityConfig } from "./config.js";
 import { describeChange, describeSkip, describeUpdateScope } from "./cli-update-format.js";
 import { printText } from "./output.js";
 
-const main = async (): Promise<void> => {
-  const { flags, manifest, root, linkIds, specRefs } = parseCliArgs(
-    process.argv.slice(2),
-    "update",
+// 取り込み元の ref が今指すコミットを manifest に記録する。hash は更新しない。
+const recordSource = async (
+  config: TraceabilityConfig,
+  name: string,
+  dryRun: boolean,
+): Promise<void> => {
+  const source = config.specSources?.find((candidate) => candidate.name === name);
+  if (source === undefined) {
+    throw new CliUsageError(
+      `--record-spec-source: no spec source named ${printable(JSON.stringify(name))} in specSources`,
+    );
+  }
+  const read = await readSourceToRecord(config.repoRoot, source);
+  if (read === undefined) {
+    throw new Error(
+      `spec source ${JSON.stringify(name)}: could not read ref ${JSON.stringify(source.ref)} in ${JSON.stringify(source.repo)} (it must be the root of a non-partial clone you own, with the ref fetched)`,
+    );
+  }
+  if (read.missingPaths.length > 0) {
+    throw new Error(
+      `spec source ${JSON.stringify(name)}: ${source.ref} has no ${read.missingPaths.map((entry) => JSON.stringify(entry)).join(", ")}; check specSources[].paths before recording`,
+    );
+  }
+  const { previous } = await recordSpecSource(
+    config.manifestPath,
+    config.repoRoot,
+    name,
+    read.commit,
+    {
+      dryRun,
+    },
   );
+  printText(
+    printable(
+      `spec source ${name}: ${source.ref} in ${read.repoPath} is ${read.commit}` +
+        (previous === undefined
+          ? " (first record)"
+          : previous === read.commit
+            ? " (unchanged)"
+            : ` (was ${previous})`),
+    ),
+  );
+  printText(
+    "(This records the commit the ref points to; it does not verify what the import command copied.)",
+  );
+  if (dryRun) printText("\nDry run — manifest not modified.");
+};
+
+const main = async (): Promise<void> => {
+  const {
+    flags,
+    manifest,
+    root,
+    linkIds,
+    specRefs,
+    recordSpecSource: sourceName,
+  } = parseCliArgs(process.argv.slice(2), "update");
   const config = discoverConfig({ manifest, root });
   const dryRun = flags.has("--dry-run");
+  if (sourceName !== undefined) {
+    if (linkIds !== undefined || specRefs !== undefined) {
+      throw new CliUsageError(
+        "--record-spec-source cannot be combined with --link-id or --spec-ref",
+      );
+    }
+    await recordSource(config, sourceName, dryRun);
+    return;
+  }
   const updated = await updateManifestHashes(config.manifestPath, config.repoRoot, {
     linkIds,
     specRefs,

@@ -377,8 +377,8 @@ methodology, config schema, and the adapter contract.
 
 | コマンド | 対応オプション |
 |---|---|
-| specproof-check | --root, --manifest, --strict, --json, --github-annotations, --since-bless |
-| specproof-update | --root, --manifest, --link-id, --spec-ref, --dry-run |
+| specproof-check | --root, --manifest, --strict, --json, --github-annotations, --since-bless, --spec-sources |
+| specproof-update | --root, --manifest, --link-id, --spec-ref, --dry-run, --record-spec-source |
 | specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
 | specproof-stats | --root, --manifest, --strict, --json |
 
@@ -448,6 +448,12 @@ notGrouped: { noBlessedVersion, notSearched, failed }, incomplete }` を足す�
 `subject` は生の件名なので、表示する側で無害化する）。既存のキーは変えない。git の起動の上限は bless した版の探索と
 共有し、まとめを打ち切ったときは `incomplete` と 1 行の案内で示す（`blessHistoryIncomplete` は探索の打ち切りだけを表す）。
 git の管理下でなければ 1 行の案内を出し、check の結果は変えない。フラグが無ければ git を起動しない。
+設定に `specSources` があり `--spec-sources` を付けたときは、check は写した仕様の取り込み元を確かめ、記録した
+コミットから `paths` の中で進んでいれば（または今の ref に無ければ）`spec-source-outdated`、記録が無ければ
+`spec-source-unrecorded` を参考の警告として出す（`--strict` でも失敗しない。取り込み元が手元に無ければ飛ばす。
+フラグが無ければ取り込み元を読まない）。取り込んだコミットは
+`specproof-update --record-spec-source <name>` で manifest の `specSources` に記録する。詳細は
+[config-schema](../../docs/config-schema.md#specsources)。
 git に渡す制限は [security-model](../../docs/security-model.md) の子プロセスの項。
 未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。
 
