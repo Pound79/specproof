@@ -17,8 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   取り込み元が手元に無い環境では警告を出さずに飛ばし、fetch もしない。`--spec-sources` を付けなければ取り込み元を
   読まず、PR の CI で PR が指すディレクトリの git を起動しない。`importCommand` は CLI では実行せず、sync の skill が
   毎回、人の承認を得てから実行する。設定に `specSources` が無ければ、出力も manifest も変わらない。
+  記録の前に、取り込み元の HEAD と `ref` で `paths` の中身を比べ、違えば何も書かずに失敗する（取り込みのコマンドが
+  作業ツリーから写していて取り込み元が別のブランチのままだと、記録と写した中身が食い違うため）。取り込みのコマンドが
+  `ref` から読む形なら `--allow-head-mismatch` で記録できる。HEAD を解決できないときも記録しない。コミットして
+  いない変更は見ない。`docs/config-schema.md` に、取り込みのコマンドを `ref` から読む形にするときに守ること（CLI と
+  同じ制限で git を起動する、コミット id を 1 度だけ決める、通常のファイルだけを写し `..`・`.git` を含むパスで止める、
+  `cat-file blob` で読む）と、`git worktree` の作業ツリーを `repo` に使えない理由を書いた。
 - `--since-bless` と取り込み元の git は、transport を禁じ（`protocol.allow=never`）、受け継いだ `GIT_DIR` などの
   環境変数を消して起動する。
+- 取り込み元の `paths` に明示したファイルは、中身（object id）と mode（通常のファイル・実行できるファイル・
+  シンボリックリンク）を合わせて比べる。通常のファイルの中身とシンボリックリンクの指す先の文字列が同じだと
+  object id も同じになるため。ディレクトリやリポジトリ全体の比べも mode の違いを含む（tree の id に含まれる）。
+  mode だけが変わったとき（実行ビットの付け外しを含む）も `spec-source-outdated` になる。同じ名前のエントリが
+  重複した壊れた tree は、比べずに読めないもの（`unavailable`）とする。
 - `specproof-check --since-bless` が、drift した参照を、bless した版の後にそれを変えたコミットごとにまとめて
   出すようにした（`Changes since bless, by commit`）。HEAD の first-parent の列で辿るので、PR のマージや squash の
   コミットが 1 件として、件名（PR の番号を含むことが多い）と一緒に出る。spec の見出しの参照は節の単位で、
@@ -106,6 +117,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- sync の skill で、impl の drift は件数によらず `specproof-check --since-bless --json` の `sinceBless.commits` を
+  コミットごとに見て（Step 2）、bless する前に、bless するリンクの impl の参照を変えたコミットを**すべて**、1 行ずつ
+  裁定（見た目だけ・確かめ済み（根拠）・動きが変わった（確かめるシナリオ））して報告と PR 本文に書くようにした。
+  bless の直前に JSON を取り直し、行の先頭の (完全なコミット id, link id) の組と突き合わせて、報告に無いコミットが 1 つでもあれば、
+  その組のリンクは bless しない。`uncommitted`・`notGrouped`・`incomplete` が出た、履歴を辿れない、
+  JSON を取れないときは推測で埋めず、人に知らせて裁定を待つ。件名は生の値なので、制御文字・見えない文字・
+  バッククォートを除いて長さを限り、PR 本文ではコードブロックに入れる（`docs/security-model.md` にも書いた）。
+  これまでは「impl の drift が多いときは」まとめを見る、という任意の書き方で、テキストの出力（20 コミットで切れる）
+  を手で PR に対応させると、bless した版より後の PR を取りこぼすことがあった。互換: CLI の出力と終了コードは
+  変わらない。
+
 - 設定と manifest のトップレベルの `specSources` を検査するようにした。これまでは未知のキーとして読み飛ばして
   いた（設定では `unknown-config-key` の警告）が、今は形が誤っていると、`--spec-sources` の有無にかかわらず
   check・update・list・stats が読み込みで止まる。別の用途で `specSources` を書いていた場合は、名前を変えるか
@@ -132,6 +154,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   参照していると、リンクごとの一覧からはどの節が変わったかを読み取れず、関係を確かめるために feature を探し回って
   いた。互換: 終了コードと `--json` は変わらない。テキストの出力を照合しているスクリプトは、Next の前に行が
   増えることに注意する。
+
+- Playwright の CI の手引き（`docs/playwright-ci.md`）の「例外: 落ちた run の trace を短く残す」の条件を、
+  例の YAML の直前に、上げる前のチェックリストとして並べ直した（HTML レポートを含めない・入力でブランチを
+  指定した回に上げない、を含む）。開発モードのバックエンドでデバッグ表示を切る例（Rails の
+  `config.consider_all_requests_local`・Django の `DEBUG`・Laravel の `APP_DEBUG`・Express の `NODE_ENV`）と
+  その副作用、エラー以外の応答や画面のサーバーにも詳細が出ること、404 と GraphQL のエラーでも確かめること、
+  切れないなら例外を使わないことを足した。使い捨ての鍵の渡し方は、手段（env ファイル）でなく「テストのプロセスの
+  環境変数・引数・作業ディレクトリに入れない」という条件にし、env ファイルは例にした。条件に、バックエンドの
+  チェックアウトの中の本物の鍵を読ませないことと、バックエンドのログをテストで添付しないことを足した。
 
 - `specproof-update` の `--link-id` を重ねて指定できるようにした（`--link-id a --link-id b`）。指定したリンクを
   まとめて bless する。これまでは重ねると、黙って最後の 1 つだけが効いていた。manifest に無い id が 1 つでも
@@ -175,6 +206,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ときだけにした（今の作業ツリーで戻さない、コミットしない）。確かめられなければ、確かめていないことを
   レポートに書く。トレースを根拠にするときは、写すのを要求のメソッド・パス・状態コードに限る。
   反証レビューに渡す観点とレポートの自己点検も 6 項目にした。
+
+### Fixed
+
+- `scripts/release.sh` が失敗したときの復元に使うスナップショット（一時ディレクトリ）を、`TMPDIR` があれば
+  その下に作るようにした（無ければこれまでどおり `mktemp -d` の既定の場所）。macOS の `mktemp -d` は
+  テンプレートを渡さないと `TMPDIR` を見ないことがあり、`TMPDIR` を書ける場所に向けた sandbox の中では、
+  release 系と signal 系のテストがスナップショットを作れずに落ちていた。リリースの手順と、公開する
+  パッケージは変わらない。
 
 ## [0.7.0] - 2026-11-17
 

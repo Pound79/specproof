@@ -27,6 +27,7 @@ const BOOLEAN_OPTIONS = [
   "--dry-run",
   "--since-bless",
   "--spec-sources",
+  "--allow-head-mismatch",
 ];
 export type TraceabilityCommand = "check" | "update" | "list" | "stats";
 const COMMAND_OPTIONS: Record<TraceabilityCommand, readonly string[]> = {
@@ -39,7 +40,15 @@ const COMMAND_OPTIONS: Record<TraceabilityCommand, readonly string[]> = {
     "--since-bless",
     "--spec-sources",
   ],
-  update: ["--manifest", "--root", "--link-id", "--spec-ref", "--dry-run", "--record-spec-source"],
+  update: [
+    "--manifest",
+    "--root",
+    "--link-id",
+    "--spec-ref",
+    "--dry-run",
+    "--record-spec-source",
+    "--allow-head-mismatch",
+  ],
   list: ["--manifest", "--root", "--pages-dir", "--candidate-suffix", "--json"],
   stats: ["--manifest", "--root", "--strict", "--json"],
 };

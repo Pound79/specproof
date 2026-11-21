@@ -60,18 +60,58 @@ const bulletOf = (text, start) => {
   const end = rest.findIndex((line, i) => i > 0 && (line.startsWith(`${indent}- `) || !line.startsWith(indent) || line === ""));
   return rest.slice(0, end < 0 ? undefined : end).join("\n");
 };
+// 太字の見出しで始まる段落（次の空行まで）。
+const paragraphOf = (text, start) => {
+  const from = text.indexOf(start);
+  assert.ok(from >= 0, `${start} が無い`);
+  const end = text.indexOf("\n\n", from);
+  return text.slice(from, end < 0 ? undefined : end);
+};
 
 test("CI の手引きは、trace を上げる例外を条件付きで書き、既定は上げないままにする", () => {
   const guide = read("docs/playwright-ci.md");
   const exception = sectionOf(guide, "### 例外: 落ちた run の trace を短く残す");
-  assert.match(exception, /すべて満たすとき/);
+  assert.match(exception, /すべて守れるときだけ/);
+  assert.match(exception, /確かめられないなら、例外を使わない/);
+  // やってはいけないことを、例の YAML の直前にチェックリストで並べる（間に別の段落を挟まない）。
+  const yamlAt = exception.indexOf("```yaml");
+  const listAt = exception.indexOf("上げる前の確認");
+  assert.ok(listAt >= 0 && listAt < yamlAt, "上げる前の確認が YAML の前に無い");
+  const checklist = exception.slice(listAt, yamlAt).trimEnd();
+  assert.doesNotMatch(checklist.split("\n").slice(1).join("\n"), /\n\n(?!- \[ \]|```)/, "チェックリストと YAML の間に別の段落がある");
+  const items = checklist.split("\n- [ ] ").slice(1);
+  assert.ok(items.length >= 7, `チェックリストの項目が少ない: ${items.length}`);
+  const item = (pattern) => {
+    const found = items.find((text) => pattern.test(text));
+    assert.ok(found, `チェックリストに ${pattern} が無い`);
+    return found;
+  };
   // 認証情報が実行の外で使えない・鍵をテストのプロセスに渡さない・合成データで DB を捨てる・公開では上げない。
-  assert.match(exception, /実行ごとに作って捨て/);
-  assert.match(exception, /\$GITHUB_ENV` に入れない/);
-  assert.match(exception, /デバッグ表示を切/);
-  assert.match(exception, /合成/);
-  assert.match(exception, /公開リポジトリでは上げない/);
-  assert.match(exception, /入力でブランチを指定した回ではない/);
+  assert.match(item(/実行ごとに作って捨て/), /本物のアカウント/);
+  // 鍵の渡し方は手段でなく条件で書き、env ファイルは例にする。
+  const key = item(/テストのプロセス/);
+  assert.match(key, /環境変数・引数・作業ディレクトリ\s*（`\$GITHUB_WORKSPACE` の下）に入れない/);
+  assert.match(key, /\$GITHUB_ENV` に入れない/);
+  assert.match(key, /例: `\$RUNNER_TEMP` の env ファイル/);
+  assert.match(item(/デバッグ表示|スタックトレース/), /開発モードのバックエンド/);
+  assert.match(item(/合成/), /DB/);
+  assert.match(item(/公開リポジトリでは上げない/), /リポジトリを読める人/);
+  assert.match(item(/入力でブランチを指定した回に上げない/), /if:/);
+  const upload = item(/HTML レポート/);
+  assert.match(upload, /上げるのは `test-results\/` だけにする/);
+  assert.match(upload, /`playwright\/\.auth\/`/);
+  // バックエンドが自分のチェックアウトから読む本物の鍵と、テストが添付するバックエンドのログも塞ぐ。
+  assert.match(item(/本物の鍵/), /チェックアウトの中/);
+  assert.match(item(/docker compose logs/), /添付せず/);
+  // 開発モードで立てるバックエンドの外し方の例と、外せないなら例外を使わないこと。
+  const devMode = paragraphOf(exception, "**開発モードのバックエンド**");
+  assert.match(devMode, /デバッグ表示を切/);
+  assert.match(devMode, /モードごと変わる/);
+  assert.match(exception, /存在しない URL（404）/);
+  for (const example of [/`config\.consider_all_requests_local`/, /`DEBUG`/, /`APP_DEBUG=false`/, /`NODE_ENV=production`/]) {
+    assert.match(exception, example);
+  }
+  assert.match(exception, /切れない[^。]*なら、\s*例外を使わない/);
   assert.match(exception, /::add-mask::` が伏せるのはログだけ/);
   assert.match(exception, /if: \$\{\{ failure\(\)/);
   assert.match(exception, /retention-days: [1-7]\b/);

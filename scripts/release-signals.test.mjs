@@ -8,7 +8,7 @@ import { test } from "node:test";
 // 実際の rollback / cleanup / trap 部分だけを抽出する。
 // リリース本体・npm・commit・tag・push は実行しない。
 const source = readFileSync(new URL("./release.sh", import.meta.url), "utf8");
-const start = source.indexOf('SNAP_DIR="$(mktemp -d)"');
+const start = source.indexOf('if [ -n "${TMPDIR:-}" ]; then');
 const end = source.indexOf('\nfor f in "${RELEASE_FILES[@]}"; do', start);
 assert.ok(start >= 0 && end > start, "release.sh の後始末ブロックが見つからない");
 // ラッパーの echo は $? を 0 にしてしまう。製品が終了状態を保存した後に計測する。

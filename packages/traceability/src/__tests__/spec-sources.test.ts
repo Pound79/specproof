@@ -245,7 +245,12 @@ describe("写した仕様の取り込み元（specSources）", () => {
     );
     assert.equal(run(updateCli, root, ["--record-spec-source", "permissions"]).status, 0);
     const advanced = advanceDevelop("master/permissions.yml", "viewer: none\n");
-    const rerecord = run(updateCli, root, ["--record-spec-source", "permissions"]);
+    // 取り込み元の HEAD は main のまま develop だけが進んだ（取り込みが ref から読む形）。HEAD との違いは許して記録する。
+    const rerecord = run(updateCli, root, [
+      "--record-spec-source",
+      "permissions",
+      "--allow-head-mismatch",
+    ]);
     assert.equal(rerecord.status, 0, rerecord.stderr);
     assert.match(rerecord.stdout, /\(was [0-9a-f]{40}\)/);
     assert.equal(run(updateCli, root, ["--record-spec-source", "glossary"]).status, 0);
@@ -264,7 +269,12 @@ describe("写した仕様の取り込み元（specSources）", () => {
     advanceDevelop("master/permissions.yml", "viewer: write\n");
     const before = readFileSync(path.join(root, "traceability.yaml"), "utf8");
     assert.equal(
-      run(updateCli, root, ["--record-spec-source", "permissions", "--dry-run"]).status,
+      run(updateCli, root, [
+        "--record-spec-source",
+        "permissions",
+        "--dry-run",
+        "--allow-head-mismatch",
+      ]).status,
       0,
     );
     assert.equal(readFileSync(path.join(root, "traceability.yaml"), "utf8"), before);

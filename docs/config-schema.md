@@ -134,7 +134,32 @@ specSources:
   コミットで、取り込みのコマンドが実際に写した中身を確かめるものではない。読んだ取り込み元の絶対パスを出すので、
   取り込んだものと同じかを確かめる。取り込み元が無い・`ref` を解決できない・`paths` が今の ref に無いときは
   何も書かずに失敗する。手元の ref を読むだけで、fetch しない（先に `git -C <repo> fetch` する）
-- 確かめ: `specproof-check --spec-sources` は、記録したコミットと今の `ref` の間で `paths` の中身が違えば
+- HEAD との比べ: 記録の前に、`repo` の HEAD のコミットと `ref` のコミットで `paths`（省略時はリポジトリ全体）の中身を
+  （ファイルの mode を含めて）比べ、違えば何も書かずに失敗する（`--dry-run` でも）。取り込みのコマンドが
+  作業ツリーから写していて、取り込み元が別のブランチのままだと、記録（ref）と写した中身が食い違うため。HEAD が別のブランチでも `paths` の中身が同じなら
+  記録する。取り込みのコマンドが ref から読む形（下）で、HEAD が違っても構わないときは `--allow-head-mismatch` を
+  付ける（違うことを出力に残して記録する）。作業ツリーは読まないので、コミットしていない変更は見つけない
+- 取り込みのコマンドは、作業ツリーでなく `ref` から読む形にするとよい。ただし作業ツリーから写すときに git の
+  checkout が行うパスの検証と、CLI が git に掛けている制限は効かなくなるので、取り込みのコマンドの側で次を守る
+  （`repo` は PR で変えられ、取り込みは `--record-spec-source` の確かめより前に走る）。
+  - 写す前に `specproof-update --record-spec-source <name> --dry-run` を流し、成功することを確かめる（manifest は
+    変えない）。取り込み元が読める（実体の `.git`・自分が持ち主・部分 clone でない）こと、`ref` を解決できること、
+    `paths` が `ref` にあることを、記録が無い初回でも確かめ、どれかが欠ければ失敗する。`specproof-check
+    --spec-sources` は記録が無い・取り込み元を読めないときも成功で終わるので、この確かめには使えない。取り込みが
+    `ref` から読む形で HEAD が `paths` の中で違うときは、そのことを確かめてから `--allow-head-mismatch` を付ける
+  - git は CLI と同じ制限で起動する: `--git-dir=<repo>/.git` を明示し、環境変数 `GIT_NO_LAZY_FETCH=1`・
+    `GIT_NO_REPLACE_OBJECTS=1` を付け、`-c protocol.allow=never` と内蔵の transport ごとの
+    `-c protocol.<名前>.allow=never` を渡す（部分 clone の足りないオブジェクトを取りに行かせない。取りに行くと、
+    取り込み元の設定に書かれたコマンドが動きうる）
+  - 最初に `rev-parse --verify <ref>^{commit}` でコミット id を 1 度だけ決め、以後はその id を使う（途中で ref が
+    動いても、ほかのコミットの中身を混ぜない）。その id を出力すると、記録した値と照らせる
+  - `ls-tree -r -z <コミット id> -- <paths>` で mode も読み、通常のファイル（`100644`・`100755`）だけを写す。
+    シンボリックリンク（`120000`）と submodule（`160000`）は写さない。パスに `..`・`.git`（大文字小文字を区別せずに比べる）・空の成分があれば、
+    書き出す前に止める（細工した tree は、取り込み先の外を指すパスを持てる）
+  - 中身は `cat-file blob <blob の id>` で読む（`--filters`・`--textconv` を付けない限り、フィルタや属性を当てない）。
+    `git archive` は属性（`export-subst` など）を当てるので向かない
+- 確かめ: `specproof-check --spec-sources` は、記録したコミットと今の `ref` の間で `paths` の中身（ファイルの mode を
+  含む）が違えば
   `spec-source-outdated` を、今の `ref` に `paths` のどれかが無ければ（書き誤り・取り込み元での移動）同じ種類で
   そのことを、記録が無ければ `spec-source-unrecorded` を参考の警告として出す。取り込み元が手元に無い・`ref` か
   記録したコミットを持っていないときは警告を出さずに飛ばす（記録が無いことは manifest だけで分かるので出す）。
@@ -145,7 +170,13 @@ specSources:
   checkout したジョブで付ける
 - `repo` は取り込み元のチェックアウトのルートにする。直下に実体の `.git` ディレクトリ（シンボリックリンク・ファイル
   でない）があり、自分が持ち主で、部分 clone でないときだけ読む（サブディレクトリ・`git worktree` の作業ツリー・
-  submodule・bare リポジトリ・部分 clone は使えない）。
+  submodule・bare リポジトリ・部分 clone は使えない）。`git worktree` の作業ツリーを使えないのは、その `.git` が
+  別の git ディレクトリを指すファイルで、設定やオブジェクトを共有の git ディレクトリ（`commondir`）から読むため。
+  持ち主を確かめているのは `<repo>/.git` だけなので、`repo` の値（PR で変えられる）から `commondir` の先の別の
+  git ディレクトリの設定（CLI がコマンドラインで上書きしていない残りの設定）を読ませると、「自分が持つディレクトリの
+  設定だけを読む」前提が崩れる（`include.path` や `objects/info/alternates` のように、実体の `.git` からでも別の
+  場所を読む設定は、この確かめでは防いでいない）。別のブランチの中身を写したいときは、worktree を作らず、上の
+  ref から読む形にする。
   読むときは `--git-dir` で明示し、transport を禁じ、外部のプログラムを起動しない設定で `git config --null --list`
   （部分 clone の判定）/ `git rev-parse` / `git ls-tree` だけを実行する。`paths` に `.` を含めばリポジトリ全体を比べる。`importCommand` は CLI では実行しない
 - manifest の `specSources` は、名前も値も引用した `"<name>": "<commit>"` の形で書く（数値や真偽値に見える名前も

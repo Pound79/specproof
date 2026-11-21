@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -187,6 +188,36 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     ]);
   });
 
+  it("記録の前に、HEAD と ref で paths の中身を比べ、違うパスを返す", async () => {
+    const develop = git(sourceDir, ["rev-parse", "develop"]);
+    // HEAD が ref と同じコミット。
+    expect(await readSourceToRecord(root, source())).toMatchObject({
+      head: develop,
+      headMismatch: [],
+    });
+    // HEAD を別のブランチに移し、paths の外だけ変える: 中身は同じ。
+    git(sourceDir, ["switch", "-q", "-c", "topic"]);
+    writeFileSync(path.join(sourceDir, "top.md"), "changed\n");
+    const topic = commitAll(sourceDir, "outside");
+    expect(await readSourceToRecord(root, source())).toMatchObject({
+      commit: develop,
+      head: topic,
+      headMismatch: [],
+    });
+    // paths を省くとツリー全体で比べる。
+    expect((await readSourceToRecord(root, source({ paths: [] })))?.headMismatch).toEqual(["."]);
+    // paths の中を変える。
+    writeFileSync(path.join(sourceDir, "master", "p.yml"), "b\n");
+    commitAll(sourceDir, "inside");
+    expect((await readSourceToRecord(root, source()))?.headMismatch).toEqual(["master"]);
+    // HEAD を解決できない（unborn）ときは全部を違うとし、head を返さない。
+    git(sourceDir, ["switch", "-q", "--orphan", "empty"]);
+    const unborn = await readSourceToRecord(root, source({ paths: ["master", "top.md"] }));
+    expect(unborn?.head).toBeUndefined();
+    expect(unborn?.headMismatch).toEqual(["master", "top.md"]);
+    expect((await readSourceToRecord(root, source({ paths: [] })))?.headMismatch).toEqual(["."]);
+  });
+
   it("manifest に記録し、記録し直し、ほかの名前を同じ mapping に足す", async () => {
     const manifestPath = path.join(root, "traceability.yaml");
     const first = "a".repeat(40);
@@ -202,6 +233,64 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     const before = readFileSync(manifestPath, "utf8");
     await recordSpecSource(manifestPath, root, "dry", first, { dryRun: true });
     expect(readFileSync(manifestPath, "utf8")).toBe(before);
+  });
+
+  it("中身が同じでも、通常のファイルとシンボリックリンクの違い（mode）を変化として扱う", async () => {
+    // 通常のファイルの中身と、シンボリックリンクの指す先の文字列が同じなら、git の blob の id は同じになる。
+    writeFileSync(path.join(sourceDir, "master", "link.txt"), "target");
+    commitAll(sourceDir, "regular file");
+    git(sourceDir, ["branch", "-f", "develop"]);
+    const recorded = git(sourceDir, ["rev-parse", "develop"]);
+    const paths = ["master/link.txt"];
+    expect(
+      (await checkSpecSources(root, [source({ paths })], { permissions: recorded }))[0].status,
+    ).toBe("current");
+    git(sourceDir, ["switch", "-q", "develop"]);
+    rmSync(path.join(sourceDir, "master", "link.txt"));
+    symlinkSync("target", path.join(sourceDir, "master", "link.txt"));
+    commitAll(sourceDir, "symlink with the same content");
+    git(sourceDir, ["switch", "-q", "main"]);
+    expect(
+      (await checkSpecSources(root, [source({ paths })], { permissions: recorded }))[0].status,
+    ).toBe("outdated");
+  });
+
+  it("中身が同じでも、実行ビットの付け外し（mode）を変化として扱う", async () => {
+    const recorded = git(sourceDir, ["rev-parse", "develop"]);
+    const paths = ["master/p.yml"];
+    git(sourceDir, ["switch", "-q", "develop"]);
+    chmodSync(path.join(sourceDir, "master", "p.yml"), 0o755);
+    git(sourceDir, ["add", "--chmod=+x", "master/p.yml"]);
+    git(sourceDir, ["commit", "-q", "-m", "executable"]);
+    git(sourceDir, ["switch", "-q", "main"]);
+    expect(
+      (await checkSpecSources(root, [source({ paths })], { permissions: recorded }))[0].status,
+    ).toBe("outdated");
+  });
+
+  it("同じ名前のエントリが重複した壊れた tree は、どちらかを選ばずに読めないものとする", async () => {
+    const recorded = git(sourceDir, ["rev-parse", "develop"]);
+    const blob = git(sourceDir, ["rev-parse", "develop:top.md"]);
+    const master = git(sourceDir, ["rev-parse", "develop:master"]);
+    // git の tree の形式（"<mode> <name>\0<20 バイトの id>"）で、top.md を 2 回並べる（git は普通には作らない）。
+    const entry = (mode: string, name: string, id: string) =>
+      Buffer.concat([Buffer.from(`${mode} ${name}\0`), Buffer.from(id, "hex")]);
+    const raw = Buffer.concat([
+      entry("40000", "master", master),
+      entry("100644", "top.md", blob),
+      entry("100644", "top.md", master.replace(/./, "0")),
+    ]);
+    const tree = execFileSync(
+      "git",
+      ["hash-object", "-t", "tree", "-w", "--literally", "--stdin"],
+      { cwd: sourceDir, input: raw, encoding: "utf8" },
+    ).trim();
+    const broken = git(sourceDir, ["commit-tree", tree, "-p", recorded, "-m", "duplicated"]);
+    git(sourceDir, ["update-ref", "refs/heads/develop", broken]);
+    expect(
+      (await checkSpecSources(root, [source({ paths: ["top.md"] })], { permissions: recorded }))[0]
+        .status,
+    ).toBe("unavailable");
   });
 
   it("記録が上限（256 件）に達していれば、新しい名前は書かずに失敗し、既存の名前は記録し直せる", async () => {

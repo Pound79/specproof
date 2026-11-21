@@ -54,6 +54,8 @@ const MAX_SOURCES = 32;
 const MAX_PATHS = 64;
 const MAX_TEXT_LENGTH = 4096;
 const OBJECT_ID = COMMIT_ID;
+const ENTRY_MODE = /^[0-7]{6}$/;
+const ENTRY_TYPE = /^(?:blob|tree|commit)$/;
 
 const isMapping = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -196,7 +198,9 @@ const resolveCommit = async (git: GitRunner, rev: string): Promise<string | unde
   return COMMIT_ID.test(commit) ? commit : undefined;
 };
 
-// コミットの中のパス（省略時はツリー全体）の object id。パスが無ければ null、読めなければ undefined。
+// コミットの中のパス（省略時はツリー全体）を比べるための値。パスが無ければ null、読めなければ undefined。
+// パスは「mode type object id」にする。通常のファイルとシンボリックリンクは、中身（指す先の文字列）が同じだと
+// object id も同じになるので、mode も含めて比べる（ツリーの id は子の mode を含むので、ツリー全体はそのまま）。
 const objectIdAt = async (
   git: GitRunner,
   commit: string,
@@ -210,14 +214,19 @@ const objectIdAt = async (
       "--end-of-options",
       `${commit}^{tree}`,
     ]);
-    return tree.ok ? tree.stdout.trim() : undefined;
+    const id = tree.ok ? tree.stdout.trim() : "";
+    return OBJECT_ID.test(id) ? id : undefined;
   }
   const listed = await git.run(["ls-tree", "-z", "--full-tree", commit, "--", entry]);
   if (!listed.ok) return undefined;
-  const line = listed.stdout.split("\u0000").find((record) => record.endsWith(`\t${entry}`));
-  if (line === undefined) return null;
-  const id = line.split("\t")[0].split(" ")[2];
-  return OBJECT_ID.test(id ?? "") ? id : undefined;
+  const lines = listed.stdout.split("\u0000").filter((record) => record.endsWith(`\t${entry}`));
+  if (lines.length === 0) return null;
+  // 同じ名前のエントリが重複した壊れた tree は、どれを比べるか決められないので読めないものとする。
+  if (lines.length > 1) return undefined;
+  const [mode = "", type = "", id = ""] = lines[0].split("\t")[0].split(" ");
+  return ENTRY_MODE.test(mode) && ENTRY_TYPE.test(type) && OBJECT_ID.test(id)
+    ? `${mode} ${type} ${id}`
+    : undefined;
 };
 
 export interface SourceToRecord {
@@ -227,9 +236,41 @@ export interface SourceToRecord {
   repoPath: string;
   /** 今の ref に無い paths（あれば記録しない）。 */
   missingPaths: string[];
+  /** 取り込み元の HEAD のコミット（解決できなければ undefined）。 */
+  head?: string;
+  /**
+   * HEAD と ref で中身が違う paths（paths を省いたときは "."）。HEAD を解決できなければ全部。
+   * 作業ツリーは読まないので、コミットしていない変更は見ない。
+   */
+  headMismatch: string[];
 }
 
-/** 記録する前に、取り込み元の ref が今指すコミットと、paths がそこにあるかを読む。読めなければ undefined。 */
+// HEAD と ref のコミットで、paths（省略時はツリー全体）の中身を比べる。読めなければ undefined。
+// ref 側は読んだ id（refIds）を使い、git の起動を paths 1 つにつき 1 回に抑える（上限は 2 * MAX_PATHS + 8）。
+const pathsDifferingFromHead = async (
+  git: GitRunner,
+  source: SpecSource,
+  commit: string,
+  head: string | undefined,
+  refIds: ReadonlyMap<string, string | null>,
+): Promise<string[] | undefined> => {
+  const entries: (string | undefined)[] = source.paths.length === 0 ? [undefined] : source.paths;
+  if (head === undefined) return entries.map((entry) => entry ?? ".");
+  if (head === commit) return [];
+  const differing: string[] = [];
+  for (const entry of entries) {
+    const atRef = entry === undefined ? await objectIdAt(git, commit, entry) : refIds.get(entry);
+    const atHead = await objectIdAt(git, head, entry);
+    if (atHead === undefined || atRef === undefined) return undefined;
+    if (atHead !== atRef) differing.push(entry ?? ".");
+  }
+  return differing;
+};
+
+/**
+ * 記録する前に、取り込み元の ref が今指すコミット、paths がそこにあるか、HEAD と paths の中身が同じかを読む。
+ * 読めなければ undefined。
+ */
 export const readSourceToRecord = async (
   repoRoot: string,
   source: SpecSource,
@@ -238,13 +279,23 @@ export const readSourceToRecord = async (
   const git = opened?.git;
   const commit = git === undefined ? undefined : await resolveCommit(git, source.ref);
   if (opened === undefined || git === undefined || commit === undefined) return undefined;
-  const missingPaths: string[] = [];
+  const refIds = new Map<string, string | null>();
   for (const entry of source.paths) {
     const id = await objectIdAt(git, commit, entry);
     if (id === undefined) return undefined;
-    if (id === null) missingPaths.push(entry);
+    refIds.set(entry, id);
   }
-  return { commit, repoPath: opened.repoPath, missingPaths };
+  const missingPaths = source.paths.filter((entry) => refIds.get(entry) === null);
+  const head = await resolveCommit(git, "HEAD");
+  const headMismatch = await pathsDifferingFromHead(git, source, commit, head, refIds);
+  if (headMismatch === undefined) return undefined;
+  return {
+    commit,
+    repoPath: opened.repoPath,
+    missingPaths,
+    ...(head === undefined ? {} : { head }),
+    headMismatch,
+  };
 };
 
 const compareSource = async (
