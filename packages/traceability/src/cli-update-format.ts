@@ -30,3 +30,38 @@ export const describeSkip = (skip: UpdateSkip): string =>
   printable(
     `skipped link ${JSON.stringify(skip.linkId)}: its impl also drifted (changed or missing), so blessing only the spec side would hide "both spec and impl changed" — decide with specproof-sync, then bless it with --link-id <link-id>`,
   );
+
+/** --record-spec-source: 取り込み元の HEAD が paths の中で ref と違うことを 1 行で示す。違いが無ければ undefined。 */
+export const describeHeadMismatch = (
+  name: string,
+  ref: string,
+  read: { repoPath: string; head?: string; headMismatch: readonly string[] },
+): string | undefined => {
+  if (read.headMismatch.length === 0) return undefined;
+  const source = `spec source ${JSON.stringify(name)}`;
+  if (read.head === undefined) {
+    return printable(
+      `${source}: HEAD in ${read.repoPath} could not be resolved, so it cannot be compared with ${ref}`,
+    );
+  }
+  const paths = read.headMismatch.map((entry) => JSON.stringify(entry)).join(", ");
+  return printable(
+    `${source}: HEAD (${read.head}) in ${read.repoPath} differs from ${ref} in ${paths}`,
+  );
+};
+
+/** --record-spec-source: 記録したコミットと、前の記録からどう変わったかを 1 行で示す。 */
+export const describeRecorded = (
+  name: string,
+  ref: string,
+  read: { repoPath: string; commit: string },
+  previous: string | undefined,
+): string => {
+  const change =
+    previous === undefined
+      ? " (first record)"
+      : previous === read.commit
+        ? " (unchanged)"
+        : ` (was ${previous})`;
+  return printable(`spec source ${name}: ${ref} in ${read.repoPath} is ${read.commit}${change}`);
+};

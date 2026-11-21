@@ -6,14 +6,20 @@ import { printable } from "./display-text.js";
 import { recordSpecSource } from "./spec-source-record.js";
 import { readSourceToRecord } from "./spec-sources.js";
 import type { TraceabilityConfig } from "./config.js";
-import { describeChange, describeSkip, describeUpdateScope } from "./cli-update-format.js";
+import {
+  describeChange,
+  describeHeadMismatch,
+  describeRecorded,
+  describeSkip,
+  describeUpdateScope,
+} from "./cli-update-format.js";
 import { printText } from "./output.js";
 
 // 取り込み元の ref が今指すコミットを manifest に記録する。hash は更新しない。
 const recordSource = async (
   config: TraceabilityConfig,
   name: string,
-  dryRun: boolean,
+  { dryRun, allowHeadMismatch }: { dryRun: boolean; allowHeadMismatch: boolean },
 ): Promise<void> => {
   const source = config.specSources?.find((candidate) => candidate.name === name);
   if (source === undefined) {
@@ -32,6 +38,13 @@ const recordSource = async (
       `spec source ${JSON.stringify(name)}: ${source.ref} has no ${read.missingPaths.map((entry) => JSON.stringify(entry)).join(", ")}; check specSources[].paths before recording`,
     );
   }
+  // 取り込みのスクリプトが作業ツリー（HEAD）から写していると、記録する ref のコミットと写した中身が食い違う。
+  const mismatch = describeHeadMismatch(name, source.ref, read);
+  if (mismatch !== undefined && !allowHeadMismatch) {
+    throw new Error(
+      `${mismatch}; if the import read the working tree, switch the source to ${source.ref} and import again. If the import read ${source.ref} itself, pass --allow-head-mismatch to record anyway`,
+    );
+  }
   const { previous } = await recordSpecSource(
     config.manifestPath,
     config.repoRoot,
@@ -41,18 +54,12 @@ const recordSource = async (
       dryRun,
     },
   );
+  printText(describeRecorded(name, source.ref, read, previous));
+  if (mismatch !== undefined) {
+    printText(`${mismatch} (recorded anyway: --allow-head-mismatch)`);
+  }
   printText(
-    printable(
-      `spec source ${name}: ${source.ref} in ${read.repoPath} is ${read.commit}` +
-        (previous === undefined
-          ? " (first record)"
-          : previous === read.commit
-            ? " (unchanged)"
-            : ` (was ${previous})`),
-    ),
-  );
-  printText(
-    "(This records the commit the ref points to; it does not verify what the import command copied.)",
+    "(This records the commit the ref points to; it checks the committed HEAD against it but not uncommitted changes, and does not verify what the import command copied.)",
   );
   if (dryRun) printText("\nDry run — manifest not modified.");
 };
@@ -68,14 +75,18 @@ const main = async (): Promise<void> => {
   } = parseCliArgs(process.argv.slice(2), "update");
   const config = discoverConfig({ manifest, root });
   const dryRun = flags.has("--dry-run");
+  const allowHeadMismatch = flags.has("--allow-head-mismatch");
   if (sourceName !== undefined) {
     if (linkIds !== undefined || specRefs !== undefined) {
       throw new CliUsageError(
         "--record-spec-source cannot be combined with --link-id or --spec-ref",
       );
     }
-    await recordSource(config, sourceName, dryRun);
+    await recordSource(config, sourceName, { dryRun, allowHeadMismatch });
     return;
+  }
+  if (allowHeadMismatch) {
+    throw new CliUsageError("--allow-head-mismatch can only be used with --record-spec-source");
   }
   const updated = await updateManifestHashes(config.manifestPath, config.repoRoot, {
     linkIds,

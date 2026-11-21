@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   取り込み元が手元に無い環境では警告を出さずに飛ばし、fetch もしない。`--spec-sources` を付けなければ取り込み元を
   読まず、PR の CI で PR が指すディレクトリの git を起動しない。`importCommand` は CLI では実行せず、sync の skill が
   毎回、人の承認を得てから実行する。設定に `specSources` が無ければ、出力も manifest も変わらない。
+  記録の前に、取り込み元の HEAD と `ref` で `paths` の中身を比べ、違えば何も書かずに失敗する（取り込みのコマンドが
+  作業ツリーから写していて取り込み元が別のブランチのままだと、記録と写した中身が食い違うため）。取り込みのコマンドが
+  `ref` から読む形なら `--allow-head-mismatch` で記録できる。HEAD を解決できないときも記録しない。コミットして
+  いない変更は見ない。`docs/config-schema.md` に、取り込みのコマンドを `ref` から読む形にするときに守ること（CLI と
+  同じ制限で git を起動する、コミット id を 1 度だけ決める、通常のファイルだけを写し `..`・`.git` を含むパスで止める、
+  `cat-file blob` で読む）と、`git worktree` の作業ツリーを `repo` に使えない理由を書いた。
 - `--since-bless` と取り込み元の git は、transport を禁じ（`protocol.allow=never`）、受け継いだ `GIT_DIR` などの
   環境変数を消して起動する。
 - `specproof-check --since-bless` が、drift した参照を、bless した版の後にそれを変えたコミットごとにまとめて
