@@ -37,7 +37,7 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 - **書く範囲**: `specproof-update` が書くのは manifest だけで、同じディレクトリの一時ファイルを
   完成させてから置き換える。欠けた参照（ファイルや見出しが無い）は hash を取り直さずにエラーで止まる
 - **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（固定の
-  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git merge-base --is-ancestor` だけ。
+  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` だけ。
   作業ツリーを読む git（`status`・`diff`）は `.gitattributes` のフィルタを起動しうるので使わず、版の中身は
   `git show <commit>:<path>` で読む。fsmonitor・署名の検証・`log.follow` の設定は切り、作業ツリーの中の bare
   リポジトリを暗黙に見つけさせない（`safe.bareRepository=explicit`）。

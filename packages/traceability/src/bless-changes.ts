@@ -45,7 +45,7 @@ export interface ChangesSinceBless {
   /** コミットしていない変更がある参照。 */
   uncommitted: GroupedReference[];
   notGrouped: NotGroupedCounts;
-  /** git の起動の上限に達したか、1 つの範囲が 200 コミットを超えて、まとめ切れなかったか。 */
+  /** git の起動の上限に達した・1 つの範囲が 200 コミットを超えた・読めない版があったなどで、まとめ切れなかったか。 */
   incomplete: boolean;
 }
 
@@ -67,17 +67,40 @@ const groupReferences = (entries: DriftEntry[], indexes: Set<number>): GroupedRe
 
 type Hasher = ReturnType<typeof versionHasher>;
 
-// 版の中身を 1 回だけ読む。無い（消えた・まだ無い）版は null。
+const FAILED = "failed" as const;
+type Version = Hasher | null | typeof FAILED;
+
+// `git show` が失敗したとき、その版にパスが無い（null）のか、読めなかった（FAILED）のかを分ける。
+// 第 1 親が無い（最初のコミット）なら null。パスが木に無ければ null。それ以外は FAILED。
+const classifyMissing = async (
+  git: GitRunner,
+  rev: string,
+  searchPath: string,
+): Promise<Version> => {
+  if (rev.endsWith("^1")) {
+    const parent = await git.run(["rev-parse", "--verify", "--quiet", "--end-of-options", rev]);
+    if (!parent.ok) return parent.code === 1 ? null : FAILED;
+  }
+  const listed = await git.run(["ls-tree", "-z", "--full-tree", rev, "--", searchPath]);
+  if (!listed.ok) return FAILED;
+  return listed.stdout.split("\u0000").some((record) => record.endsWith(`\t${searchPath}`))
+    ? FAILED
+    : null;
+};
+
+// 版の中身を 1 回だけ読む。無い（消えた・まだ無い）版は null、読めなかった版は FAILED。
 const versionReader = (git: GitRunner) => {
-  const cache = new Map<string, Hasher | null>();
-  return async (rev: string, searchPath: string): Promise<Hasher | null> => {
+  const cache = new Map<string, Version>();
+  return async (rev: string, searchPath: string): Promise<Version> => {
     const key = `${rev}\u0000${searchPath}`;
     const cached = cache.get(key);
     if (cached !== undefined) return cached;
     const shown = await git.run(["show", `${rev}:./${searchPath}`]);
-    const hasher = shown.ok ? versionHasher(normalizeSourceContent(shown.stdout)) : null;
-    if (!git.exhausted) cache.set(key, hasher);
-    return hasher;
+    const version = shown.ok
+      ? versionHasher(normalizeSourceContent(shown.stdout))
+      : await classifyMissing(git, rev, searchPath);
+    if (!git.exhausted) cache.set(key, version);
+    return version;
   };
 };
 
@@ -123,26 +146,21 @@ const firstParentChain = async (git: GitRunner): Promise<string[]> => {
 
 // 候補を取る範囲。bless した版を含む、first-parent の列で最も古いコミット E から HEAD まで（E を含む）。
 // `<blessed>..HEAD` では、main が進まないままブランチをマージしたとき、マージの第 1 親が bless した版の祖先に
-// なって、bless の後にブランチで変えた中身を持ち込んだマージが範囲から外れる。列の上で「bless した版を含む」は
-// HEAD の側から続くので、二分探索で E を求める。E が見つからない（HEAD が bless した版を含まない、列が上限で
-// 切れている）ときは `<blessed>..HEAD` に戻す。
+// なって、bless の後にブランチで変えた中身を持ち込んだマージが範囲から外れる。bless した版の子孫を
+// `rev-list --ancestry-path <blessed>..HEAD` で 1 回だけ取り、その中で first-parent の列の最も古いものを E にする
+// （`--first-parent` と一緒に使うと、bless した版がブランチの側にあるとき何も返らない）。HEAD が bless した版
+// そのもの（子孫が無い）なら範囲は空。決められない（git の失敗・列が上限で切れて E が無い）なら undefined。
 const rangeRevisions = async (
   git: GitRunner,
   chain: string[],
   blessed: string,
-): Promise<string[]> => {
-  const contains = async (index: number): Promise<boolean> =>
-    (await git.run(["merge-base", "--is-ancestor", blessed, chain[index]])).ok;
-  if (chain.length === 0 || !(await contains(0))) return [`${blessed}..HEAD`];
-  let low = 0;
-  let high = chain.length - 1;
-  while (low < high) {
-    const mid = Math.ceil((low + high) / 2);
-    if (await contains(mid)) low = mid;
-    else high = mid - 1;
-  }
-  if (low + 1 < chain.length) return ["HEAD", "--not", chain[low + 1]];
-  return chain.length < RANK_LIMIT ? ["HEAD"] : [`${blessed}..HEAD`];
+): Promise<string[] | undefined> => {
+  const listed = await git.run(["rev-list", "--ancestry-path", `${blessed}..HEAD`]);
+  if (!listed.ok) return undefined;
+  const descendants = new Set(listed.stdout.split("\n").filter((line) => COMMIT_ID.test(line)));
+  if (descendants.size === 0) return [];
+  const oldest = [...chain].reverse().find((commit) => descendants.has(commit));
+  return oldest === undefined ? undefined : ["HEAD", "--not", `${oldest}^1`];
 };
 
 interface Range {
@@ -181,22 +199,39 @@ export const groupChangesSinceBless = async (
   const uncommitted = new Set<number>();
   const traced = new Set<number>();
   const finished = new Set<number>();
+  const failed = new Set<number>();
   const chain = await firstParentChain(git);
-  const revisionsOf = new Map<string, string[]>();
+  const revisionsOf = new Map<string, string[] | undefined>();
   let truncated = false;
 
   for (const range of rangesOf(history)) {
-    const revisions =
-      revisionsOf.get(range.blessed) ?? (await rangeRevisions(git, chain, range.blessed));
+    const revisions = revisionsOf.has(range.blessed)
+      ? revisionsOf.get(range.blessed)
+      : await rangeRevisions(git, chain, range.blessed);
     revisionsOf.set(range.blessed, revisions);
-    const candidates = await logRange(git, revisions, range.searchPath);
     if (git.exhausted) break;
-    if (candidates === undefined) continue;
-    if (candidates.length >= MAX_COMMITS) truncated = true;
-    for (const { commit, subject } of candidates) {
+    // 範囲を決められない・辿れないときは、変えたコミットは割り当てずに「辿れなかった」とし、
+    // コミットしていない変更の確認は続ける。
+    const candidates =
+      revisions === undefined
+        ? undefined
+        : revisions.length === 0
+          ? []
+          : await logRange(git, revisions, range.searchPath);
+    if (git.exhausted) break;
+    if (candidates === undefined) {
+      truncated = true;
+      for (const index of range.indexes) failed.add(index);
+    }
+    if ((candidates ?? []).length >= MAX_COMMITS) truncated = true;
+    for (const { commit, subject } of candidates ?? []) {
       const current = await read(commit, range.searchPath);
       const parent = await read(`${commit}^1`, range.searchPath);
       if (git.exhausted) break;
+      if (current === FAILED || parent === FAILED) {
+        for (const index of range.indexes) failed.add(index);
+        continue;
+      }
       for (const index of range.indexes) {
         const entry = entries[index];
         const levels = levelsOf(index);
@@ -212,6 +247,11 @@ export const groupChangesSinceBless = async (
     if (git.exhausted) break;
     for (const index of range.indexes) {
       const entry = entries[index];
+      if (head === FAILED) {
+        failed.add(index);
+        finished.add(index);
+        continue;
+      }
       // HEAD の版と今の中身を同じ単位の hash で比べる（節が無ければ SECTION_MISSING、ファイルが無ければ FILE_MISSING）。
       const isUncommitted =
         head === null
@@ -251,6 +291,6 @@ export const groupChangesSinceBless = async (
     })),
     uncommitted: groupReferences(entries, uncommitted),
     notGrouped,
-    incomplete: git.exhausted || truncated,
+    incomplete: git.exhausted || truncated || failed.size > 0,
   };
 };

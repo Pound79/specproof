@@ -13,7 +13,8 @@ const DEADLINE_MS = 60_000;
 const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 const GIT_TIMEOUT_MS = 10_000;
 
-export type GitResult = { ok: true; stdout: string } | { ok: false };
+/** 失敗のときは git の終了コード（起動できない・上限で起動しなかったときは undefined）。 */
+export type GitResult = { ok: true; stdout: string } | { ok: false; code?: number };
 
 export interface GitRunnerOptions {
   /** git を起動してよい回数の上限（既定 2,000）。 */
@@ -79,7 +80,12 @@ export const createGitRunner = (repoRoot: string, options: GitRunnerOptions = {}
             timeout: GIT_TIMEOUT_MS,
             windowsHide: true,
           },
-          (error, stdout) => resolve(error ? { ok: false } : { ok: true, stdout }),
+          (error, stdout) =>
+            resolve(
+              error
+                ? { ok: false, ...(typeof error.code === "number" ? { code: error.code } : {}) }
+                : { ok: true, stdout },
+            ),
         );
       });
     },
