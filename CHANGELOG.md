@@ -17,6 +17,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   明示する・試行ごとか専用の seed で状態を作る）を足した。提案だけで、feature と共有の seed は変えない。
   `docs/methodology.md` にも同じ規則を足した。
 
+- `docs/playwright-ci.md` に「キャッシュは読むだけにする」の節を足した。別のブランチを流すときは、入力で
+  ブランチを指定せず、run の ref をそのブランチにして起動する。入力で指定する作りでは、ジョブの中のコードが
+  cache に直接書けること、Environment の制限が効かないこと、印を付けないことを書いた。依存のキャッシュは
+  `actions/cache/restore` で読むだけにし、`actions/setup-node` には `package-manager-cache: false` を付ける。
+- 同じ手引きに、流したかの印の 2 つの付け方（通ったときだけ・落ちても付ける）とそれぞれの注意、画面のビルドの
+  設定を雛形からコピーしてからビルドすること、E2E の前に E2E 側の Node の版を入れ直すことを足した。骨組みの例は、
+  印の保存を checkout しない別のジョブ（`mark`）に移した。
+- 同じ手引きに、落ちた run の `test-results/` を短く残す条件付きの例外を足した。認証情報とセッションが実行ごとに
+  作って捨てるもので、鍵をテストのプロセスに渡さず、データは合成で DB も捨て、公開リポジトリでないときだけ。
+  既定の「trace を上げない」は変えず、雛形の README と `playwright.config.ts` のコメントから例外を参照した。
+
+- Playwright の雛形の README の「テストの前に環境を確かめる」に、確認の例を 2 つ足した。5 は、
+  `E2E_API_MAX_RESPONSE_MS` を設定したときだけ、温めた後のヘルスチェックを 3 回計り、上限を超えたら
+  「バックエンドが遅い」で止める（ヘルスチェックが 200 でも全要求が遅く、待ちの上限を超えて落ちる崩れを拾う）。
+  6 は、`E2E_EXPECT_API_ORIGIN` を設定したときだけ chromium で `baseURL`（または `E2E_API_PROBE_PATH`）を開き、
+  画面がその origin に fetch / xhr を送るかを確かめる（ビルドに埋め込む API の URL が空のまま作られ、画面が
+  自分自身に要求を送る崩れを拾う）。どちらも新しい変数を設定したときだけ動くので、既存の例を写して使っている
+  利用者の動きは変わらない。例の要求が届かないときの文は、URL のパスとクエリを写さず origin だけを出すようにした。
+
 - `specproof-update --spec-ref '<path>#<見出し>'` を足した。その仕様の節の spec 側の hash だけを、それを参照する
   全リンクで取り直す。共通の決まりを書いた 1 つの節を多くのリンクが参照していると、関係の無い決まりを 1 つ
   足しただけで全リンクが drift し、リンクごとに bless し直すしかなかった。impl も drift したリンクは、spec 側だけを
