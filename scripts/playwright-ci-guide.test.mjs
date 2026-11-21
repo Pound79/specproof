@@ -90,6 +90,23 @@ test("CI の手引きは、流したかの印の 2 つの付け方と、それ�
   const artifact = bulletOf(when, "成果物の名前を印にしない");
   assert.match(artifact, /head_branch/);
   assert.match(artifact, /fork/);
+  // head_repository_id でも絞った後に残る経路まで書き、cache でも閉じないこと、閉じる手段、移行の手順に導く。
+  assert.match(artifact, /head_repository_id/);
+  assert.match(artifact, /`workflow_run` が null/);
+  assert.match(artifact, /cache にも直接書ける/);
+  // 経路ごとに、何で閉じるか・閉じないかを書き分ける（閉じない経路まで閉じたように書かない）。
+  assert.match(artifact, /入力で指定したブランチのコード: ブランチを run の ref で選べば（手順 2）閉じる/);
+  assert.match(artifact, /同じジョブで動くバックエンドのコード（手順 3）: 閉じない/);
+  assert.match(artifact, /固定した依存[^:]*: 閉じない/);
+  assert.match(artifact, /ほかのワークフロー[\s\S]*?: 閉じない/);
+  // PR やコメントを起点に動く run は、cache-mode を書かなければ既定ブランチの cache を読むだけ。
+  assert.match(artifact, /既定では読むだけで、`cache-mode: write`/);
+  assert.match(artifact, /checkout しない `mark` ジョブ[^。]*上の経路は閉じない/);
+  assert.match(artifact, /合否の証拠にしない/);
+  // 移行: 印を置く手順を消し、最初の回は流れる。消すために actions: write を足さない。
+  assert.match(artifact, /印の成果物を上げる手順を消す/);
+  assert.match(artifact, /最初の回は変更が無くても流れる/);
+  assert.match(artifact, /`actions: write` を足さない/);
   // 骨組み: 印の保存はテストを流すジョブと分け、checkout しないジョブで行う。テストを始めたかを ran で渡す。
   const from = guide.indexOf("# 骨組みの例");
   const skeleton = guide.slice(from, guide.indexOf("```", from));
