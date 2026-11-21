@@ -253,7 +253,7 @@ const assertManifestShape: (value: unknown) => asserts value is TraceabilityMani
 
 const SPEC_SOURCE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const COMMIT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
-const MAX_SPEC_SOURCES = 256;
+export const MAX_SPEC_SOURCES = 256;
 
 const assertSpecSources = (value: unknown): void => {
   if (value === undefined || value === null) return;

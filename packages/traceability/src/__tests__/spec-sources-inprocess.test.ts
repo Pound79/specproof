@@ -204,6 +204,20 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     expect(readFileSync(manifestPath, "utf8")).toBe(before);
   });
 
+  it("記録が上限（256 件）に達していれば、新しい名前は書かずに失敗し、既存の名前は記録し直せる", async () => {
+    const manifestPath = path.join(root, "traceability.yaml");
+    const full = Array.from({ length: 256 }, (_, i) => `  "s${i}": "${"a".repeat(40)}"`).join("\n");
+    writeFileSync(manifestPath, `version: 1\nlinks: []\nspecSources:\n${full}\n`);
+    const before = readFileSync(manifestPath, "utf8");
+    await expect(recordSpecSource(manifestPath, root, "newest", "b".repeat(40))).rejects.toThrow(
+      /at most 256/,
+    );
+    expect(readFileSync(manifestPath, "utf8")).toBe(before);
+    expect(await recordSpecSource(manifestPath, root, "s0", "b".repeat(40))).toEqual({
+      previous: "a".repeat(40),
+    });
+  });
+
   it("空の specSources: の行・CRLF・コメントを保ち、flow の mapping は拒む", async () => {
     const manifestPath = path.join(root, "traceability.yaml");
     writeFileSync(manifestPath, "version: 1\r\nlinks: []\r\nspecSources: # note\r\n");

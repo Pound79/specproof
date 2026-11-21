@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from "node:util";
 import { isMap, isScalar, parse, parseDocument } from "yaml";
 import { writeFileAtomic } from "./atomic-write.js";
 import { readManifestFile } from "./manifest-io.js";
-import { loadManifest, writeTargetOf } from "./manifest.js";
+import { loadManifest, MAX_SPEC_SOURCES, writeTargetOf } from "./manifest.js";
 
 const YAML_OPTIONS = { logLevel: "error", prettyErrors: false } as const;
 const CANNOT_UPDATE =
@@ -58,6 +58,12 @@ export const recordSpecSource = async (
   const raw = await readManifestFile(manifestPath);
   const recorded = original.specSources ?? {};
   const previous = Object.hasOwn(recorded, name) ? recorded[name] : undefined;
+  // 書いた後に manifest を読めなくしない（件数の上限は manifest の検査と同じ）。既存の名前の記録し直しは通す。
+  if (previous === undefined && Object.keys(recorded).length >= MAX_SPEC_SOURCES) {
+    throw new Error(
+      `Cannot record spec source ${JSON.stringify(name)}: at most ${MAX_SPEC_SOURCES} specSources are allowed in the manifest; remove records you no longer use`,
+    );
+  }
   const next = withRecorded(raw, name, commit);
   const expected = { ...original, specSources: { ...recorded, [name]: commit } };
   let parsed: unknown;
