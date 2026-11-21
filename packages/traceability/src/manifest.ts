@@ -257,7 +257,7 @@ const MAX_SPEC_SOURCES = 256;
 
 const assertSpecSources = (value: unknown): void => {
   if (value === undefined || value === null) return;
-  if (!isRecord(value)) {
+  if (!isRecord(value) || Array.isArray(value)) {
     throw new Error(
       "Invalid traceability manifest: specSources must be a mapping of name to commit id",
     );
