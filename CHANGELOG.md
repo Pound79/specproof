@@ -95,6 +95,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- sync の skill で、impl の drift は件数によらず `specproof-check --since-bless --json` の `sinceBless.commits` を
+  コミットごとに見て（Step 2）、bless する前に、bless するリンクの impl の参照を変えたコミットを**すべて**、1 行ずつ
+  裁定（見た目だけ・確かめ済み（根拠）・動きが変わった（確かめるシナリオ））して報告と PR 本文に書くようにした。
+  bless の直前に JSON を取り直し、行の先頭の (完全なコミット id, link id) の組と突き合わせて、報告に無いコミットが 1 つでもあれば、
+  その組のリンクは bless しない。`uncommitted`・`notGrouped`・`incomplete` が出た、履歴を辿れない、
+  JSON を取れないときは推測で埋めず、人に知らせて裁定を待つ。件名は生の値なので、制御文字・見えない文字・
+  バッククォートを除いて長さを限り、PR 本文ではコードブロックに入れる（`docs/security-model.md` にも書いた）。
+  これまでは「impl の drift が多いときは」まとめを見る、という任意の書き方で、テキストの出力（20 コミットで切れる）
+  を手で PR に対応させると、bless した版より後の PR を取りこぼすことがあった。互換: CLI の出力と終了コードは
+  変わらない。
+
 - 設定と manifest のトップレベルの `specSources` を検査するようにした。これまでは未知のキーとして読み飛ばして
   いた（設定では `unknown-config-key` の警告）が、今は形が誤っていると、`--spec-sources` の有無にかかわらず
   check・update・list・stats が読み込みで止まる。別の用途で `specSources` を書いていた場合は、名前を変えるか
