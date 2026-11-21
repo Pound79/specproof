@@ -60,7 +60,7 @@ E2E_PASSWORD=YourPassword1!
 | Variable names only | `.env.example` | Committed on purpose (`!.env.example` in `.gitignore`). Never put real values in it. |
 | Test account credentials | `.env` (and CI secrets) | Use dedicated test accounts, never real users' or production accounts. `.env` and `.env.*` are gitignored; keep them out of commits and logs. |
 | Logged-in browser state (cookies, localStorage) | `playwright/.auth/*.json` in this package (resolved against the package, wherever Playwright runs from; a `storageState` path outside the package or through a symbolic link is refused) | Gitignored, and deleted by the `auth-teardown` project after the authenticated projects finish. The teardown does not run when a run is interrupted (Ctrl-C, a cancelled CI job, `globalTimeout`), with `--no-deps`, or in UI mode, so delete `playwright/.auth/` by hand on shared machines after those. `--no-deps` also needs the setup project to have run first. Do not upload these files as CI artifacts. |
-| Traces, screenshots and videos | `test-results/`, `playwright-report/` | A trace is kept for every failed test attempt, locally and in CI (including a failed first attempt of a test that passed on retry). It records the actions (including the typed login form), the network, cookies and localStorage, so it carries the test account's session. Both directories are gitignored. Do not share them. Do not upload them as CI artifacts; reproduce a CI-only failure locally and open the trace there (`npx playwright show-trace`). |
+| Traces, screenshots and videos | `test-results/`, `playwright-report/` | A trace is kept for every failed test attempt, locally and in CI (including a failed first attempt of a test that passed on retry). It records the actions (including the typed login form), the network, cookies and localStorage, so it carries the test account's session. Both directories are gitignored. Do not share them. Do not upload them as CI artifacts; reproduce a CI-only failure locally and open the trace there (`npx playwright show-trace`). The only exception (traces of failed runs, kept briefly, when every condition holds) is in [the CI guide](https://github.com/Pound79/specproof/blob/main/docs/playwright-ci.md#例外-落ちた-run-の-trace-を短く残す). |
 
 `E2E_BASE_URL` defaults to `http://localhost:5173`. The scaffold sends the test
 credentials to whatever URL you set, so use `https://` for any host other than
@@ -235,7 +235,9 @@ const get = async (
     await res.arrayBuffer().catch(() => undefined); // 本文を読み切って接続を残さない
     return res;
   } catch (error) {
-    throw new Error(`preflight: ${url} did not respond: ${String(error)}`);
+    // URL のパス・クエリ（トークンを含むことがある）はログに写さない。
+    const where = URL.canParse(url) ? new URL(url).origin : "a preflight URL";
+    throw new Error(`preflight: ${where} did not respond: ${error instanceof Error ? error.name : "error"}`);
   }
 };
 
@@ -292,11 +294,100 @@ export default async function preflight(config: FullConfig): Promise<void> {
   //    初回のコンパイルを待てるよう、上限は webServer の timeout と同じくらい長くする。
   //    ログイン画面への転送が正常なアプリもあるので、ここは転送を追う。
   await get(baseUrl, { timeoutMs: 120_000 });
+
+  // 5. 温めた後もバックエンドが遅くないか。ヘルスチェックが 200 でも、全要求が 1〜2 秒ずつ遅いと、
+  //    1 画面で何回も API を呼ぶうちに待ちの上限を超える。1 回温めてから 3 回計り、1 回でも上限を超えたら止める。
+  //    計る URL は 1 と同じ。プロキシが自分で返すヘルスチェックでなく、アプリの処理を通る URL にする。
+  //    上限（ミリ秒）を E2E_API_MAX_RESPONSE_MS に設定したときだけ計る。
+  const rawLimit = process.env.E2E_API_MAX_RESPONSE_MS?.trim();
+  if (healthUrl && rawLimit) {
+    const limitMs = Number(rawLimit);
+    if (!Number.isFinite(limitMs) || limitMs <= 0) {
+      throw new Error("preflight: E2E_API_MAX_RESPONSE_MS must be a positive number of milliseconds");
+    }
+    await get(healthUrl, { redirect: "manual" });
+    const times: number[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const start = performance.now();
+      await get(healthUrl, { redirect: "manual" });
+      times.push(Math.round(performance.now() - start));
+    }
+    if (times.some((ms) => ms > limitMs)) {
+      throw new Error(
+        `preflight: the backend is slow (${times.join(", ")} ms after warm-up; limit ${limitMs} ms). ` +
+          "Look for a development-mode file watcher scanning a large tree (e.g. node_modules under a watched directory) " +
+          "or a slow network path between the containers.",
+      );
+    }
+  }
+
+  // 6. 画面が呼ぶバックエンドの行き先が、テストが期待するバックエンドか。ビルドに埋め込む値（API の URL）が
+  //    空のまま作ると、画面は自分自身に要求を送って 404 になる。そのビルドも今のチェックアウトのものなので 3 は通る。
+  //    E2E_EXPECT_API_ORIGIN に期待する API の origin を、E2E_API_PROBE_PATH に、ログインせずに開けて
+  //    ブラウザから API を呼ぶ画面のパス（既定は baseURL）を設定したときだけ確かめる。
+  //    サーバの側だけで API を呼ぶ画面や、API が画面と同じ origin の構成では見分けられないので使わない。
+  //    chromium の新しいページ（資格情報もプロジェクトの use も引き継がない）で開き、
+  //    失敗の文には origin だけを出す（パス・クエリを写さない）。
+  const expectedApi = process.env.E2E_EXPECT_API_ORIGIN?.trim();
+  if (expectedApi) {
+    const app = new URL(baseUrl);
+    const api = URL.canParse(expectedApi) ? new URL(expectedApi) : undefined;
+    if (!api || !["http:", "https:"].includes(api.protocol)) {
+      throw new Error("preflight: E2E_EXPECT_API_ORIGIN must be an http(s) URL");
+    }
+    if (api.origin === app.origin) {
+      throw new Error("preflight: E2E_EXPECT_API_ORIGIN has the same origin as baseURL; this check cannot tell them apart");
+    }
+    // 指定が無ければ baseURL（パスを含む）をそのまま開く。
+    const probePath = process.env.E2E_API_PROBE_PATH?.trim();
+    const probeUrl = probePath ? new URL(probePath, app) : app;
+    if (probeUrl.origin !== app.origin || probeUrl.username || probeUrl.password) {
+      throw new Error("preflight: E2E_API_PROBE_PATH must be a path on baseURL");
+    }
+    await get(probeUrl.toString(), { timeoutMs: 120_000 }); // 開く画面も温める（開発モードの初回のコンパイル）
+    const { chromium } = await import("@playwright/test"); // この確認を使うときだけブラウザを起動する
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      const isFetch = (request: { resourceType(): string }) => ["fetch", "xhr"].includes(request.resourceType());
+      const isApiCall = (request: { resourceType(): string; url(): string }) =>
+        isFetch(request) && new URL(request.url()).origin === api.origin;
+      const seen = new Set<string>();
+      let called = false;
+      page.on("request", (request) => {
+        if (isFetch(request)) seen.add(new URL(request.url()).origin);
+        if (isApiCall(request)) called = true;
+      });
+      const response = await page.goto(probeUrl.toString(), { timeout: 120_000 }).catch(() => {
+        throw new Error(`preflight: could not open the probe page on ${app.origin}`);
+      });
+      if (response && !response.ok()) {
+        throw new Error(`preflight: the probe page returned ${response.status()}`);
+      }
+      // 画面の読み込みの後（hydration の後など）に出る要求も待つ。
+      called ||= await page.waitForRequest(isApiCall, { timeout: 30_000 }).then(
+        () => true,
+        () => false,
+      );
+      if (!called) {
+        const origins = [...seen].join(", ") || "none";
+        throw new Error(
+          `preflight: the app did not call ${api.origin} (fetch/xhr went to: ${origins}). ` +
+            "Check the API URL built into the app (a build-time value such as NEXT_PUBLIC_* may have been empty).",
+        );
+      }
+    } finally {
+      await browser.close();
+    }
+  }
 }
 ```
 
 止まったときは、原因を直してから流し直す。確認を外して流し、落ちたシナリオを
 テスト対象の不具合として扱わない。
+
+5 と 6 は、1〜4 が通っても起きる崩れを拾う。どちらも変数を設定したときだけ動く。5 の上限は、
+温めた後の手元の値を見て決める（例: 500）。6 はブラウザ（chromium）を 1 回起動するので、ほかの確認より遅い。
 
 ---
 

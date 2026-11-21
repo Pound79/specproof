@@ -198,7 +198,8 @@ export default defineConfig({
     // (on-first-retry would never record one there). A trace holds cookies,
     // localStorage, typed form values and network bodies, i.e. the test
     // account's session: never share test-results/ or playwright-report/,
-    // and do not upload them as CI artifacts.
+    // and do not upload them as CI artifacts (the only exception, with its
+    // conditions, is in specproof's docs/playwright-ci.md).
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
