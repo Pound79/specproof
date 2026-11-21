@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `specproof-check --since-bless` が、drift した参照を、bless した版の後にそれを変えたコミットごとにまとめて
+  出すようにした（`Changes since bless, by commit`）。HEAD の first-parent の列で辿るので、PR のマージや squash の
+  コミットが 1 件として、件名（PR の番号を含むことが多い）と一緒に出る。spec の見出しの参照は節の単位で、
+  ほかはファイルの単位で、そのコミットで変わったものだけを割り当て、bless した版を持ち込んだだけのマージは
+  外す。コミットしていない変更は `(uncommitted)` にまとめる。`--json` には `sinceBless`（`commits`・`uncommitted`・
+  `notGrouped`・`incomplete`）を足した。既存のキーは変えず、`--since-bless` を付けないときの出力も変わらない。
+  git の起動の上限（2,000 回・60 秒）は bless した版の探索と共有する。
+- `--since-bless` の git は、利用者やリポジトリの設定の署名の検証（gpg）・`log.follow` を切り、作業ツリーの中の
+  bare リポジトリを暗黙に見つけないようにした。
+
 - シナリオが仕様の未決の問いに依存していることを表す `@question:<ID>` タグを決め、`specproof-stats` が問いの
   ID ごとに、依存するシナリオの数と feature を出すようにした（テキストの「Open spec questions」、`--json` の
   `questions: [{ id, scenarios, features }]`）。Feature・Rule に付けたタグは配下に継承する。状態タグではないので、
