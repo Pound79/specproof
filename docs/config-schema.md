@@ -142,8 +142,11 @@ specSources:
 - 取り込みのコマンドは、作業ツリーでなく `ref` から読む形にするとよい。ただし作業ツリーから写すときに git の
   checkout が行うパスの検証と、CLI が git に掛けている制限は効かなくなるので、取り込みのコマンドの側で次を守る
   （`repo` は PR で変えられ、取り込みは `--record-spec-source` の確かめより前に走る）。
-  - 先に `specproof-check --spec-sources` を流し、取り込み元が読める（実体の `.git`・自分が持ち主・部分 clone で
-    ない）ことを確かめる
+  - 写す前に `specproof-update --record-spec-source <name> --dry-run` を流し、成功することを確かめる（manifest は
+    変えない）。取り込み元が読める（実体の `.git`・自分が持ち主・部分 clone でない）こと、`ref` を解決できること、
+    `paths` が `ref` にあることを、記録が無い初回でも確かめ、どれかが欠ければ失敗する。`specproof-check
+    --spec-sources` は記録が無い・取り込み元を読めないときも成功で終わるので、この確かめには使えない。取り込みが
+    `ref` から読む形で HEAD が `paths` の中で違うときは、そのことを確かめてから `--allow-head-mismatch` を付ける
   - git は CLI と同じ制限で起動する: `--git-dir=<repo>/.git` を明示し、環境変数 `GIT_NO_LAZY_FETCH=1`・
     `GIT_NO_REPLACE_OBJECTS=1` を付け、`-c protocol.allow=never` と内蔵の transport ごとの
     `-c protocol.<名前>.allow=never` を渡す（部分 clone の足りないオブジェクトを取りに行かせない。取りに行くと、
