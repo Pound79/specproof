@@ -46,7 +46,9 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   リポジトリを探させない。足りないオブジェクトを取りに行かせない防御は、部分 clone を読まないことと
   `GIT_NO_LAZY_FETCH=1` で、コマンドラインの `protocol.allow=never` と内蔵の transport ごとの `never` はその上に重ねる
   （リポジトリの設定の `protocol.<名前>.allow` に上書きされうるので、これだけには頼らない）。`GIT_NO_REPLACE_OBJECTS=1`
-  で差し替えを読まず、受け継いだ `GIT_DIR`・`GIT_CONFIG_*` などの環境変数を消す。`ref` は名前の形だけを受けて `--end-of-options` の後ろに置く。それでも、その
+  で差し替えを読まず、受け継いだ `GIT_DIR`・`GIT_CONFIG_*` などの環境変数を消す。`ref` は名前の形だけを受けて `--end-of-options` の後ろに置く。`--record-spec-source` は
+  固定の `HEAD` も同じ形で解決し、HEAD と `ref` で `paths` の中身が違えば記録しない（HEAD のコミットの id と違った
+  `paths` を出力に出す）。それでも、その
   リポジトリの存在とコミットの id は出力に出るので、PR の CI では `--spec-sources` を付けない（既定では読まない）。
   作業ツリーを読む git（`status`・`diff`）は `.gitattributes` のフィルタを起動しうるので使わず、版の中身は
   `git show <commit>:<path>` で読む。fsmonitor・署名の検証・`log.follow` の設定は切り、作業ツリーの中の bare

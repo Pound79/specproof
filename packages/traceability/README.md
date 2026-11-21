@@ -387,7 +387,7 @@ methodology, config schema, and the adapter contract.
 | コマンド | 対応オプション |
 |---|---|
 | specproof-check | --root, --manifest, --strict, --json, --github-annotations, --since-bless, --spec-sources |
-| specproof-update | --root, --manifest, --link-id, --spec-ref, --dry-run, --record-spec-source |
+| specproof-update | --root, --manifest, --link-id, --spec-ref, --dry-run, --record-spec-source, --allow-head-mismatch |
 | specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
 | specproof-stats | --root, --manifest, --strict, --json |
 
@@ -461,7 +461,8 @@ git の管理下でなければ 1 行の案内を出し、check の結果は変�
 コミットから `paths` の中で進んでいれば（または今の ref に無ければ）`spec-source-outdated`、記録が無ければ
 `spec-source-unrecorded` を参考の警告として出す（`--strict` でも失敗しない。取り込み元が手元に無ければ飛ばす。
 フラグが無ければ取り込み元を読まない）。取り込んだコミットは
-`specproof-update --record-spec-source <name>` で manifest の `specSources` に記録する。詳細は
+`specproof-update --record-spec-source <name>` で manifest の `specSources` に記録する（取り込み元の HEAD が `paths` の中で
+`ref` と違えば記録せずに止まる。取り込みが ref から読む形なら `--allow-head-mismatch`）。詳細は
 [config-schema](../../docs/config-schema.md#specsources)。
 git に渡す制限は [security-model](../../docs/security-model.md) の子プロセスの項。
 未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。

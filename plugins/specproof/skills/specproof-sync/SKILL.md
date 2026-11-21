@@ -82,7 +82,10 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 含む）を示して、その回の承認を得てから実行する。承認の後で設定・`repo` の中身が変わったら聞き直す。承認が無ければ
 実行せず、取り込みを人に頼んで止まる。取り込み元の ref は手元のものなので、必要なら先に取り込み元で `git fetch`
 してもらう。取り込んだら、下の check を流して `entries` と `bothSidesChanged` を取り直し、spec の drift として同期する。bless の前に
-`{{config:commands.traceabilityUpdate}} --record-spec-source <name>` で取り込んだコミットを記録する。
+`{{config:commands.traceabilityUpdate}} --record-spec-source <name>` で取り込んだコミットを記録する。取り込み元の HEAD が
+`paths` の中で `ref` と違うと記録は止まる（作業ツリーから写していれば、記録と写した中身が食い違うため）。そのときは
+自分の判断で `--allow-head-mismatch` を付けず、違うパスを示して人に返す（取り込み元を `ref` に合わせて取り込み直すか、
+取り込みのコマンドが `ref` から読む形であることを人が確かめてから付ける）。
 
 ```bash
 {{config:commands.traceabilityCheck}} --json
