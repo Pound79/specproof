@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cat-file blob` で読む）と、`git worktree` の作業ツリーを `repo` に使えない理由を書いた。
 - `--since-bless` と取り込み元の git は、transport を禁じ（`protocol.allow=never`）、受け継いだ `GIT_DIR` などの
   環境変数を消して起動する。
+- 取り込み元の `paths` に明示したファイルは、中身（object id）と mode（通常のファイル・実行できるファイル・
+  シンボリックリンク）を合わせて比べる。通常のファイルの中身とシンボリックリンクの指す先の文字列が同じだと
+  object id も同じになるため。ディレクトリやリポジトリ全体の比べも mode の違いを含む（tree の id に含まれる）。
+  mode だけが変わったとき（実行ビットの付け外しを含む）も `spec-source-outdated` になる。同じ名前のエントリが
+  重複した壊れた tree は、比べずに読めないもの（`unavailable`）とする。
 - `specproof-check --since-bless` が、drift した参照を、bless した版の後にそれを変えたコミットごとにまとめて
   出すようにした（`Changes since bless, by commit`）。HEAD の first-parent の列で辿るので、PR のマージや squash の
   コミットが 1 件として、件名（PR の番号を含むことが多い）と一緒に出る。spec の見出しの参照は節の単位で、
