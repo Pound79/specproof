@@ -178,3 +178,44 @@ describe("groupChangesSinceBless（ライブラリ）", () => {
     expect(lines[1]).not.toMatch(/​/);
   });
 });
+
+describe("groupChangesSinceBless（設定のルートが git のサブディレクトリ）", () => {
+  let top: string;
+  let root: string;
+
+  beforeEach(async () => {
+    top = realpathSync(mkdtempSync(path.join(os.tmpdir(), "specproof-bless-changes-sub-")));
+    root = path.join(top, "app");
+    mkdirSync(path.join(root, "src"), { recursive: true });
+    mkdirSync(path.join(top, "src"));
+    git(top, ["init", "-q"]);
+    // 最上位に、同じ相対パスの無関係なファイルがある。
+    writeFileSync(path.join(top, "src", "a.ts"), "export const unrelated = 1;\n");
+    writeFileSync(path.join(root, "src", "a.ts"), "export const a = 1;\n");
+    writeFileSync(
+      path.join(root, "traceability.yaml"),
+      "version: 1\nlinks:\n  - id: perm\n    label: Permissions\n    spec: []\n    impl:\n      - path: src/a.ts\n        hash: PENDING\n    features: []\n",
+    );
+    commitAll(top, "v1");
+    await updateManifestHashes(path.join(root, "traceability.yaml"), root);
+    commitAll(top, "bless");
+  });
+
+  afterEach(() => {
+    rmSync(top, { recursive: true, force: true });
+  });
+
+  it("消したコミットを、最上位の同じ名前のファイルと取り違えずに割り当てる", async () => {
+    rmSync(path.join(root, "src", "a.ts"));
+    const removed = commitAll(top, "Remove a (#50)");
+    const manifestPath = path.join(root, "traceability.yaml");
+    const report = await checkDrift(manifestPath, root);
+    const manifest = await loadManifest(manifestPath);
+    const runner = createGitRunner(root);
+    const history = await findBlessedCommits(root, report.entries, manifest, { runner });
+    const changes = await groupChangesSinceBless(runner, report.entries, history, manifest);
+    expect(changes.commits.map((change) => change.commit)).toEqual([removed]);
+    expect(changes.notGrouped.failed).toBe(0);
+    expect(changes.incomplete).toBe(false);
+  });
+});
