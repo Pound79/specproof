@@ -133,6 +133,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   いた。互換: 終了コードと `--json` は変わらない。テキストの出力を照合しているスクリプトは、Next の前に行が
   増えることに注意する。
 
+- Playwright の CI の手引き（`docs/playwright-ci.md`）の「例外: 落ちた run の trace を短く残す」の条件を、
+  例の YAML の直前に、上げる前のチェックリストとして並べ直した（HTML レポートを含めない・入力でブランチを
+  指定した回に上げない、を含む）。開発モードのバックエンドでデバッグ表示を切る例（Rails の
+  `config.consider_all_requests_local`・Django の `DEBUG`・Laravel の `APP_DEBUG`・Express の `NODE_ENV`）と
+  その副作用、エラー以外の応答や画面のサーバーにも詳細が出ること、404 と GraphQL のエラーでも確かめること、
+  切れないなら例外を使わないことを足した。使い捨ての鍵の渡し方は、手段（env ファイル）でなく「テストのプロセスの
+  環境変数・引数・作業ディレクトリに入れない」という条件にし、env ファイルは例にした。条件に、バックエンドの
+  チェックアウトの中の本物の鍵を読ませないことと、バックエンドのログをテストで添付しないことを足した。
+
 - `specproof-update` の `--link-id` を重ねて指定できるようにした（`--link-id a --link-id b`）。指定したリンクを
   まとめて bless する。これまでは重ねると、黙って最後の 1 つだけが効いていた。manifest に無い id が 1 つでも
   あれば、何も書かずに失敗し、無い id をすべて示す。完了の行は複数のときに `links "a", "b" refreshed` になる。
