@@ -43,6 +43,15 @@ npx specproof-stats            # scenario census (phase / verification / out-of-
   `missingFeatures` / `missingFeaturesDir`) and also fails `--strict`, because
   missing input cannot prove that no `@red-contract` remains. GREEN runs and
   human confirmation of `@human` scenarios are outside this static gate.
+  It also lists open spec questions: scenarios tagged `@question:<ID>`
+  (directly or inherited from Feature / Rule) depend on a question the spec
+  has not answered yet. They are grouped by ID with the number of scenarios and
+  the feature files (`--json`: `questions: [{ id, scenarios, features }]`;
+  `scenarios` counts conditions, so a Scenario Outline counts once; IDs are
+  case-sensitive and must not contain spaces), so
+  that when the answer comes you can find the scenarios to revisit. The tag is
+  not a state tag: it does not change what runs or the done gate. Remove it
+  when the scenario has been updated to the answer.
 
 The done gate only blocks anything where `specproof-stats --strict` is wired
 into CI. The bundled drift-check workflow templates run `specproof-check

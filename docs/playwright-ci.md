@@ -13,23 +13,70 @@ Playwright の雛形の E2E を GitHub Actions で流すときの手引き。spe
 PR の head を checkout して秘密と一緒に動かさない。`schedule` は既定ブランチでだけ動き、cron は UTC で書く。
 同じ組を二重に流さないよう `concurrency` を付ける。
 
-2 つのリポジトリのどちらも前回通ったときから変わっていなければ、流さずに終える。
+2 つのリポジトリのどちらも、前回、印を付けたときから変わっていなければ、流さずに終える。
 
-- 画面の SHA は `${{ github.sha }}`、バックエンドの SHA は App のトークンで API から取る（手順 2）。
+- 画面の SHA は `${{ github.sha }}`、バックエンドの SHA は App のトークンで API から取る（手順 3）。
   比べる SHA・checkout する SHA・印に書く SHA は同じ値にする。ブランチ名で checkout すると、
   取った後に進んだ別のコミットを流して、流していない組に印を付けることがある
 - 印は `actions/cache/restore`（`lookup-only: true`）でキー `e2e-<画面の SHA>-<バックエンドの SHA>` の有無を見て、
-  あれば以降の手順を飛ばす。テストが通ったときだけ、SHA の組を書いた小さなファイルを作って
-  `actions/cache/save` で保存する（ファイルが無いと保存されない）。落ちた組に印を付けると、直さないまま次の回が飛ばされる
+  あれば以降の手順を飛ばす。SHA の組を書いた小さなファイルを作って `actions/cache/save` で保存する
+  （ファイルが無いと保存されない）。保存は、テストを流すジョブと分けた、checkout しないジョブで行う（手順 2）
+- 印の付け方は 2 つある。どちらにするかを決めて、ワークフローの冒頭のコメントに書く。
+  - **通ったときだけ印を付ける**（骨組みの例）: 落ちた組は次の回にもう一度流れる。一時的な失敗（バックエンドの
+    起動の失敗など）は次の回で流し直される。落ち続ける組は、直るまで毎回流れて費用がかかる
+  - **流したら印を付ける（落ちても）**: 前回流したときから変わっていなければ流さない。落ちた組は、直す変更が入って
+    SHA が変わるか、`force` で流すまで流れない。落ちたことは run の結果と通知でしか分からないので、通知を
+    見逃すと次の変更まで気づかない。一時的な失敗も流し直されないので、原因が環境なら `force` で流し直す。
+    骨組みの `mark` ジョブの条件を
+    `${{ !cancelled() && needs.e2e.outputs.ran == 'true' && (needs.e2e.result == 'success' || needs.e2e.result == 'failure') }}`
+    にする。ジョブの `if:` に `!cancelled()` などの状態の関数が無いと `success()` が暗黙に付き、落ちた回に付かない。
+    取り消された run と、テストを始める前（起動など）で落ちた run には付けない
 - 印は費用を省くためのもので、合否の証拠ではない。cache は既定ブランチで動くほかのワークフローからも書けるので、
   信頼する根拠にしない。印が消えた（使われないまま期限が切れた等）ときは流し直すだけなので安全側に倒れる
 - 成果物の名前を印にしない。成果物はブランチを問わずリポジトリの一覧に並び、PR の run からも同じ名前で置けるので、
-  検査を飛ばす印を偽造できる
+  検査を飛ばす印を偽造できる。印を作った run のブランチ（`workflow_run.head_branch` など）で絞っても足りない。
+  fork の PR の run のブランチ名は fork の側の名前で、既定ブランチと同じ名前にもできる
 - 手動で流すときに印を無視できるよう、`workflow_dispatch` に `force` の入力を設けるとよい
 - 2 つの SHA の組は、リポジトリの外の変化（イメージの `latest` タグ、固定していない依存、日付で変わるデータ）を
   捉えない。compose の `image:` はダイジェスト（`@sha256:`）で固定する
 
-## 2. 別の非公開リポジトリを読む
+## 2. キャッシュは読むだけにする
+
+手で流すときに、`workflow_dispatch` の入力でブランチを指定し、そのブランチのコードを checkout して流せる作りにすると、
+そのブランチのコード（依存のインストールの script、ビルド、テストのコード）がジョブの中で動く。run 自体は既定ブランチの
+上で動くので、そのジョブが保存した cache は既定ブランチの範囲に入り、既定ブランチやリリースのブランチの CI がそれを
+信じて使う。入力でブランチを指定できるのは `workflow_dispatch` を起動できる人（書き込み権限のある人）だけだが、
+選べるブランチには、bot が依存を更新するブランチのように第三者のコードが入ったものも含まれる。
+
+- **ブランチは入力でなく、run の ref で選ぶ。** 別のブランチを流したいときは、ワークフローをそのブランチで起動する
+  （Actions の画面の「Use workflow from」、または `gh workflow run --ref <branch>`）。run の ref がそのブランチになるので、
+  保存した cache はそのブランチの範囲に入り、手順 3 の Environment の制限（使えるブランチを既定ブランチに限る）も効く
+- 入力でブランチを指定する作りにするなら、次を前提にする。
+  - **読むだけにしても、悪意のあるコードは防げない。** 同じジョブで動くコードは、cache の action を通さずに、
+    ジョブの実行時のトークンで cache に直接書ける。読むだけにするのは、うっかり保存しないための手段。
+    既定ブランチやリリースのブランチの CI（特にリリースのビルド）は、cache から復元した依存を信じない
+    （`npm ci` のように lockfile から作り直す）
+  - **Environment の制限が効かない。** run の ref は既定ブランチなので、App の秘密鍵を含む秘密がそのジョブに入り、
+    ブランチのコードから読める。Environment に承認する人（required reviewers）を付けるか、選べるブランチを
+    保護されたブランチに限る
+  - **印を付けない。** 印のキーは既定ブランチの SHA（`github.sha`）なので、ブランチのコードで通っても、流していない
+    既定ブランチの組に印が付く。`mark` の `if:` に入力が空であることを足す
+  - 入力のブランチ名は `run:` に `${{ }}` で埋めず、`env:` で渡して `git check-ref-format --branch` で確かめ、
+    SHA に解決してから checkout する
+- どちらの作りでも、依存のキャッシュ（`node_modules`・npm のキャッシュ・ブラウザのバイナリ）は
+  `actions/cache/restore` で読むだけにする。`actions/cache` と、`actions/setup-node` などの `cache:` 入力は、
+  ジョブの終わりに保存もするので使わない。`actions/setup-node` は v6 から、`package.json` の `packageManager`
+  （または `devEngines.packageManager`）が npm だと `cache:` を書かなくてもキャッシュを使うので、
+  `package-manager-cache: false` を付ける（v5 も、パッケージマネージャを検出してキャッシュを既定で使う）。
+  ほかの setup 系の action や、docker の `cache-to: type=gha` も cache に書く
+- 印の保存は、テストを流すジョブと分けた、checkout しない別のジョブで行う（下の骨組みの `mark`）。同じジョブの中では、
+  先に動いたコードが後の手順の入力（印のファイル、環境、PATH にあるツール）を書き換えられる。別のジョブが新しい環境で
+  始まるのは、GitHub がホストする runner か、ジョブごとに捨てる runner のときだけ。使い回す self-hosted の runner では
+  分けても前のジョブの残したものを受け継ぐ
+- workspace の composite action（`./.github/actions/*`）は、checkout したブランチの版が読まれる。保存など、
+  信頼が要る手順をそれに任せない
+
+## 3. 別の非公開リポジトリを読む
 
 バックエンドのリポジトリが非公開なら、そのリポジトリだけを読める GitHub App のトークンを使う。
 個人のアクセストークンは、持ち主の権限の全部と期限の長さを持ち込むので使わない。
@@ -66,6 +113,9 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     environment: e2e # 秘密鍵はここ。使えるブランチを既定ブランチに限る
+    outputs:
+      key: ${{ steps.sha.outputs.key }}
+      ran: ${{ steps.ran.outputs.ran }}
     steps:
       - id: app-token
         uses: actions/create-github-app-token@<sha> # vX.Y.Z
@@ -100,15 +150,31 @@ jobs:
           path: backend
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: false
-      # ...バックエンドの起動（手順 3）とテスト...
-      - run: echo "${{ steps.sha.outputs.key }}" > .e2e-marker
-      - uses: actions/cache/save@<sha> # vX.Y.Z  テストが通ったときだけここまで来る
+      # ...画面のビルド・バックエンドの起動（手順 4）...
+      - id: ran # テストを始めた印。テストが落ちても立っている（印を見て飛ばした回と、起動で落ちた回は立たない）
+        run: echo "ran=true" >> "$GITHUB_OUTPUT"
+      # ...テスト...
+
+  # 印の保存は、テストを流したジョブと分ける（手順 2）。checkout せず、ファイルを作って保存するだけ。
+  mark:
+    needs: e2e
+    # 通ったときだけ印を付ける。落ちても付けるなら手順 1 の条件にする。
+    if: ${{ needs.e2e.result == 'success' && needs.e2e.outputs.ran == 'true' }}
+    runs-on: ubuntu-latest
+    permissions: {} # cache の保存は実行時のトークンで行うので、GITHUB_TOKEN の権限は要らない
+    steps:
+      - env:
+          KEY: ${{ needs.e2e.outputs.key }}
+        run: |
+          [[ "$KEY" =~ ^e2e-[0-9a-f]{40}-[0-9a-f]{40}$ ]] || exit 1
+          echo "$KEY" > .e2e-marker
+      - uses: actions/cache/save@<sha> # vX.Y.Z
         with:
           path: .e2e-marker
-          key: ${{ steps.sha.outputs.key }}
+          key: ${{ needs.e2e.outputs.key }}
 ```
 
-## 3. バックエンドを docker compose で立ち上げる
+## 4. バックエンドを docker compose で立ち上げる
 
 - **ファイルの持ち主**: Linux の runner では、コンテナの中の root が書いたファイルはホストでも root の
   持ち物になり、runner のユーザーから読めないことがある（macOS の Docker では起きにくいので手元では気づかない）。
@@ -133,8 +199,14 @@ jobs:
   `docker compose config` は解決した環境変数をすべて出すので実行しない。DB も実行ごとに作り直す
 - **データ**: seed とテスト用の利用者は合成したデータにし、本物の個人情報や本番のデータを使わない。
   接続先は compose で立てたものだけにする
+- **画面のビルドの設定**: ビルドに埋め込む値（`NEXT_PUBLIC_*` など、API の URL）は、git の外のファイル（`.env` など）に
+  頼らない。リポジトリにある雛形（`.env.example` など）をコピーし、CI で決まる値を上書きしてからビルドする。
+  値が空のまま作ると、画面は API でなく自分自身に要求を送り、多くのシナリオが 404 で落ちる。手元で新しい
+  worktree を作ったときも同じことが起きる（雛形の README の「テストの前に環境を確かめる」で、テストの前に拾える）
+- **Node の版**: 画面と E2E のパッケージで `engines` の要求が違うことがある。画面のビルドの後、E2E の前に、
+  E2E のパッケージの `engines` に合う版を `actions/setup-node` で入れ直す（`package-manager-cache: false`。手順 2）
 
-## 4. 結果・ログ・成果物
+## 5. 結果・ログ・成果物
 
 雛形の README のとおり、trace・スクリーンショット・動画・HTML レポート（`test-results/`・`playwright-report/`）と、
 保存したセッション（`playwright/.auth/`）は CI の成果物に上げない。trace にはテスト用アカウントのセッション
@@ -148,3 +220,33 @@ jobs:
 - 落ちたら、その回の SHA の組（画面とバックエンド）を手元で checkout して流し直し、trace は手元で開く
   （`npx playwright show-trace`）。CI だけで落ちるときは、runner と同じ OS のコンテナで再現する
 - 結果を残したいときは、成否と落ちたシナリオの名前だけを書いた要約を残す
+
+### 例外: 落ちた run の trace を短く残す
+
+既定は上のとおり上げない。次の条件をすべて満たすときだけ、落ちた run の `test-results/` を短い期間だけ成果物に
+残してよい。手元で再現できない CI だけの失敗を、trace で調べるための例外。
+
+- テスト用の認証情報（JWT の署名の鍵など）とセッションは実行ごとに作って捨て、その実行の外では使えない
+  （手順 4 の「使い捨ての秘密」）。本物のアカウント・共有のテスト用アカウントの認証情報を使っていない
+- 使い捨ての鍵は `$RUNNER_TEMP` の env ファイルで compose にだけ渡し、`$GITHUB_ENV` に入れない（テストのプロセスに
+  渡さない。テストのコードが鍵を使うと、要求の本文やヘッダ、標準出力として trace に残る）
+- バックエンドはデバッグ表示を切って動かし、エラーの応答に環境変数やスタックトレースを出さない。外部のサービスの
+  本物の鍵を compose に渡さない。画面のビルドに埋め込む値に秘密を入れない（埋め込んだ値は通信に乗って trace に入る）
+- seed とテスト用の利用者は合成したデータで、DB は実行ごとに作り直して捨てる
+- 画面のリポジトリを読める人（Actions を読める権限を持つ連携の App を含む）が、バックエンドの応答の中身を
+  見てもよい。成果物を読めるのは、ログと同じくリポジトリを読める人全員になる。公開リポジトリでは上げない
+- 手順 2 の入力でブランチを指定した回ではない（そのブランチのコードが `test-results/` に置くものを決められる）
+
+それでも trace には、画面に出た合成データ、入力した値、通信の本文が残る。`::add-mask::` が伏せるのはログだけで、
+成果物の中身は伏せない。`test-results/` には trace のほかに、スクリーンショット・動画・テストが添付したファイルも入る。
+上げるのは `test-results/` だけにし、保存したセッション（`playwright/.auth/`）と HTML レポート（`playwright-report/`。
+trace を中に含む）は含めない。
+
+```yaml
+- if: ${{ failure() && inputs.branch == '' }} # 入力でブランチを指定する作りでなければ failure() だけ
+  uses: actions/upload-artifact@<sha> # vX.Y.Z
+  with:
+    name: e2e-traces
+    path: <E2E のパッケージ>/test-results/
+    retention-days: 7
+```
