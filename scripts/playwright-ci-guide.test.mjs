@@ -99,14 +99,16 @@ test("CI の手引きは、流したかの印の 2 つの付け方と、それ�
   const artifact = bulletOf(when, "成果物の名前を印にしない");
   assert.match(artifact, /head_branch/);
   assert.match(artifact, /fork/);
-  // head_repository_id でも絞った後に残る経路まで書き、cache でも閉じないこと、閉じる手段、移行の手順に導く。
+  // head_repository_id でも絞った後に残る経路まで書き、cache-mode が無ければ cache でも閉じないこと、経路ごとに閉じる手段、移行の手順に導く。
   assert.match(artifact, /head_repository_id/);
   assert.match(artifact, /`workflow_run` が null/);
   assert.match(artifact, /cache にも直接書ける/);
   // 経路ごとに、何で閉じるか・閉じないかを書き分ける（閉じない経路まで閉じたように書かない）。
   assert.match(artifact, /入力で指定したブランチのコード: ブランチを run の ref で選べば（手順 2）閉じる/);
-  assert.match(artifact, /同じジョブで動くバックエンドのコード（手順 3）: 閉じない/);
-  assert.match(artifact, /固定した依存[^:]*: 閉じない/);
+  assert.match(artifact, /同じジョブで動くバックエンドのコード（手順 3）: cache の印は `cache-mode: read` で閉じる（手順 2 の前提の下で）。\s*成果物の印は閉じない/);
+  assert.match(artifact, /固定した依存[^:]*: cache の印は `cache-mode: read` で閉じる\s*（手順 2 の前提の下で）。成果物の印は閉じない/);
+  // 今回の組の印は、テストの合否を左右して mark に付けさせられる。
+  assert.match(artifact, /今回の組の印は、テストの合否を左右して `mark` に付けさせられる/);
   assert.match(artifact, /ほかのワークフロー[\s\S]*?: 閉じない/);
   // PR やコメントを起点に動く run は、cache-mode を書かなければ既定ブランチの cache を読むだけ。
   assert.match(artifact, /既定では読むだけで、`cache-mode: write`/);
@@ -130,6 +132,14 @@ test("CI の手引きは、流したかの印の 2 つの付け方と、それ�
   assert.match(markJob, /if: .*needs\.e2e\.outputs\.ran == 'true'/);
   assert.match(markJob, /permissions: \{\}/);
   assert.match(markJob, /actions\/cache\/save/);
+  assert.match(markJob, /cache-mode: write-only/);
+  assert.match(skeleton, /\ncache-mode: read\b/);
+  // mark 以外のどのジョブにも cache の書き込みを許さない（引用符で囲んだ書き方も見る）。
+  const jobs = skeleton.slice(skeleton.indexOf("\njobs:")).split(/\n {2}(?=[a-z0-9-]+:\n)/).slice(1);
+  assert.deepEqual(jobs.map((text) => text.split(":")[0]), ["e2e", "mark"]);
+  for (const job of jobs.filter((text) => !text.startsWith("mark:"))) {
+    assert.doesNotMatch(job, /cache-mode:\s*["']?write/, job.split("\n")[0]);
+  }
   assert.doesNotMatch(markJob, /actions\/checkout/);
   // 値は run: に式で埋めず env で渡す。
   assert.doesNotMatch(markJob, /run: .*\$\{\{/);
@@ -141,9 +151,21 @@ test("CI の手引きは、別のブランチのコードを流せる作りの�
   // 第一の対策は run の ref で選ぶこと。
   assert.match(bulletOf(cache, "**ブランチは入力でなく、run の ref で選ぶ。**"), /gh workflow run --ref/);
   // 読むだけは、うっかりの保存を防ぐだけで、悪意のあるコードは防げない。
-  assert.match(bulletOf(cache, "**読むだけにしても、悪意のあるコードは防げない。**"), /直接書ける/);
+  assert.match(bulletOf(cache, "**`cache-mode` を書かないと、読むだけにしても悪意のあるコードは防げない。**"), /直接書ける/);
   assert.match(bulletOf(cache, "**Environment の制限が効かない。**"), /required reviewers/);
   assert.match(bulletOf(cache, "**印を付けない。**"), /流していない\s*既定ブランチの組に印が付く/);
+  // cache-mode で cache に書けるジョブを mark に限る。
+  const mode = bulletOf(cache, "どちらの作りでも、`cache-mode` で cache に書けるジョブを限る。");
+  assert.match(mode, /`cache-mode: read`/);
+  assert.match(mode, /`cache-mode: write-only`/);
+  // 確かなこと（トークンで強制）と推論（action を通さない書き込み）を分け、前提・防げないこと・確かめ方を書く。
+  const modeBlock = cache.slice(cache.indexOf("どちらの作りでも、`cache-mode` で cache に書けるジョブを限る。"), cache.indexOf("- どちらの作りでも、依存のキャッシュ"));
+  assert.match(modeBlock, /確かなこと: [^\n]*強制される/);
+  assert.match(modeBlock, /推論にとどまること:[\s\S]*明記\s*していない/);
+  assert.match(modeBlock, /前提: GitHub がホストする runner か、ジョブごとに捨てる runner/);
+  assert.match(modeBlock, /ほかのワークフローを起動できる権限/);
+  assert.match(modeBlock, /防げないこと: [\s\S]*今回の組の印を付けさせられる/);
+  assert.match(modeBlock, /`gh cache list`/);
   assert.match(cache, /actions\/cache\/restore/);
   // setup-node は cache: を書かなくても保存することがある。
   assert.match(cache, /package-manager-cache: false/);

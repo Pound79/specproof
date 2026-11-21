@@ -69,8 +69,12 @@ test("CI の手引きは、バックエンドのブランチを入力で選ぶ�
   assert.match(section, /バックエンドを読めなくても/);
   assert.match(section, /公開のときを含む）は、この型を使わない/);
   assert.match(section, /入力で選んだブランチのコード」として扱う/);
-  assert.match(section, /cache と成果物に書ける/);
-  assert.match(section, /ジョブを分けても、これは防げない/);
+  assert.match(section, /既定ブランチの範囲の成果物に書ける/);
+  assert.match(section, /`cache-mode: read` を付ければ、そのトークンでは書けないと読める/);
+  assert.doesNotMatch(fetchJob, /cache-mode:\s*["']?write/);
+  assert.doesNotMatch(e2eJob, /cache-mode:\s*["']?write/);
+  assert.match(yaml, /\ncache-mode: read\b/);
+  assert.match(section, /ジョブを分けても、成果物への書き込みは\s*防げない/);
   assert.match(section, /`e2e` に secrets・`environment:`・書き込みの `permissions` を足さない/);
   assert.match(section, /信頼が要るジョブ[^。]*この成果物を受け取らない/);
   assert.match(section, /`needs: \[fetch-backend, e2e\]`/);

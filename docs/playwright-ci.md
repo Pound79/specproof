@@ -31,20 +31,25 @@ PR の head を checkout して秘密と一緒に動かさない。`schedule` �
     `${{ !cancelled() && needs.e2e.outputs.ran == 'true' && (needs.e2e.result == 'success' || needs.e2e.result == 'failure') }}`
     にする。ジョブの `if:` に `!cancelled()` などの状態の関数が無いと `success()` が暗黙に付き、落ちた回に付かない。
     取り消された run と、テストを始める前（起動など）で落ちた run には付けない
-- 印は費用を省くためのもので、合否の証拠ではない。cache は既定ブランチで動くほかのワークフローからも書けるので、
-  信頼する根拠にしない。印が消えた（使われないまま期限が切れた等）ときは流し直すだけなので安全側に倒れる
+- 印は費用を省くためのもので、合否の証拠ではない。cache は既定ブランチで動くほかのワークフロー（`cache-mode` で
+  書き込みを止めていないもの。`push`・`schedule`・`workflow_dispatch` などで書いていないものと、`cache-mode: write` を
+  書いたもの）からも書けるので、信頼する根拠にしない。印が消えた（使われないまま期限が切れた等）ときは流し直す
+  だけなので安全側に倒れる
 - 成果物の名前を印にしない。成果物はブランチを問わずリポジトリの一覧に並び、PR の run からも同じ名前で置けるので、
   検査を飛ばす印を偽造できる。印を作った run のブランチ（`workflow_run.head_branch` など）で絞っても足りない。
   fork の PR の run のブランチ名は fork の側の名前で、既定ブランチと同じ名前にもできる。
   一覧の API が返す `workflow_run.head_repository_id` が自分のリポジトリであることでも絞れば、fork と別のブランチの
   run は外せる（`workflow_run` が null の成果物を外し忘れると、そこから通る）。それでも、既定ブランチの run の中で
-  動くコードは、その run の実行時のトークンで既定ブランチの組の名前の成果物を置ける。どれも cache にも直接書ける
-  （手順 2）ので、cache にしても閉じない。経路ごとの扱い:
+  動くコードは、その run の実行時のトークンで既定ブランチの組の名前の成果物を置ける。`cache-mode` を書かなければ、
+  どれも cache にも直接書ける（手順 2）。テストを流すジョブを `cache-mode: read` にし、印を保存する `mark` だけを
+  `cache-mode: write-only` にすると（手順 2・骨組み）、テストを流すジョブのトークンでは cache に書けないと読める
+  （手順 2 の `cache-mode` の項の前提の下で。今回の組の印は、テストの合否を左右して `mark` に付けさせられる）。
+  成果物には書けるままなので、成果物の印は閉じない。経路ごとの扱い:
   - 手順 2 の入力で指定したブランチのコード: ブランチを run の ref で選べば（手順 2）閉じる
-  - 同じジョブで動くバックエンドのコード（手順 3）: 閉じない。バックエンドの SHA を取るブランチを保護された
-    ブランチに限り、そこにあるコードを信頼する前提を置く
-  - 固定した依存（install の script・ビルドのツール・compose のイメージ）: 閉じない。lockfile やダイジェストで
-    固定しても、中身はレビューしていないコード
+  - 同じジョブで動くバックエンドのコード（手順 3）: cache の印は `cache-mode: read` で閉じる（手順 2 の前提の下で）。
+    成果物の印は閉じない
+  - 固定した依存（install の script・ビルドのツール・compose のイメージ）: cache の印は `cache-mode: read` で閉じる
+    （手順 2 の前提の下で）。成果物の印は閉じない（lockfile やダイジェストで固定しても、中身はレビューしていないコード）
   - 既定ブランチの範囲で動くほかのワークフローと、使い回す self-hosted の runner に前のジョブが残したもの: 閉じない。
     `push`・`schedule`・`workflow_dispatch` などの run は、`cache-mode` を書かなければ既定ブランチの
     範囲の cache に書ける。`pull_request_target`・`issue_comment`・`workflow_run` のように PR やコメントを起点に
@@ -52,10 +57,10 @@ PR の head を checkout して秘密と一緒に動かさない。`schedule` �
     dependency caching の docs）。成果物の絞り込みを抜けるかは、イベントと run の属性による。未信頼のコードを
     動かしていないかを確かめる
   - checkout しない `mark` ジョブ（手順 2）は、保存の手順（印のファイル・環境・PATH）を書き換えさせないための
-    もので、上の経路は閉じない
-  - だから印は、どちらにしても合否の証拠にしない（費用を省くためのもの）。そのうえで cache を使うのは、読める
-    範囲を GitHub がブランチごとに分けるので絞り込みを自分で書かずに済み（書き誤りで開かない）、一覧を読む
-    `actions: read` の権限も要らないから
+    もので、それだけでは上の経路は閉じない。`cache-mode: write-only` を付けるのはこのジョブだけにする
+  - ほかのワークフローの経路が残るので、印はどちらにしても合否の証拠にしない（費用を省くためのもの）。そのうえで
+    cache を使うのは、読める範囲を GitHub がブランチごとに分けるので絞り込みを自分で書かずに済み（書き誤りで
+    開かない）、一覧を読む `actions: read` の権限も要らず、`cache-mode` で書けるジョブを `mark` に限れるから
   - 成果物の名前の印から cache の印に切り替えるときは、印の成果物を上げる手順を消す。cache にはまだ印が無いので、
     切り替えた後の最初の回は変更が無くても流れる。古い印の成果物は読まなくなるので、保持の期限で消えるのを待つか、
     手で（画面か `gh api`）消す。消すためにワークフローへ `actions: write` を足さない。印を読むためだけに付けていた
@@ -76,10 +81,11 @@ PR の head を checkout して秘密と一緒に動かさない。`schedule` �
   （Actions の画面の「Use workflow from」、または `gh workflow run --ref <branch>`）。run の ref がそのブランチになるので、
   保存した cache はそのブランチの範囲に入り、手順 3 の Environment の制限（使えるブランチを既定ブランチに限る）も効く
 - 入力でブランチを指定する作りにするなら、次を前提にする。
-  - **読むだけにしても、悪意のあるコードは防げない。** 同じジョブで動くコードは、cache の action を通さずに、
-    ジョブの実行時のトークンで cache に直接書ける。読むだけにするのは、うっかり保存しないための手段。
-    既定ブランチやリリースのブランチの CI（特にリリースのビルド）は、cache から復元した依存を信じない
-    （`npm ci` のように lockfile から作り直す）
+  - **`cache-mode` を書かないと、読むだけにしても悪意のあるコードは防げない。** `cache-mode` を書かないと、
+    `workflow_dispatch` の run の同じジョブで動くコードは、cache の action を通さずに、ジョブの実行時のトークンで
+    cache に直接書ける。cache の action を読むだけにするのは、うっかり保存しないための手段。下の `cache-mode: read`
+    を付ける。そのうえで、既定ブランチやリリースのブランチの CI（特にリリースのビルド）は、cache から復元した依存を
+    信じない（`npm ci` のように lockfile から作り直す）
   - **Environment の制限が効かない。** run の ref は既定ブランチなので、App の秘密鍵を含む秘密がそのジョブに入り、
     ブランチのコードから読める。Environment に承認する人（required reviewers）を付けるか、選べるブランチを
     保護されたブランチに限る
@@ -87,6 +93,25 @@ PR の head を checkout して秘密と一緒に動かさない。`schedule` �
     既定ブランチの組に印が付く。`mark` の `if:` に入力が空であることを足す
   - 入力のブランチ名は `run:` に `${{ }}` で埋めず、`env:` で渡して `git check-ref-format --branch` で確かめ、
     SHA に解決してから checkout する
+- どちらの作りでも、`cache-mode` で cache に書けるジョブを限る。ワークフローの最上位に `cache-mode: read` を書き、
+  印を保存する `mark` ジョブにだけ `cache-mode: write-only` を書く（下の骨組み）。書かないと、`schedule`・
+  `workflow_dispatch`・`push` の run は既定ブランチの範囲の cache に書ける。
+  - 確かなこと: `cache-mode` は、ジョブのトークンが持つ cache の権限として強制される（GitHub の dependency caching
+    の docs）。cache の action による保存は、`read` のジョブでは行われない
+  - 推論にとどまること: cache の action を通さない書き込みも、同じトークンを使うので止まると読めるが、docs は明記
+    していない。下の読むだけにすることと、依存を作り直すことも続ける
+  - 前提: GitHub がホストする runner か、ジョブごとに捨てる runner であること（使い回す self-hosted の runner では、
+    前のジョブが残したものが `mark` のトークンを使える）。テストを流すジョブのトークン（`GITHUB_TOKEN`・App・
+    個人のトークン）に、ほかのワークフローを起動できる権限（`actions: write`・`contents: write` など）が無いこと
+    （`cache-mode` を書いていないワークフローを起動されると、そちらが書く）。テストを流すジョブを再利用ワークフローに
+    切り出すときの効き方は確かめていないので、呼ばれる側にも `cache-mode: read` を書く
+  - 防げないこと: `mark` は受け取ったキーを保存する。キーをテストを流すジョブから受け取ると、そのジョブのコードは
+    テストを流さずに通すことで今回の組の印を付けさせられる（runner の上でジョブの出力を書き換えられれば、形の合う
+    ほかの組の印も付けさせ得る）。下の骨組みは、キーを `e2e` から受け取る簡易な形。キーは、未信頼のコードを動かさない
+    ジョブ（SHA を解決する
+    だけのジョブなど。手順 3 の型の `fetch-backend`）から受け取ると、ほかの組の印を付けさせる経路は狭まる
+  - 確かめ方: テストを流すジョブから保存を試し、`gh cache list` に入っていないことを見る。`actions/cache/save` は
+    失敗しても警告だけでジョブは成功するので、ジョブが緑であることは確かめたことにならない
 - どちらの作りでも、依存のキャッシュ（`node_modules`・npm のキャッシュ・ブラウザのバイナリ）は
   `actions/cache/restore` で読むだけにする。`actions/cache` と、`actions/setup-node` などの `cache:` 入力は、
   ジョブの終わりに保存もするので使わない。`actions/setup-node` は v6 から、`package.json` の `packageManager`
@@ -128,6 +153,8 @@ on:
 
 permissions:
   contents: read
+
+cache-mode: read # cache には読むだけ。印を保存する mark だけが書く（手順 2）
 
 concurrency:
   group: e2e
@@ -186,9 +213,10 @@ jobs:
     if: ${{ needs.e2e.result == 'success' && needs.e2e.outputs.ran == 'true' }}
     runs-on: ubuntu-latest
     permissions: {} # cache の保存は実行時のトークンで行うので、GITHUB_TOKEN の権限は要らない
+    cache-mode: write-only # cache に書くのはこのジョブだけ
     steps:
       - env:
-          KEY: ${{ needs.e2e.outputs.key }}
+          KEY: ${{ needs.e2e.outputs.key }} # e2e から受け取る簡易な形（手順 2 の「防げないこと」）
         run: |
           [[ "$KEY" =~ ^e2e-[0-9a-f]{40}-[0-9a-f]{40}$ ]] || exit 1
           echo "$KEY" > .e2e-marker
@@ -224,16 +252,19 @@ ref にしか効かないので、これを防がない。
   取り出せる。どちらかを許せないとき（画面のリポジトリが公開のときを含む）は、この型を使わない。`retention-days` は
   短くする（それでも、その間は取れる）
 - `e2e` は、受け取った中身を「入力で選んだブランチのコード」として扱う。秘密を持たないので鍵は読まれないが、run の
-  ref は既定ブランチなので、そのコードは実行時のトークンで既定ブランチの範囲の cache と成果物に書ける（手順 2 の
-  「読むだけにしても、悪意のあるコードは防げない」）。ジョブを分けても、これは防げない。入力を変えた回に印を
-  付けないのは、うっかり付けないための手段で、偽の印を書かれることは防げない（印は合否の証拠にしない。手順 1）
+  ref は既定ブランチなので、そのコードは実行時のトークンで既定ブランチの範囲の成果物に書ける。cache には、
+  付けなければ書ける。`cache-mode: read` を付ければ、そのトークンでは書けないと読める（手順 2 の `cache-mode` の
+  項の前提の下で）。ジョブを分けても、成果物への書き込みは
+  防げない。入力を変えた回に印を付けないのは、うっかり付けないための手段で、`cache-mode` を付けていなければ、偽の
+  印を書かれることは防げない（印は合否の証拠にしない。手順 1）
 - `e2e` に secrets・`environment:`・書き込みの `permissions` を足さない。足すと、この型の前提が崩れる。バックエンドの
   ビルドに非公開の依存が要るなら、バックエンドのコードを動かさずに取れるときだけ、`fetch-backend` で取って tar に
   入れる。取れないなら、この型は使えない
 - 秘密や信頼が要るジョブ（`fetch-backend`・印の `mark`）は、この成果物を受け取らない（`e2e` のコードは、同じ名前の
   成果物を差し替えられる）
 - 印を付けるなら、骨組みの `mark` を `needs: [fetch-backend, e2e]` にし、キーを `github.sha` と
-  `needs.fetch-backend.outputs.backend` から作り、`if:` に `inputs.backend-branch == ''` を足す
+  `needs.fetch-backend.outputs.backend` から作り、`if:` に `inputs.backend-branch == ''` を足す（`mark` だけを
+  `cache-mode: write-only` にするのは骨組みと同じ）
 
 ```yaml
 # バックエンドのブランチを入力で選ぶ型。<...> は自分の値に、各 action はコミットの SHA に固定して使う。
@@ -247,6 +278,8 @@ on:
         default: "" # 空は既定ブランチ
 
 permissions: {}
+
+cache-mode: read # fetch-backend は cache を使わない。e2e は読むだけ
 
 concurrency:
   group: e2e

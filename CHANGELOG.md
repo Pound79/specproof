@@ -148,6 +148,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ログインせずに実行する project には、ログイン前の画面を確かめる feature だけを足す。skill の feature の
   登録手順も同じ書き方に揃えた。
 
+- Playwright の CI の手引き（`docs/playwright-ci.md`）で、`cache-mode` で cache に書けるジョブを限るようにした。
+  骨組みはワークフローの最上位を `cache-mode: read` にし、印を保存する `mark` だけを `cache-mode: write-only` に
+  する（手順 2 にも書いた）。`cache-mode` はジョブのトークンが持つ cache の権限として強制される（GitHub の docs）
+  ので、テストを流すジョブのトークンでは cache の印を書けないと読める。手順 2 に、確かなことと推論にとどまること、
+  前提（使い捨ての runner、ワークフローを起動できる権限が無いこと）、防げないこと（キーをテストのジョブから受け
+  取ると今回の組の印は付けさせられる）、確かめ方（`gh cache list`）を書いた。
+  これに合わせて、手順 1 の成果物の印の項（cache の印は手順 2 の前提の下でこの経路を閉じる。成果物の印は閉じない）、手順 2 の
+  「読むだけにしても防げない」（`cache-mode` が無いときの話にした）、手順 3 のバックエンドのブランチを入力で選ぶ型を
+  直した。cache の action を通さない書き込みは docs に明記が無いので、依存を作り直すなどの重ねた守りは残す。
+
 - Playwright の CI の手引き（`docs/playwright-ci.md`）の「成果物の名前を印にしない」に、
   `workflow_run.head_repository_id` でも絞った後に残る経路（既定ブランチの run の中で動く、入力で指定したブランチや
   バックエンドのコード、固定した依存、既定ブランチで動くほかのワークフロー）と、それが cache の印にも当てはまることを
