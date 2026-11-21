@@ -145,7 +145,7 @@ exec ${shellQuote(gitPath)} "$@"
       assert.ok(!files.includes("unrelated.txt"), files.join(", "));
     },
     assertSnapshotRetained(stderr) {
-      // mktemp の既定置場は OS ごとに違うため、復旧案内の実際の場所を検証する。
+      // 置き場は実行時の TMPDIR で決まるため、復旧案内に出た実際の場所を検証する。
       const match = stderr.match(/スナップショットを保持しています: (.+)$/m);
       assert.ok(match, stderr);
       const snapshot = match[1];

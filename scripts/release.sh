@@ -187,7 +187,13 @@ for p in packages/*/package.json; do
   [ -e "$p" ] && RELEASE_FILES+=("$p")
 done
 
-SNAP_DIR="$(mktemp -d)"
+# macOS の mktemp -d は TMPDIR を見ないことがあるので、TMPDIR があればテンプレートで置き場を明示する。
+# 無ければ mktemp の既定（macOS では利用者ごとの一時ディレクトリ）に任せ、共有の /tmp に落とさない。
+if [ -n "${TMPDIR:-}" ]; then
+  SNAP_DIR="$(mktemp -d "${TMPDIR%/}/specproof-release.XXXXXXXX")"
+else
+  SNAP_DIR="$(mktemp -d)"
+fi
 SNAPSHOT_TAKEN=false
 MUTATION_FINALIZED=false
 STAGING_STARTED=false

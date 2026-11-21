@@ -9,7 +9,7 @@ const gitPath = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
 const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 const source = readFileSync(new URL("./release.sh", import.meta.url), "utf8");
 // 製品の snapshot / rollback / EXIT trap をそのまま実行する。公開操作は含めない。
-const start = source.indexOf('SNAP_DIR="$(mktemp -d)"');
+const start = source.indexOf('if [ -n "${TMPDIR:-}" ]; then');
 const end = source.indexOf("# --- mutate: bump versions", start);
 assert.ok(start >= 0 && end > start);
 const safetyNet = source.slice(start, end);
@@ -63,7 +63,7 @@ ${options.locked ? "printf 'other owner\\n' > .git/index.lock" : ""}
 ${options.errexit === false ? "set +e" : ""}
 ${options.signal ? `kill -${options.signal} $$` : `exit ${options.status ?? 7}`}
 `);
-  const env = { ...process.env, PATH: `${path.join(root, "bin")}${path.delimiter}${process.env.PATH}`, TMPDIR: path.join(root, "scratch space"), FAIL_COMMAND: options.fail ?? "" };
+  const env = { ...process.env, PATH: `${path.join(root, "bin")}${path.delimiter}${process.env.PATH}`, TMPDIR: `${path.join(root, "scratch space")}/`, FAIL_COMMAND: options.fail ?? "" };
   return {
     run() {
       const result = spawnSync("bash", ["driver.sh"], { cwd: root, env, encoding: "utf8", timeout: 10_000 });
@@ -87,6 +87,8 @@ ${options.signal ? `kill -${options.signal} $$` : `exit ${options.status ?? 7}`}
       const match = stderr.match(/スナップショットを保持しています: (.+)$/m);
       assert.ok(match, stderr);
       const snapshot = match[1];
+      // 渡した TMPDIR（空白を含み、macOS の既定と同じく末尾が /）の下に作る。macOS の mktemp -d は TMPDIR を見ないことがある。
+      assert.equal(path.dirname(snapshot), path.join(root, "scratch space"), snapshot);
       assert.equal(readFileSync(path.join(snapshot, "CHANGELOG.md"), "utf8"), WORKING);
       assert.match(readFileSync(path.join(snapshot, "index.patch"), "utf8"), /index だけの変更/);
       const command = stderr.split("\n").find((line) => line.trimStart().startsWith("bash "));
