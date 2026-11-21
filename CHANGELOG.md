@@ -147,6 +147,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   レポートに書く。トレースを根拠にするときは、写すのを要求のメソッド・パス・状態コードに限る。
   反証レビューに渡す観点とレポートの自己点検も 6 項目にした。
 
+### Fixed
+
+- `scripts/release.sh` が失敗したときの復元に使うスナップショット（一時ディレクトリ）を、`TMPDIR` があれば
+  その下に作るようにした（無ければこれまでどおり `mktemp -d` の既定の場所）。macOS の `mktemp -d` は
+  テンプレートを渡さないと `TMPDIR` を見ないことがあり、`TMPDIR` を書ける場所に向けた sandbox の中では、
+  release 系と signal 系のテストがスナップショットを作れずに落ちていた。リリースの手順と、公開する
+  パッケージは変わらない。
+
 ## [0.7.0] - 2026-11-17
 
 ### Changed
