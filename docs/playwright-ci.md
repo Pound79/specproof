@@ -45,9 +45,11 @@ PR の head を checkout して秘密と一緒に動かさない。`schedule` �
     ブランチに限り、そこにあるコードを信頼する前提を置く
   - 固定した依存（install の script・ビルドのツール・compose のイメージ）: 閉じない。lockfile やダイジェストで
     固定しても、中身はレビューしていないコード
-  - 既定ブランチの範囲で動くほかのワークフロー（`pull_request_target`・`issue_comment` など、PR やコメントを
-    起点に動くものを含む）と、使い回す self-hosted の runner に前のジョブが残したもの: 閉じない。cache には既定
-    ブランチの範囲で書ける（成果物の絞り込みを抜けるかは、イベントと run の属性による）。未信頼のコードを
+  - 既定ブランチの範囲で動くほかのワークフローと、使い回す self-hosted の runner に前のジョブが残したもの: 閉じない。
+    `push`・`schedule`・`workflow_dispatch` などの run は、`cache-mode` を書かなければ既定ブランチの
+    範囲の cache に書ける。`pull_request_target`・`issue_comment`・`workflow_run` のように PR やコメントを起点に
+    動く run は、既定では読むだけで、`cache-mode: write`（または `write-only`）を書いたときに書ける（GitHub の
+    dependency caching の docs）。成果物の絞り込みを抜けるかは、イベントと run の属性による。未信頼のコードを
     動かしていないかを確かめる
   - checkout しない `mark` ジョブ（手順 2）は、保存の手順（印のファイル・環境・PATH）を書き換えさせないための
     もので、上の経路は閉じない

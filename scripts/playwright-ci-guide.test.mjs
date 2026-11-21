@@ -99,6 +99,8 @@ test("CI の手引きは、流したかの印の 2 つの付け方と、それ�
   assert.match(artifact, /同じジョブで動くバックエンドのコード（手順 3）: 閉じない/);
   assert.match(artifact, /固定した依存[^:]*: 閉じない/);
   assert.match(artifact, /ほかのワークフロー[\s\S]*?: 閉じない/);
+  // PR やコメントを起点に動く run は、cache-mode を書かなければ既定ブランチの cache を読むだけ。
+  assert.match(artifact, /既定では読むだけで、`cache-mode: write`/);
   assert.match(artifact, /checkout しない `mark` ジョブ[^。]*上の経路は閉じない/);
   assert.match(artifact, /合否の証拠にしない/);
   // 移行: 印を置く手順を消し、最初の回は流れる。消すために actions: write を足さない。
