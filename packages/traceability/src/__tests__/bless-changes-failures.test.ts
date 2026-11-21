@@ -97,4 +97,19 @@ describe("--since-bless のまとめは git の失敗を意味のある値とし
     // コミットしていない変更の確認は続ける（HEAD の版と今の中身は違う）。
     expect(changes.uncommitted).toEqual([{ side: "impl", path: "src/a.ts", linkIds: ["perm"] }]);
   });
+
+  it("first-parent の列が上限で切れ、範囲の境界を確かめられないなら、打ち切ったとする", async () => {
+    // 列の長さの上限（20,000）ちょうどで、どれも bless した版の子孫（境界は列の外にある）。
+    const chain = Array.from({ length: 20_000 }, (_, i) => i.toString(16).padStart(40, "0"));
+    const git = fakeGit((args) => {
+      if (args[0] === "rev-list" && args.includes("--ancestry-path"))
+        return ok(`${chain.join("\n")}\n`);
+      if (args[0] === "rev-list") return ok(`${chain.join("\n")}\n`);
+      if (args[0] === "log") return ok(`${chain[0]}\u001fNewer (#2)\n`);
+      if (args[0] === "show") return ok("export const a = 1;\n");
+      return fail(128);
+    });
+    const changes = await groupChangesSinceBless(git, [entry], history, manifest);
+    expect(changes.incomplete).toBe(true);
+  });
 });

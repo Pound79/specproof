@@ -81,7 +81,9 @@ const classifyMissing = async (
     const parent = await git.run(["rev-parse", "--verify", "--quiet", "--end-of-options", rev]);
     if (!parent.ok) return parent.code === 1 ? null : FAILED;
   }
-  const listed = await git.run(["ls-tree", "-z", "--full-tree", rev, "--", searchPath]);
+  // `git show <rev>:./<path>` と同じく、作業ディレクトリ（設定のルート）からのパスで調べる（--full-tree にすると
+  // 設定のルートが git のサブディレクトリのとき、最上位の同じ名前のファイルを見てしまう）。
+  const listed = await git.run(["ls-tree", "-z", rev, "--", searchPath]);
   if (!listed.ok) return FAILED;
   return listed.stdout.split("\u0000").some((record) => record.endsWith(`\t${searchPath}`))
     ? FAILED
@@ -160,7 +162,9 @@ const rangeRevisions = async (
   const descendants = new Set(listed.stdout.split("\n").filter((line) => COMMIT_ID.test(line)));
   if (descendants.size === 0) return [];
   const oldest = [...chain].reverse().find((commit) => descendants.has(commit));
-  return oldest === undefined ? undefined : ["HEAD", "--not", `${oldest}^1`];
+  // 列が上限で切れていて、その末尾まで子孫なら、本当の境界は列の外にあるかもしれない（確かめられない）。
+  const truncatedAtOldest = chain.length >= RANK_LIMIT && oldest === chain.at(-1);
+  return oldest === undefined || truncatedAtOldest ? undefined : ["HEAD", "--not", `${oldest}^1`];
 };
 
 interface Range {
