@@ -29,7 +29,34 @@ test("implement の自己点検は、確かめたい経路を通ったかと、�
   const review = section("7. **独立 adversarial", "8. **");
   assert.match(review, /修正を戻したら落ちるか/);
   const report = section("## レポート様式", "## Safety rules");
-  assert.match(report, /6 項目/);
-  assert.doesNotMatch(report, /5 ?項目/);
+  assert.match(report, /7 項目/);
+  assert.match(report, /状態を使い切るシナリオ/);
+  assert.doesNotMatch(report, /[56] ?項目/);
   assert.match(report, /回帰（検知を確かめた／未確認: 理由）/);
+});
+
+test("状態を使い切るシナリオは、試行ごとに前提を作るか、前提を確かめて理由付きで止める", () => {
+  // 1 回目の実行で前提の状態（未読など）を消費するシナリオは、seed が run ごとに 1 回しか入らないと、
+  // CI の再試行で期待する要求が出ず、理由の分からない時間切れになる。
+  const guide = read("plugins/specproof/skills/specproof-sync/prompts/system.md");
+  const from = guide.indexOf("## ドラフトの点検");
+  const check = guide.slice(from, guide.indexOf("\n---", from));
+  // 生成ガイドでは、idiomGuide を設定していても読まれる「ドラフトの点検」の行に置き、提案だけにする。
+  const row = check.split("\n").find((line) => line.startsWith("| 統制できない前提 |")) ?? "";
+  assert.match(row, /操作で前提の状態を使い切る/);
+  assert.match(row, /試行ごとにその試行専用の状態を作る/);
+  assert.match(row, /ほかのシナリオと共有しない専用のデータを seed で作る/);
+  assert.match(row, /自己点検の 7/);
+  const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
+  const selfCheck = skill.slice(skill.indexOf("6. **gaming 自己点検"), skill.indexOf("7. **独立 adversarial"));
+  const item = selfCheck.slice(selfCheck.indexOf("7. **状態を使い切るシナリオ**"));
+  assert.ok(item.length > 0, "自己点検の 7 が無い");
+  assert.match(item, /試行ごとにその試行専用の状態を作るか戻すか/);
+  assert.match(item, /最初の試行の失敗を先に見る/);
+  assert.match(item, /確かめが無ければ本体に足して流し直す/);
+  // feature の変更は提案、共有の seed は blast radius に従って変えない。
+  assert.match(item, /escalation ① で提案する/);
+  assert.match(item, /blast radius に従い、範囲の外か共有の seed なら変えずに停止して提案する/);
+  const methodology = read("docs/methodology.md");
+  assert.match(methodology, /前提の状態を使い切るシナリオは、試行ごとに前提を作る/);
 });
