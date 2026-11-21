@@ -370,7 +370,8 @@ jobs:
 trace を中に含む）は含めない。
 
 ```yaml
-- if: ${{ failure() && inputs.branch == '' }} # 入力でブランチを指定する作りでなければ failure() だけ
+- if: ${{ failure() && inputs.branch == '' && inputs.backend-branch == '' }} # 手順 2・3 の入力がどれも空の回だけ
+  # 入力の名前は自分の作りに合わせる（無い入力は空として評価されるので、名前を誤ると常に通る）
   uses: actions/upload-artifact@<sha> # vX.Y.Z
   with:
     name: e2e-traces

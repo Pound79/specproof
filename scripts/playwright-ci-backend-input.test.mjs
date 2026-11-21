@@ -83,4 +83,9 @@ test("CI の手引きは、バックエンドのブランチを入力で選ぶ�
   assert.match(minimum, /そのジョブが出した SHA で\s*checkout/);
   assert.match(minimum, /完全に一致/);
   assert.match(minimum, /印を付けず、trace も上げない/);
+
+  // 手順 5 の trace の例も、バックエンドの入力が空の回だけに上げる（無い入力は空として評価される）。
+  const traceFrom = guide.indexOf("### 例外: 落ちた run の trace を短く残す");
+  const traceYaml = guide.slice(guide.indexOf("```yaml", traceFrom));
+  assert.match(traceYaml, /if: \$\{\{ failure\(\) && inputs\.branch == '' && inputs\.backend-branch == '' \}\}/);
 });
