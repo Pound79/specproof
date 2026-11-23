@@ -28,6 +28,7 @@ const BOOLEAN_OPTIONS = [
   "--since-bless",
   "--spec-sources",
   "--allow-head-mismatch",
+  "--include-tests",
 ];
 export type TraceabilityCommand = "check" | "update" | "list" | "stats";
 const COMMAND_OPTIONS: Record<TraceabilityCommand, readonly string[]> = {
@@ -39,6 +40,7 @@ const COMMAND_OPTIONS: Record<TraceabilityCommand, readonly string[]> = {
     "--github-annotations",
     "--since-bless",
     "--spec-sources",
+    "--include-tests",
   ],
   update: [
     "--manifest",

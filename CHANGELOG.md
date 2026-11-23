@@ -37,6 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   payload に入り `/_next/static/<id>/` のパスには出ないことを書き、どの確認を残すかの目安を足した。雛形のファイルは
   増やしていない。新しく `specproof init` した README にはこの例が入る。既存の利用者のファイルは変わらない。
 
+- 互換: `specproof-check` のテキスト出力と注釈（`--github-annotations`）は、テストや生成物に見えるファイル
+  （`*.test.*`・`*.spec.*`・`__tests__/`・`__mocks__/`・`*_test.dart`・`*.g.dart`・`*.freezed.dart`・`*.mocks.dart`）の
+  `unregistered-impl` を既定で一覧に出さず、件数と戻し方を 1 行で出す（注釈では 1 件の注釈）。先頭の件数のまとめもそれを除いて数える。
+  これまでどおり一覧に出すには `--include-tests` を付ける。`--json` の `warnings` と終了コードは変わらない。
+  `strictUnregisteredImpl: true` で `--strict` の失敗の理由になるときは、これまでどおり一覧に出す。
+- `specproof init` が置く `specproof.config.yaml` に、`layout.implExcludeGlobs` の典型（Playwright: `__tests__`・
+  `__mocks__`・`*.test.*`・`*.spec.*`、Flutter: `*_test.dart`・`*.g.dart`・`*.freezed.dart`・`*.mocks.dart`）を書く
+  ようにした。新しく init した設定だけが変わり、既存の設定は変わらない。
+
 ## [0.8.0] - 2026-11-21
 
 ### Added

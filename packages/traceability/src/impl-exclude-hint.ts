@@ -17,6 +17,68 @@ export const looksLikeTestOrGenerated = (relPath: string): boolean => {
 
 const HINT_THRESHOLD = 5;
 
+const isTestLikeImpl = (warning: DriftWarning): boolean =>
+  warning.kind === "unregistered-impl" &&
+  warning.path !== undefined &&
+  looksLikeTestOrGenerated(warning.path);
+
+/**
+ * テキスト出力の一覧から、テストや生成物に見える unregistered-impl を外す。数百件あると drift などの見るべき
+ * 出力が埋もれるため。--json と終了コードには使わない（呼び出し側がテキストと注釈にだけ使う）。
+ */
+export const withoutTestLikeImpl = (
+  warnings: DriftWarning[],
+): { listed: DriftWarning[]; hiddenCount: number } => {
+  const listed = warnings.filter((warning) => !isTestLikeImpl(warning));
+  return { listed, hiddenCount: warnings.length - listed.length };
+};
+
+export const describeHiddenTestLikeImpl = (
+  hiddenCount: number,
+  implExcludeGlobs: readonly string[] | undefined,
+): string | undefined => {
+  if (hiddenCount === 0) return undefined;
+  const config =
+    implExcludeGlobs === undefined
+      ? "set layout.implExcludeGlobs to stop counting them"
+      : "widen layout.implExcludeGlobs to stop counting them";
+  return `(${hiddenCount} unregistered-impl item(s) that look like tests or generated files are not listed; run with --include-tests to list them (--json always includes them), or ${config} — see docs/config-schema.md)`;
+};
+
+export interface TestLikeDisplay {
+  /** テキストと注釈の一覧に出す warning。 */
+  listed: DriftWarning[];
+  /** テキストの末尾に出す 1 行（外した件数か、設定の案内）。無ければ undefined。 */
+  line: string | undefined;
+  /** 注釈に足すもの（外した件数の 1 件）。同梱のワークフローは --json と使うのでテキストの行が PR に出ない。 */
+  annotations: { message: string }[];
+}
+
+/**
+ * check のテキストと注釈で、テストや生成物に見える unregistered-impl を一覧から外すかを決める。
+ * --include-tests のとき、または strictUnregisteredImpl で --strict の失敗の理由になるとき（外すと理由が
+ * 見えなくなる）は外さず、これまでどおり設定の案内だけを出す。
+ */
+export const selectTestLikeDisplay = (
+  warnings: DriftWarning[],
+  options: {
+    includeTests: boolean;
+    failsUnderStrict: boolean;
+    implExcludeGlobs: readonly string[] | undefined;
+  },
+): TestLikeDisplay => {
+  if (options.includeTests || options.failsUnderStrict) {
+    return {
+      listed: warnings,
+      line: describeImplExcludeHint(warnings, options.implExcludeGlobs),
+      annotations: [],
+    };
+  }
+  const { listed, hiddenCount } = withoutTestLikeImpl(warnings);
+  const line = describeHiddenTestLikeImpl(hiddenCount, options.implExcludeGlobs);
+  return { listed, line, annotations: line === undefined ? [] : [{ message: line }] };
+};
+
 export const describeImplExcludeHint = (
   warnings: DriftWarning[],
   implExcludeGlobs: readonly string[] | undefined,
