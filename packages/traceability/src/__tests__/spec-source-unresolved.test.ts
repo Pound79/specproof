@@ -173,6 +173,10 @@ describe("取り込み元を確かめられないときの spec-source-unresolve
     assert.equal(unresolved(warnings).length, 1);
     assert.match(warning.message, /0123456789ab/);
     assert.match(warning.message, /fetch/);
+    assert.equal(
+      text.split("\n").filter((line) => line.includes("spec-source-unresolved")).length,
+      1,
+    );
     assert.ok(!text.includes(base), text);
   });
 
