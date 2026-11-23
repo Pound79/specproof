@@ -60,3 +60,43 @@ test("状態を使い切るシナリオは、試行ごとに前提を作るか�
   const methodology = read("docs/methodology.md");
   assert.match(methodology, /前提の状態を使い切るシナリオは、試行ごとに前提を作る/);
 });
+
+test("状態を使い切るシナリオは、動詞でなく再び成り立つかで選び、印のガードの落とし穴を守る", () => {
+  // 削除・承認のような動詞で選ぶと、参加・通報・印を付ける更新・名前の変更が漏れる。印を早く残すと
+  // 通るはずの再試行を止め、再試行の番号を鍵にすると再試行から前の試行の印が見えない。
+  const skill = read("plugins/specproof/skills/specproof-implement/SKILL.md");
+  const selfCheck = skill.slice(skill.indexOf("6. **gaming 自己点検"), skill.indexOf("7. **独立 adversarial"));
+  const item = selfCheck.slice(selfCheck.indexOf("7. **状態を使い切るシナリオ**"));
+  assert.match(item, /同じシナリオがもう一度は成り立たないか/);
+  assert.match(item, /参加する、通報する、対応済みなどの印を付ける、名前や本文を変える/);
+  assert.match(item, /2 回目に時間切れで落ちるものも対象/);
+  assert.match(item, /自分で状態を戻すもの、毎回新しい値で作るもの、\s*要求が断られて何も変わらないもの/);
+  assert.match(item, /確定の操作（確認のダイアログの「削除する」など）の直前/);
+  assert.match(item, /`testInfo\.testId`/);
+  assert.match(item, /再試行の番号や行番号を鍵にしない/);
+  assert.match(item, /印のガードは 1 つまで/);
+  assert.match(item, /`--repeat-each`/);
+  assert.match(item, /シナリオ名と、seed を流し直すことを出す/);
+  assert.match(item, /印を消すのは seed の側（seed が成功した後）で、step では消さない/);
+  const readme = read("templates/playwright/README.md");
+  const from = readme.indexOf("### 状態を使い切るシナリオのガード");
+  assert.ok(from >= 0, "雛形の README にガードの節が無い");
+  const guide = readme.slice(from, readme.indexOf("\n---", from));
+  assert.match(guide, /guardSeedData/);
+  assert.match(guide, /testInfo\.testId/);
+  assert.match(guide, /titlePath\.slice\(1\)/);
+  assert.match(guide, /flag: "wx", mode: 0o600/);
+  assert.match(guide, /rm -rf -- "\$\{STATE_DIR:\?\}\/consumed"/);
+  assert.match(guide, /ガードは 1 つまで/);
+  assert.match(guide, /step や `globalSetup` では消さない/);
+  assert.match(guide, /複数の project/);
+  // rm の起点は、受け継いだ環境変数でなくスクリプトの場所から決める。
+  assert.match(guide, /STATE_DIR="\$\(cd -- "\$\(dirname -- "\$0"\)\/\.\." && pwd -P\)\/state"/);
+  assert.match(guide, /`state\/` を `\.gitignore` に足す/);
+  // ガードは操作より前に呼び、印を残すのは確定の操作の直前（ダイアログが出た後）。
+  assert.ok(guide.indexOf("guardSeedData($testInfo)") < guide.indexOf(".click()"));
+  assert.ok(guide.indexOf("toBeVisible") < guide.indexOf("guard.consume()"));
+  assert.ok(guide.indexOf("guard.consume()") < guide.indexOf('name: "削除する"'));
+  const methodology = read("docs/methodology.md");
+  assert.match(methodology, /「その操作の後、同じシナリオがもう一度は成り立たないか」/);
+});
