@@ -241,9 +241,49 @@ const get = async (
   }
 };
 
+// 手元（ループバック）か。E2E_PREFLIGHT_ALLOWED_HOSTS（カンマ区切りのホスト名）に書いたホストも許す
+// （docker compose のサービス名など、手元の使い捨ての環境だけを書く）。ポートは書かず、IPv6 は [::1] のように
+// 角括弧で書く（URL の hostname と同じ形で比べる）。
+const allowedHosts = new Set(
+  (process.env.E2E_PREFLIGHT_ALLOWED_HOSTS ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean),
+);
+const isLocalTarget = (url: URL): boolean => {
+  const host = url.hostname.toLowerCase();
+  return (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    host === "[::1]" ||
+    allowedHosts.has(host)
+  );
+};
+
 export default async function preflight(config: FullConfig): Promise<void> {
   const baseUrl = config.projects.find((project) => project.use.baseURL)?.use.baseURL;
   if (!baseUrl) throw new Error("preflight: baseURL is not set");
+
+  // 0. 画面と API の URL が手元を指しているか。E2E は書き込む（データを作る・消す）ので、環境変数の書き換えの
+  //    残りでステージングや本番を指したまま流さない。ほかの確認より先に、要求を 1 つも送る前に確かめる。
+  //    確かめるのはここに並べた URL だけ。seed やテストの中の API クライアントが別の環境変数から URL を読むなら、
+  //    その変数もここに足す。画面がビルドに埋め込んだ API の URL は、6（E2E_EXPECT_API_ORIGIN）で確かめる。
+  const projectBaseUrls = config.projects.flatMap((project, index) =>
+    project.use.baseURL ? [[`baseURL of project ${index}`, project.use.baseURL] as const] : [],
+  );
+  for (const [name, value] of [
+    ...projectBaseUrls,
+    ["E2E_API_HEALTH_URL", process.env.E2E_API_HEALTH_URL],
+    ["E2E_EXPECT_API_ORIGIN", process.env.E2E_EXPECT_API_ORIGIN],
+  ] as const) {
+    const url = value?.trim() && URL.canParse(value.trim()) ? new URL(value.trim()) : undefined;
+    // URL でない値は、その値を使う確認が値を写さずに止める。
+    if (!url || !["http:", "https:"].includes(url.protocol)) continue;
+    if (!isLocalTarget(url)) {
+      throw new Error(
+        `preflight: ${name} is not a local target (${url.origin}); ` +
+          "point it at localhost, or list a disposable local host in E2E_PREFLIGHT_ALLOWED_HOSTS",
+      );
+    }
+  }
 
   // 1. バックエンドが動いているか（認証の要らない URL 自身が 200 を返すか）。転送は追わない。追うと、
   //    認証の要る URL を指していてもログイン画面への転送先の 200 で通ってしまう。
@@ -279,6 +319,11 @@ export default async function preflight(config: FullConfig): Promise<void> {
 
   // 3. 画面が今のチェックアウトから作ったビルドで動いているか。ビルドの ID の置き場所は
   //    フレームワークごとに違うので、ビルドの出力にある ID が配信中の HTML に出るかで比べる例。
+  //    Next.js は本番用のビルド（next build）の .next/BUILD_ID を使う。App Router は ID を HTML の中の
+  //    RSC の payload（self.__next_f.push(...) のスクリプト）に入れ、/_next/static/<id>/ のパスには出さないので、
+  //    パスでなく HTML の全文から探す（Pages Router は __NEXT_DATA__ の buildId）。開発サーバ（next dev）の
+  //    画面には出ないので、この確認は本番用のビルドで流すときに使う。ほかのフレームワークでは、ビルドの
+  //    識別子（コミットなど）を HTML の meta などに出すようにして、それと比べる。
   const buildIdFile = process.env.E2E_WEB_BUILD_ID_FILE;
   if (buildIdFile) {
     const buildId = readFileSync(buildIdFile, "utf8").trim();
@@ -344,11 +389,20 @@ export default async function preflight(config: FullConfig): Promise<void> {
     if (probeUrl.origin !== app.origin || probeUrl.username || probeUrl.password) {
       throw new Error("preflight: E2E_API_PROBE_PATH must be a path on baseURL");
     }
-    await get(probeUrl.toString(), { timeoutMs: 120_000 }); // 開く画面も温める（開発モードの初回のコンパイル）
+    // 開く画面も温める（開発モードの初回のコンパイル）。転送は追わない（転送先が手元の外でも送らない）。
+    await get(probeUrl.toString(), { timeoutMs: 120_000, redirect: "manual" });
     const { chromium } = await import("@playwright/test"); // この確認を使うときだけブラウザを起動する
     const browser = await chromium.launch();
     try {
-      const page = await browser.newPage();
+      // Service Worker を経た要求は route を通らないので、Service Worker を使わせない。
+      const context = await browser.newContext({ serviceWorkers: "block" });
+      const page = await context.newPage();
+      // 画面が手元の外（解析のサービス、指し間違えた API など）へ送る要求は、送らずに止める。止めた
+      // 要求も "request" には出るので、下の行き先の一覧に残る。止まらないもの: WebSocket（止めるなら
+      // page.routeWebSocket）、手元の URL が返した転送の先（route は転送の最初の URL にだけ呼ばれる）。
+      await page.route("**/*", (route) =>
+        isLocalTarget(new URL(route.request().url())) ? route.continue() : route.abort("blockedbyclient"),
+      );
       const isFetch = (request: { resourceType(): string }) => ["fetch", "xhr"].includes(request.resourceType());
       const isApiCall = (request: { resourceType(): string; url(): string }) =>
         isFetch(request) && new URL(request.url()).origin === api.origin;
@@ -380,6 +434,62 @@ export default async function preflight(config: FullConfig): Promise<void> {
       await browser.close();
     }
   }
+
+  // 7. seed が書いたテスト用の JWT が、全件を流し終えるまで期限切れにならないか。途中で切れると、
+  //    後半のシナリオだけがばらばらに 401 や時間切れで落ちる。E2E_SEED_TOKENS_FILE に seed の出力（JSON）を、
+  //    E2E_RUN_BUDGET_MINUTES に全件の所要時間（分。再試行を含めて余裕を持たせる）を設定したときだけ確かめる。
+  //    署名は確かめない（期限を読むだけ）。トークンもその一部も、ログに写さない。
+  const tokensFile = process.env.E2E_SEED_TOKENS_FILE;
+  const rawBudget = process.env.E2E_RUN_BUDGET_MINUTES?.trim();
+  if (tokensFile && rawBudget) {
+    const budgetMinutes = Number(rawBudget);
+    if (!Number.isFinite(budgetMinutes) || budgetMinutes <= 0) {
+      throw new Error("preflight: E2E_RUN_BUDGET_MINUTES must be a positive number of minutes");
+    }
+    let seedOutput: unknown;
+    try {
+      seedOutput = JSON.parse(readFileSync(tokensFile, "utf8"));
+    } catch {
+      throw new Error("preflight: could not read the seed output in E2E_SEED_TOKENS_FILE (run the seed first)");
+    }
+    // 値のどこかにある JWT（3 つの base64url をつないだ文字列）の exp を集める。
+    const JWT = /^[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$/;
+    const expiries: number[] = [];
+    const visit = (value: unknown): void => {
+      if (typeof value === "string") {
+        const payload = JWT.exec(value)?.[1];
+        if (!payload) return;
+        let exp: unknown;
+        try {
+          ({ exp } = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { exp?: unknown });
+        } catch {
+          return; // JWT の形でも中身が JSON でなければ数えない（エラーの文は入力の一部を含むので捨てる）。
+        }
+        if (typeof exp !== "number") return;
+        // exp は秒。ミリ秒で入れる発行元だと遠い未来になって通ってしまうので、秒に見えなければ止める。
+        if (exp > 1e11) {
+          throw new Error("preflight: a seeded JWT has an exp claim that is not in seconds; check the token issuer");
+        }
+        expiries.push(exp * 1000);
+      } else if (Array.isArray(value)) {
+        value.forEach(visit);
+      } else if (value && typeof value === "object") {
+        Object.values(value).forEach(visit);
+      }
+    };
+    visit(seedOutput);
+    if (expiries.length === 0) {
+      throw new Error("preflight: no JWT with an exp claim was found in E2E_SEED_TOKENS_FILE");
+    }
+    const earliest = expiries.reduce((min, value) => Math.min(min, value), Number.POSITIVE_INFINITY);
+    const remainingMinutes = Math.floor((earliest - Date.now()) / 60_000);
+    if (remainingMinutes < budgetMinutes) {
+      throw new Error(
+        `preflight: a seeded JWT expires in ${remainingMinutes} minute(s), before the run budget of ${budgetMinutes} minute(s). ` +
+          "Re-run the seed (or issue longer-lived test tokens) and start again.",
+      );
+    }
+  }
 }
 ```
 
@@ -388,6 +498,18 @@ export default async function preflight(config: FullConfig): Promise<void> {
 
 5 と 6 は、1〜4 が通っても起きる崩れを拾う。どちらも変数を設定したときだけ動く。5 の上限は、
 温めた後の手元の値を見て決める（例: 500）。6 はブラウザ（chromium）を 1 回起動するので、ほかの確認より遅い。
+
+0 は常に動く。書き込む E2E を手元以外へ向けないための確認なので、外さない。ただし確かめるのは例に並べた
+URL（各 project の `baseURL` と、設定した `E2E_API_HEALTH_URL`・`E2E_EXPECT_API_ORIGIN`）だけで、画面が
+ビルドに埋め込んだ API の URL は 6 を使わないと確かめない。seed やテストの API クライアントが別の変数から
+URL を読むなら、その変数を 0 の一覧に足す。CI で docker compose の
+サービス名などを使うときは、そのホスト名だけを `E2E_PREFLIGHT_ALLOWED_HOSTS` に書く。共有のステージングや
+本番のホストは書かない。7 は、seed がテスト用のトークンを書く構成で使う（期限の無いトークンや、セッションの
+cookie だけの構成では要らない）。
+
+どれを残すかの目安: 0・1・4 はほぼどこでも使える（URL と上限を環境変数から読む）。7 は seed がトークンを
+書くとき。3 はフレームワークごとに置き場所が違う。5 は遅さで落ちたことがあるとき。6 は画面と API の origin が
+別のときだけ意味がある。
 
 ---
 
