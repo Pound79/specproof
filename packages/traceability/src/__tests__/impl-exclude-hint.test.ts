@@ -74,8 +74,9 @@ test("check のテキストにだけ案内を出し、--json には足さない"
         encoding: "utf8",
         timeout: 10_000,
       });
-    assert.match(run([]).stdout, /look like tests or generated files/);
-    assert.doesNotMatch(run(["--json"]).stdout, /look like tests/);
+    // 既定ではテストらしいものを一覧から外すので、この案内は一覧に出す --include-tests のときに出る。
+    assert.match(run(["--include-tests"]).stdout, /to keep them out of this list/);
+    assert.doesNotMatch(run(["--include-tests", "--json"]).stdout, /look like tests/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

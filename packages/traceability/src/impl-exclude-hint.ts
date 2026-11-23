@@ -17,6 +17,34 @@ export const looksLikeTestOrGenerated = (relPath: string): boolean => {
 
 const HINT_THRESHOLD = 5;
 
+const isTestLikeImpl = (warning: DriftWarning): boolean =>
+  warning.kind === "unregistered-impl" &&
+  warning.path !== undefined &&
+  looksLikeTestOrGenerated(warning.path);
+
+/**
+ * テキスト出力の一覧から、テストや生成物に見える unregistered-impl を外す。数百件あると drift などの見るべき
+ * 出力が埋もれるため。--json と終了コードには使わない（呼び出し側がテキストと注釈にだけ使う）。
+ */
+export const withoutTestLikeImpl = (
+  warnings: DriftWarning[],
+): { listed: DriftWarning[]; hiddenCount: number } => {
+  const listed = warnings.filter((warning) => !isTestLikeImpl(warning));
+  return { listed, hiddenCount: warnings.length - listed.length };
+};
+
+export const describeHiddenTestLikeImpl = (
+  hiddenCount: number,
+  implExcludeGlobs: readonly string[] | undefined,
+): string | undefined => {
+  if (hiddenCount === 0) return undefined;
+  const config =
+    implExcludeGlobs === undefined
+      ? "set layout.implExcludeGlobs to stop counting them"
+      : "widen layout.implExcludeGlobs to stop counting them";
+  return `(${hiddenCount} unregistered-impl item(s) that look like tests or generated files are not listed; run with --include-tests to list them (--json always includes them), or ${config} — see docs/config-schema.md)`;
+};
+
 export const describeImplExcludeHint = (
   warnings: DriftWarning[],
   implExcludeGlobs: readonly string[] | undefined,

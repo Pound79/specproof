@@ -198,6 +198,15 @@ always printed in full. When a capped kind goes past its limit, the text output
 adds one line per kind, such as
 `...and 681 more unregistered-impl (shown 20 of 701; run with --json for the full list)`.
 
+The text output and annotations also leave out `unregistered-impl` warnings
+for files that look like tests or generated files (`*.test.*`, `*.spec.*`,
+`__tests__/`, `__mocks__/`, `*_test.dart`, `*.g.dart`, `*.freezed.dart`,
+`*.mocks.dart`), and print one line with their count instead. Pass
+`--include-tests` to list them. `--json` and the exit code always include them,
+and they are listed whenever `strictUnregisteredImpl: true` makes them fail
+under `--strict`. To stop counting them at all, set `layout.implExcludeGlobs`
+(`specproof init` writes the usual globs for the detected framework).
+
 Because `unregistered-impl` / `unregistered-spec-heading` don't escalate
 under `--strict` without their opt-in flags, `check --json` annotates every
 entry in `warnings[]` with a `failsUnderStrict: boolean` — the effective
@@ -212,7 +221,7 @@ The text output also sorts the warnings into two groups and prints the group
 to fix first, under `To fix:` and then `For reference:`, after a one-line count
 such as `Warnings: 15 to fix (step-order 15); 30 for reference
 (unregistered-spec-heading 24, possible-contradiction 6)` (counted before the
-display caps). `To fix` holds every kind that fails under `--strict` with the
+display caps, after leaving out the test-like `unregistered-impl` above). `To fix` holds every kind that fails under `--strict` with the
 resolved config, plus the feature authoring mistakes (`missing-then`,
 `step-order`, `duplicate-scenario-name`, `duplicate-scenario`) even when they
 are `[advisory]`; `For reference` holds `unregistered-impl`,
@@ -386,7 +395,7 @@ methodology, config schema, and the adapter contract.
 
 | コマンド | 対応オプション |
 |---|---|
-| specproof-check | --root, --manifest, --strict, --json, --github-annotations, --since-bless, --spec-sources |
+| specproof-check | --root, --manifest, --strict, --json, --github-annotations, --since-bless, --spec-sources, --include-tests |
 | specproof-update | --root, --manifest, --link-id, --spec-ref, --dry-run, --record-spec-source, --allow-head-mismatch |
 | specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
 | specproof-stats | --root, --manifest, --strict, --json |

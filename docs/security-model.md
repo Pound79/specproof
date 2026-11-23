@@ -193,3 +193,9 @@ npm と Sigstore の仕組みで、specproof のコードではない。
   利用のため）、`layout.featuresDir` が無いので登録していない feature を見ないまま `--strict` を通す。
   同梱の drift-check のワークフローは、検査の前にリポジトリのルートの設定ファイルを確かめて止まる
 - manifest の hash の更新を含む PR では、spec・実装・feature の差分を人がレビューする
+
+`unregistered-impl` は、ファイル名の形だけで外れる。テストや生成物に見える名前（`*.test.*`・`*.spec.*` など）の
+ものは、テキスト出力と注釈の一覧に出さず件数だけを出す（`--json` と終了コードは変えない）。`layout.implExcludeGlobs`
+に当たるもの（`specproof init` は典型の glob を書く）は照合そのものから外れ、`strictUnregisteredImpl: true` でも
+`--strict` で落ちない。製品のコードをそうした名前で置けば登録の確かめを外せるので、`strictUnregisteredImpl` で
+固めるときは `implExcludeGlobs` の範囲を見直し、名前の変更は差分のレビューで見る。
