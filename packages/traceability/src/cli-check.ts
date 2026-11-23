@@ -35,11 +35,7 @@ import {
   describeChangesSinceBless,
 } from "./cli-check-changes-format.js";
 import { createGitRunner } from "./git-runner.js";
-import {
-  describeHiddenTestLikeImpl,
-  describeImplExcludeHint,
-  withoutTestLikeImpl,
-} from "./impl-exclude-hint.js";
+import { selectTestLikeDisplay } from "./impl-exclude-hint.js";
 import { loadManifest } from "./manifest.js";
 import { specSourceWarnings } from "./spec-source-warnings.js";
 import { checkSpecSources } from "./spec-sources.js";
@@ -85,11 +81,12 @@ const main = async (): Promise<void> => {
   };
   // テストや生成物に見える unregistered-impl は、テキストと注釈の一覧から既定で外す（--json と終了コードは
   // 変えない）。--strict で失敗の理由になる設定（strictUnregisteredImpl）なら、理由が見えなくなるので外さない。
-  const hideTestLike =
-    !flags.has("--include-tests") && !warningFailsUnderStrict("unregistered-impl", strictOptions);
-  const { listed: listedWarnings, hiddenCount: hiddenTestLike } = hideTestLike
-    ? withoutTestLikeImpl(report.warnings)
-    : { listed: report.warnings, hiddenCount: 0 };
+  const testLike = selectTestLikeDisplay(report.warnings, {
+    includeTests: flags.has("--include-tests"),
+    failsUnderStrict: warningFailsUnderStrict("unregistered-impl", strictOptions),
+    implExcludeGlobs: config.implExcludeGlobs,
+  });
+  const listedWarnings = testLike.listed;
   // 直すものを先に並べる（テキストと注釈の両方。GitHub は 1 step の注釈を 10 件までしか出さない）。
   const display = selectWarningsForDisplay(orderWarningsByGroup(listedWarnings, strictOptions));
   const shownWarnings = display.shown;
@@ -132,7 +129,6 @@ const main = async (): Promise<void> => {
     }
     // 一覧から外したテストらしい unregistered-impl の件数も 1 件の注釈にする（同梱のワークフローは --json と
     // 一緒に使うので、テキストの行は PR に出ない）。直すものの後、参考の前に置く。
-    const hiddenLine = describeHiddenTestLikeImpl(hiddenTestLike, config.implExcludeGlobs);
     const fixWarnings = shownWarnings.filter(
       (warning) => warningGroup(warning.kind, strictOptions) === "fix",
     );
@@ -142,7 +138,7 @@ const main = async (): Promise<void> => {
     for (const warning of [
       ...rootHint,
       ...fixWarnings,
-      ...(hiddenLine === undefined ? [] : [{ message: hiddenLine }]),
+      ...testLike.annotations,
       ...referenceWarnings,
     ]) {
       console.error(toGithubWarningAnnotation(warning));
@@ -290,9 +286,7 @@ const main = async (): Promise<void> => {
   }
 
   // 表示の上限で隠す前の全件で数える。一覧から外したときは、その件数の行が設定の案内も兼ねる。
-  const implExcludeHint = hideTestLike
-    ? describeHiddenTestLikeImpl(hiddenTestLike, config.implExcludeGlobs)
-    : describeImplExcludeHint(report.warnings, config.implExcludeGlobs);
+  const implExcludeHint = testLike.line;
   if (!flags.has("--json") && implExcludeHint !== undefined) {
     printText(implExcludeHint);
   }

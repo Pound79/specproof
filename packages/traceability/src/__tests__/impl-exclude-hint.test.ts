@@ -4,9 +4,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { test } from "vitest";
+import { describe, test } from "vitest";
 import type { DriftWarning } from "../check.js";
-import { describeImplExcludeHint, looksLikeTestOrGenerated } from "../impl-exclude-hint.js";
+import {
+  describeImplExcludeHint,
+  looksLikeTestOrGenerated,
+  selectTestLikeDisplay,
+} from "../impl-exclude-hint.js";
 
 // 版を上げて layout.implExcludeGlobs が使えるようになっても、設定に足さなければテストのファイルが
 // unregistered-impl に並び続ける。テストや生成物らしいファイルが多いときに、設定を 1 行で案内する。
@@ -109,4 +113,56 @@ test("長いパスでも照合が入力の長さに線形で終わる", () => {
   const started = performance.now();
   looksLikeTestOrGenerated(longPath);
   assert.ok(performance.now() - started < 200);
+});
+
+describe("selectTestLikeDisplay", () => {
+  const drift: DriftWarning = { kind: "unregistered-spec-heading", message: "x" };
+  const warnings = [...testLike.map(impl), impl("src/app.ts"), drift];
+  const base = { includeTests: false, failsUnderStrict: false, implExcludeGlobs: undefined };
+
+  test("既定では、テストらしい unregistered-impl だけを一覧から外し、件数を 1 行と 1 件の注釈で出す", () => {
+    const display = selectTestLikeDisplay(warnings, base);
+    assert.deepEqual(
+      display.listed.map((warning) => warning.path ?? warning.kind),
+      ["src/app.ts", drift.kind],
+    );
+    assert.match(display.line ?? "", /^\(5 unregistered-impl item\(s\) that look like tests/);
+    assert.match(display.line ?? "", /set layout\.implExcludeGlobs/);
+    assert.deepEqual(display.annotations, [{ message: display.line }]);
+    // 外す対象は unregistered-impl だけ（同じパスでもほかの種類は外さない）。
+    const other = { ...impl("src/a.test.ts"), kind: drift.kind };
+    assert.deepEqual(selectTestLikeDisplay([other], base).listed, [other]);
+  });
+
+  test("外すものが無ければ、行も注釈も出さない", () => {
+    const display = selectTestLikeDisplay([impl("src/app.ts")], base);
+    assert.equal(display.line, undefined);
+    assert.deepEqual(display.annotations, []);
+  });
+
+  test("implExcludeGlobs を設定済みなら、範囲を広げるよう案内する", () => {
+    const display = selectTestLikeDisplay(warnings, {
+      ...base,
+      implExcludeGlobs: ["**/__tests__/**"],
+    });
+    assert.match(display.line ?? "", /widen layout\.implExcludeGlobs/);
+  });
+
+  test("--include-tests か、--strict の失敗の理由になるときは外さず、これまでの案内だけを出す", () => {
+    for (const options of [
+      { ...base, includeTests: true },
+      { ...base, failsUnderStrict: true },
+    ]) {
+      const display = selectTestLikeDisplay(warnings, options);
+      assert.deepEqual(display.listed, warnings);
+      assert.match(display.line ?? "", /to keep them out of this list/);
+      assert.deepEqual(display.annotations, []);
+    }
+    const configured = selectTestLikeDisplay(warnings, {
+      ...base,
+      includeTests: true,
+      implExcludeGlobs: [],
+    });
+    assert.equal(configured.line, undefined);
+  });
 });
