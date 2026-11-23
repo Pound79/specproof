@@ -49,8 +49,13 @@ layout:
   # not fail CI); set strictUnregisteredImpl: true (top-level) to harden it.
   implGlobs:
     - "lib/**/*.dart"
-  # [optional] leave tests / non-behavior headings out of the advisories:
-  # implExcludeGlobs: ["**/*.g.dart"]
+  # [optional] leave tests / generated files out of "unregistered-impl":
+  implExcludeGlobs:
+    - "**/*_test.dart"
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.mocks.dart"
+  # [optional] leave non-behavior headings out of the advisories:
   # specHeadingIgnore: ["docs/glossary.md"]
   e2eReadme: "bdd_tests/README.md" # E2E package README; specproof-* skills link here
   i18nSource: lib/l10n/app_ja.arb

@@ -78,9 +78,13 @@ layout:
     # not fail CI); set strictUnregisteredImpl: true (top-level) to harden it.
     - "src/**/*.ts"
     - "src/**/*.tsx"
-  # [optional] files under implGlobs to leave out of "unregistered-impl" (e.g. tests)
-  # implExcludeGlobs:
-  #   - "**/__tests__/**"
+  # [optional] files under implGlobs to leave out of "unregistered-impl" (tests and mocks
+  # by default; add generated files your app keeps under implGlobs)
+  implExcludeGlobs:
+    - "**/__tests__/**"
+    - "**/__mocks__/**"
+    - "**/*.test.*"
+    - "**/*.spec.*"
   # [optional] spec files ("<path>") or headings ("<path>#<heading>") to leave out of
   # "unregistered-spec-heading" (role lists, glossaries, revision history)
   # specHeadingIgnore:

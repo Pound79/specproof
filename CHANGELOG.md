@@ -7,7 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `specSources[].ref` を、取り込み元に置かれた同じ名前のタグで乗っ取られないようにした。これまでは `ref` を短い
+  名前のまま git に渡していたため、git の名前の探索（`refs/tags/<名前>` が `refs/heads`・`refs/remotes` より先）で、
+  取り込み元に `origin/develop` などの名前のタグがあると、`specproof-update --record-spec-source` はタグのコミットを
+  記録し、`specproof-check --spec-sources` もタグのコミットと比べた（ブランチが先に進んでも `current` と言った）。
+  今は、commit id はそのコミット、`refs/` で始まる完全な名前はその ref だけ、それ以外は `refs/remotes/<ref>`、
+  `refs/heads/<ref>` の順に、名前が完全に一致する ref だけを読む。commit id（設定の `ref` と manifest の記録）は、
+  解決した id が書いた値（大文字は小文字にそろえる）と同じときだけ使う（リポジトリの形式と桁数が合わない hex は、git が名前として探して同じ
+  名前のタグを読むため）。`docs/config-schema.md` の、取り込みのコマンドを
+  `ref` から読む形にするときの手引きも、同じ決め方に直した（`rev-parse` に `<ref>` を直接渡さない）。
+
 ### Changed
+
+- 互換: `specSources[].ref` の短い名前は、タグとして解決しなくなった。短い名前のタグ（例: `ref: v1.2`）を使って
+  いた設定は、記録で「解決できない」として失敗し、check では `unavailable` として飛ばす。`ref: refs/tags/v1.2` と
+  書き換える。`HEAD`・短縮したコミット id・`heads/<名前>`・`tags/<名前>` の形も解決しなくなったので、ブランチの
+  名前・完全な ref 名・40 桁（64 桁）の commit id に書き換える。同じ短い名前でローカルのブランチ
+  （`refs/heads/<ref>`）とリモートのブランチ（`refs/remotes/<ref>`）が両方あるときは、これまでのローカルの
+  ブランチでなく、リモートのブランチを読む。記録で失敗したときのメッセージに、読んだ ref の名前と
+  タグの書き方を出す。
+
+- Playwright の雛形の README の「テストの前に環境を確かめる」の例に、0（画面と API の URL が手元（ループバック、
+  または `E2E_PREFLIGHT_ALLOWED_HOSTS` に書いたホスト）を指しているかを、要求を送る前に確かめる）と、7（seed が
+  書いた JWT の期限が、`E2E_RUN_BUDGET_MINUTES` の所要時間より前に切れないか）を足した。0 はどの project の
+  `baseURL` も確かめる。6 の行き先の確認のブラウザは、Service Worker を使わせず、手元の外への要求を送らずに
+  止め、開く画面を温める要求は転送を追わない（止まらないもの: WebSocket、手元の URL が返す転送の先）。3 に、Next.js の App Router ではビルド ID が HTML の中の RSC の
+  payload に入り `/_next/static/<id>/` のパスには出ないことを書き、どの確認を残すかの目安を足した。雛形のファイルは
+  増やしていない。新しく `specproof init` した README にはこの例が入る。既存の利用者のファイルは変わらない。
+
+- 互換: `specproof-check` のテキスト出力と注釈（`--github-annotations`）は、テストや生成物に見えるファイル
+  （`*.test.*`・`*.spec.*`・`__tests__/`・`__mocks__/`・`*_test.dart`・`*.g.dart`・`*.freezed.dart`・`*.mocks.dart`）の
+  `unregistered-impl` を既定で一覧に出さず、件数と戻し方を 1 行で出す（注釈では 1 件の注釈）。先頭の件数のまとめもそれを除いて数える。
+  これまでどおり一覧に出すには `--include-tests` を付ける。`--json` の `warnings` と終了コードは変わらない。
+  `strictUnregisteredImpl: true` で `--strict` の失敗の理由になるときは、これまでどおり一覧に出す。
+- `specproof init` が置く `specproof.config.yaml` に、`layout.implExcludeGlobs` の典型（Playwright: `__tests__`・
+  `__mocks__`・`*.test.*`・`*.spec.*`、Flutter: `*_test.dart`・`*.g.dart`・`*.freezed.dart`・`*.mocks.dart`）を書く
+  ようにした。新しく init した設定だけが変わり、既存の設定は変わらない。
 
 - specproof-implement の自己点検の 7（状態を使い切るシナリオ）に、対象の選び方（操作の動詞でなく「その操作の後、
   同じシナリオがもう一度は成り立たないか」。参加・通報・印を付ける更新・名前や本文を変える更新も当てはまり、
