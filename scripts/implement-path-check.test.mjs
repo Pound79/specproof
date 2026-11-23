@@ -70,7 +70,11 @@ test("状態を使い切るシナリオは、動詞でなく再び成り立つ�
   assert.match(item, /同じシナリオがもう一度は成り立たないか/);
   assert.match(item, /参加する、通報する、対応済みなどの印を付ける、名前や本文を変える/);
   assert.match(item, /2 回目に時間切れで落ちるものも対象/);
-  assert.match(item, /自分で状態を戻すもの、毎回新しい値で作るもの、\s*要求が断られて何も変わらないもの/);
+  assert.match(item, /毎回新しい値で作るもの、要求が断られて何も変わらないもの/);
+  // 最後の step で戻すだけのものは、途中で落ちると戻らず再試行の前提が崩れるので、対象外にしない。
+  assert.match(item, /失敗の経路を含めて、次の試行が前提を確かめる前に状態が戻ることを確かめたもの/);
+  assert.match(item, /最後の step で戻すだけのものは.*対象に残す/s);
+  assert.doesNotMatch(item, /対象外は、同じシナリオの中で自分で状態を戻すもの/);
   assert.match(item, /確定の操作（確認のダイアログの「削除する」など）の直前/);
   assert.match(item, /`testInfo\.testId`/);
   assert.match(item, /再試行の番号や行番号を鍵にしない/);
@@ -88,6 +92,8 @@ test("状態を使い切るシナリオは、動詞でなく再び成り立つ�
   assert.match(guide, /flag: "wx", mode: 0o600/);
   assert.match(guide, /rm -rf -- "\$\{STATE_DIR:\?\}\/consumed"/);
   assert.match(guide, /ガードは 1 つまで/);
+  assert.match(guide, /最後の step で戻すだけのものは.*対象に残す/s);
+  assert.doesNotMatch(guide, /中で自分で状態を戻すもの、毎回新しい値で作るもの/);
   assert.match(guide, /step や `globalSetup` では消さない/);
   assert.match(guide, /複数の project/);
   // rm の起点は、受け継いだ環境変数でなくスクリプトの場所から決める。
