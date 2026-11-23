@@ -39,14 +39,21 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 - **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（固定の
   引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` と、`specproof-update --record-spec-source`・
   `specproof-check --spec-sources` を付けたときの取り込み元のチェックアウトでの `git config --null --list`（部分 clone の
-  判定）/ `git rev-parse` / `git ls-tree` だけ。
+  判定）/ `git for-each-ref`（`ref` の完全な名前での引き当て）/ `git rev-parse` / `git ls-tree` だけ。
   `specSources[].importCommand` は実行しない。取り込み元の `repo` は設定の値でルートの外も指せるので、ルートの中に
   限る原則の例外になる。読むのは `<repo>/.git` が実体のディレクトリで、自分が持ち主で、`commondir` が無く、部分 clone
   （`extensions.partialClone`・`remote.*.promisor`）でないときだけで、`--git-dir` で明示して親のリポジトリや bare
   リポジトリを探させない。足りないオブジェクトを取りに行かせない防御は、部分 clone を読まないことと
   `GIT_NO_LAZY_FETCH=1` で、コマンドラインの `protocol.allow=never` と内蔵の transport ごとの `never` はその上に重ねる
   （リポジトリの設定の `protocol.<名前>.allow` に上書きされうるので、これだけには頼らない）。`GIT_NO_REPLACE_OBJECTS=1`
-  で差し替えを読まず、受け継いだ `GIT_DIR`・`GIT_CONFIG_*` などの環境変数を消す。`ref` は名前の形だけを受けて `--end-of-options` の後ろに置く。`--record-spec-source` は
+  で差し替えを読まず、受け継いだ `GIT_DIR`・`GIT_CONFIG_*` などの環境変数を消す。`ref` は名前の形だけを受けて `--end-of-options` の後ろに置く。
+  取り込み元に push できる人は、ブランチと同じ名前のタグを置ける（fetch は既定でタグも取ってくる）。git の名前の
+  探索はタグを先に読むので、`ref` は短い名前を探索に渡さず、`refs/remotes/<ref>`・`refs/heads/<ref>` の順に名前が
+  完全に一致する ref だけを `for-each-ref` で引く（タグは `refs/tags/` と書いたときだけ）。commit id は、解決した id
+  が書いた値（大文字は小文字にそろえる）と同じときだけ使う。大文字小文字を区別しないファイルシステム（macOS の既定など）の files backend では、
+  `Develop` のように大文字小文字だけが違うブランチの fetch が `refs/remotes/origin/develop` の loose ref を
+  上書きしうる。これは git の ref の保存の制約で、CLI では防げない（取り込み元を大文字小文字を区別するボリュームに
+  置くか、reftable backend にする）。`--record-spec-source` は
   固定の `HEAD` も同じ形で解決し、HEAD と `ref` で `paths` の中身が違えば記録しない（HEAD のコミットの id と違った
   `paths` を出力に出す）。それでも、その
   リポジトリの存在とコミットの id は出力に出るので、PR の CI では `--spec-sources` を付けない（既定では読まない）。

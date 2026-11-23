@@ -123,12 +123,20 @@ page object を持たない構成（`fixtures: {}`、または world・認証な
 specSources:
   - name: permissions                 # 必須。英数字と . _ -（manifest の記録の名前）
     repo: ../backend                  # 必須。取り込み元のチェックアウト（ルート相対か絶対）
-    ref: origin/develop               # 必須。比べる ref（ブランチ・タグ・リモートのブランチの名前）
+    ref: origin/develop               # 必須。比べる ref（リモートのブランチ・ブランチの名前、refs/ で始まる完全な名前、commit id）
     paths: [config/permissions]       # 任意。取り込み元の中で比べるパス（省略時はリポジトリ全体）
     specDir: docs/specs/permissions   # 任意。写した先（警告の場所と skill の案内に使う）
     importCommand: scripts/import-permissions.sh  # 任意。skill だけが読み、人の確認を得てから実行する
 ```
 
+- `ref` の解決: 40 桁（SHA-256 のリポジトリなら 64 桁）の commit id はそのコミットを使う（大文字でもよく、記録は小文字にそろえる。git は桁数がリポジトリの
+  形式と合わない hex を名前として探すので、解決した id が書いた値を小文字にしたものと同じときだけ使う。40・64 桁の
+  hex だけの名前のブランチは commit id として扱うので、`refs/heads/<名前>` と書く）。`refs/` で始まる完全な
+  名前はその ref だけを読む。それ以外の名前は `refs/remotes/<ref>`、`refs/heads/<ref>` の順に、名前が完全に
+  一致する ref だけを読み、どちらも無ければ解決できないものとして扱う。タグは `refs/tags/<名前>` と書いたときだけ
+  読み、短い名前をタグとして解決しない（git の名前の探索は `refs/tags/<名前>` を `refs/heads`・`refs/remotes` より
+  先に読むので、取り込み元に push できる人が同じ名前のタグを置くと、記録も比べもそのタグのコミットになる。fetch は
+  既定でタグも取ってくる）。`HEAD`・短縮したコミット id・`heads/<名前>`・`tags/<名前>` の形も解決しない
 - 記録: 取り込んだ後に `specproof-update --record-spec-source <name>` を実行すると、`repo` で `ref` が指すコミットを
   manifest の `specSources.<name>` に書く（hash は更新しない。`--dry-run` も使える）。記録するのは ref が指す
   コミットで、取り込みのコマンドが実際に写した中身を確かめるものではない。読んだ取り込み元の絶対パスを出すので、
@@ -151,8 +159,18 @@ specSources:
     `GIT_NO_REPLACE_OBJECTS=1` を付け、`-c protocol.allow=never` と内蔵の transport ごとの
     `-c protocol.<名前>.allow=never` を渡す（部分 clone の足りないオブジェクトを取りに行かせない。取りに行くと、
     取り込み元の設定に書かれたコマンドが動きうる）
-  - 最初に `rev-parse --verify <ref>^{commit}` でコミット id を 1 度だけ決め、以後はその id を使う（途中で ref が
-    動いても、ほかのコミットの中身を混ぜない）。その id を出力すると、記録した値と照らせる
+  - 最初にコミット id を 1 度だけ決め、以後はその id を使う（途中で ref が動いても、ほかのコミットの中身を混ぜない）。
+    その id を出力すると、記録した値と照らせる。決め方は CLI と同じ上の「`ref` の解決」にそろえ、`rev-parse` に
+    `<ref>` を直接渡さない（短い名前は同じ名前のタグが先に読まれ、`refs/remotes/<ref>` のような完全な名前も、
+    その ref が無ければ `refs/tags/refs/remotes/<ref>` などへ落ちる）。
+    - 短い名前: `git --git-dir="$repo/.git" for-each-ref --format='%(objectname) %(refname)' --
+      "refs/remotes/$ref" "refs/heads/$ref"` の出力から、`%(refname)` が候補の文字列と完全に一致する行を、
+      この順に選ぶ。名前は前方一致で当たる（`refs/remotes/origin/feat` で `refs/remotes/origin/feat/x` も出る）ので、
+      行の有無でなく ref 名の一致で選ぶ。一致する行が無くても終了コードは 0 なので、そのときは失敗にする
+    - `refs/` で始まる完全な名前: 同じ形で、その名前 1 つだけを引いて完全一致で選ぶ
+    - 選んだ id を `rev-parse --verify "$id^{commit}"` でコミットにする
+    - commit id（40・64 桁の hex。大文字小文字を区別せずに判定する）: 小文字にした値（`tr 'A-F' 'a-f'` など）を
+      `rev-parse --verify "$id^{commit}"` に渡し、返った id がその値と同じときだけ使う
   - `ls-tree -r -z <コミット id> -- <paths>` で mode も読み、通常のファイル（`100644`・`100755`）だけを写す。
     シンボリックリンク（`120000`）と submodule（`160000`）は写さない。パスに `..`・`.git`（大文字小文字を区別せずに比べる）・空の成分があれば、
     書き出す前に止める（細工した tree は、取り込み先の外を指すパスを持てる）
@@ -178,7 +196,7 @@ specSources:
   場所を読む設定は、この確かめでは防いでいない）。別のブランチの中身を写したいときは、worktree を作らず、上の
   ref から読む形にする。
   読むときは `--git-dir` で明示し、transport を禁じ、外部のプログラムを起動しない設定で `git config --null --list`
-  （部分 clone の判定）/ `git rev-parse` / `git ls-tree` だけを実行する。`paths` に `.` を含めばリポジトリ全体を比べる。`importCommand` は CLI では実行しない
+  （部分 clone の判定）/ `git for-each-ref`（`ref` の完全な名前での引き当て）/ `git rev-parse` / `git ls-tree` だけを実行する。`paths` に `.` を含めばリポジトリ全体を比べる。`importCommand` は CLI では実行しない
 - manifest の `specSources` は、名前も値も引用した `"<name>": "<commit>"` の形で書く（数値や真偽値に見える名前も
   文字列として扱う）
 
