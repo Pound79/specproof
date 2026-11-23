@@ -59,10 +59,27 @@ export const chromium = {
         clearInterval(keepAlive);
         console.log("browser closed");
       },
-      newPage: async () => {
+      newContext: async (options = {}) => {
+        console.log("context serviceWorkers=" + options.serviceWorkers);
+        return { newPage: newStubPage };
+      },
+      newPage: async () => newStubPage(),
+    };
+  },
+};
+
+const newStubPage = async () => {
         const listeners = [];
         const waiters = [];
+        let router;
         const emit = (request) => {
+          if (router) {
+            router({
+              request: () => request,
+              continue: async () => {},
+              abort: async () => console.log("aborted " + new URL(request.url()).origin),
+            });
+          }
           for (const listener of listeners) listener(request);
           for (const waiter of waiters) if (!waiter.done && waiter.predicate(request)) {
             waiter.done = true;
@@ -71,6 +88,7 @@ export const chromium = {
         };
         return {
           on: (event, listener) => { if (event === "request") listeners.push(listener); },
+          route: async (_pattern, handler) => { router = handler; },
           waitForRequest: (predicate, { timeout }) => new Promise((resolve, reject) => {
             const waiter = { predicate, resolve, done: false };
             waiters.push(waiter);
@@ -85,16 +103,13 @@ export const chromium = {
             return { ok: () => res.ok, status: () => res.status };
           },
         };
-      },
-    };
-  },
 };
 `;
 
 const runPreflight = async (
   healthStatus,
   healthLocation,
-  { healthDelayMs = 0, pageRequests = [], pageStatus = 200, env = {}, basePath = "", onlyPath } = {},
+  { healthDelayMs = 0, pageRequests = [], pageStatus = 200, env = {}, basePath = "", onlyPath, extraProjects = [] } = {},
 ) => {
   const server = createServer((req, res) => {
     if (req.url === "/health") {
@@ -122,7 +137,7 @@ const runPreflight = async (
   writeFileSync(path.join(dir, "node_modules", "@playwright", "test", "index.js"), BROWSER_STUB);
   writeFileSync(
     path.join(dir, "run.mjs"),
-    `import preflight from "./preflight.ts";\nawait preflight({ projects: [{ use: { baseURL: ${JSON.stringify(`${base}${basePath}`)} } }] });\nconsole.log("passed");\n`,
+    `import preflight from "./preflight.ts";\nawait preflight({ projects: ${JSON.stringify([{ use: { baseURL: `${base}${basePath}` } }, ...extraProjects])} });\nconsole.log("passed");\n`,
   );
   try {
     // spawnSync はイベントループを止めてサーバが応答できないので、非同期で起動する。
@@ -185,7 +200,7 @@ test("README の preflight の例は、上限を設定したときだけ、温�
   assert.match(invalid.out, /E2E_API_MAX_RESPONSE_MS must be a positive number/);
 });
 
-const API = "http://api.example.test:4000";
+const API = "http://api.localhost:4000";
 
 test("README の preflight の例は、画面が期待するバックエンドを呼んでいなければ止める", async () => {
   // ビルドに埋め込む API の URL が空のまま作ると、画面は自分自身に要求を送る。配信中のビルドは
@@ -195,7 +210,7 @@ test("README の preflight の例は、画面が期待するバックエンド�
     env: { E2E_EXPECT_API_ORIGIN: API },
   });
   assert.notEqual(self.code, 0, self.out);
-  assert.match(self.out, /preflight: the app did not call http:\/\/api\.example\.test:4000/);
+  assert.match(self.out, /preflight: the app did not call http:\/\/api\.localhost:4000/);
   assert.match(self.out, /fetch\/xhr went to: http:\/\/127\.0\.0\.1:\d+/);
   // 失敗の文には origin だけを出す（パス・クエリを写さない）。失敗してもブラウザを閉じる。
   assert.doesNotMatch(self.out, /widgets|do-not-print/);
@@ -284,4 +299,87 @@ test("README の preflight の例は、行き先の確認を使うときだけ�
   // 使わない人の globalSetup でブラウザを起動しない。
   assert.match(section, /await import\("@playwright\/test"\)/);
   assert.doesNotMatch(section, /^import \{[^}]*chromium/m);
+});
+
+test("README の preflight の例は、画面と API が手元を指していなければ、要求を送る前に止める", async () => {
+  // E2E は書き込むので、環境変数の書き換えの残りでステージングや本番を指したまま流さない。
+  for (const env of [
+    { E2E_API_HEALTH_URL: "https://staging.example.test/health?token=do-not-print" },
+    { E2E_EXPECT_API_ORIGIN: "https://api.example.test" },
+  ]) {
+    const remote = await runPreflight(200, undefined, { env });
+    assert.notEqual(remote.code, 0, remote.out);
+    assert.match(remote.out, /is not a local target \(https:\/\/(staging|api)\.example\.test\)/);
+    assert.doesNotMatch(remote.out, /do-not-print|browser launched/);
+  }
+  // 最初の project だけでなく、どの project の baseURL も確かめる。
+  const otherProject = await runPreflight(200, undefined, {
+    extraProjects: [{ use: { baseURL: "https://staging.example.test/" } }],
+  });
+  assert.notEqual(otherProject.code, 0, otherProject.out);
+  assert.match(otherProject.out, /baseURL of project 1 is not a local target/);
+  // 手元の使い捨てのホスト（compose のサービス名など）は、名前を書いたときだけ許す。
+  const allowed = await runPreflight(200, undefined, {
+    pageRequests: [{ url: "http://api:4000/widgets/1", type: "fetch" }],
+    env: { E2E_EXPECT_API_ORIGIN: "http://api:4000", E2E_PREFLIGHT_ALLOWED_HOSTS: "db, api" },
+  });
+  assert.equal(allowed.code, 0, allowed.out);
+  // 名前の一部（api.example.test の api）では許さない。
+  const partial = await runPreflight(200, undefined, {
+    env: { E2E_EXPECT_API_ORIGIN: "http://api.example.test", E2E_PREFLIGHT_ALLOWED_HOSTS: "api" },
+  });
+  assert.notEqual(partial.code, 0, partial.out);
+});
+
+test("README の preflight の例は、行き先の確認のブラウザから手元の外への要求を送らない", async () => {
+  const result = await runPreflight(200, undefined, {
+    pageRequests: [
+      { url: "https://analytics.example.test/collect", type: "fetch" },
+      { url: `${API}/widgets/1`, type: "fetch" },
+    ],
+    env: { E2E_EXPECT_API_ORIGIN: API },
+  });
+  assert.equal(result.code, 0, result.out);
+  assert.match(result.out, /aborted https:\/\/analytics\.example\.test/);
+  // Service Worker を経た要求は route を通らないので、Service Worker を使わせない。
+  assert.match(result.out, /context serviceWorkers=block/);
+  assert.doesNotMatch(result.out, /aborted http:\/\/(api\.localhost|127\.0\.0\.1)/);
+});
+
+const jwt = (payload) =>
+  ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(".");
+
+const runWithTokens = (seedOutput, budget) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "specproof-preflight-tokens-"));
+  const file = path.join(dir, "personas.json");
+  writeFileSync(file, typeof seedOutput === "string" ? seedOutput : JSON.stringify(seedOutput));
+  return runPreflight(200, undefined, {
+    env: { E2E_SEED_TOKENS_FILE: file, E2E_RUN_BUDGET_MINUTES: budget },
+  });
+};
+
+test("README の preflight の例は、seed の JWT が全件の所要時間より前に切れるなら止める", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const soon = jwt({ sub: "admin", exp: now + 30 * 60 });
+  const later = jwt({ sub: "user", exp: now + 3 * 60 * 60 });
+  // 値のどこにあっても、いちばん早く切れるもので比べる。トークンは写さない。
+  const short = await runWithTokens({ personas: [{ token: later }, { nested: { token: soon } }] }, "60");
+  assert.notEqual(short.code, 0, short.out);
+  assert.match(short.out, /a seeded JWT expires in (29|30) minute\(s\), before the run budget of 60 minute\(s\)/);
+  assert.ok(!short.out.includes(soon.split(".")[1]), "トークンを写さない");
+  const enough = await runWithTokens({ admin: later }, "60");
+  assert.equal(enough.code, 0, enough.out);
+  // トークンが無い・読めない・予算の値の誤りは、通さずに止める。
+  const none = await runWithTokens({ admin: "not-a-token" }, "60");
+  assert.match(none.out, /no JWT with an exp claim was found/);
+  const unreadable = await runWithTokens("{not json", "60");
+  assert.match(unreadable.out, /could not read the seed output/);
+  const invalid = await runWithTokens({ admin: later }, "an hour");
+  assert.match(invalid.out, /E2E_RUN_BUDGET_MINUTES must be a positive number/);
+  // exp がミリ秒で入っていると遠い未来になって通ってしまうので止める。
+  const millis = await runWithTokens({ admin: jwt({ exp: Date.now() + 60_000 }) }, "60");
+  assert.match(millis.out, /exp claim that is not in seconds/);
+  // 予算を設定しなければ確かめない。
+  const unset = await runWithTokens({ admin: soon }, "");
+  assert.equal(unset.code, 0, unset.out);
 });

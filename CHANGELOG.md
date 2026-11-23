@@ -29,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ブランチでなく、リモートのブランチを読む。記録で失敗したときのメッセージに、読んだ ref の名前と
   タグの書き方を出す。
 
+- Playwright の雛形の README の「テストの前に環境を確かめる」の例に、0（画面と API の URL が手元（ループバック、
+  または `E2E_PREFLIGHT_ALLOWED_HOSTS` に書いたホスト）を指しているかを、要求を送る前に確かめる）と、7（seed が
+  書いた JWT の期限が、`E2E_RUN_BUDGET_MINUTES` の所要時間より前に切れないか）を足した。0 はどの project の
+  `baseURL` も確かめる。6 の行き先の確認のブラウザは、Service Worker を使わせず、手元の外への要求を送らずに
+  止め、開く画面を温める要求は転送を追わない（止まらないもの: WebSocket、手元の URL が返す転送の先）。3 に、Next.js の App Router ではビルド ID が HTML の中の RSC の
+  payload に入り `/_next/static/<id>/` のパスには出ないことを書き、どの確認を残すかの目安を足した。雛形のファイルは
+  増やしていない。新しく `specproof init` した README にはこの例が入る。既存の利用者のファイルは変わらない。
+
 ## [0.8.0] - 2026-11-21
 
 ### Added
