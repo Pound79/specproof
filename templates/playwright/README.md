@@ -511,6 +511,100 @@ cookie だけの構成では要らない）。
 書くとき。3 はフレームワークごとに置き場所が違う。5 は遅さで落ちたことがあるとき。6 は画面と API の origin が
 別のときだけ意味がある。
 
+### 状態を使い切るシナリオのガード
+
+seed が run ごとに 1 回しか入らず、試行ごとにデータを作る手段も無いと、操作で前提の状態を使い切るシナリオは
+CI の再試行（`retries`）で前提が成り立たず、理由の分からない時間切れになる。前提を画面で確かめられないときは、
+シナリオごとの印で、操作の前に理由を出して止める（specproof-implement の自己点検の 7）。雛形にはこのファイルが
+無いので、使うときに作る。
+
+対象は、操作の動詞でなく「その操作の後、同じシナリオがもう一度は成り立たないか」で選ぶ。削除・承認のほか、
+参加する、通報する、対応済みなどの印を付ける、名前や本文を変える、も当てはまる。前提を確かめる assert
+（「チェックが付いていない」「元の名前が出ている」など）が 2 回目に時間切れで落ちるものも対象。毎回新しい値で
+作るもの、要求が断られて何も変わらないもの、失敗の経路を含めて次の試行が前提を確かめる前に状態が戻ることを
+確かめたものは対象外。シナリオの最後の step で戻すだけのものは、途中で落ちると戻す step が走らないので対象に残す。
+
+```ts
+// src/support/seed-guard.ts（例）
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import type { TestInfo } from "@playwright/test";
+
+// このファイルを src/support/ に置く前提の深さ（src/config/auth-state.ts と同じ）。別の深さに置くなら直す。
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+// seed のスクリプトが、seed が成功した後に消す。
+const consumedDir = path.join(packageRoot, "state", "consumed");
+
+// testId は project、ファイルの場所、タイトルから決まり、行番号を含まない。再試行でも run をまたいでも同じで、
+// 例の表（Scenario Outline）の行ごとに別になる。再試行の番号や行番号を鍵にしない。
+const markPath = (testInfo: TestInfo): string =>
+  path.join(consumedDir, createHash("sha256").update(testInfo.testId).digest("hex").slice(0, 32));
+
+// 例の表の行は、既定では title が「例: #2」だけになるので、先頭のファイルを除いた titlePath でシナリオ名から出す。
+const scenarioName = (testInfo: TestInfo): string => testInfo.titlePath.slice(1).join(" > ");
+
+export function guardSeedData(testInfo: TestInfo): { consume: () => void } {
+  if (existsSync(markPath(testInfo))) {
+    throw new Error(
+      `"${scenarioName(testInfo)}" already used its seed data in an earlier attempt or run. ` +
+        "Re-run the seed before running it again (look at the first attempt's failure first).",
+    );
+  }
+  return {
+    // 取り返しのつかない要求を出す確定の操作の直前に呼ぶ。
+    consume: () => {
+      mkdirSync(consumedDir, { recursive: true, mode: 0o700 });
+      writeFileSync(markPath(testInfo), "", { flag: "wx", mode: 0o600 });
+    },
+  };
+}
+```
+
+```ts
+// step の例: 最初にガードを呼び、確認のダイアログの確定の直前に印を残す。
+import { expect } from "@playwright/test";
+import { When } from "../src/fixtures/test";
+import { guardSeedData } from "../src/support/seed-guard";
+
+When("ユーザー{string}を削除する", async ({ page, $testInfo }, name: string) => {
+  const guard = guardSeedData($testInfo);
+  await page.getByRole("row", { name }).getByRole("button", { name: "削除" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  guard.consume();
+  await dialog.getByRole("button", { name: "削除する" }).click();
+});
+```
+
+```sh
+# seed のスクリプトの最後（seed が成功した後だけ届くようにする。失敗したら印を残す）。
+# STATE_DIR は上の packageRoot の state と同じ場所を、スクリプトの場所から絶対パスで決める（例は、このスクリプトを
+# パッケージの scripts/ に置いたとき）。外から受け継いだ環境変数を rm の起点にしない。空でも広がらない形にする。
+STATE_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd -P)/state"
+rm -rf -- "${STATE_DIR:?}/consumed"
+```
+
+守ること:
+
+- 印は、取り返しのつかない要求を出す確定の操作の直前に残す。ダイアログを開く前などに残すと、ダイアログを
+  待つ間に落ちた試行が、何も使っていないのに印を残し、通るはずの再試行を止める。共通の関数の中で操作する
+  ときも、その関数の前でなく、確定の操作の直前で残す。確定の操作そのものが落ちたときは、要求が届いていなくても
+  印が残る（seed を流し直す）
+- 1 つのシナリオに置けるガードは 1 つまで。印はシナリオごとなので、2 つ目は 1 つ目の印で止まる。ガードを
+  置いた step が、どのシナリオでも 1 回しか通らないことを確かめる（feature を step の文で検索するなど）
+- 守れないもの: `--repeat-each` の繰り返しは testId が変わるので止められない。同じ feature を複数の project で
+  流すと、印は project ごとに別になる（seed のデータを project ごとに分ける）。seed を流し直さずに例の表の行を
+  足す・並べ替える・値を変えると、印が別の行に付くか、付いた印が使われなくなることがある（行のタイトルは既定では
+  行の番号で、`<列名>` や `examplesTitleFormat` で列の値にもなる）
+- 印を消すのは seed のスクリプトで、step や `globalSetup` では消さない（消すと、使い切った状態のまま流れる）
+- `state/` を `.gitignore` に足す（コミットすると、新しく取り出した環境で該当のシナリオが全部止まる）。`state/` と
+  `state/consumed/` をシンボリックリンクにしない（例は途中のリンクを確かめないので、`rm` がリンク先を消す）
+- 印は取り違えを防ぐためのもので、改ざんへの防御ではない（同じディレクトリに書ける人は、印を置いて止めることも
+  消して外すこともできる）。共有のマシンでは自分だけが書けるディレクトリに置く
+- 止めるメッセージにはシナリオ名が出る。行のタイトルを列の値にしている例の表には、秘密や個人のデータを置かない
+
 ---
 
 ## Customising Page Objects
