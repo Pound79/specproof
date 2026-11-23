@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `specSources[].ref` を、取り込み元に置かれた同じ名前のタグで乗っ取られないようにした。これまでは `ref` を短い
+  名前のまま git に渡していたため、git の名前の探索（`refs/tags/<名前>` が `refs/heads`・`refs/remotes` より先）で、
+  取り込み元に `origin/develop` などの名前のタグがあると、`specproof-update --record-spec-source` はタグのコミットを
+  記録し、`specproof-check --spec-sources` もタグのコミットと比べた（ブランチが先に進んでも `current` と言った）。
+  今は、commit id はそのコミット、`refs/` で始まる完全な名前はその ref だけ、それ以外は `refs/remotes/<ref>`、
+  `refs/heads/<ref>` の順に、名前が完全に一致する ref だけを読む。commit id（設定の `ref` と manifest の記録）は、
+  解決した id が書いた値と同じときだけ使う（リポジトリの形式と桁数が合わない hex は、git が名前として探して同じ
+  名前のタグを読むため）。`docs/config-schema.md` の、取り込みのコマンドを
+  `ref` から読む形にするときの手引きも、同じ決め方に直した（`rev-parse` に `<ref>` を直接渡さない）。
+
+### Changed
+
+- 互換: `specSources[].ref` の短い名前は、タグとして解決しなくなった。短い名前のタグ（例: `ref: v1.2`）を使って
+  いた設定は、記録で「解決できない」として失敗し、check では `unavailable` として飛ばす。`ref: refs/tags/v1.2` と
+  書き換える。`HEAD`・短縮したコミット id・`heads/<名前>`・`tags/<名前>` の形も解決しなくなったので、ブランチの
+  名前・完全な ref 名・40 桁（64 桁）の commit id に書き換える。同じ短い名前でローカルのブランチ
+  （`refs/heads/<ref>`）とリモートのブランチ（`refs/remotes/<ref>`）が両方あるときは、これまでのローカルの
+  ブランチでなく、リモートのブランチを読む。記録で失敗したときのメッセージに、読んだ ref の名前と
+  タグの書き方を出す。
+
 ## [0.8.0] - 2026-11-21
 
 ### Added

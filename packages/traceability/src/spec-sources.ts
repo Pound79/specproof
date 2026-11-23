@@ -89,7 +89,7 @@ const readSource = (item: unknown, at: string, names: Set<string>): SpecSource =
   if (!isNonEmptyString(repo)) throw new Error(`${at}.repo must be a non-empty path`);
   if (typeof ref !== "string" || !REF.test(ref) || ref.includes("..") || ref.endsWith(".lock")) {
     throw new Error(
-      `${at}.ref must be a branch, tag or remote-tracking branch name (e.g. origin/develop)`,
+      `${at}.ref must be a remote-tracking or local branch name (e.g. origin/develop), a full ref name (e.g. refs/tags/v1) or a full commit id`,
     );
   }
   if (
@@ -198,6 +198,50 @@ const resolveCommit = async (git: GitRunner, rev: string): Promise<string | unde
   return COMMIT_ID.test(commit) ? commit : undefined;
 };
 
+// commit id として書かれた値を、そのコミットそのものとしてだけ読む。git が hex を object id として扱うのは
+// 桁数がリポジトリの形式（SHA-1 は 40、SHA-256 は 64）と合うときだけで、合わなければ名前として探し、同じ名前の
+// タグや短縮した id のコミットを返す。返った id が書いた値と同じときだけ使う。
+const resolveExactCommit = async (git: GitRunner, id: string): Promise<string | undefined> =>
+  (await resolveCommit(git, id)) === id ? id : undefined;
+
+/**
+ * 設定の ref を、読む ref の完全な名前の候補（読む順）にする。commit id ならそのもの。
+ * 短い名前を git の名前の探索（gitrevisions(7)）に任せると、refs/tags/<名前> が refs/heads・refs/remotes より
+ * 先に読まれ、取り込み元に同じ名前のタグを置くだけで記録も比べもタグのコミットになる。タグは refs/tags/ と
+ * 書いたときだけ読む。
+ */
+export const specSourceRefCandidates = (ref: string): { commit: string } | { refs: string[] } => {
+  if (COMMIT_ID.test(ref)) return { commit: ref };
+  if (ref.startsWith("refs/")) return { refs: [ref] };
+  return { refs: [`refs/remotes/${ref}`, `refs/heads/${ref}`] };
+};
+
+// 完全な ref 名を、その名前だけで引く。rev-parse は完全な名前でも、その ref が無ければ refs/tags/<名前> などへ
+// 落ちるので使わない。for-each-ref の名前は前方一致（refs/heads/a は refs/heads/a/b にも当たる）なので、出力の
+// ref 名が候補と完全に一致するものだけを、候補の順に拾う。ref の名前は設定の検証でワイルドカードを含まない。
+const resolveSourceRef = async (git: GitRunner, ref: string): Promise<string | undefined> => {
+  const candidates = specSourceRefCandidates(ref);
+  if ("commit" in candidates) return resolveExactCommit(git, candidates.commit);
+  const listed = await git.run([
+    "for-each-ref",
+    "--format=%(objectname) %(refname)",
+    "--end-of-options",
+    ...candidates.refs,
+  ]);
+  // 読めなかったときに次の候補を見ると、リモートのブランチの代わりにローカルのブランチを読みうる。
+  if (!listed.ok) return undefined;
+  const found = new Map(
+    listed.stdout
+      .split("\n")
+      .filter((line) => line.length > 0)
+      .map((line) => [line.slice(line.indexOf(" ") + 1), line.slice(0, line.indexOf(" "))]),
+  );
+  const name = candidates.refs.find((candidate) => found.has(candidate));
+  const id = name === undefined ? undefined : found.get(name);
+  // for-each-ref が返す id はリポジトリの形式の桁数なので、名前の探索に回らずその object を指す。
+  return id !== undefined && OBJECT_ID.test(id) ? resolveCommit(git, id) : undefined;
+};
+
 // コミットの中のパス（省略時はツリー全体）を比べるための値。パスが無ければ null、読めなければ undefined。
 // パスは「mode type object id」にする。通常のファイルとシンボリックリンクは、中身（指す先の文字列）が同じだと
 // object id も同じになるので、mode も含めて比べる（ツリーの id は子の mode を含むので、ツリー全体はそのまま）。
@@ -277,7 +321,7 @@ export const readSourceToRecord = async (
 ): Promise<SourceToRecord | undefined> => {
   const opened = await sourceGit(repoRoot, source);
   const git = opened?.git;
-  const commit = git === undefined ? undefined : await resolveCommit(git, source.ref);
+  const commit = git === undefined ? undefined : await resolveSourceRef(git, source.ref);
   if (opened === undefined || git === undefined || commit === undefined) return undefined;
   const refIds = new Map<string, string | null>();
   for (const entry of source.paths) {
@@ -337,12 +381,12 @@ export const checkSpecSources = async (
       continue;
     }
     const git = (await sourceGit(repoRoot, source))?.git;
-    const current = git === undefined ? undefined : await resolveCommit(git, source.ref);
+    const current = git === undefined ? undefined : await resolveSourceRef(git, source.ref);
     // 取り込み元が手元に無い・ref や記録したコミットを持っていないときは飛ばす（fetch しない）。
     if (
       git === undefined ||
       current === undefined ||
-      (await resolveCommit(git, recordedCommit)) === undefined
+      (await resolveExactCommit(git, recordedCommit)) === undefined
     ) {
       results.push({ name: source.name, status: "unavailable", recorded: recordedCommit });
       continue;
