@@ -173,7 +173,7 @@ describe("写した仕様の取り込み元（specSources）", () => {
     assert.equal(report.specSources[0].status, "unrecorded");
   });
 
-  test("取り込み元が手元に無い・ref が無いときは、警告を出さずに飛ばす", () => {
+  test("取り込み元が手元に無いときは警告を出さずに飛ばし、ref が無いときは spec-source-unresolved を出す", () => {
     assert.equal(run(updateCli, root, ["--record-spec-source", "permissions"]).status, 0);
     rmSync(source, { recursive: true, force: true });
     let result = run(checkCli, root, ["--spec-sources", "--strict", "--json"]);
@@ -186,9 +186,17 @@ describe("写した仕様の取り込み元（specSources）", () => {
 
     mkdirSync(source);
     git(source, ["init", "-q"]);
-    result = run(checkCli, root, ["--spec-sources", "--json"]);
+    result = run(checkCli, root, ["--spec-sources", "--strict", "--json"]);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
     report = JSON.parse(result.stdout);
     assert.equal(report.specSources[0].status, "unavailable");
+    assert.equal(report.specSources[0].reason, "ref-unresolved");
+    assert.deepEqual(
+      report.warnings
+        .map((warning: { kind: string }) => warning.kind)
+        .filter((kind: string) => kind.startsWith("spec-source")),
+      ["spec-source-unresolved"],
+    );
   });
 
   test("記録するときに取り込み元が無ければ、何も書かずに失敗する", () => {
@@ -302,7 +310,7 @@ describe("写した仕様の取り込み元（specSources）", () => {
     assert.match(run(checkCli, root, ["--spec-sources"]).stdout, /has no "mastr"/);
   });
 
-  test("repo が取り込み元のルートでない（親のリポジトリの中のディレクトリ）ときは、親を読まずに飛ばす", () => {
+  test("repo が取り込み元のルートでない（親のリポジトリの中のディレクトリ）ときは、親を読まずに知らせる", () => {
     writeFileSync(
       path.join(root, "specproof.config.yaml"),
       config(SOURCE_FIELDS.replace("repo: ../source", "repo: ../source/master")),
@@ -315,6 +323,12 @@ describe("写した仕様の取り込み元（specSources）", () => {
     );
     const report = JSON.parse(run(checkCli, root, ["--spec-sources", "--json"]).stdout);
     assert.equal(report.specSources[0].status, "unavailable");
+    assert.equal(report.specSources[0].reason, "source-unreadable");
+    assert.ok(
+      report.warnings.some(
+        (warning: { kind: string }) => warning.kind === "spec-source-unresolved",
+      ),
+    );
   });
 
   test("受け継いだ GIT_DIR に引きずられない", () => {
@@ -372,6 +386,7 @@ describe("写した仕様の取り込み元（specSources）", () => {
     git(source, ["config", "remote.origin.uploadpack", `touch '${marker}'; false`]);
     const report = JSON.parse(run(checkCli, root, ["--spec-sources", "--json"]).stdout);
     assert.equal(report.specSources[0].status, "unavailable");
+    assert.equal(report.specSources[0].reason, "source-unreadable");
     assert.equal(run(updateCli, root, ["--record-spec-source", "permissions"]).status, 2);
     assert.equal(existsSync(marker), false);
   });

@@ -468,8 +468,9 @@ notGrouped: { noBlessedVersion, notSearched, failed }, incomplete }` を足す�
 git の管理下でなければ 1 行の案内を出し、check の結果は変えない。フラグが無ければ git を起動しない。
 設定に `specSources` があり `--spec-sources` を付けたときは、check は写した仕様の取り込み元を確かめ、記録した
 コミットから `paths` の中で進んでいれば（または今の ref に無ければ）`spec-source-outdated`、記録が無ければ
-`spec-source-unrecorded` を参考の警告として出す（`--strict` でも失敗しない。取り込み元が手元に無ければ飛ばす。
-フラグが無ければ取り込み元を読まない）。取り込んだコミットは
+`spec-source-unrecorded` を参考の警告として出す。取り込み元のディレクトリはあるのに確かめられない（`ref` を
+解決できない・記録したコミットが無い・取り込み元として読めない・git が途中で読めない）ときは `spec-source-unresolved` を出す（どれも
+`--strict` でも失敗しない。`repo` のパスが無いときだけ黙って飛ばす。フラグが無ければ取り込み元を読まない）。取り込んだコミットは
 `specproof-update --record-spec-source <name>` で manifest の `specSources` に記録する（取り込み元の HEAD が `paths` の中で
 `ref` と違えば記録せずに止まる。取り込みが ref から読む形なら `--allow-head-mismatch`）。詳細は
 [config-schema](../../docs/config-schema.md#specsources)。

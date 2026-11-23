@@ -27,6 +27,7 @@ const DEFAULT_GROUP: Record<DriftWarning["kind"], WarningGroup> = {
   "possible-contradiction": "reference",
   "spec-source-outdated": "reference",
   "spec-source-unrecorded": "reference",
+  "spec-source-unresolved": "reference",
 };
 
 /** 設定で --strict の対象にした種類（strictUnregisteredImpl など）は「直すもの」に上げる。 */

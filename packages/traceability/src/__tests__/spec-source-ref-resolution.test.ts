@@ -204,7 +204,7 @@ describe("specSources の ref はブランチを読み、同じ名前のタグ�
     assert.equal(recordedIn(), before);
   });
 
-  test("check も短い名前のタグを読まず、今の ref を読めないものとして飛ばす", () => {
+  test("check も短い名前のタグを読まず、今の ref を解決できないものとする", () => {
     useRef(branch);
     assert.equal(run(updateCli, root, ["--record-spec-source", "permissions"]).status, 0);
     useRef("v1");
@@ -213,6 +213,7 @@ describe("specSources の ref はブランチを読み、同じ名前のタグ�
       name: "permissions",
       status: "unavailable",
       recorded: branch,
+      reason: "ref-unresolved",
     });
   });
 
@@ -264,6 +265,7 @@ describe("specSources の ref はブランチを読み、同じ名前のタグ�
       name: "permissions",
       status: "unavailable",
       recorded: wrongLength,
+      reason: "recorded-missing",
     });
   });
 

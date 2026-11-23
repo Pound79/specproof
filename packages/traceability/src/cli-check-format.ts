@@ -92,7 +92,8 @@ export const warningFailsUnderStrict = (
   if (
     kind === "possible-contradiction" ||
     kind === "spec-source-outdated" ||
-    kind === "spec-source-unrecorded"
+    kind === "spec-source-unrecorded" ||
+    kind === "spec-source-unresolved"
   ) {
     return false;
   }

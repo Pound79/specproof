@@ -22,12 +22,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - 互換: `specSources[].ref` の短い名前は、タグとして解決しなくなった。短い名前のタグ（例: `ref: v1.2`）を使って
-  いた設定は、記録で「解決できない」として失敗し、check では `unavailable` として飛ばす。`ref: refs/tags/v1.2` と
-  書き換える。`HEAD`・短縮したコミット id・`heads/<名前>`・`tags/<名前>` の形も解決しなくなったので、ブランチの
-  名前・完全な ref 名・40 桁（64 桁）の commit id に書き換える。同じ短い名前でローカルのブランチ
+  いた設定は、記録で「解決できない」として失敗し、check では `spec-source-unresolved` の警告を出して比べない
+  （下の項目）。`ref: refs/tags/v1.2` と書き換える。`HEAD`・短縮したコミット id・`heads/<名前>`・
+  `tags/<名前>` の形も解決しなくなったので、ブランチの名前・完全な ref 名・40 桁（64 桁）の commit id に書き換える。同じ短い名前でローカルのブランチ
   （`refs/heads/<ref>`）とリモートのブランチ（`refs/remotes/<ref>`）が両方あるときは、これまでのローカルの
   ブランチでなく、リモートのブランチを読む。記録で失敗したときのメッセージに、読んだ ref の名前と
   タグの書き方を出す。
+
+- 互換: `specproof-check --spec-sources` は、取り込み元のディレクトリはあるのに確かめられないとき、黙って飛ばさず
+  新しい種類 `spec-source-unresolved` の参考の警告を 1 行出す。上の `ref` の書き換えが要る設定で、上げた後に
+  取り込み直しの合図（`spec-source-outdated`）が出なくなったことに気づけるようにするため。当たるのは、`ref` を
+  解決できない（短い名前のタグ・`HEAD`・短縮した commit id・打ち間違い・fetch していないブランチ。調べた ref の
+  名前とタグの書き方を出す）、記録したコミットが取り込み元に無い（fetch していない・浅い clone・履歴の書き換え）、
+  `repo` を取り込み元として読まない（実体の `.git` が無い・持ち主が違う・`git worktree`・部分 clone。どれに当たったかは
+  分けず `docs/config-schema.md` の条件を案内する）、git が途中で読めないとき。`repo` のパスが無いとき（取り込み元を
+  checkout していない PR の CI など）は、これまでどおり何も出さない。`--strict` でも失敗せず、終了コードは変わらない。
+  `--json` の `specSources` の `unavailable` の項目に `reason`（`source-missing` / `source-unreadable` /
+  `ref-unresolved` / `recorded-missing` / `read-failed`）を足した。`kind` で警告を絞っている利用者は、
+  `spec-source-unresolved` を拾うよう足す（既存の `spec-source-outdated`・`spec-source-unrecorded` の意味は変えて
+  いない）。specproof-sync の skill は、この警告があれば取り込みも clean での終了もせず人に返す。
 
 - Playwright の雛形の README の「テストの前に環境を確かめる」の例に、0（画面と API の URL が手元（ループバック、
   または `E2E_PREFLIGHT_ALLOWED_HOSTS` に書いたホスト）を指しているかを、要求を送る前に確かめる）と、7（seed が

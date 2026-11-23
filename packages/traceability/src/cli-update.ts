@@ -4,7 +4,7 @@ import { discoverConfig } from "./config.js";
 import { CliUsageError, parseCliArgs, runCli } from "./cli-args.js";
 import { printable } from "./display-text.js";
 import { recordSpecSource } from "./spec-source-record.js";
-import { readSourceToRecord, specSourceRefCandidates } from "./spec-sources.js";
+import { describeRefLookup, readSourceToRecord } from "./spec-sources.js";
 import type { TraceabilityConfig } from "./config.js";
 import {
   describeChange,
@@ -14,14 +14,6 @@ import {
   describeUpdateScope,
 } from "./cli-update-format.js";
 import { printText } from "./output.js";
-
-// 読んだ ref の名前を示す。短い名前のタグは読まないので、タグを使うときの書き方も添える。
-const describeRefLookup = (ref: string): string => {
-  const candidates = specSourceRefCandidates(ref);
-  if ("commit" in candidates) return "the commit must exist in the source";
-  const looked = `looked up ${candidates.refs.join(", then ")}`;
-  return ref.startsWith("refs/") ? looked : `${looked}; a tag must be written as refs/tags/<name>`;
-};
 
 // 取り込み元の ref が今指すコミットを manifest に記録する。hash は更新しない。
 const recordSource = async (
