@@ -20,5 +20,7 @@ test("sync は、写した仕様の取り込み元を確かめてから clean �
     assert.ok(sources < clean, `${file}: 取り込み元の確かめが clean の判定より後にある`);
     // 取り込んだら check を流し直してから進む。
     assert.match(step, /取り込んだら[^。]*`entries`[^。]*取り直/);
+    // 取り込み元を確かめられなかったときは、古いかを判断できないので clean で終了せず人に返す。
+    assert.match(step, /`spec-source-unresolved`（[^）]*）があれば[^。]*clean での終了もせず[^。]*人に返す/);
   }
 });
