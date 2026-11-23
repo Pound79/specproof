@@ -125,7 +125,7 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     return commit;
   };
 
-  it("状態を current・outdated・path-missing・unrecorded・unavailable に分ける", async () => {
+  it("状態を current・outdated・path-missing・unrecorded・unavailable（理由付き）に分ける", async () => {
     const recorded = git(sourceDir, ["rev-parse", "develop"]);
     expect(await checkSpecSources(root, [source()], {})).toEqual([
       { name: "permissions", status: "unrecorded" },
@@ -149,16 +149,28 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     });
     expect(missing[0]).toMatchObject({ status: "path-missing", missingPaths: ["nope"] });
     expect(
-      (await checkSpecSources(root, [source({ ref: "no-such" })], { permissions: recorded }))[0]
-        .status,
-    ).toBe("unavailable");
+      (await checkSpecSources(root, [source({ ref: "no-such" })], { permissions: recorded }))[0],
+    ).toMatchObject({ status: "unavailable", reason: "ref-unresolved" });
     expect(
-      (await checkSpecSources(root, [source()], { permissions: "f".repeat(40) }))[0].status,
-    ).toBe("unavailable");
+      (
+        await checkSpecSources(root, [source({ ref: "f".repeat(40) })], { permissions: recorded })
+      )[0],
+    ).toMatchObject({ status: "unavailable", reason: "ref-unresolved" });
     expect(
-      (await checkSpecSources(root, [source({ repo: "../nowhere" })], { permissions: recorded }))[0]
-        .status,
-    ).toBe("unavailable");
+      (await checkSpecSources(root, [source()], { permissions: "f".repeat(40) }))[0],
+    ).toMatchObject({ status: "unavailable", reason: "recorded-missing" });
+    expect(
+      (
+        await checkSpecSources(root, [source({ repo: "../nowhere" })], { permissions: recorded })
+      )[0],
+    ).toMatchObject({ status: "unavailable", reason: "source-missing" });
+    expect(
+      (
+        await checkSpecSources(root, [source({ repo: "../source/master" })], {
+          permissions: recorded,
+        })
+      )[0],
+    ).toMatchObject({ status: "unavailable", reason: "source-unreadable" });
     // プロトタイプのキーに見える名前は、記録が無ければ unrecorded。
     expect((await checkSpecSources(root, [source({ name: "toString" })], {}))[0].status).toBe(
       "unrecorded",
@@ -176,6 +188,14 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     rmSync(path.join(sourceDir, ".git", "commondir"));
     git(sourceDir, ["config", "remote.origin.promisor", "true"]);
     expect(await readSourceToRecord(root, source())).toBeUndefined();
+    // check でも読まず、どの条件に当たったかは分けずに source-unreadable とする。
+    const recorded = { permissions: git(sourceDir, ["rev-parse", "develop"]) };
+    for (const repo of ["../source/master", "../linked", "../source"]) {
+      expect((await checkSpecSources(root, [source({ repo })], recorded))[0]).toMatchObject({
+        status: "unavailable",
+        reason: "source-unreadable",
+      });
+    }
     git(sourceDir, ["config", "remote.origin.promisor", "false"]);
     const read = await readSourceToRecord(root, source());
     expect(read).toMatchObject({
@@ -268,6 +288,37 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     ).toBe("outdated");
   });
 
+  it("確かめられない理由を、無い（終了コード 1）と git の失敗に分ける", async () => {
+    const recorded = git(sourceDir, ["rev-parse", "develop"]);
+    // パスの途中がファイル（ENOTDIR）も、パスが無いものとして黙る。
+    expect(
+      (
+        await checkSpecSources(root, [source({ repo: "../source/top.md/x" })], {
+          permissions: recorded,
+        })
+      )[0],
+    ).toMatchObject({ reason: "source-missing" });
+    // 記録したコミットの object が壊れていれば、無いのでなく読めない（rev-parse は 128 で終わる）。
+    advance("master/p.yml", "b\n");
+    const loose = path.join(sourceDir, ".git", "objects", recorded.slice(0, 2), recorded.slice(2));
+    chmodSync(loose, 0o644);
+    writeFileSync(loose, "broken");
+    expect((await checkSpecSources(root, [source()], { permissions: recorded }))[0]).toMatchObject({
+      reason: "read-failed",
+    });
+    // 実体の .git はあるが中身の無いディレクトリは、git が読めず read-failed。案内に clone の確かめと docs を出す。
+    const empty = path.join(base, "empty");
+    mkdirSync(path.join(empty, ".git"), { recursive: true });
+    const results = await checkSpecSources(root, [source({ repo: "../empty" })], {
+      permissions: recorded,
+    });
+    expect(results[0]).toMatchObject({ reason: "read-failed" });
+    const [warning] = specSourceWarnings([source({ repo: "../empty" })], results);
+    expect(warning.kind).toBe("spec-source-unresolved");
+    expect(warning.message).toMatch(/"\.\.\/empty" is a valid clone/);
+    expect(warning.message).toMatch(/docs\/config-schema\.md/);
+  });
+
   it("同じ名前のエントリが重複した壊れた tree は、どちらかを選ばずに読めないものとする", async () => {
     const recorded = git(sourceDir, ["rev-parse", "develop"]);
     const blob = git(sourceDir, ["rev-parse", "develop:top.md"]);
@@ -288,9 +339,8 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     const broken = git(sourceDir, ["commit-tree", tree, "-p", recorded, "-m", "duplicated"]);
     git(sourceDir, ["update-ref", "refs/heads/develop", broken]);
     expect(
-      (await checkSpecSources(root, [source({ paths: ["top.md"] })], { permissions: recorded }))[0]
-        .status,
-    ).toBe("unavailable");
+      (await checkSpecSources(root, [source({ paths: ["top.md"] })], { permissions: recorded }))[0],
+    ).toMatchObject({ status: "unavailable", reason: "read-failed" });
   });
 
   it("記録が上限（256 件）に達していれば、新しい名前は書かずに失敗し、既存の名前は記録し直せる", async () => {
@@ -325,7 +375,13 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     );
   });
 
-  it("警告は確かめられたものだけを出し、記録のコマンドを示す", () => {
+  it("警告は取り込み元のディレクトリが無いものだけを飛ばし、記録のコマンドを示す", () => {
+    // 理由の無い unavailable は黙らず、読めなかったものとして出す（理由の付け忘れで黙らない）。
+    expect(
+      specSourceWarnings([source()], [{ name: "permissions", status: "unavailable" }]).map(
+        (warning) => warning.kind,
+      ),
+    ).toEqual(["spec-source-unresolved"]);
     const sources = [source({ specDir: "docs" }), source({ name: "glossary", paths: [] })];
     const warnings = specSourceWarnings(sources, [
       {
@@ -336,7 +392,13 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
       },
       { name: "glossary", status: "unrecorded" },
       { name: "other", status: "outdated" },
-      { name: "permissions", status: "unavailable" },
+      { name: "permissions", status: "unavailable", reason: "source-missing" },
+      {
+        name: "permissions",
+        status: "unavailable",
+        reason: "read-failed",
+        recorded: "d".repeat(40),
+      },
       { name: "permissions", status: "current" },
       {
         name: "glossary",
@@ -348,12 +410,16 @@ describe("取り込み元の確かめと記録（ライブラリ）", () => {
     expect(warnings.map((warning) => warning.kind)).toEqual([
       "spec-source-outdated",
       "spec-source-unrecorded",
+      "spec-source-unresolved",
       "spec-source-outdated",
     ]);
     expect(warnings[0]).toMatchObject({ path: "docs" });
     expect(warnings[0].message).toMatch(/changes in master/);
     expect(warnings[1].message).toMatch(/--record-spec-source glossary/);
-    expect(warnings[2].message).toMatch(/has no "x"/);
+    expect(warnings[2]).toMatchObject({ path: "docs" });
+    expect(warnings[2].message).toMatch(/git could not read "\.\.\/source"/);
+    expect(warnings[2].message).toMatch(/dddddddddddd/);
+    expect(warnings[3].message).toMatch(/has no "x"/);
   });
 });
 

@@ -66,6 +66,7 @@ export interface DriftWarning {
     | "unknown-config-key"
     | "spec-source-outdated"
     | "spec-source-unrecorded"
+    | "spec-source-unresolved"
     | FeatureLintKind;
   // The offending file path (the feature, for unreviewed-draft). Absent for
   // empty-link, where the link itself — not a file — is the subject.

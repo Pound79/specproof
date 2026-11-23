@@ -55,7 +55,7 @@ const main = async (): Promise<void> => {
     unknownConfigKeys: config.unknownConfigKeys ?? [],
   });
   // 写した仕様の取り込み元。--spec-sources を付けたときだけ読む（既定では、設定が指すディレクトリで git を
-  // 起動しない）。取り込み元が手元に無ければ警告を出さずに飛ばす。
+  // 起動しない）。`repo` のパスが無ければ警告を出さずに飛ばし、あっても確かめられなければ spec-source-unresolved を出す。
   const specSources =
     config.specSources === undefined || !flags.has("--spec-sources")
       ? undefined

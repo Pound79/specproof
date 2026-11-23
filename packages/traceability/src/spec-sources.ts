@@ -28,6 +28,20 @@ export interface SpecSource {
   importCommand?: string;
 }
 
+/**
+ * unavailable の理由。source-missing（`repo` のパスが無い）だけは警告を出さずに飛ばす。
+ * - source-unreadable: パスはあるが取り込み元として読まない（実体の `.git` が無い・持ち主が違う・worktree・部分 clone）
+ * - ref-unresolved: `ref` を解決できない
+ * - recorded-missing: 記録したコミットが取り込み元に無い（fetch していない・浅い clone・履歴の書き換え）
+ * - read-failed: git が途中で失敗した（object を読めない・呼び出しの上限や期限）
+ */
+export type SpecSourceUnavailableReason =
+  | "source-missing"
+  | "source-unreadable"
+  | "ref-unresolved"
+  | "recorded-missing"
+  | "read-failed";
+
 export type SpecSourceStatus =
   | "current"
   | "outdated"
@@ -44,6 +58,8 @@ export interface SpecSourceResult {
   current?: string;
   /** path-missing のとき、今の ref に無いパス。 */
   missingPaths?: string[];
+  /** unavailable のとき、その理由。 */
+  reason?: SpecSourceUnavailableReason;
 }
 
 export const SPEC_SOURCE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -137,21 +153,38 @@ export const readSpecSources = (value: unknown, sourceName: string): SpecSource[
   );
 };
 
+type Unavailable = { reason: SpecSourceUnavailableReason };
+
+const isMissingPathError = (error: unknown): boolean => {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "ENOENT" || code === "ENOTDIR";
+};
+
 /**
  * 取り込み元の git ディレクトリ。`<repo>/.git` が実体のディレクトリで、自分が持ち主で、別の git ディレクトリへ
- * 読み先を移す `commondir` が無いときだけ。それ以外は undefined（読まない）。
+ * 読み先を移す `commondir` が無いときだけ。`repo` のパスが無ければ source-missing、あっても読まないものは
+ * source-unreadable。パスがあるかどうかは出力から分かる（docs/security-model.md）が、読まない理由（持ち主・
+ * worktree・部分 clone など）は分けず、PR で変えられる `repo` から分かることを増やさない。
  */
-const sourceGitDir = (repoRoot: string, source: SpecSource): string | undefined => {
+const sourceGitDir = (repoRoot: string, source: SpecSource): { gitDir: string } | Unavailable => {
+  let repoPath: string;
   try {
-    const gitDir = path.join(realpathSync(path.resolve(repoRoot, source.repo)), ".git");
+    repoPath = realpathSync(path.resolve(repoRoot, source.repo));
+  } catch (error) {
+    return { reason: isMissingPathError(error) ? "source-missing" : "source-unreadable" };
+  }
+  try {
+    const gitDir = path.join(repoPath, ".git");
     const stat = lstatSync(gitDir);
-    if (!stat.isDirectory()) return undefined;
+    if (!stat.isDirectory()) return { reason: "source-unreadable" };
     // --git-dir を明示すると git は持ち主を確かめない（safe.directory）。ほかの利用者のリポジトリの設定は読まない。
-    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) return undefined;
-    if (existsSync(path.join(gitDir, "commondir"))) return undefined;
-    return gitDir;
+    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) {
+      return { reason: "source-unreadable" };
+    }
+    if (existsSync(path.join(gitDir, "commondir"))) return { reason: "source-unreadable" };
+    return { gitDir };
   } catch {
-    return undefined;
+    return { reason: "source-unreadable" };
   }
 };
 
@@ -174,19 +207,27 @@ const isPartialClone = async (git: GitRunner): Promise<boolean | undefined> => {
 const sourceGit = async (
   repoRoot: string,
   source: SpecSource,
-): Promise<{ git: GitRunner; repoPath: string } | undefined> => {
-  const gitDir = sourceGitDir(repoRoot, source);
-  if (gitDir === undefined) return undefined;
+): Promise<{ git: GitRunner; repoPath: string } | Unavailable> => {
+  const found = sourceGitDir(repoRoot, source);
+  if (!("gitDir" in found)) return found;
+  const { gitDir } = found;
   const repoPath = path.dirname(gitDir);
   const git = createGitRunner(repoPath, {
     gitDir,
     maxGitCalls: 2 * MAX_PATHS + 8,
     deadlineMs: 20_000,
   });
-  return (await isPartialClone(git)) === false ? { git, repoPath } : undefined;
+  // 設定を読めなかったときも source-unreadable にする（実体の `.git` があることを別の理由で示さない）。
+  return (await isPartialClone(git)) === false
+    ? { git, repoPath }
+    : { reason: "source-unreadable" };
 };
 
-const resolveCommit = async (git: GitRunner, rev: string): Promise<string | undefined> => {
+// コミットに解決する。無い（`rev-parse --verify --quiet` の終了コード 1）なら missing、git の失敗なら failed。
+const lookupCommit = async (
+  git: GitRunner,
+  rev: string,
+): Promise<{ commit: string } | { missing: true } | { failed: true }> => {
   const parsed = await git.run([
     "rev-parse",
     "--verify",
@@ -194,15 +235,27 @@ const resolveCommit = async (git: GitRunner, rev: string): Promise<string | unde
     "--end-of-options",
     `${rev}^{commit}`,
   ]);
-  const commit = parsed.ok ? parsed.stdout.trim() : "";
-  return COMMIT_ID.test(commit) ? commit : undefined;
+  if (!parsed.ok) return parsed.code === 1 ? { missing: true } : { failed: true };
+  const commit = parsed.stdout.trim();
+  return COMMIT_ID.test(commit) ? { commit } : { failed: true };
+};
+
+const resolveCommit = async (git: GitRunner, rev: string): Promise<string | undefined> => {
+  const found = await lookupCommit(git, rev);
+  return "commit" in found ? found.commit : undefined;
 };
 
 // commit id として書かれた値を、そのコミットそのものとしてだけ読む。git が hex を object id として扱うのは
 // 桁数がリポジトリの形式（SHA-1 は 40、SHA-256 は 64）と合うときだけで、合わなければ名前として探し、同じ名前の
-// タグや短縮した id のコミットを返す。返った id が書いた値と同じときだけ使う。
-const resolveExactCommit = async (git: GitRunner, id: string): Promise<string | undefined> =>
-  (await resolveCommit(git, id)) === id ? id : undefined;
+// タグや短縮した id のコミットを返す。返った id が書いた値と同じときだけ使う（違えば、そのコミットは無い）。
+const lookupExactCommit = async (
+  git: GitRunner,
+  id: string,
+): Promise<{ commit: string } | { missing: true } | { failed: true }> => {
+  const found = await lookupCommit(git, id);
+  if (!("commit" in found)) return found;
+  return found.commit === id ? found : { missing: true };
+};
 
 /**
  * 設定の ref を、読む ref の完全な名前の候補（読む順）にする。commit id ならそのもの。
@@ -218,12 +271,27 @@ export const specSourceRefCandidates = (ref: string): { commit: string } | { ref
   return { refs: [`refs/remotes/${ref}`, `refs/heads/${ref}`] };
 };
 
+/** 解決できなかったときの案内に、読んだ ref の名前を示す。短い名前のタグは読まないので、タグの書き方も添える。 */
+export const describeRefLookup = (ref: string): string => {
+  const candidates = specSourceRefCandidates(ref);
+  if ("commit" in candidates) return "the commit must exist in the source";
+  const looked = `looked up ${candidates.refs.join(", then ")}`;
+  return ref.startsWith("refs/") ? looked : `${looked}; a tag must be written as refs/tags/<name>`;
+};
+
 // 完全な ref 名を、その名前だけで引く。rev-parse は完全な名前でも、その ref が無ければ refs/tags/<名前> などへ
 // 落ちるので使わない。for-each-ref の名前は前方一致（refs/heads/a は refs/heads/a/b にも当たる）なので、出力の
 // ref 名が候補と完全に一致するものだけを、候補の順に拾う。ref の名前は設定の検証でワイルドカードを含まない。
-const resolveSourceRef = async (git: GitRunner, ref: string): Promise<string | undefined> => {
+const resolveSourceRef = async (
+  git: GitRunner,
+  ref: string,
+): Promise<{ commit: string } | Unavailable> => {
   const candidates = specSourceRefCandidates(ref);
-  if ("commit" in candidates) return resolveExactCommit(git, candidates.commit);
+  if ("commit" in candidates) {
+    const found = await lookupExactCommit(git, candidates.commit);
+    if ("commit" in found) return found;
+    return { reason: "missing" in found ? "ref-unresolved" : "read-failed" };
+  }
   const listed = await git.run([
     "for-each-ref",
     "--format=%(objectname) %(refname)",
@@ -231,7 +299,7 @@ const resolveSourceRef = async (git: GitRunner, ref: string): Promise<string | u
     ...candidates.refs,
   ]);
   // 読めなかったときに次の候補を見ると、リモートのブランチの代わりにローカルのブランチを読みうる。
-  if (!listed.ok) return undefined;
+  if (!listed.ok) return { reason: "read-failed" };
   const found = new Map(
     listed.stdout
       .split("\n")
@@ -240,8 +308,13 @@ const resolveSourceRef = async (git: GitRunner, ref: string): Promise<string | u
   );
   const name = candidates.refs.find((candidate) => found.has(candidate));
   const id = name === undefined ? undefined : found.get(name);
+  if (id === undefined) return { reason: "ref-unresolved" };
+  if (!OBJECT_ID.test(id)) return { reason: "read-failed" };
   // for-each-ref が返す id はリポジトリの形式の桁数なので、名前の探索に回らずその object を指す。
-  return id !== undefined && OBJECT_ID.test(id) ? resolveCommit(git, id) : undefined;
+  // コミットを指さない ref（tree や blob を指すタグ）は解決できないものとする。
+  const peeled = await lookupCommit(git, id);
+  if ("commit" in peeled) return peeled;
+  return { reason: "missing" in peeled ? "ref-unresolved" : "read-failed" };
 };
 
 // コミットの中のパス（省略時はツリー全体）を比べるための値。パスが無ければ null、読めなければ undefined。
@@ -322,9 +395,11 @@ export const readSourceToRecord = async (
   source: SpecSource,
 ): Promise<SourceToRecord | undefined> => {
   const opened = await sourceGit(repoRoot, source);
-  const git = opened?.git;
-  const commit = git === undefined ? undefined : await resolveSourceRef(git, source.ref);
-  if (opened === undefined || git === undefined || commit === undefined) return undefined;
+  if (!("git" in opened)) return undefined;
+  const { git } = opened;
+  const resolved = await resolveSourceRef(git, source.ref);
+  if (!("commit" in resolved)) return undefined;
+  const { commit } = resolved;
   const refIds = new Map<string, string | null>();
   for (const entry of source.paths) {
     const id = await objectIdAt(git, commit, entry);
@@ -359,7 +434,7 @@ const compareSource = async (
     const after = await objectIdAt(git, current, entry);
     // 読めなかったものを「同じ」と扱わない。
     if (before === undefined || after === undefined) {
-      return { name: source.name, status: "unavailable", recorded };
+      return { name: source.name, status: "unavailable", recorded, reason: "read-failed" };
     }
     if (after === null && entry !== undefined) missingPaths.push(entry);
     if (before !== after) outdated = true;
@@ -382,19 +457,30 @@ export const checkSpecSources = async (
       results.push({ name: source.name, status: "unrecorded" });
       continue;
     }
-    const git = (await sourceGit(repoRoot, source))?.git;
-    const current = git === undefined ? undefined : await resolveSourceRef(git, source.ref);
-    // 取り込み元が手元に無い・ref や記録したコミットを持っていないときは飛ばす（fetch しない）。
-    if (
-      git === undefined ||
-      current === undefined ||
-      (await resolveExactCommit(git, recordedCommit)) === undefined
-    ) {
-      results.push({ name: source.name, status: "unavailable", recorded: recordedCommit });
+    // 取り込み元を読めない・ref や記録したコミットを持っていないときは、理由を付けて比べない（fetch しない）。
+    const unavailable = (reason: SpecSourceUnavailableReason): SpecSourceResult => ({
+      name: source.name,
+      status: "unavailable",
+      recorded: recordedCommit,
+      reason,
+    });
+    const opened = await sourceGit(repoRoot, source);
+    if (!("git" in opened)) {
+      results.push(unavailable(opened.reason));
+      continue;
+    }
+    const current = await resolveSourceRef(opened.git, source.ref);
+    if (!("commit" in current)) {
+      results.push(unavailable(current.reason));
+      continue;
+    }
+    const recordedFound = await lookupExactCommit(opened.git, recordedCommit);
+    if (!("commit" in recordedFound)) {
+      results.push(unavailable("missing" in recordedFound ? "recorded-missing" : "read-failed"));
       continue;
     }
     // 同じコミットでも比べる（paths の書き誤りを「今の ref に無い」として知らせる）。
-    results.push(await compareSource(git, source, recordedCommit, current));
+    results.push(await compareSource(opened.git, source, recordedCommit, current.commit));
   }
   return results;
 };
