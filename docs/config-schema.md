@@ -179,10 +179,19 @@ specSources:
 - 確かめ: `specproof-check --spec-sources` は、記録したコミットと今の `ref` の間で `paths` の中身（ファイルの mode を
   含む）が違えば
   `spec-source-outdated` を、今の `ref` に `paths` のどれかが無ければ（書き誤り・取り込み元での移動）同じ種類で
-  そのことを、記録が無ければ `spec-source-unrecorded` を参考の警告として出す。取り込み元が手元に無い・`ref` か
-  記録したコミットを持っていないときは警告を出さずに飛ばす（記録が無いことは manifest だけで分かるので出す）。
-  どれも `--strict` でも失敗しない。`--json` には全体に `specSources: [{ name, status, recorded, current, missingPaths }]`
-  を足す（`status` は `current` / `outdated` / `path-missing` / `unrecorded` / `unavailable`）
+  そのことを、記録が無ければ `spec-source-unrecorded` を参考の警告として出す。警告を出さずに飛ばすのは、`repo` の
+  パスが無いとき（取り込み元を checkout していない PR の CI など）だけ（記録が無いことは manifest だけで分かるので、
+  そのときも `spec-source-unrecorded` は出す）。パスはあるのに確かめられないときは、`spec-source-unresolved` を
+  参考の警告として 1 行出し、理由と直し方を添える: `repo` を取り込み元として読まない（実体の `.git` が無い・自分が
+  持ち主でない・`git worktree` の作業ツリー・部分 clone。どれに当たったかは分けず、下の `repo` の条件を案内する）、
+  `ref` を解決できない（調べた ref の名前と、タグは `refs/tags/<名前>` と書くこと）、記録したコミットが取り込み元に
+  無い（fetch していない・浅い clone・履歴の書き換え。履歴ごと fetch する）、git が途中で読めない（壊れた clone・
+  中身の無い `.git` など。clone として正しいかを確かめる）。パスは設定に
+  書いた `repo` の値で出す。
+  どれも `--strict` でも失敗しない。`--json` には全体に
+  `specSources: [{ name, status, recorded, current, missingPaths, reason }]` を足す（`status` は `current` / `outdated` /
+  `path-missing` / `unrecorded` / `unavailable`。`reason` は `unavailable` のときだけで、`source-missing`（警告なし）/
+  `source-unreadable` / `ref-unresolved` / `recorded-missing` / `read-failed`）
 - `--spec-sources` を付けないと、check は取り込み元を読まず、出力も変えない。`repo` は設定の値なので PR で変えられる。
   PR の CI（既定のワークフロー）で、PR が指すディレクトリの git を起動しないための opt-in で、手元や取り込み元を
   checkout したジョブで付ける

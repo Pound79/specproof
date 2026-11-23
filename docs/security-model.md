@@ -56,7 +56,10 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   置くか、reftable backend にする）。`--record-spec-source` は
   固定の `HEAD` も同じ形で解決し、HEAD と `ref` で `paths` の中身が違えば記録しない（HEAD のコミットの id と違った
   `paths` を出力に出す）。それでも、その
-  リポジトリの存在とコミットの id は出力に出るので、PR の CI では `--spec-sources` を付けない（既定では読まない）。
+  リポジトリの存在とコミットの id は出力に出る。`repo` のパスがあって取り込み元として読めないときは
+  `spec-source-unresolved` の警告を出し、パスが無いときは黙るので、git のリポジトリでなくても `repo` に書いた
+  パスがあるかどうかが、テキスト・注釈・`--json` の出力から分かる（読めない理由は 1 つにまとめ、持ち主・worktree・
+  部分 clone のどれかは出さない）。そのため PR の CI では `--spec-sources` を付けない（既定では読まない）。
   作業ツリーを読む git（`status`・`diff`）は `.gitattributes` のフィルタを起動しうるので使わず、版の中身は
   `git show <commit>:<path>` で読む。fsmonitor・署名の検証・`log.follow` の設定は切り、作業ツリーの中の bare
   リポジトリを暗黙に見つけさせない（`safe.bareRepository=explicit`）。
