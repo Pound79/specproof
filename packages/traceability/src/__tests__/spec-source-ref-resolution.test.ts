@@ -175,6 +175,24 @@ describe("specSources の ref はブランチを読み、同じ名前のタグ�
     assert.equal(recordedIn(), before);
   });
 
+  test("大文字の commit id は、同じ名前のタグやブランチがあってもそのコミットを読む", () => {
+    // 小文字にそろえた id を rev-parse に渡しても、同じ名前の ref に落ちないことを確かめる。
+    git(source, ["tag", branch, tagged]);
+    git(source, ["branch", branch.toUpperCase(), tagged]);
+    useRef(branch.toUpperCase());
+    const result = run(updateCli, root, ["--record-spec-source", "permissions"]);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(recordedIn(), new RegExp(`"permissions": "${branch}"`));
+  });
+
+  test("形式と桁数の合わない大文字の id は、同じ名前のタグがあっても解決しない", () => {
+    const wrongLength = `${branch}${"0".repeat(24)}`;
+    git(source, ["tag", wrongLength, tagged]);
+    useRef(wrongLength.toUpperCase());
+    const result = run(updateCli, root, ["--record-spec-source", "permissions"]);
+    assert.equal(result.status, 2, result.stdout + result.stderr);
+  });
+
   test("短い名前のタグは読まず、refs/tags/ での書き方を案内して失敗する", () => {
     useRef("v1");
     git(source, ["tag", "v1", branch]);
@@ -203,6 +221,23 @@ describe("specSources の ref はブランチを読み、同じ名前のタグ�
     const result = run(updateCli, root, ["--record-spec-source", "permissions"]);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(recordedIn(), new RegExp(`"permissions": "${branch}"`));
+  });
+
+  test("大文字や大小混在の完全な commit id も、そのコミットとして記録し比べる", () => {
+    const mixed = (id: string): string =>
+      [...id].map((char, index) => (index % 2 === 0 ? char.toUpperCase() : char)).join("");
+    for (const ref of [branch.toUpperCase(), mixed(branch)]) {
+      writeFileSync(path.join(root, "traceability.yaml"), MANIFEST);
+      useRef(ref);
+      const result = run(updateCli, root, ["--record-spec-source", "permissions"]);
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      // 記録は git が返す小文字の id にそろえる。
+      assert.match(recordedIn(), new RegExp(`"permissions": "${branch}"`));
+      assert.equal(checkReport().status, "current", ref);
+      // 記録の後に ref を別のコミット（master/ が違う）の大文字の id にすると outdated と言う。
+      useRef(commitMasterChange(`viewer: ${ref}\n`).toUpperCase());
+      assert.equal(checkReport().status, "outdated", ref);
+    }
   });
 
   test("リポジトリの形式と桁数の合わない id は、同じ名前のタグがあっても解決しない", () => {

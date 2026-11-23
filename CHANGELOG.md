@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   記録し、`specproof-check --spec-sources` もタグのコミットと比べた（ブランチが先に進んでも `current` と言った）。
   今は、commit id はそのコミット、`refs/` で始まる完全な名前はその ref だけ、それ以外は `refs/remotes/<ref>`、
   `refs/heads/<ref>` の順に、名前が完全に一致する ref だけを読む。commit id（設定の `ref` と manifest の記録）は、
-  解決した id が書いた値と同じときだけ使う（リポジトリの形式と桁数が合わない hex は、git が名前として探して同じ
+  解決した id が書いた値（大文字は小文字にそろえる）と同じときだけ使う（リポジトリの形式と桁数が合わない hex は、git が名前として探して同じ
   名前のタグを読むため）。`docs/config-schema.md` の、取り込みのコマンドを
   `ref` から読む形にするときの手引きも、同じ決め方に直した（`rev-parse` に `<ref>` を直接渡さない）。
 

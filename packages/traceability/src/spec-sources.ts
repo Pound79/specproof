@@ -211,7 +211,9 @@ const resolveExactCommit = async (git: GitRunner, id: string): Promise<string | 
  * 書いたときだけ読む。
  */
 export const specSourceRefCandidates = (ref: string): { commit: string } | { refs: string[] } => {
-  if (COMMIT_ID.test(ref)) return { commit: ref };
+  // 設定の検証は大文字の hex も受け、git も大文字の id を解決する。git が返す小文字の id と比べるので、
+  // 完全な commit id に見えるときだけ小文字にそろえる（ブランチの名前の大文字小文字は変えない）。
+  if (COMMIT_ID.test(ref.toLowerCase())) return { commit: ref.toLowerCase() };
   if (ref.startsWith("refs/")) return { refs: [ref] };
   return { refs: [`refs/remotes/${ref}`, `refs/heads/${ref}`] };
 };

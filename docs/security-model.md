@@ -50,7 +50,7 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   取り込み元に push できる人は、ブランチと同じ名前のタグを置ける（fetch は既定でタグも取ってくる）。git の名前の
   探索はタグを先に読むので、`ref` は短い名前を探索に渡さず、`refs/remotes/<ref>`・`refs/heads/<ref>` の順に名前が
   完全に一致する ref だけを `for-each-ref` で引く（タグは `refs/tags/` と書いたときだけ）。commit id は、解決した id
-  が書いた値と同じときだけ使う。大文字小文字を区別しないファイルシステム（macOS の既定など）の files backend では、
+  が書いた値（大文字は小文字にそろえる）と同じときだけ使う。大文字小文字を区別しないファイルシステム（macOS の既定など）の files backend では、
   `Develop` のように大文字小文字だけが違うブランチの fetch が `refs/remotes/origin/develop` の loose ref を
   上書きしうる。これは git の ref の保存の制約で、CLI では防げない（取り込み元を大文字小文字を区別するボリュームに
   置くか、reftable backend にする）。`--record-spec-source` は
