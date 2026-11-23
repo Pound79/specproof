@@ -212,6 +212,7 @@ npx -y @pound79/specproof init --adapter {{adapter}} --dir {{dir}}
    設定の `commands.*` はこの段では流さない。例:
    - Web: テストのファイル（`*.test.*`・`*.spec.*`・`__tests__/`）が `unregistered-impl` に多ければ `layout.implExcludeGlobs`
    - Flutter: 生成物（`*.g.dart`・`*.freezed.dart`）が `unregistered-impl` に多ければ `layout.implExcludeGlobs`
+     （新しい版の `specproof init` が置く設定には典型の glob が入っている。キーがあれば、足りない範囲だけを提案する）
    - 役割の一覧・用語集の見出しが `unregistered-spec-heading` に並んでいれば `layout.specHeadingIgnore`
 4. キーごとに、提案する値・効く根拠（件数と例）・使わないなら既定のままにする理由を示し、承認を待つ。提案には
    版の番号だけでなく、書き換える行の全体の diff を示す。新しいキーは古い CLI では `unknown-config-key` になり
