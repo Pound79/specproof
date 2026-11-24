@@ -1,10 +1,12 @@
 # 現在の実装対象と残件
 
+日本語 | [English](roadmap_en.md)
+
 S1/S2 は 0.3.0 で実装した。0.2.2 以前には含まれない。
 実行の入口は [AGENTS.md](../AGENTS.md)、CLI の現行保証は
 [traceability README](../packages/traceability/README.md)。静的集計は実行済み GREEN を認定しない。
 
-## 今回の対象と状態
+## 静的集計と条件 ID の対応
 
 | 工程 | 契約と状態 | 対応ソース |
 |---|---|---|
@@ -48,6 +50,7 @@ run 結果・正式 GREEN・時系列・進捗 UI は別ツールの責務とい
 
 ## 履歴
 
+設計判断は [ADR 索引](adr/README_ja.md)、過去の計画と検証記録は [履歴索引](history/README_ja.md) で参照できる。
 完了済み Phase A/B と当時の監査番号・理由は
 [旧ロードマップ](./history/2026-07-06-roadmap.md) と
 [旧改善バックログ](./history/2026-07-06-improvement-backlog.md) に保存した。
