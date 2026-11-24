@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "vitest";
@@ -50,6 +50,22 @@ for (const marker of ["specproof.config.yaml", "traceability.yaml", "bdd-kit.con
     });
   });
 }
+test(".git がファイル（gitdir: ...）の段でも、その外の設定ファイルは探索しない", () => {
+  withRepo((root) => {
+    writeFileSync(path.join(root, "specproof.config.yaml"), "{}");
+    const nested = path.join(root, "module");
+    const result = spawnSync(
+      "git",
+      ["init", "-q", "--separate-git-dir", path.join(root, "module.git"), nested],
+      { encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(lstatSync(path.join(nested, ".git")).isFile());
+    const src = path.join(nested, "src");
+    mkdirSync(src);
+    assert.equal(resolveRepoRoot(src), realpathSync(nested));
+  });
+});
 test("検出不能時は --manifest 単独を回避策として案内しない", () => {
   withRepo((root) => {
     assert.throws(
