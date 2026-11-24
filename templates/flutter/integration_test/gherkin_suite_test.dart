@@ -16,8 +16,9 @@ part 'gherkin_suite_test.g.dart';
 // runner, which trips "Can't call group() once tests have begun running" under
 // `flutter test`. We instead await the generated runner directly from an async
 // main so the declaration phase stays open until all group()s are declared.
-// Gherkin tag expression passed with --dart-define=SPECPROOF_TAGS=... (e.g. the
-// smoke command passes "not @slow"). @draft (not decided yet), @human (a person
+// Gherkin tag expression passed with --dart-define=SPECPROOF_TAGS=... (e.g.
+// tool/smoke.dart passes "not <tags.slow>", combined with projects[0].tags when
+// set, such as "not @slow"). @draft (not decided yet), @human (a person
 // checks it) and @out-of-scope (excluded) never run; @red-contract runs and stays
 // red until implemented. There is deliberately no tag to switch a test off.
 const _tagExpression = String.fromEnvironment('SPECPROOF_TAGS');
