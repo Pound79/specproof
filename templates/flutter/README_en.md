@@ -44,8 +44,8 @@ Use Flutter 3.44+, Dart 3.12+ and Node.js 24+. The framework-independent traceab
 
 ## Drift checks and BDD
 
-Make the generated `specproof-check --strict` workflow a required check. Protect both configuration filenames, the manifest, `.npmrc` and workflows with CODEOWNERS. A PR can change the baseline or the check itself. The workflow fails if the configuration is absent. See the [security model](https://github.com/Pound79/specproof/blob/main/docs/security-model.md).
+Make the generated `specproof-check --strict` workflow a required check. Protect both configuration filenames, the manifest, `.npmrc` and workflows with CODEOWNERS. A PR can change the baseline or the check itself. The workflow fails if the configuration is absent. See the [security model](https://github.com/Pound79/specproof/blob/main/docs/security-model_en.md).
 
 Start from a spec with `/specproof-new-feature` or reconcile changes with `/specproof-sync`. Use `/specproof-implement` for reviewed RED features. Bootstrap from existing code once per domain. After implementation changes, check drift and reconcile against the spec; a change to observable behavior requires a human decision. Review each affected link before blessing it with `--link-id`.
 
-Keep observable behavior in the feature, including pending or human-verified conditions. Mark exclusions with `@out-of-scope` and a reason. A human writes the rationale for internal constraints and non-observable requirements. See the [methodology](https://github.com/Pound79/specproof/blob/main/docs/methodology.md).
+Keep observable behavior in the feature, including pending or human-verified conditions. Mark exclusions with `@out-of-scope` and a reason. A human writes the rationale for internal constraints and non-observable requirements. See the [methodology](https://github.com/Pound79/specproof/blob/main/docs/methodology_en.md).
