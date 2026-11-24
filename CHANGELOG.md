@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 互換: `specproof-stats` は、manifest に登録した feature のファイルが見つからないとき、または設定した
+  `layout.featuresDir` が無いとき、`--json` の `done` を `false` にする。これまでは `--strict` の終了コード
+  だけが 1 になり、`done` は残った feature だけで `true` になりえた。テキスト出力も、そのときは
+  `the static half of "done" is met` と言わなくなる（`@red-contract` と禁止タグが 0 件なら、代わりに
+  `Feature input is missing` の 1 行を出す）。`done` だけを見て完了を判定していた利用者は、欠落を直すまで
+  完了にならない。(#112)
+
+- 互換: `specproof-stats` は、`layout.featuresDir` を設定しているとき、その外に置いて manifest に登録した
+  feature も集計する。これまではその外の feature を実在の確認にだけ使い、数えていなかった。そのため
+  `totals`・`questions`・`done` と `--strict` の終了コードが変わる。例えば、`featuresDir` の外に
+  `@red-contract` を含む feature を登録していると、`--strict` がこれまでの 0 でなく 1 で失敗するように
+  なる。(#112)
+
 ## [0.9.0] - 2026-11-24
 
 ### Security
