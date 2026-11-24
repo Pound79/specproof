@@ -393,7 +393,7 @@ jobs:
 - **画面のビルドの設定**: ビルドに埋め込む値（`NEXT_PUBLIC_*` など、API の URL）は、git の外のファイル（`.env` など）に
   頼らない。リポジトリにある雛形（`.env.example` など）をコピーし、CI で決まる値を上書きしてからビルドする。
   値が空のまま作ると、画面は API でなく自分自身に要求を送り、多くのシナリオが 404 で落ちる。手元で新しい
-  worktree を作ったときも同じことが起きる（雛形の README の「テストの前に環境を確かめる」で、テストの前に拾える）
+  worktree を作ったときも同じことが起きる（[テストの前に環境を確かめるコード例](../templates/playwright/README_ja.md#preflight-example)で、実行前に検知できる）
 - **Node の版**: 画面と E2E のパッケージで `engines` の要求が違うことがある。画面のビルドの後、E2E の前に、
   E2E のパッケージの `engines` に合う版を `actions/setup-node` で入れ直す（`package-manager-cache: false`。手順 2）
 

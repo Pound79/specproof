@@ -141,7 +141,7 @@ bootstrap 後の変更はすべて feature-first（人間が `.feature` を先�
   対象は操作の動詞（削除・承認など）でなく「その操作の後、同じシナリオがもう一度は成り立たないか」で選ぶ
   （参加・通報・印を付ける更新・名前や本文を変える更新も当てはまる）。前提を画面で確かめられないときの、
   シナリオごとの印で止める形と守ること（印を残す時点・鍵・1 シナリオ 1 つまで）は、specproof-implement の
-  自己点検の 7 と Playwright の雛形の README の「状態を使い切るシナリオのガード」に置く。
+  自己点検の 7 と Playwright 雛形の[状態を使い切るシナリオのガード](../templates/playwright/README_ja.md#seed-guard-example)に置く。
 
 ### バケット B — `.feature` に書くが今は自動で確かめない
 

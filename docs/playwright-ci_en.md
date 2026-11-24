@@ -50,7 +50,7 @@ If the jobs must share a runner context, combine protected-branch allowlisting b
 - On Linux, files written by root inside a container may be unreadable to the runner. Run writers with the runner's UID and GID, or copy files out with `docker compose cp`. Export `HOST_UID` and `HOST_GID` from `id -u` and `id -g` and use those names in Compose's `user` setting. Bash reserves `UID`.
 - Define health checks and use `docker compose up --wait`. Run migrations before seeding. Warm up the service before starting tests to avoid first-request timeouts.
 - Generate disposable signing keys per run, mask them before use and pass them only where needed. Use a temporary env file for the backend if considering the trace exception below. Avoid printing resolved Compose settings. Use synthetic accounts and data, a fresh database per run and only the services created for the run.
-- Populate public build-time settings such as the API URL from a tracked example with CI-specific overrides before building. An empty URL can send requests to the frontend itself and cause widespread 404s, including in fresh local worktrees. Use the template preflight checks.
+- Populate public build-time settings such as the API URL from a tracked example with CI-specific overrides before building. An empty URL can send requests to the frontend itself and cause widespread 404s, including in fresh local worktrees. See [Checking the environment before E2E](../templates/playwright/README.md#checking-the-environment-before-e2e) for the preflight checks.
 - If frontend and E2E packages require different Node versions, set up the version required by the E2E package after the frontend build. Keep package-manager caching disabled.
 
 ## Results, logs and artifacts
