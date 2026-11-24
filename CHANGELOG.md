@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 互換: `specproof-check` / `-update` / `-stats` / `-list` とライブラリの `resolveRepoRoot` / `discoverConfig` が
+  リポジトリのルートを探すとき（`--root`（`root`）を渡さないとき）、親へたどる探索を `.git` の項目がある段で
+  止める。`specproof init` は実行したディレクトリを使うので変わらない。その段の設定ファイルと manifest は読み、それより上は見ない。チェックアウトの外に置かれた設定で
+  ルートを広げさせないため。当たるのは次のとき。
+  - git の最上段より上にある `specproof.config.yaml`（`.yml`）・`traceability.yaml` は読まれなくなる。
+    git の最上段にマーカーが無ければ、`git rev-parse --show-toplevel` の段がルートになる。上の段の設定を
+    使っていたときは、設定を git の最上段に移すか `--root` を付ける。
+  - submodule や `git worktree` の中（`.git` が `gitdir: ...` を書いたファイル）から実行すると、その段が
+    ルートになる。これまでは上の段の設定ファイル・manifest まで探しに行っていた。
+  - 上の段にある旧名の設定ファイル（`bdd-kit.config.yaml` / `.yml`）の改名のエラーが出なくなる。git の
+    最上段とその中の旧名は、これまでどおりエラーにする。(#111)
+
 ## [0.9.0] - 2026-11-24
 
 ### Security
