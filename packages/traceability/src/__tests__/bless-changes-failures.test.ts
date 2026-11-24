@@ -25,6 +25,7 @@ const history: BlessHistory = {
   prefix: "",
   commits: [BLESSED],
   paths: ["src/a.ts"],
+  unidentified: [undefined],
 };
 const manifest: TraceabilityManifest = { version: 1, links: [] };
 
@@ -49,7 +50,12 @@ describe("--since-bless のまとめは git の失敗を意味のある値とし
     });
     const changes = await groupChangesSinceBless(git, [entry], history, manifest);
     expect(changes.uncommitted).toEqual([]);
-    expect(changes.notGrouped).toEqual({ noBlessedVersion: 0, notSearched: 0, failed: 1 });
+    expect(changes.notGrouped).toEqual({
+      noBlessedVersion: 0,
+      notSearched: 0,
+      failed: 1,
+      unidentifiedBlessedVersion: 0,
+    });
     expect(changes.incomplete).toBe(true);
   });
 

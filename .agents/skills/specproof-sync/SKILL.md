@@ -170,7 +170,10 @@ feature / steps / page objects / manifest を変更しない。
      要求・許容している」となった場合にだけここへ来る）
    - 前に bless した中身からの差分は `{{config:commands.traceabilityCheck}} --since-bless` が示す
      `compare with:` の行のコマンドをそのまま使って見る（どこから流しても同じファイルを指す形で示される。
-     bless した中身がコミットされていなければ見つからない）。
+     bless した中身がコミットされていなければ見つからない）。HTML コメントの中の見出しやフェンスで節の境界が
+     曖昧な版しか一致しなければ、`blessed version: cannot be identified` と出て比べるコミットは示されない
+     （JSON では `blessedCommit` が `null` で `blessedCommitUnidentified` が付く）。そのときは推測で起点を選ばず、
+     仕様のファイルの履歴を手で見て bless の後の変更を確かめ、確かめ切れなければ人に返す。
      impl の drift は、Step 2 で取った `sinceBless.commits` をコミットごとに見る。
      それ以外の補助として `git diff origin/main...HEAD -- <path>`
      または直近の変更コミット。ただし main 上の未コミット変更のみ・ベース
@@ -253,8 +256,8 @@ feature / steps / page objects / manifest を変更しない。
   決められなければ（`notGrouped` は件数しか無いので、0 でなければいつもそう）、impl が drift したリンクをすべて
   当たるものとして扱う。
   - `uncommitted` に bless するリンクの impl の参照がある（コミットしていない変更で、コミットの単位で見られない）
-  - `notGrouped` のどれかの件数が 0 でない（bless した版が見つからない・探していない・変えたコミットを特定できない
-    参照がある）
+  - `notGrouped` のどれかの件数が 0 でない（bless した版が見つからない・探していない・変えたコミットを特定できない・
+    HTML コメントのため bless した版を特定できない参照がある）
   - `incomplete` が `true`（git の起動・時間・コミット数の上限で打ち切った。並んだコミットが全部とは限らない）
   - `sinceBless` が無い、または `gitHistoryAvailable` が `false`（git の履歴を辿れない）。コマンドが失敗した・
     JSON を読めない・人に渡して結果が戻っていないときも、`sinceBless` が無いものとして扱う
