@@ -95,12 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `@red-contract` を含む feature を登録していると、`--strict` がこれまでの 0 でなく 1 で失敗するように
   なる。(#112)
 
-- `--manifest` で指定したファイルが見つからない場合は、`--strict` の有無にかかわらず
-  終了コード 2 で停止する。指定パスを修正するか、探索ディレクトリだけを集計するなら
+- 互換: `specproof-stats` は、`--manifest` で指定したファイルが見つからないとき、`--strict` の
+  有無にかかわらず終了コード 2 で停止する。指定パスを修正するか、探索ディレクトリだけを集計するなら
   `--manifest` を省略する。(#112)
 
-- `specproof-stats` now counts registered features outside `layout.featuresDir`. This can change
-  `totals`, `questions`, and `done`. A pending condition in one of those features now makes
+- Compatibility: `specproof-stats` now counts registered features outside `layout.featuresDir`.
+  This can change `totals`, `questions`, and `done`. A pending condition in one of those features now makes
   `--strict` exit with code 1. A missing registered feature or configured directory sets `done` to
   `false` in JSON and prevents the text report from declaring completion. Restore the missing
   input before relying on the completion result. An explicit `--manifest` that cannot be found
