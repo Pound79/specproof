@@ -62,7 +62,7 @@ E2E_PASSWORD=YourPassword1!
 | Variable names only | `.env.example` | Committed on purpose (`!.env.example` in `.gitignore`). Never put real values in it. |
 | Test account credentials | `.env` (and CI secrets) | Use dedicated test accounts, never real users' or production accounts. `.env` and `.env.*` are gitignored; keep them out of commits and logs. |
 | Logged-in browser state (cookies, localStorage) | `playwright/.auth/*.json` in this package (resolved against the package, wherever Playwright runs from; a `storageState` path outside the package or through a symbolic link is refused) | Gitignored, and deleted by the `auth-teardown` project after the authenticated projects finish. The teardown does not run when a run is interrupted (Ctrl-C, a cancelled CI job, `globalTimeout`), with `--no-deps`, or in UI mode, so delete `playwright/.auth/` by hand on shared machines after those. `--no-deps` also needs the setup project to have run first. Do not upload these files as CI artifacts. |
-| Traces, screenshots and videos | `test-results/`, `playwright-report/` | A trace is kept for every failed test attempt, locally and in CI (including a failed first attempt of a test that passed on retry). It records the actions (including the typed login form), the network, cookies and localStorage, so it carries the test account's session. Both directories are gitignored. Do not share them. Do not upload them as CI artifacts; reproduce a CI-only failure locally and open the trace there (`npx playwright show-trace`). The only exception (traces of failed runs, kept briefly, when every condition holds) is in [the CI guide](https://github.com/Pound79/specproof/blob/main/docs/playwright-ci.md#例外-落ちた-run-の-trace-を短く残す). |
+| Traces, screenshots and videos | `test-results/`, `playwright-report/` | A trace is kept for every failed test attempt, locally and in CI (including a failed first attempt of a test that passed on retry). It records the actions (including the typed login form), the network, cookies and localStorage, so it carries the test account's session. Both directories are gitignored. Do not share them. Do not upload them as CI artifacts; reproduce a CI-only failure locally and open the trace there (`npx playwright show-trace`). The only exception (traces of failed runs, kept briefly, when every condition holds) is in [the CI guide](https://github.com/Pound79/specproof/blob/main/docs/playwright-ci_en.md#limited-retention-for-ci-only-failures). |
 
 `E2E_BASE_URL` defaults to `http://localhost:5173`. The scaffold sends the test
 credentials to whatever URL you set, so use `https://` for any host other than
@@ -255,14 +255,14 @@ hashes, `specproof.config.yaml` and the workflow itself, so the check alone does
 stop drift. Make it a required status check in your branch protection, and protect
 `specproof.config.yaml` / `specproof.config.yml`, `traceability.yaml`, `.npmrc` and
 `.github/workflows/` with CODEOWNERS. The workflow fails when the config file is
-missing. See [what the drift gate does not guarantee](https://github.com/Pound79/specproof/blob/main/docs/security-model.md#drift-のゲートが保証しないこと).
+missing. See [what the drift gate does not guarantee](https://github.com/Pound79/specproof/blob/main/docs/security-model_en.md#protecting-the-drift-gate).
 
 ---
 
 ## BDD Methodology Pointers
 
 The specproof-* skills resolve `{{config:layout.e2eReadme}}` to this file for
-the conventions below. Full rationale lives in `docs/methodology.md`; this is
+the conventions below. Full rationale lives in `docs/methodology_en.md`; this is
 a summary + link, not a copy.
 
 ### Choosing a workflow
@@ -308,6 +308,6 @@ rationale, reproducing the spec rot specproof exists to catch.
 
 - [playwright-bdd docs](https://playwright-bdd.github.io/)
 - [Playwright docs](https://playwright.dev/)
-- [specproof config schema](https://github.com/Pound79/specproof/blob/main/docs/config-schema.md)
-- [specproof methodology](https://github.com/Pound79/specproof/blob/main/docs/methodology.md)
-- [Running E2E that needs a separate backend in CI](https://github.com/Pound79/specproof/blob/main/docs/playwright-ci.md)
+- [specproof config schema](https://github.com/Pound79/specproof/blob/main/docs/config-schema_en.md)
+- [specproof methodology](https://github.com/Pound79/specproof/blob/main/docs/methodology_en.md)
+- [Running E2E that needs a separate backend in CI](https://github.com/Pound79/specproof/blob/main/docs/playwright-ci_en.md)
