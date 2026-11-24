@@ -77,7 +77,7 @@ _Avoid_: 保留
 実装待ちの条件。`@human` が付いていなければ E2E で実行し、落ちるのを観測し続ける。`@human` と併記した場合は
 実装待ちのまま人が確かめ、E2E では実行しない。1 件でも残れば完了しない。緑になったら（`@human` 併記なら人が
 確かめたら）人がタグを外す。runner のテンプレートの絞り込みでは除外しないが、プロジェクトの `tags`・`--grep`・
-smoke の `--grep-invert @slow` などの絞り込みには従う。コマンドラインの `--grep-invert @red-contract` は使わない。
+smoke の `tags.slow` によるタグ単位の除外 などの絞り込みには従う。コマンドラインの `--grep-invert @red-contract` は使わない。
 _Avoid_: fixme, TODO
 
 **@human**:

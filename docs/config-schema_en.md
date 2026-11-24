@@ -169,7 +169,7 @@ environments:
     excludeTags: ["@destructive"]
 ```
 
-Runtime environment, authentication role and scenario attributes form three independent selections. Environment exclusions can omit a tag such as `@google-auth`, and project conditions can disable an admin role when a variable is absent. Every filter must allow a scenario for it to run. Runners always exclude `@draft`, `@human` and `@out-of-scope`. Ordinary selections (project tags such as `@admin`, CLI `--grep`, smoke's `--grep-invert @slow`) still apply to `@red-contract`. A pending human condition remains pending and outside E2E. State tags or unbalanced parentheses in Playwright project tags or Flutter's `SPECPROOF_TAGS` are rejected. Never pass `--grep-invert @red-contract`.
+Runtime environment, authentication role and scenario attributes form three independent selections. Environment exclusions can omit a tag such as `@google-auth`, and project conditions can disable an admin role when a variable is absent. Every filter must allow a scenario for it to run. Runners always exclude `@draft`, `@human` and `@out-of-scope`. Ordinary selections (project tags such as `@admin`, CLI `--grep`, smoke's exclusion of the configured `tags.slow` tag) still apply to `@red-contract`. A pending human condition remains pending and outside E2E. State tags or unbalanced parentheses in Playwright project tags or Flutter's `SPECPROOF_TAGS` are rejected. Never pass `--grep-invert @red-contract`.
 
 ## Why these fields exist
 

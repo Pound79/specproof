@@ -359,7 +359,7 @@ tags            — シナリオ属性軸（@slow/@admin 等）  → ランナ�
 `excludeTags` は環境軸から tags 軸へのフィルタ。例: local 環境では `@google-auth` を除外。
 状態タグの扱いは環境によらず固定で、runner のテンプレートは `@draft` / `@human` / `@out-of-scope` を常に除外し、
 `@red-contract` はテンプレートの絞り込みでは除外しない。ただし `@red-contract` のシナリオも `projects[].tags`
-（`@admin` など）・コマンドラインの `--grep`・smoke コマンドの `--grep-invert @slow` といった絞り込みには従う。
+（`@admin` など）・コマンドラインの `--grep`・smoke コマンドの `tags.slow` によるタグ単位の除外 といった絞り込みには従う。
 `@human` と併記した `@red-contract` は実装待ちのまま人が確かめ、E2E では実行しない。
 `excludeTags` に状態タグやタグ式（`not @x`・`@a and @b` など）を書くと、
 Playwright テンプレートの設定読み込みが失敗する（`@red-contract` を外して E2E を緑に見せないため）。
