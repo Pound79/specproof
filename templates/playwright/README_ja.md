@@ -48,7 +48,7 @@ E2E パッケージで `cp .env.example .env` を実行し、`E2E_BASE_URL`、`E
 
 ### smoke の実行
 
-`npm run test:smoke` で glue code を生成し、低速タグ（既定は `@slow`）を除いたシナリオを実行します。`@draft`、`@human`、`@out-of-scope` は常に実行対象から除外します。`@red-contract` は通常の project・環境・smoke フィルターを通ったものを実行し、実装まで RED として残します。`@red-contract @human` は人が確認して `@human` を外すまで待機します。
+`npm run test:smoke` で glue code を生成し、低速タグ（既定は `@slow`）を除いたシナリオを実行します。`SPECPROOF_SMOKE=1` があると smoke と判定し、設定の `tags.slow` をタグ式で除外します。npm スクリプトを使わず `bddgen` / `playwright` を直接呼ぶときは `SPECPROOF_SMOKE=1` を付けます。`@draft`、`@human`、`@out-of-scope` は常に実行対象から除外します。`@red-contract` は通常の project・環境・smoke フィルターを通ったものを実行し、実装まで RED として残します。`@red-contract @human` は人が確認して `@human` を外すまで待機します。
 
 `environments[].excludeTags` は `@google-auth` のような単一タグだけを受け付けます。状態タグ・タグ式をここに指定した場合や、`projects[].tags` に状態タグ・対応しない括弧を含めた場合はエラーです。CLI の `--grep-invert @red-contract` は防止できないため使わないでください。
 
