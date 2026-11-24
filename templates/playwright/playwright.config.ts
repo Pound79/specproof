@@ -5,6 +5,7 @@ import {
   isConditionMet,
   resolveActiveEnvironment,
   runnerExclusions,
+  isSmokeRun,
 } from "./src/config/specproof-config";
 import {
   loadDotenv,
@@ -79,11 +80,8 @@ function mergeExcludeTags(
   return `(${projectTags}) and ${exclusion}`;
 }
 
-const excludedTags = runnerExclusions(
-  cfg,
-  activeEnv,
-  process.env.npm_lifecycle_event === "test:smoke",
-);
+// smoke（`npm run test:smoke` が SPECPROOF_SMOKE=1 を渡す）では、設定の tags.slow も除外する。
+const excludedTags = runnerExclusions(cfg, activeEnv, isSmokeRun());
 
 // Per-config app projects.
 const appProjects = cfg.projects.flatMap((p) => {

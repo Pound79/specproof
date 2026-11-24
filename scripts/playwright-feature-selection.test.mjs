@@ -9,9 +9,28 @@ import * as configHelpers from "../templates/playwright/src/config/specproof-con
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const templateConfig = () => parse(read("templates/playwright/specproof.config.yaml"));
 
+// smoke の判定に使う環境変数を、呼び出しの間だけ指定の値にする（外側の npm や shell の値を持ち込まない）。
+const SMOKE_ENV_KEYS = ["SPECPROOF_SMOKE", "npm_lifecycle_event"];
+const withSmokeEnv = (values, run) => {
+  const saved = Object.fromEntries(SMOKE_ENV_KEYS.map((key) => [key, process.env[key]]));
+  try {
+    for (const key of SMOKE_ENV_KEYS) {
+      if (values[key] === undefined) delete process.env[key];
+      else process.env[key] = values[key];
+    }
+    return run();
+  } finally {
+    for (const key of SMOKE_ENV_KEYS) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
+};
+
 // ライブラリへの引数を観測し、テンプレートが実際に選んだ feature・タグ・認証状態を確認する。
 // dotenv は読み込まず、ライブラリ境界以外は同梱の設定処理を使う。
-const buildProjects = (config) => {
+const buildProjects = (config, env = {}) => withSmokeEnv(env, () => buildProjectsInCurrentEnv(config));
+const buildProjectsInCurrentEnv = (config) => {
   const source = stripTypeScriptTypes(read("templates/playwright/playwright.config.ts"));
   const script = source
     .replace(
@@ -38,18 +57,36 @@ const buildProjects = (config) => {
   return new Function("imports", script)(imports).projects;
 };
 
-test("smoke の bddgen は設定タグだけを通常の Gherkin タグとして除外する", (t) => {
-  const original = process.env.npm_lifecycle_event;
-  t.after(() => {
-    if (original === undefined) delete process.env.npm_lifecycle_event;
-    else process.env.npm_lifecycle_event = original;
-  });
-  process.env.npm_lifecycle_event = "test:smoke";
+test("SPECPROOF_SMOKE=1 なら npm のスクリプト名が無くても設定の低速タグを除外する", () => {
   const cfg = templateConfig();
-  const projects = buildProjects({ ...cfg, tags: { ...cfg.tags, slow: "@long-running" } });
+  const projects = buildProjects(
+    { ...cfg, tags: { ...cfg.tags, slow: "@long-running" } },
+    { SPECPROOF_SMOKE: "1" },
+  );
   const guest = projects.find((p) => p.name === "guest");
-  assert.match(guest.tags, / and not @long-running$/);
+  assert.equal(
+    guest.tags,
+    "(not @admin and not @user) and not @draft and not @human and not @out-of-scope and not @long-running",
+  );
   assert.doesNotMatch(guest.tags, /@slow/);
+});
+
+test("smoke かどうかは npm のスクリプト名でなく SPECPROOF_SMOKE で決める", () => {
+  const guest = buildProjects(templateConfig(), { npm_lifecycle_event: "test:smoke" }).find(
+    (p) => p.name === "guest",
+  );
+  assert.doesNotMatch(guest.tags, /@slow/);
+});
+
+test("tags.slow の不正な値は smoke 以外の実行でも設定の読み込みで止める", () => {
+  const cfg = templateConfig();
+  for (const slow of ["@red-contract", "@first or @second", "not @slow", "@unfinished\\", 1]) {
+    assert.throws(
+      () => buildProjects({ ...cfg, tags: { ...cfg.tags, slow } }),
+      /tags\.slow/,
+      String(slow),
+    );
+  }
 });
 
 test("guest の生成条件はロール付きシナリオを除外し、認証状態を持たない", () => {

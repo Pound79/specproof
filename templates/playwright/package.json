@@ -8,7 +8,7 @@
   "scripts": {
     "bddgen": "bddgen",
     "test": "bddgen && playwright test",
-    "test:smoke": "bddgen && playwright test",
+    "test:smoke": "node scripts/smoke.mjs",
     "test:headed": "bddgen && playwright test --headed",
     "test:ui": "bddgen && playwright test --ui",
     "report": "playwright show-report",

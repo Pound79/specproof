@@ -208,23 +208,31 @@ function assertExcludeTags(profile: EnvironmentProfile): void {
 }
 
 // smoke は Gherkin のタグ単位で絞る。正規表現でシナリオ名や似た名前まで除外しない。
+// tags.slow は smoke 以外の実行でも確かめ、不正な値を smoke を走らせるまで残さない。
 export function runnerExclusions(
   cfg: SpecproofConfig,
   env: EnvironmentProfile,
   smoke: boolean,
 ): readonly string[] {
-  const excluded = env.excludeTags ?? [];
-  if (!smoke) return excluded;
-  const slow = cfg.tags?.slow ?? "@slow";
+  const slow: unknown = cfg.tags?.slow ?? "@slow";
   if (
     typeof slow !== "string" ||
     !SINGLE_TAG.test(slow) ||
     slow.includes("\\") ||
     STATE_TAGS.includes(slow)
   ) {
-    throw new Error("specproof: tags.slow must be a single non-state tag.");
+    throw new Error(
+      `specproof: tags.slow must be a single non-state tag like "@slow" (got ${JSON.stringify(slow)}).`,
+    );
   }
-  return [...excluded, slow];
+  const excluded = env.excludeTags ?? [];
+  return smoke ? [...excluded, slow] : excluded;
+}
+
+// smoke の実行かどうか。npm のスクリプト名は起動の仕方（npx・node --run・名前の変更）で
+// 変わるため使わず、test:smoke が明示的に渡す SPECPROOF_SMOKE=1 だけで決める。
+export function isSmokeRun(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.SPECPROOF_SMOKE === "1";
 }
 
 // projects[].tags is spliced into the same tag expression. A state tag there
