@@ -26,7 +26,7 @@ Use `npm run format` to format the sources. See the [quality gates](docs/quality
 4. Link the issue in your pull request and explain the change and how you verified it. For behavior and architecture decisions, reference or add an ADR under `docs/adr/`.
 5. Update both languages of user and contributor guides in the same PR. Keep the existing canonical filename; add `_ja.md` for a Japanese counterpart or `_en.md` for an English counterpart. Link both ways. Keep runnable skill instructions and shared code examples in one place.
 
-The npm workspaces are `packages/traceability/` (drift detection) and `cli/` (scaffolding). Agent skills live in `plugins/specproof/`, adapters in `templates/`, and methodology, schema and design decisions in `docs/`. See the [glossary](CONTEXT_en.md), [release procedure](RELEASING.md) and [code of conduct](CODE_OF_CONDUCT.md).
+The npm workspaces are `packages/traceability/` (drift detection) and `cli/` (scaffolding). Agent skills live in `plugins/specproof/`, adapters in `templates/`, and methodology, schema and design decisions in `docs/`. See the [glossary](CONTEXT.md), [release procedure](RELEASING.md) and [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Check what you publish
 

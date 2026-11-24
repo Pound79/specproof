@@ -26,7 +26,7 @@ npm run test:coverage
 4. PR に関連 issue、変更内容、検証結果を書きます。振る舞いや設計に関わる場合は `docs/adr/` の ADR を参照または追加します。
 5. 利用者・貢献者向け文書は同じ PR で日英を更新します。既存の正本の名前を保ち、対訳には `_ja.md` または `_en.md` を付けて相互リンクします。実行用 skill の指示と共用のコード例は一か所で管理します。
 
-npm workspace は `packages/traceability/`（drift 検知）と `cli/`（足場の生成）です。skill は `plugins/specproof/`、アダプターは `templates/`、方法論・設定・設計判断は `docs/` にあります。[用語集](CONTEXT.md)、[公開手順](RELEASING_ja.md)、[行動規範](CODE_OF_CONDUCT_ja.md)も参照してください。
+npm workspace は `packages/traceability/`（drift 検知）と `cli/`（足場の生成）です。skill は `plugins/specproof/`、アダプターは `templates/`、方法論・設定・設計判断は `docs/` にあります。[用語集](CONTEXT.md)、[公開手順](RELEASING.md)、[行動規範](CODE_OF_CONDUCT_ja.md)も参照してください。
 
 ## 公開内容の検査
 
