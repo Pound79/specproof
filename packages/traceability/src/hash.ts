@@ -145,16 +145,36 @@ const parseHeading = (line: string): { level: number; text: string } | null => {
 
 const headingLevelOf = (line: string): number | null => parseHeading(line)?.level ?? null;
 
+/** HTML コメントブロックの行の範囲（0 始まり、end は含まない）。閉じないまま末尾に達したら closed は false。 */
+interface CommentBlock {
+  start: number;
+  end: number;
+  closed: boolean;
+}
+
+interface BlockScan {
+  /** 行ごとに、見出しの候補にもセクションの終端にも使わない行なら true。 */
+  ignored: boolean[];
+  comments: CommentBlock[];
+}
+
 // フェンス付きコードブロックと HTML コメントブロック内の行は、見出しの候補にも
 // セクションの終端にも使わない。ブロック内の文字列は別のブロックを開始しない。
-const headingBlockMask = (lines: string[], skipHtmlComments: boolean): boolean[] => {
+const scanBlocks = (lines: string[], skipHtmlComments: boolean): BlockScan => {
   const mask: boolean[] = [];
+  const comments: CommentBlock[] = [];
   let openFence: { char: string; len: number } | null = null;
-  let inComment = false;
-  for (const line of lines) {
-    if (skipHtmlComments && (inComment || (openFence === null && /^ {0,3}<!--/.test(line)))) {
+  let commentStart: number | undefined;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (
+      skipHtmlComments &&
+      (commentStart !== undefined || (openFence === null && /^ {0,3}<!--/.test(line)))
+    ) {
       mask.push(true);
-      inComment = !line.includes("-->");
+      const start = commentStart ?? index;
+      commentStart = line.includes("-->") ? undefined : start;
+      if (commentStart === undefined) comments.push({ start, end: index + 1, closed: true });
       continue;
     }
     const fence = parseFence(line);
@@ -173,7 +193,10 @@ const headingBlockMask = (lines: string[], skipHtmlComments: boolean): boolean[]
     openFence = fence;
     mask.push(fence !== null);
   }
-  return mask;
+  if (commentStart !== undefined) {
+    comments.push({ start: commentStart, end: lines.length, closed: false });
+  }
+  return { ignored: mask, comments };
 };
 
 const assertValidLevel = (fn: string, level: number): void => {
@@ -225,7 +248,7 @@ const collectHeadingCandidates = (
 export const listHeadingCandidates = (content: string, level: number): HeadingCandidate[] => {
   assertValidLevel("listHeadings", level);
   const lines = content.split("\n");
-  return collectHeadingCandidates(lines, level, headingBlockMask(lines, true));
+  return collectHeadingCandidates(lines, level, scanBlocks(lines, true).ignored);
 };
 
 export const listHeadings = (content: string, level: number): Heading[] =>
@@ -263,6 +286,8 @@ export const computeHeadingSectionHash = async (
   absPath: string,
   heading: string,
   level = 2,
+  /** エラー文に添える、この参照を登録したリンクの id。 */
+  linkId?: string,
 ): Promise<string> => {
   if (!Number.isInteger(level) || level < 1 || level > 6) {
     throw new Error(`computeHeadingSectionHash: level must be an integer in 1-6 (got ${level})`);
@@ -271,7 +296,10 @@ export const computeHeadingSectionHash = async (
   if (content === null) {
     return FILE_MISSING;
   }
-  return hashHeadingSectionContent(content, heading, level, path.basename(absPath));
+  return hashHeadingSectionContent(content, heading, level, {
+    file: path.basename(absPath),
+    linkId,
+  });
 };
 
 type SectionRange = { start: number; end: number };
@@ -280,9 +308,8 @@ const sectionRange = (
   lines: string[],
   heading: string,
   level: number,
-  skipHtmlComments: boolean,
+  ignored: boolean[],
 ): SectionRange | undefined => {
-  const ignored = headingBlockMask(lines, skipHtmlComments);
   const target = resolveHeadingReference(collectHeadingCandidates(lines, level, ignored), heading);
   if (target === undefined) return undefined;
   const start = target.line - 1;
@@ -297,34 +324,135 @@ const sectionRange = (
 const hashRange = (lines: string[], range: SectionRange | undefined): string =>
   range === undefined ? SECTION_MISSING : sha256(lines.slice(range.start, range.end).join("\n"));
 
-// 過去のコミットとの照合専用。保存済みの v1 の値は、その時点の v1 の規則で辿る。
+interface SectionBoundaries {
+  /** v1 の従来の規則（コメントを認識しない）の範囲。v1 の hash はこの範囲で計算する。 */
+  original: SectionRange | undefined;
+  legacy: BlockScan;
+  /** コメントを認識した走査。中身に `<!--` が無ければ従来の規則と同じなので走査しない。 */
+  aware?: BlockScan;
+  /** コメントを認識すると、節の開始か終端が従来の規則と変わる。 */
+  ambiguous: boolean;
+}
+
+// 従来の規則とコメントを認識した規則で節の範囲を比べる。v1 の hash を計算する経路（作業ツリー・
+// 過去の版）はすべてこの判定を通す。
+const sectionBoundaries = (
+  content: string,
+  lines: string[],
+  heading: string,
+  level: number,
+): SectionBoundaries => {
+  const legacy = scanBlocks(lines, false);
+  const original = sectionRange(lines, heading, level, legacy.ignored);
+  if (!content.includes("<!--")) return { original, legacy, ambiguous: false };
+  const aware = scanBlocks(lines, true);
+  const visible = sectionRange(lines, heading, level, aware.ignored);
+  const ambiguous = original?.start !== visible?.start || original?.end !== visible?.end;
+  return { original, legacy, aware, ambiguous };
+};
+
+/** 過去のコミットとの照合用。保存済みの v1 の値と比べる hash と、その版で節の境界がコメントで曖昧か。 */
+export interface HistoricalV1Section {
+  hash: string;
+  ambiguous: boolean;
+}
+
+// 過去のコミットとの照合専用。保存済みの v1 の値は、その時点の v1 の規則で辿る。境界が曖昧な版は、
+// コメントの後ろの本文が変わっても同じ hash になりうるので、照合した側で起点に使わない。
 // 新規の bless や作業ツリーの clean 判定には使わない。
-export const hashHistoricalV1Section = (
+export const inspectHistoricalV1Section = (
   content: string,
   heading: string,
   level: number,
-): string => {
+): HistoricalV1Section => {
   const lines = content.split("\n");
-  return hashRange(lines, sectionRange(lines, heading, level, false));
+  const boundaries = sectionBoundaries(content, lines, heading, level);
+  return { hash: hashRange(lines, boundaries.original), ambiguous: boundaries.ambiguous };
 };
+
+// コメントの中に、従来の規則で見出し（level 以下）またはフェンスとして読まれる行がある。
+// 境界の食い違いはこうしたコメントから生じる。
+const hidesBoundaryLines = (
+  lines: string[],
+  level: number,
+  legacyIgnored: boolean[],
+  block: CommentBlock,
+): boolean =>
+  lines.slice(block.start, block.end).some((line, offset) => {
+    if (parseFence(line) !== null) return true;
+    const lineLevel = legacyIgnored[block.start + offset] ? null : headingLevelOf(line);
+    return lineLevel !== null && lineLevel <= level;
+  });
+
+// エラー文に並べるコメントの位置の上限。8 MiB の spec でもエラー文が 1 行で膨らまないようにする。
+const MAX_LISTED_COMMENTS = 10;
+
+// 従来の規則で選ばれた参照の見出しが、このコメントの中にある。
+const containsReference = (block: CommentBlock, original: SectionRange | undefined): boolean =>
+  original !== undefined && original.start >= block.start && original.start < block.end;
+
+const describeCommentBlock = (block: CommentBlock, original: SectionRange | undefined): string => {
+  const notes = [
+    block.closed ? undefined : 'not closed: add "-->" where the comment should end',
+    containsReference(block, original)
+      ?"contains the referenced heading: if the whole section is commented out, remove this reference from the manifest"
+      : undefined,
+  ].filter((note) => note !== undefined);
+  return notes.length === 0
+    ? `line ${block.start + 1}`
+    : `line ${block.start + 1} (${notes.join("; ")})`;
+};
+
+const boundaryError = (
+  heading: string,
+  level: number,
+  lines: string[],
+  boundaries: SectionBoundaries,
+  source: HeadingSectionSource,
+): Error => {
+  const where = source.file === undefined ? "" : ` in ${JSON.stringify(source.file)}`;
+  const link = source.linkId === undefined ? "" : ` (link ${JSON.stringify(source.linkId)})`;
+  // 同じファイルで同じ段の境界を変えうるコメントは、この 1 つのエラーで示す（check は最初のエラーで
+  // 止まるので、ほかのファイル・段の衝突は直して流し直したときに出る）。エラー文は CI のログに出るので、
+  // 並べるのは先頭の MAX_LISTED_COMMENTS 件と、参照の見出しを含むコメントだけにし、残りは件数で示す。
+  const blocks = (boundaries.aware?.comments ?? []).filter((block) =>
+    hidesBoundaryLines(lines, level, boundaries.legacy.ignored, block),
+  );
+  const head = blocks.slice(0, MAX_LISTED_COMMENTS);
+  const holding = blocks
+    .slice(MAX_LISTED_COMMENTS)
+    .filter((block) => containsReference(block, boundaries.original));
+  const shown = [...head, ...holding];
+  const more = blocks.length - shown.length;
+  const listed =
+    blocks.length === 0
+      ? ""
+      : ` HTML comment(s) in this file that hide heading or fence lines, by opening line: ${shown
+          .map((block) => describeCommentBlock(block, boundaries.original))
+          .join(", ")}${more > 0 ? `, and ${more} more` : ""}.`;
+  return new Error(
+    `Cannot hash section ${JSON.stringify(heading)}${where}${link} with manifest version 1: an HTML comment changes its boundaries.${listed} Close a comment left open with "-->"; remove a reference whose whole section is inside a comment; otherwise rewrite or indent heading or fence lines in the comment by at least four spaces. Then review the section before updating its hash.`,
+  );
+};
+
+/** エラー文に添える参照の情報。 */
+export interface HeadingSectionSource {
+  /** ファイル名（公開の CI ログに出るので、絶対パスでなく basename）。 */
+  file?: string;
+  linkId?: string;
+}
 
 // v1 の hash の意味を変えず、コメントを認識すると登録節の範囲が変わる入力だけを拒否する。
 export const hashHeadingSectionContent = (
   content: string,
   heading: string,
   level = 2,
-  file?: string,
+  source: HeadingSectionSource = {},
 ): string => {
   const lines = content.split("\n");
-  const original = sectionRange(lines, heading, level, false);
-  if (content.includes("<!--")) {
-    const visible = sectionRange(lines, heading, level, true);
-    if (original?.start !== visible?.start || original?.end !== visible?.end) {
-      const where = file === undefined ? "" : ` in ${JSON.stringify(file)}`;
-      throw new Error(
-        `Cannot hash section ${JSON.stringify(heading)}${where} with manifest version 1: an HTML comment changes its boundaries. Rewrite or indent heading or fence lines in the comment by at least four spaces, then review the section before updating its hash.`,
-      );
-    }
+  const boundaries = sectionBoundaries(content, lines, heading, level);
+  if (boundaries.ambiguous) {
+    throw boundaryError(heading, level, lines, boundaries, source);
   }
-  return hashRange(lines, original);
+  return hashRange(lines, boundaries.original);
 };
