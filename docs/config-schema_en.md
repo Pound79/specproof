@@ -77,7 +77,7 @@ If the consumer copies specifications from another checkout, record the imported
 
 ```yaml
 specSources:
-  - name: permissions                 # Record name: letters, digits, dot, underscore, hyphen
+  - name: permissions                 # Required. Up to 128 characters. Start with an ASCII letter or digit; subsequent characters may also be . _ -
     repo: ../backend                  # Required: absolute or relative to this repository's root
     ref: origin/develop               # Required: remote/local branch, fully qualified ref or commit ID
     paths: [config/permissions]       # Optional: defaults to the entire repository
