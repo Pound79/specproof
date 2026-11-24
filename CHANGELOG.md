@@ -9,18 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- 互換: `specproof init` は、リポジトリのルートに `specproof.config.yaml` が無く `specproof.config.yml` があるとき、
-  `.yml` を書き込み先として扱う（下の項目）。そのため `.yml` が symbolic link だと、`--force` を付けなくても
-  書き込み境界の確認で失敗する（これまでは `.yml` を見ずに `.yaml` を作っていたので失敗しなかった）。
-  symlink をやめて実体のファイルに置き換えてから `init` する。(#97)
+- `specproof init` は、リポジトリのルートにある設定を `.yaml`、`.yml` の順に選ぶ。
+  選んだパスがシンボリックリンク・ディレクトリなどの通常ファイル以外なら、
+  `--force` の有無にかかわらず、足場を書き込む前に停止する。
+  既存の設定を引き継ぐにはルートに通常ファイルを置く。(#97)
+- `specproof init` now chooses the root configuration in `.yaml`, then `.yml` order.
+  If the selected path is a symlink, directory or other non-regular file, initialization stops
+  before writing the scaffold, including with `--force`. Use a regular file to retain an
+  existing configuration. (#97)
 
 ### Fixed
 
-- `specproof init` は、既存の設定が `specproof.config.yml` だけのとき、`.yaml` を新しく作らず `.yml` を使う。
-  これまでは `.yml` の隣に雛形の `.yaml` を作り、読み込み側が `.yaml` を優先するため、利用者の `.yml` の
-  設定が黙って読まれなくなっていた。`--force` のときは `.yml` を雛形で上書きし、付けないときは残す。
-  `.yaml` と `.yml` が両方あるときは、これまでどおり `.yaml` だけを対象にし、`.yml` は変えない。
-  次の手順の案内（`Edit ... at the repo root.`）も、使ったファイルの名前を出す。(#97)
+- 既存の設定が `specproof.config.yml` だけなら、その隣に優先順位の高い `.yaml` を作らず、
+  `.yml` を保持する。`--force` を付けた場合はその `.yml` を更新する。
+  両方あるときは `.yaml` を対象とし、初期化後の案内には選んだ名前を表示する。(#97)
+- When only `specproof.config.yml` exists, initialization preserves it and avoids creating a
+  higher-priority `.yaml` alongside it. With `--force`, it updates the existing `.yml`.
+  When both exist, it targets `.yaml`. The next-steps message names the selected file. (#97)
 
 ## [0.9.0] - 2026-11-24
 

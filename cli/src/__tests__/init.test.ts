@@ -47,6 +47,25 @@ describe("runInit", () => {
     else expect(content).toBe(oldConfig);
   });
 
+  it.each(["specproof.config.yaml", "specproof.config.yml"])(
+    "設定名 %s がディレクトリなら force の有無によらず足場を作る前に止める",
+    async (name) => {
+      await mkdir(name);
+      for (const force of [false, true]) {
+        await expect(runInit({ adapter: "flutter", force })).rejects.toThrow(
+          `${name} must be a regular file`,
+        );
+        expect(await readdir(".")).toEqual([name]);
+      }
+    },
+  );
+
+  it("リンク切れの .yml があるときは足場を作る前に止める", async () => {
+    await symlink("missing", "specproof.config.yml");
+    await expect(runInit({ adapter: "flutter" })).rejects.toThrow(/symbolic link/i);
+    expect(await readdir(".")).toEqual(["specproof.config.yml"]);
+  });
+
   it(".yaml と .yml が両方あるとき force でも .yaml だけを上書きし .yml は変えない", async () => {
     const oldYaml = "strictFeatureLint: true\n";
     const oldYml = Buffer.from("# 残す設定\r\nstrictFeatureLint: false\n", "utf8");
