@@ -30,6 +30,8 @@ The npm workspaces are `packages/traceability/` (drift detection) and `cli/` (sc
 
 ## Check what you publish
 
+This repository is public OSS. Do not track private names, local verification records or machine-specific paths (see the policy in [AGENTS.md](./AGENTS.md#公開リポジトリとしての規則)).
+
 CI checks tracked paths and contents for machine-specific paths, unexpected email addresses, local notes, `docs/evidence/`, and dotenv files other than examples. Configure the hooks in each clone to check private names against a list kept outside the repository.
 
 ```sh
@@ -42,4 +44,4 @@ Use one term per line. Blank lines and lines beginning with `#` are ignored. Set
 
 Pre-commit checks staged paths, contents and identity. Commit-msg checks the entire message, including comments and text below scissors. If a comment or verbose diff triggers it, use a clean message file with `git commit -F <file>`. Pre-push checks destination ref names, outgoing commits, annotated tag chains and targets including trees and blobs. Ref deletions are allowed.
 
-Matching ignores case and uses NFC normalization. CI and hooks read UTF-8 and BOM-marked UTF-16, including content containing NUL. Terms in BOM-less UTF-16 or Shift_JIS may go undetected. Review hooks on unfamiliar branches before committing or pushing because the checkout supplies the code they execute.
+Matching ignores case and uses NFC normalization. CI and hooks read UTF-8 and BOM-marked UTF-16, including content containing NUL. Terms in BOM-less UTF-16 or Shift_JIS files are not detected. Review hooks on unfamiliar branches before committing or pushing because the checkout supplies the code they execute.
