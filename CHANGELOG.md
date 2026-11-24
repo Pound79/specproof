@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 互換: Playwright テンプレートの `test:smoke` は、`--grep-invert @slow` をやめ、設定の `tags.slow`
+  （既定 `@slow`）を各 project のタグ式に `not <tags.slow>` として足して除外する。正規表現でシナリオ名や
+  似た名前のタグまで除外しないため。smoke かどうかは npm のスクリプト名でなく環境変数
+  `SPECPROOF_SMOKE=1` で決め、`test:smoke` は新しい `scripts/smoke.mjs` から bddgen と playwright test の
+  両方にこの変数を渡す（Windows の cmd.exe でも動くよう、依存を増やさず Node から起動する）。これまでの
+  スクリプト名での判定は、名前を変えたときや `npx playwright test`・`node --run test:smoke` で起動したときに
+  黙って低速なシナリオまで実行していた。`tags.slow` の検証（状態タグ・タグ式・単一のタグでない値の拒否）は
+  smoke 以外の実行でも行うので、不正な値があると `npm test` なども設定の読み込みで止まる。(#109)
+- 互換: Flutter テンプレートの `commands.smoke` は `dart run tool/smoke.dart` に変わった。新しい
+  `tool/smoke.dart` がホストで `specproof.config.yaml` の `tags.slow` と `projects[0].tags` を読み、
+  `--dart-define=SPECPROOF_TAGS=...` を組み立てて `flutter test` に渡す。これに合わせて `projects[0].tags`
+  の既定は `not @slow` から空（smoke に足す条件だけを書く）になり、`dev_dependencies` に `yaml` が増えた。(#109)
+- 互換: scaffold 済みのリポジトリは `specproof init` で上書きされないので、手で更新する。Playwright は
+  `package.json` の `test:smoke` を `node scripts/smoke.mjs` にし、`scripts/smoke.mjs`・
+  `playwright.config.ts`・`src/config/specproof-config.ts` をテンプレートに合わせる。Flutter は
+  `commands.smoke` を書き換え、`tool/smoke.dart` を置き、`pubspec.yaml` の `dev_dependencies` に `yaml` を
+  足す。`projects[0].tags` に `not @slow` を残すと除外が重なるだけで害は無いが、空にしてよい。(#109)
+
 ## [0.9.0] - 2026-11-24
 
 ### Security
