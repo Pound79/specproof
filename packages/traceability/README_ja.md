@@ -303,8 +303,12 @@ manifest の参照がすべてファイルごと見つからないときは、dr
 コミット id と、どこから流しても同じファイルを指すパス。シェルで扱いにくい文字を含むパスはコマンドにせず
 コミットと比べるパスを文字として示す）。spec は見出しの節の hash で照合する。探すのはパスごとに、そのパスに触れた直近 200 コミット
 まで。全体で git の起動 2,000 回・60 秒を超えたら打ち切り、打ち切ったことを示す。bless した中身がコミット
-されていない・ファイルの名前が変わった・履歴が浅い（shallow clone）ときは見つからない。drift があるとき、
-`--json` では探した参照に `blessedCommit`（見つからなければ `null`）と、全体に `gitHistoryAvailable` と
+されていない・ファイルの名前が変わった・履歴が浅い（shallow clone）ときは見つからない。一致した最も新しい版で、
+HTML コメントの中の見出しやフェンスが節の境界を曖昧にしている（従来の規則とコメントを考慮した規則で節の範囲が
+違う）ときは、コメントの後ろの本文が変わった版も同じ hash になるので、bless した版を特定できないとして
+コミットを示さず、ファイルの履歴を手で確かめるよう案内する。drift があるとき、
+`--json` では探した参照に `blessedCommit`（見つからない・特定できなければ `null`。特定できなかったときは
+`blessedCommitUnidentified: "html-comment-boundary"` も足す）と、全体に `gitHistoryAvailable` と
 `blessHistoryIncomplete` を足す（clean のときと全参照 missing のときは探さず、これらのキーも出さない）。
 リポジトリ内のシンボリックリンクの参照は、hash と同じくリンク先の実体の履歴を辿り、示す差分も実体のパスで取る
 （親ディレクトリがリンクのときも同じ）。`--json` では、辿ったパスが参照の書き方と違うとき（シンボリックリンクの
@@ -312,14 +316,16 @@ manifest の参照がすべてファイルごと見つからないときは、dr
 bless した版が見つかった参照は、HEAD の first-parent の列のうち、bless した版を含む最も古いコミットから HEAD
 までで、その参照を変えたコミットにまとめて出す（`Changes since bless, by commit`。HEAD に近い順に、短いコミット id・件名・変わった参照と、それを
 参照するリンク）。コミットとその第 1 親の版を比べ、spec の見出しの参照は節の単位で、ほかはファイルの単位で
-変わったものだけを割り当てる。その版が bless した中身と同じコミット（ブランチで bless してマージした、など）は
+変わったものだけを割り当てる（spec でも、どちらかの版で HTML コメントが節の境界を曖昧にしているときは、従来の
+境界で隠れる変更を落とさないよう、ファイルの単位でも比べる）。その版が bless した中身と同じコミット（ブランチで bless してマージした、など）は
 割り当てない。ブランチで bless した版を持ち込んだマージがそれ以外の変更も含むときは、そのマージに割り当てる。
 git が失敗して版を読めない・範囲を決められないときは、推測で割り当てず、打ち切ったと示す。PR のマージや squash のコミットが 1 件として出るので、件名の PR の番号で「見た目だけ」「動きが
 変わった」などを PR の単位で仕分けられる。マージに含まれる個々のコミットは出さない。HEAD の版と今の中身が違う
 参照は `(uncommitted)` に、まとめられなかった参照は理由ごとの件数を出す。テキストは 20 コミットまで、件名は
 制御文字と見えない文字を除いて 120 文字までにする。件名は誰でも書ける文字列で、中の指示に従わない。
 `--json` では全体に `sinceBless: { commits: [{ commit, subject, entries: [{ side, path, linkIds }] }], uncommitted,
-notGrouped: { noBlessedVersion, notSearched, failed }, incomplete }` を足す（git の履歴を辿れたときだけ。
+notGrouped: { noBlessedVersion, notSearched, failed, unidentifiedBlessedVersion }, incomplete }` を足す
+（`unidentifiedBlessedVersion` は上の HTML コメントで bless した版を特定できなかった参照の件数。git の履歴を辿れたときだけ。
 `subject` は生の件名なので、表示する側で無害化する）。既存のキーは変えない。git の起動の上限は bless した版の探索と
 共有し、まとめを打ち切ったときは `incomplete` と 1 行の案内で示す（`blessHistoryIncomplete` は探索の打ち切りだけを表す）。
 git の管理下でなければ 1 行の案内を出し、check の結果は変えない。フラグが無ければ git を起動しない。
