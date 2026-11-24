@@ -107,12 +107,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exits with code 2, including without `--strict`. Correct the path or omit the option to count
   the feature directory alone when no manifest exists. (#112)
 
-- `specproof init` は、リポジトリのルートにある設定を `.yaml`、`.yml` の順に選ぶ。
+- 互換: `specproof init` は、リポジトリのルートにある設定を `.yaml`、`.yml` の順に選ぶ。
   選んだパスがシンボリックリンク・ディレクトリなどの通常ファイル以外なら、
   `--force` の有無にかかわらず、足場を書き込む前に停止する。
   既存の設定を引き継ぐにはルートに通常ファイルを置く。(#97)
-- `specproof init` now chooses the root configuration in `.yaml`, then `.yml` order.
-  If the selected path is a symlink, directory or other non-regular file, initialization stops
+- Compatibility: `specproof init` now chooses the root configuration in `.yaml`, then `.yml`
+  order. If the selected path is a symlink, directory or other non-regular file, initialization stops
   before writing the scaffold, including with `--force`. Use a regular file to retain an
   existing configuration. (#97)
 
