@@ -38,7 +38,7 @@ const findUnderFeaturesDir = async (config: TraceabilityConfig): Promise<string[
   }
 };
 
-// featuresDir を集計するときは manifest が無くてもよい。登録が無ければ確かめる対象も無い。
+// --manifest を省略し、featuresDir を探索できた場合は manifest が無くても集計できる。
 const loadRegisteredFeatures = async (
   config: TraceabilityConfig,
   optional: boolean,
@@ -57,9 +57,12 @@ const loadRegisteredFeatures = async (
   ];
 };
 
-const collectFeaturePaths = async (config: TraceabilityConfig): Promise<FeatureSources> => {
+const collectFeaturePaths = async (
+  config: TraceabilityConfig,
+  manifestRequired: boolean,
+): Promise<FeatureSources> => {
   const found = await findUnderFeaturesDir(config);
-  const registered = await loadRegisteredFeatures(config, found !== undefined);
+  const registered = await loadRegisteredFeatures(config, found !== undefined && !manifestRequired);
   const missingFeaturesDir =
     config.featuresDir && found === undefined ? config.featuresDir : undefined;
   return {
@@ -75,7 +78,7 @@ const collectFeaturePaths = async (config: TraceabilityConfig): Promise<FeatureS
 const main = async (): Promise<void> => {
   const { flags, manifest, root } = parseCliArgs(process.argv.slice(2), "stats");
   const config = discoverConfig({ manifest, root });
-  const { paths, missingFeaturesDir } = await collectFeaturePaths(config);
+  const { paths, missingFeaturesDir } = await collectFeaturePaths(config, manifest !== undefined);
   const read = (relPath: string) => readFileOrNull(resolveWithinRoot(config.repoRoot, relPath));
 
   const features: FeatureScenarios[] = [];

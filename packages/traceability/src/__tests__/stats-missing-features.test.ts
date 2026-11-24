@@ -174,6 +174,16 @@ describe("featuresDir を設定したときの登録済み feature の欠落", (
       },
     ));
 
+  test("明示した manifest が無いときは部分的な集計を成功として返さない", () =>
+    withRepo({ "features/a.feature": DONE }, WITH_DIR, (root) => {
+      for (const flags of [[], ["--strict", "--json"]]) {
+        const result = stats(root, "--manifest", path.join(root, "missing.yaml"), ...flags);
+        assert.equal(result.status, 2, result.stderr);
+        assert.match(result.stderr, /missing\.yaml/);
+        assert.equal(result.stdout, "");
+      }
+    }));
+
   test("manifest が無ければ従来どおり featuresDir だけを集計する", () =>
     withRepo({ "features/a.feature": DONE }, WITH_DIR, (root) => {
       const result = stats(root, "--strict", "--json");
