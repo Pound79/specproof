@@ -13,7 +13,7 @@ S1 and S2 shipped in 0.3.0. Versions up to 0.2.2 do not include them. See the [c
 
 For S1, `@draft` sets the draft phase, `@red-contract` sets pending, and the default phase is complete. Verification is human with `@human` and machine otherwise. “Complete” describes the tags on a condition. Proving GREEN requires a run. Tests cover state-tag inheritance from Feature and Rule, invalid tag combinations, and agreement between JSON and text output.
 
-The static done gate in `specproof-stats --strict` requires zero pending `@red-contract` conditions and zero conditions with disallowed `@fixme`, `@skip` or `@fail` tags. See [ADR 0009 (Japanese original)](adr/0009-retire-fixme-skip.md).
+The static done gate in `specproof-stats --strict` requires zero pending `@red-contract` conditions and zero conditions with disallowed `@fixme`, `@skip` or `@fail` tags. See [ADR 0009 (Japanese original)](adr/0009-retire-fixme-skip.md). If a registered feature file or the configured `featuresDir` is missing, some conditions may be uncounted. The report then sets `done` to false and `specproof-stats --strict` fails.
 
 For S2, omitting `criteria` or supplying an empty array is valid. Invalid types, empty strings, control characters and duplicate entries within a link are rejected. A condition ID can appear in multiple links. Loading, updating and saving preserve unknown keys, including updates to all links, single-link updates and dry runs. IDs are opaque, nonempty strings. Consumer-specific formats such as AC or TC are validated by the consumer. The [manifest criteria reference](../packages/traceability/README.md#manifest-criteria) defines validation and writer behavior. Adding `criteria` preserved the existing hash and strict-mode contracts.
 

@@ -19,7 +19,7 @@ Feature/Rule からの状態タグ継承・不正な併記、
 JSON と表示の一致を検査する。
 
 `--strict` は `@red-contract` と、シナリオを止めたり失敗を想定扱いにしたりするタグ（`@fixme` / `@skip` / `@fail`）が
-0 件であることを完了条件にする（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。
+0 件であることを確認する（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。登録された feature ファイルや、設定した `featuresDir` が見つからない場合も、未集計の条件が残るため `done: false` になり、`specproof-stats --strict` は失敗する。
 
 S2 は省略・空配列を許容し、不正型・空文字・制御文字・同一 link 内の重複を拒否する。
 同じ条件 ID を複数 link に置ける多対多を維持し、未知キーも load/update/save と
