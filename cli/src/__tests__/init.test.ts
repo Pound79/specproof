@@ -47,6 +47,16 @@ describe("runInit", () => {
     else expect(content).toBe(oldConfig);
   });
 
+  it(".yaml と .yml が両方あるとき force でも .yaml だけを上書きし .yml は変えない", async () => {
+    const oldYaml = "strictFeatureLint: true\n";
+    const oldYml = Buffer.from("# 残す設定\r\nstrictFeatureLint: false\n", "utf8");
+    await writeFile("specproof.config.yaml", oldYaml);
+    await writeFile("specproof.config.yml", oldYml);
+    await runInit({ adapter: "flutter", force: true });
+    expect(await readFile("specproof.config.yaml", "utf8")).toContain("adapter: flutter");
+    expect((await readFile("specproof.config.yml")).equals(oldYml)).toBe(true);
+  });
+
   it("rejects target directories outside the current repo", async () => {
     await expect(runInit({ adapter: "playwright", dir: "../outside" })).rejects.toThrow(
       /--dir must stay within the current repo/,
