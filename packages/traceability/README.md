@@ -132,7 +132,7 @@ failing unless `--strict` is passed:
 | `unregistered-feature` | a `.feature` file under `featuresDir` that no link registers |
 | `features-dir-unset` | a config file exists but sets no `layout.featuresDir`, so `.feature` files that no link registers are not scanned (no warning when there is no config file) |
 | `features-dir-missing` | `featuresDir` is set but is not an existing directory, so `.feature` files that no link registers are not scanned |
-| `unknown-config-key` | `specproof.config.yaml` has a key that no consumer (this engine, the skills, the templates) reads, such as a misspelt `layout.featureDir`; the message names the key path, never its value (rule: [docs/config-schema.md](https://github.com/Pound79/specproof/blob/main/docs/config-schema_en.md#unknown-keys)) |
+| `unknown-config-key` | `specproof.config.yaml` has a key that no consumer (this engine, the skills, the templates) reads, such as a misspelt `layout.featureDir`; the message names the key path, never its value (rule: [configuration reference](https://github.com/Pound79/specproof/blob/main/docs/config-schema_en.md#unknown-keys)) |
 | `unregistered-spec-heading` | a heading in an already-referenced spec file that no link registers |
 | `unregistered-impl` | a file matching `layout.implGlobs` that no link's `impl[]` registers |
 | `duplicate-heading` | a registered heading appears more than once in its spec file, making the section hash ambiguous |
@@ -313,7 +313,7 @@ Other rules the loader and `specproof-update` enforce:
 
 The hashes detect changes; they are not a tamper-proof seal. Anyone who can edit
 the referenced files can also re-run `specproof-update`, so reviewing the diff
-stays the control (see [docs/security-model.md](https://github.com/Pound79/specproof/blob/main/docs/security-model_en.md)).
+stays the control (see [security model](https://github.com/Pound79/specproof/blob/main/docs/security-model_en.md)).
 
 `specproof-check` and `specproof-update` preserve manifest order while limiting
 file reads to 32 concurrent operations. If a read fails, queued reads are

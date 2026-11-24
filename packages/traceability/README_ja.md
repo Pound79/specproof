@@ -240,7 +240,7 @@ import {
 
 ## 関連文書
 
-[方法論](../../docs/methodology.md)・[設定](../../docs/config-schema.md)・[アダプター契約](../../docs/adapter-contract.md)。
+[方法論](https://github.com/Pound79/specproof/blob/main/docs/methodology.md)・[設定](https://github.com/Pound79/specproof/blob/main/docs/config-schema.md)・[アダプター契約](https://github.com/Pound79/specproof/blob/main/docs/adapter-contract.md)。
 
 ## ライセンス
 
@@ -328,8 +328,8 @@ git の管理下でなければ 1 行の案内を出し、check の結果は変�
 `--strict` でも失敗しない。`repo` のパスが無いときだけ黙って飛ばす。フラグが無ければ取り込み元を読まない）。取り込んだコミットは
 `specproof-update --record-spec-source <name>` で manifest の `specSources` に記録する（取り込み元の HEAD が `paths` の中で
 `ref` と違えば記録せずに止まる。取り込みが ref から読む形なら `--allow-head-mismatch`）。詳細は
-[config-schema](../../docs/config-schema.md#specsources)。
-git に渡す制限は [security-model](../../docs/security-model.md) の子プロセスの項。
+[config-schema](https://github.com/Pound79/specproof/blob/main/docs/config-schema.md#specsources)。
+git に渡す制限は [security-model](https://github.com/Pound79/specproof/blob/main/docs/security-model.md) の子プロセスの項。
 未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。
 
 失敗したときは stderr に `<command> failed: <message>` を 1 行だけ出し、終了コード 2 で終わる。
