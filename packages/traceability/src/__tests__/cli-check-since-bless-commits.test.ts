@@ -149,6 +149,7 @@ describe("specproof-check --since-bless のコミットごとのまとめ", () =
       noBlessedVersion: 0,
       notSearched: 0,
       failed: 0,
+      unidentifiedBlessedVersion: 0,
     });
     assert.equal(report.sinceBless.incomplete, false);
     // 既存のフィールドは変えない。
@@ -191,6 +192,7 @@ describe("specproof-check --since-bless のコミットごとのまとめ", () =
       noBlessedVersion: 1,
       notSearched: 0,
       failed: 0,
+      unidentifiedBlessedVersion: 0,
     });
   });
 
@@ -331,7 +333,7 @@ describe("specproof-check --since-bless のコミットごとのまとめ", () =
         },
       ],
       uncommitted: [],
-      notGrouped: { noBlessedVersion: 0, notSearched: 0, failed: 0 },
+      notGrouped: { noBlessedVersion: 0, notSearched: 0, failed: 0, unidentifiedBlessedVersion: 0 },
       incomplete: false,
     });
     assert.equal(lines[1], `  ${"a".repeat(12)} Fix label (#1)`);

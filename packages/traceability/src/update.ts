@@ -49,7 +49,12 @@ const refreshSpecRef = async (
   runLimited: RunTaskLimited,
 ): Promise<RefreshResult<SpecRef>> => {
   const hash = await runLimited(() =>
-    computeHeadingSectionHash(resolveWithinRoot(repoRoot, ref.path), ref.heading, ref.headingLevel),
+    computeHeadingSectionHash(
+      resolveWithinRoot(repoRoot, ref.path),
+      ref.heading,
+      ref.headingLevel,
+      linkId,
+    ),
   );
   if (hash === FILE_MISSING || hash === SECTION_MISSING) {
     throw new Error(

@@ -73,6 +73,7 @@ describe("findBlessedCommits", () => {
       prefix: "",
       commits: [undefined],
       paths: [undefined],
+      unidentified: [undefined],
     });
   });
 

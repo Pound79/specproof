@@ -1,4 +1,11 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectSnapshot, detectAdapter, selectAdapterCandidate } from "./detect.js";
@@ -168,6 +175,7 @@ const templateDefaultDir = (adapter: string): string =>
   adapter === "flutter" ? "bdd_tests" : "packages/e2e";
 
 export interface ScaffoldResult {
+  configName: string;
   written: string[];
   skipped: string[];
   skippedWorkflows: string[];
@@ -176,8 +184,20 @@ export interface ScaffoldResult {
   gitignoreGap?: { file: string; missing: string[] };
 }
 
-// Dotfiles are shipped in templates without their leading dot (see the copy
-// loop below for why) and restored to their real name on scaffold.
+// 読み込み側と同じ優先順で既存設定を選ぶ。壊れた symlink も書き込み境界で拒否する。
+const scaffoldConfigName = (root: string): string => {
+  for (const name of ["specproof.config.yaml", "specproof.config.yml"]) {
+    const file = path.join(root, name);
+    const stat = lstatSync(file, { throwIfNoEntry: false });
+    if (!stat) continue;
+    assertSafeRepositoryWrite(root, file);
+    if (!stat.isFile()) throw new Error(`${name} must be a regular file`);
+    return name;
+  }
+  return "specproof.config.yaml";
+};
+
+// Dotfiles are restored to their real names on scaffold.
 const DOTFILE_RESTORE: Record<string, string> = {
   gitignore: ".gitignore",
   "env.example": ".env.example",
@@ -211,6 +231,7 @@ export function scaffoldTemplate(params: {
   const skippedWorkflows: string[] = [];
   let layoutRewritten = false;
   let gitignoreGap: ScaffoldResult["gitignoreGap"];
+  const configName = scaffoldConfigName(repoRoot);
   const journal = new ScaffoldJournal(repoRoot);
 
   try {
@@ -234,7 +255,7 @@ export function scaffoldTemplate(params: {
       // specproof.config.yaml belongs at the repo root; github-workflows/* belongs
       // in .github/workflows/; everything else lands in the e2e package.
       const dest = isConfig
-        ? path.join(repoRoot, "specproof.config.yaml")
+        ? path.join(repoRoot, configName)
         : isWorkflow
           ? path.join(repoRoot, ".github", "workflows", ...relParts.slice(1))
           : path.join(e2eDir, mappedRel);
@@ -315,7 +336,7 @@ export function scaffoldTemplate(params: {
     );
   }
 
-  return { written, skipped, skippedWorkflows, layoutRewritten, gitignoreGap };
+  return { configName, written, skipped, skippedWorkflows, layoutRewritten, gitignoreGap };
 }
 
 export async function runInit(opts: InitOptions): Promise<void> {
@@ -344,13 +365,14 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const e2eDir = resolveTargetDir(repoRoot, opts.dir ?? fallbackDir);
   const force = opts.force ?? false;
 
-  const { written, skipped, skippedWorkflows, layoutRewritten, gitignoreGap } = scaffoldTemplate({
-    tplDir,
-    repoRoot,
-    e2eDir,
-    templateDefaultDir: templateDefaultDir(adapter),
-    force,
-  });
+  const { configName, written, skipped, skippedWorkflows, layoutRewritten, gitignoreGap } =
+    scaffoldTemplate({
+      tplDir,
+      repoRoot,
+      e2eDir,
+      templateDefaultDir: templateDefaultDir(adapter),
+      force,
+    });
 
   const e2eRelative = path.relative(repoRoot, e2eDir) || ".";
   // 表示には printable を通した値を、cd のコマンドには元のパスを使う（shellCdCommand が安全な形にする）。
@@ -387,13 +409,13 @@ export async function runInit(opts: InitOptions): Promise<void> {
 
   const manualSteps =
     adapter === "flutter"
-      ? `  a. Edit specproof.config.yaml at the repo root.
+      ? `  a. Edit ${configName} at the repo root.
   b. ${shellCdCommand(e2eRelative)} && flutter create --platforms=macos --project-name bdd_tests .
   c. flutter pub get && dart run build_runner build --delete-conflicting-outputs
   d. flutter test integration_test/gherkin_suite_test.dart -d macos
 
   See ${e2eLabel}/README.md for the verified Japanese-Gherkin recipe and gotchas.`
-      : `  a. Edit specproof.config.yaml at the repo root.
+      : `  a. Edit ${configName} at the repo root.
   b. ${shellCdCommand(e2eRelative)} && npm install && npm run install:browsers
   c. Copy .env.example to .env and fill in credentials.
   d. npm run test:smoke`;
