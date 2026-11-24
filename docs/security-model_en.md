@@ -26,7 +26,7 @@ The engine root can be a subdirectory of the Git repository. If discovery finds 
 
 | Operation | Git commands |
 |---|---|
-| Root discovery | `git rev-parse --show-toplevel`, with `--git-dir` and `--work-tree` built from the path of the directory where discovery stopped at `.git`. Arguments are passed as an array without a shell |
+| Root discovery | `git rev-parse --show-toplevel`. When discovery stopped at a directory with `.git`, `--git-dir` and `--work-tree` built from that directory's path are added. Arguments are passed as an array without a shell |
 | `specproof-check --since-bless` | `git rev-parse`, `git log`, `git show`, `git rev-list`, `git ls-tree` |
 | `specproof-update --record-spec-source` and `specproof-check --spec-sources` | In the source checkout, `git config --null --list` to detect partial clones, `git for-each-ref` for exact ref names, `git rev-parse` and `git ls-tree` |
 
