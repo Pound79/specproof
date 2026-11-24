@@ -113,7 +113,7 @@ Patrol の native 操作・flavor・tag 伝播等のキーは未採択案。
 | `layout.manifest` | `manifestPath` |
 | `layout.pagesDir` | `pagesDir`（`buildDomainList` の `options.pagesDir`） |
 | `layout.candidateSuffix` | `candidateSuffix`（`specproof-list` が未追跡ページを検出するファイル名 suffix。既定 `Page.tsx`） |
-| `layout.featuresDir` | `featuresDir`（ドラフトマーカー残存・未登録 `.feature` の走査と、`specproof-stats` の集計対象） |
+| `layout.featuresDir` | `featuresDir`（ドラフトマーカー残存・未登録 `.feature` の走査。`specproof-stats` はこの配下に加えて manifest に登録した feature も集計する） |
 | `layout.implGlobs` | `implGlobs`（どのリンクの `impl` にも登録されていない実装ファイルの走査＝`unregistered-impl`。未設定なら走査しない） |
 
 `layout.specDir` はエンジンが読まない（skill 向けの参照値）。マニフェストのリンクが持つ `spec` / `impl` / `features` の

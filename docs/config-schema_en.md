@@ -14,7 +14,7 @@ Use `specproof.config.yaml` or `specproof.config.yml` at the root, as a regular 
 |---|---|---|
 | `adapter` | Yes for skills | `playwright` or `flutter`. The engine reads Flutter features with the Dart runner's rules. |
 | `bddRunner`, `bddGenTool` | Yes | BDD runner and generator identifiers, e.g. `playwright-bdd` and `bddgen`. |
-| `language` | Yes for skills | Gherkin dialect, e.g. `ja`. The engine supports English and Japanese. |
+| `language` | Yes for skills | Gherkin dialect, e.g. `ja`. With `adapter: flutter`, use `en` or `ja`, the dialects the engine's Dart-runner parser reads; any other value fails when features are read. |
 | `strictUnregisteredImpl` | No, default false | Escalate `unregistered-impl` under `--strict`. Broad implementation globs can otherwise produce many advisories. |
 | `strictUnregisteredSpecHeadings` | No, default false | Escalate unregistered headings in referenced spec files. Some files also contain untracked glossaries and revision histories. |
 | `strictFeatureLint` | No, default false | Escalate `missing-then`, `step-order`, `duplicate-scenario-name`, and `duplicate-scenario`. `possible-contradiction` always calls for human judgment. |
@@ -177,6 +177,6 @@ The initial review compared 143 hardcoded tokens against the config, identifying
 
 ## Skill resolution and template examples
 
-Both templates declare `layout.i18nSource`, conventions, examples and git settings. Replace illustrative paths for i18n, project agent instructions and specs with existing files. `i18nLintPlugin: none` explicitly means no dedicated lint and must be reported as unverified. A pending stub fails until implemented. Optional service tags such as `tags.sf` are consumer-specific; also tag slow external-service scenarios appropriately.
+Both templates declare `layout.i18nSource`, conventions, examples and git settings. Replace illustrative paths for i18n, project agent instructions and specs with existing files. These example paths do not permit skills to create or fill in missing paths; skills MUST NOT do so. `i18nLintPlugin: none` explicitly means no dedicated lint and must be reported as unverified. `conventions.pendingStubBody` is a pending example that always fails; never replace it with an empty, passing implementation. Optional service tags such as `tags.sf` are consumer-specific; also tag slow external-service scenarios appropriately.
 
 Flutter projects, env and environments inform the skills. They do not automatically configure Dart authentication or filters; the sample counter needs neither credentials nor a URL. Setup verifies `flutter.*` against pubspec, build configuration and real commands. Playwright uses `projects[].storageState` for saved authentication. Stop on missing required keys. Use only the applicable skill's stated optional fallback and clearly disclose any self-review.
