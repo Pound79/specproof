@@ -21,7 +21,7 @@ plugin stays pinned to the old version even though the code is current. CI runs
 `npm run check:versions` on every PR, and the Release workflow runs it again as
 a pre-publish gate, so a drifted version can neither merge nor publish.
 
-Include compatibility changes and migration instructions in English and Japanese in the same release section of CHANGELOG.md.
+For future releases, write compatibility changes and migration instructions in both English and Japanese in the same release section of CHANGELOG.md.
 
 ## TL;DR
 
