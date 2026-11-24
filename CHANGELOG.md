@@ -9,6 +9,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 互換: manifest v1 で、HTML コメントブロックの中の見出しやコードフェンスが登録した節の開始や終端を変える
+  （従来の規則とコメントを考慮した規則で節の範囲が食い違う）とき、`check` と `update` はその節の hash を
+  計算せずエラーにする（`update` は manifest を書く前に止まる）。エラーには、ファイル名・節の見出し・参照を
+  登録したリンクの id と、同じファイルで見出しやフェンスを隠しているコメントの開始行（先頭の 10 件と参照の
+  見出しを含むもの。残りは件数）を出す。対処は
+  コメントごとに次のとおり。箇条書き・番号付きリストの項目でも、本文の字下げに従って
+  コメントの範囲を確かめる。リスト内のコード例はコメントを開始しない。閉じ忘れたコメント（例: `<!-- todo` の後に `-->` が無い）は、終わるべき位置に
+  `-->` を補う。登録した節がまるごとコメントの中にあるなら、manifest からその参照（リンク）を外す。それ以外は、
+  コメント内の見出しやフェンスの行を 4 スペース以上字下げするか書き直す。どの場合も、仕様の差分を確かめてから
+  対象のリンクを更新する。境界が食い違わない節の hash の値は従来どおり。(#110)
+- コメントブロックの中の見出しは、`unregistered-spec-heading` と `duplicate-heading` の警告に数えなくなった。
+  コメントアウトした見出しについての、この 2 種類の警告は出なくなる。(#110)
+- 互換: `specproof-check --since-bless` は、bless した版と一致した最も新しい過去の版で、HTML コメントが節の
+  境界を曖昧にしているとき、bless した版を特定できないとして扱う。そうした版はコメントの後ろの本文が変わっても
+  同じ hash になり、これまでは bless の後に本文を変えた版を bless した版として示していた（差分からその変更が
+  抜けていた）。テキストは `blessed version: cannot be identified` と仕様の履歴を手で確かめる案内を出し、
+  コミットごとのまとめでは「特定できない」件数として出す。`--json` では `blessedCommit` を `null` にして
+  `blessedCommitUnidentified: "html-comment-boundary"` を足し、`sinceBless.notGrouped` に
+  `unidentifiedBlessedVersion` を足した。`notGrouped` のキーを列挙して読む利用者は、このキーを足す。
+  specproof-sync の skill は、この件数が 0 でなければ、ほかの `notGrouped` と同じく人に返す。
+  コミットごとのまとめは、比べる版のどちらかで節の境界がコメントで曖昧なら、ファイルの単位でも比べる
+  （これまでは、コメントの後ろの本文だけを変えたコミットが一覧から黙って漏れていた）。ライブラリの `computeHeadingSectionHash` には、省略できる第 4 引数（リンクの id。エラー文に使う）を
+  足した。(#110)
+
+- Compatibility: with a v1 manifest, `check` and `update` stop before computing a section hash
+  when headings or code fences in an HTML comment change the start or end of the registered
+  section. This includes comments in bullet and ordered list items. The item’s content indentation
+  determines the comment's scope. Code examples inside items do not open comments. `update`
+  leaves the manifest untouched. Unaffected v1 hashes keep their meaning.
+- The diagnostic identifies the file, registered heading and link ID, and lists the opening lines
+  of comments that hide headings or fences (the first ten plus the one containing the referenced
+  heading, with a count for the remainder). Close an unterminated comment at its intended end.
+  Remove a manifest reference if its entire section is commented out. Otherwise rewrite or indent
+  the heading or fence inside the comment by at least four spaces. Review the spec diff before
+  updating the affected link. Headings inside comment blocks no longer trigger
+  `unregistered-spec-heading` or `duplicate-heading`. (#110)
+- With `--since-bless`, the most recent historical match cannot identify the blessed commit
+  when a comment makes its section boundary ambiguous. The text directs you to review history
+  manually. JSON returns `blessedCommit: null`, adds
+  `blessedCommitUnidentified: "html-comment-boundary"` to the reference, and counts it under
+  `sinceBless.notGrouped.unidentifiedBlessedVersion`. Update consumers that enumerate the
+  `notGrouped` keys. The sync skill requests human review when this count is nonzero.
+  Commit grouping also compares the full file if either side has an ambiguous section boundary.
+  The library’s `computeHeadingSectionHash` accepts an optional fourth argument, the link ID
+  to include in diagnostics. (#110)
+
+- 互換: `specproof-check` / `-update` / `-stats` / `-list` とライブラリの `resolveRepoRoot` / `discoverConfig` が
+  リポジトリのルートを探すとき（`--root`（`root`）を渡さないとき）、親へたどる探索を `.git` の項目がある段で
+  止める。`specproof init` は実行したディレクトリを使うので変わらない。その段の設定ファイルと manifest は読み、それより上は見ない。チェックアウトの外に置かれた設定で
+  ルートを広げさせないため。当たるのは次のとき。
+  - git の最上段より上にある `specproof.config.yaml`（`.yml`）・`traceability.yaml` は読まれなくなる。
+    git の最上段にマーカーが無ければ、その段の `.git` と作業ツリーを明示して確認する。壊れた
+    `.git` の項目があればそこでエラーになり、親を選ばない。親の Git 環境変数も境界を変えない。上の段の設定を
+    使っていたときは、設定を git の最上段に移すか `--root` を付ける。
+  - submodule や `git worktree` の中（`.git` が `gitdir: ...` を書いたファイル）から実行すると、その段が
+    ルートになる。これまでは上の段の設定ファイル・manifest まで探しに行っていた。
+  - 上の段にある旧名の設定ファイル（`bdd-kit.config.yaml` / `.yml`）の改名のエラーが出なくなる。git の
+    最上段とその中の旧名は、これまでどおりエラーにする。(#111)
+
+- Compatibility: when no `--root` (library option `root`) is supplied, root discovery for
+  `specproof-check`, `specproof-update`, `specproof-stats`, `specproof-list`, `resolveRepoRoot`
+  and `discoverConfig` stops at the first directory containing a `.git` entry. It still checks
+  that directory for a config or manifest. If neither exists, it asks Git to verify this checkout
+  using its own Git directory and worktree. A broken `.git` entry causes an error, and inherited
+  parent-repository Git settings cannot redirect this lookup. With no `.git` entry anywhere,
+  the usual `git rev-parse --show-toplevel` fallback still applies. `specproof init` continues
+  to use the invocation directory.
+  - If you relied on a config or manifest above the repository, move it to the repository root
+    or pass `--root` explicitly.
+  - A submodule or linked worktree uses the directory containing its `.git` file as the boundary.
+    Legacy `bdd-kit.config.yaml` / `.yml` files at or below that boundary still trigger the rename
+    error. Files above it no longer affect discovery. (#111)
+
 - 互換: `specproof-stats` は、manifest に登録した feature のファイルが見つからないとき、または設定した
   `layout.featuresDir` が無いとき、`--json` の `done` を `false` にする。これまでは `--strict` の終了コード
   だけが 1 になり、`done` は残った feature だけで `true` になりえた。テキスト出力も、そのときは

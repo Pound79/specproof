@@ -1,3 +1,10 @@
+import {
+  hasLineTerminator,
+  parseFence,
+  scanBlocks,
+  type BlockScan,
+  type CommentBlock,
+} from "./markdown-blocks.js";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { readRegularFile } from "./bounded-read.js";
@@ -97,27 +104,6 @@ export const hasDraftMarker = async (absPath: string): Promise<boolean> => {
   return content !== null && containsDraftMarker(content);
 };
 
-// A markdown fenced-code delimiter per CommonMark §4.5: 0-3 leading spaces,
-// then a run of 3+ backticks or 3+ tildes. `char` is the fence character and
-// `len` its run length; `bare` is true when nothing but whitespace follows
-// (an info string is allowed on the opening fence but not the closing one).
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-
-// 行は LF で分けるので、単独の CR と U+2028・U+2029 は行に残りうる。正規表現の `.` はこの 3 文字に
-// 一致せず、含む行は下の正規表現に一致しない（区切りでも見出しでもない）。照合すると後戻りで二乗の
-// 時間がかかるので、照合の前に同じ結果を返す。
-const hasLineTerminator = (line: string): boolean => /[\r\u2028\u2029]/.test(line);
-
-const parseFence = (line: string): { char: string; len: number; bare: boolean } | null => {
-  if (hasLineTerminator(line)) return null;
-  const match = line.match(FENCE_RE);
-  if (match === null) {
-    return null;
-  }
-  const run = match[1];
-  return { char: run[0], len: run.length, bare: match[2].trim() === "" };
-};
-
 const isSpaceOrTab = (char: string | undefined): boolean => char === " " || char === "\t";
 
 // CommonMark の閉じの # の並び（前が空白か行頭で、後ろは空白だけ）を外す。正規表現で書くと
@@ -145,36 +131,6 @@ const parseHeading = (line: string): { level: number; text: string } | null => {
 
 const headingLevelOf = (line: string): number | null => parseHeading(line)?.level ?? null;
 
-// One entry per line for `lines`: true when that line sits inside (or is
-// itself a delimiter of) a CommonMark fenced code block, matched per the same
-// same-character/length-or-greater rule as computeHeadingSectionHash. Shared
-// by computeHeadingSectionHash and listHeadings so both treat a `#`-prefixed
-// line inside a fence identically (neither ends a section nor counts as a
-// heading).
-const fencedLineMask = (lines: string[]): boolean[] => {
-  const mask: boolean[] = [];
-  let openFence: { char: string; len: number } | null = null;
-  for (const line of lines) {
-    const fence = parseFence(line);
-    if (openFence !== null) {
-      mask.push(true);
-      const closesFence =
-        fence !== null && fence.char === openFence.char && fence.len >= openFence.len && fence.bare;
-      if (closesFence) {
-        openFence = null;
-      }
-      continue;
-    }
-    if (fence !== null) {
-      openFence = { char: fence.char, len: fence.len };
-      mask.push(true);
-      continue;
-    }
-    mask.push(false);
-  }
-  return mask;
-};
-
 const assertValidLevel = (fn: string, level: number): void => {
   if (!Number.isInteger(level) || level < 1 || level > 6) {
     throw new Error(`${fn}: level must be an integer in 1-6 (got ${level})`);
@@ -194,7 +150,7 @@ export interface HeadingCandidate extends Heading {
 }
 
 // Every ATX heading of exactly `level` in `content`, in document order,
-// skipping fenced code blocks. Used by check.ts to enumerate a spec doc's
+// skipping fenced code blocks and HTML comment blocks. Used by check.ts to enumerate a spec doc's
 // headings for unregistered-heading and duplicate-heading detection — the
 // same "what heading does this line spell" logic computeHeadingSectionHash
 // uses to find its target section, generalized to every match instead of the
@@ -202,11 +158,11 @@ export interface HeadingCandidate extends Heading {
 const collectHeadingCandidates = (
   lines: string[],
   level: number,
-  fenced: boolean[],
+  ignored: boolean[],
 ): HeadingCandidate[] => {
   const headings: HeadingCandidate[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    if (fenced[index]) {
+    if (ignored[index]) {
       continue;
     }
     const line = lines[index];
@@ -224,7 +180,7 @@ const collectHeadingCandidates = (
 export const listHeadingCandidates = (content: string, level: number): HeadingCandidate[] => {
   assertValidLevel("listHeadings", level);
   const lines = content.split("\n");
-  return collectHeadingCandidates(lines, level, fencedLineMask(lines));
+  return collectHeadingCandidates(lines, level, scanBlocks(lines, true).ignored);
 };
 
 export const listHeadings = (content: string, level: number): Heading[] =>
@@ -262,6 +218,8 @@ export const computeHeadingSectionHash = async (
   absPath: string,
   heading: string,
   level = 2,
+  /** エラー文に添える、この参照を登録したリンクの id。 */
+  linkId?: string,
 ): Promise<string> => {
   if (!Number.isInteger(level) || level < 1 || level > 6) {
     throw new Error(`computeHeadingSectionHash: level must be an integer in 1-6 (got ${level})`);
@@ -270,32 +228,163 @@ export const computeHeadingSectionHash = async (
   if (content === null) {
     return FILE_MISSING;
   }
-  return hashHeadingSectionContent(content, heading, level);
+  return hashHeadingSectionContent(content, heading, level, {
+    file: path.basename(absPath),
+    linkId,
+  });
 };
 
-// computeHeadingSectionHash の本体。ファイル以外（git の過去の版など）の中身にも同じ規則で当てる。
-// 中身は normalizeSourceContent を通したものを渡す。
-export const hashHeadingSectionContent = (content: string, heading: string, level = 2): string => {
-  const lines = content.split("\n");
-  const fenced = fencedLineMask(lines);
+type SectionRange = { start: number; end: number };
 
-  const target = resolveHeadingReference(collectHeadingCandidates(lines, level, fenced), heading);
-  if (target === undefined) {
-    return SECTION_MISSING;
-  }
+const sectionRange = (
+  lines: string[],
+  heading: string,
+  level: number,
+  ignored: boolean[],
+): SectionRange | undefined => {
+  const target = resolveHeadingReference(collectHeadingCandidates(lines, level, ignored), heading);
+  if (target === undefined) return undefined;
   const start = target.line - 1;
-
-  for (let index = start + 1; index < lines.length; index += 1) {
-    if (fenced[index]) {
-      continue;
-    }
-    const line = lines[index];
-
-    const lineLevel = headingLevelOf(line);
-    if (lineLevel !== null && lineLevel <= level) {
-      return sha256(lines.slice(start, index).join("\n"));
-    }
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (ignored[i]) continue;
+    const nextLevel = headingLevelOf(lines[i]);
+    if (nextLevel !== null && nextLevel <= level) return { start, end: i };
   }
+  return { start, end: lines.length };
+};
 
-  return sha256(lines.slice(start).join("\n"));
+const hashRange = (lines: string[], range: SectionRange | undefined): string =>
+  range === undefined ? SECTION_MISSING : sha256(lines.slice(range.start, range.end).join("\n"));
+
+interface SectionBoundaries {
+  /** v1 の従来の規則（コメントを認識しない）の範囲。v1 の hash はこの範囲で計算する。 */
+  original: SectionRange | undefined;
+  legacy: BlockScan;
+  /** コメントを認識した走査。中身に `<!--` が無ければ従来の規則と同じなので走査しない。 */
+  aware?: BlockScan;
+  /** コメントを認識すると、節の開始か終端が従来の規則と変わる。 */
+  ambiguous: boolean;
+}
+
+// 従来の規則とコメントを認識した規則で節の範囲を比べる。v1 の hash を計算する経路（作業ツリー・
+// 過去の版）はすべてこの判定を通す。
+const sectionBoundaries = (
+  content: string,
+  lines: string[],
+  heading: string,
+  level: number,
+): SectionBoundaries => {
+  const legacy = scanBlocks(lines, false);
+  const original = sectionRange(lines, heading, level, legacy.ignored);
+  if (!content.includes("<!--")) return { original, legacy, ambiguous: false };
+  const aware = scanBlocks(lines, true);
+  const visible = sectionRange(lines, heading, level, aware.ignored);
+  const ambiguous = original?.start !== visible?.start || original?.end !== visible?.end;
+  return { original, legacy, aware, ambiguous };
+};
+
+/** 過去のコミットとの照合用。保存済みの v1 の値と比べる hash と、その版で節の境界がコメントで曖昧か。 */
+export interface HistoricalV1Section {
+  hash: string;
+  ambiguous: boolean;
+}
+
+// 過去のコミットとの照合専用。保存済みの v1 の値は、その時点の v1 の規則で辿る。境界が曖昧な版は、
+// コメントの後ろの本文が変わっても同じ hash になりうるので、照合した側で起点に使わない。
+// 新規の bless や作業ツリーの clean 判定には使わない。
+export const inspectHistoricalV1Section = (
+  content: string,
+  heading: string,
+  level: number,
+): HistoricalV1Section => {
+  const lines = content.split("\n");
+  const boundaries = sectionBoundaries(content, lines, heading, level);
+  return { hash: hashRange(lines, boundaries.original), ambiguous: boundaries.ambiguous };
+};
+
+// コメントの中に、従来の規則で見出し（level 以下）またはフェンスとして読まれる行がある。
+// 境界の食い違いはこうしたコメントから生じる。
+const hidesBoundaryLines = (
+  lines: string[],
+  level: number,
+  legacyIgnored: boolean[],
+  block: CommentBlock,
+): boolean =>
+  lines.slice(block.start, block.end).some((line, offset) => {
+    if (parseFence(line) !== null) return true;
+    const lineLevel = legacyIgnored[block.start + offset] ? null : headingLevelOf(line);
+    return lineLevel !== null && lineLevel <= level;
+  });
+
+// エラー文に並べるコメントの位置の上限。8 MiB の spec でもエラー文が 1 行で膨らまないようにする。
+const MAX_LISTED_COMMENTS = 10;
+
+// 従来の規則で選ばれた参照の見出しが、このコメントの中にある。
+const containsReference = (block: CommentBlock, original: SectionRange | undefined): boolean =>
+  original !== undefined && original.start >= block.start && original.start < block.end;
+
+const describeCommentBlock = (block: CommentBlock, original: SectionRange | undefined): string => {
+  const notes = [
+    block.closed ? undefined : 'not closed: add "-->" where the comment should end',
+    containsReference(block, original)
+      ? "contains the referenced heading: if the whole section is commented out, remove this reference from the manifest"
+      : undefined,
+  ].filter((note) => note !== undefined);
+  return notes.length === 0
+    ? `line ${block.start + 1}`
+    : `line ${block.start + 1} (${notes.join("; ")})`;
+};
+
+const boundaryError = (
+  heading: string,
+  level: number,
+  lines: string[],
+  boundaries: SectionBoundaries,
+  source: HeadingSectionSource,
+): Error => {
+  const where = source.file === undefined ? "" : ` in ${JSON.stringify(source.file)}`;
+  const link = source.linkId === undefined ? "" : ` (link ${JSON.stringify(source.linkId)})`;
+  // 同じファイルで同じ段の境界を変えうるコメントは、この 1 つのエラーで示す（check は最初のエラーで
+  // 止まるので、ほかのファイル・段の衝突は直して流し直したときに出る）。エラー文は CI のログに出るので、
+  // 並べるのは先頭の MAX_LISTED_COMMENTS 件と、参照の見出しを含むコメントだけにし、残りは件数で示す。
+  const blocks = (boundaries.aware?.comments ?? []).filter((block) =>
+    hidesBoundaryLines(lines, level, boundaries.legacy.ignored, block),
+  );
+  const head = blocks.slice(0, MAX_LISTED_COMMENTS);
+  const holding = blocks
+    .slice(MAX_LISTED_COMMENTS)
+    .filter((block) => containsReference(block, boundaries.original));
+  const shown = [...head, ...holding];
+  const more = blocks.length - shown.length;
+  const listed =
+    blocks.length === 0
+      ? ""
+      : ` HTML comment(s) in this file that hide heading or fence lines, by opening line: ${shown
+          .map((block) => describeCommentBlock(block, boundaries.original))
+          .join(", ")}${more > 0 ? `, and ${more} more` : ""}.`;
+  return new Error(
+    `Cannot hash section ${JSON.stringify(heading)}${where}${link} with manifest version 1: an HTML comment changes its boundaries.${listed} Close a comment left open with "-->"; remove a reference whose whole section is inside a comment; otherwise rewrite or indent heading or fence lines in the comment by at least four spaces. Then review the section before updating its hash.`,
+  );
+};
+
+/** エラー文に添える参照の情報。 */
+export interface HeadingSectionSource {
+  /** ファイル名（公開の CI ログに出るので、絶対パスでなく basename）。 */
+  file?: string;
+  linkId?: string;
+}
+
+// v1 の hash の意味を変えず、コメントを認識すると登録節の範囲が変わる入力だけを拒否する。
+export const hashHeadingSectionContent = (
+  content: string,
+  heading: string,
+  level = 2,
+  source: HeadingSectionSource = {},
+): string => {
+  const lines = content.split("\n");
+  const boundaries = sectionBoundaries(content, lines, heading, level);
+  if (boundaries.ambiguous) {
+    throw boundaryError(heading, level, lines, boundaries, source);
+  }
+  return hashRange(lines, boundaries.original);
 };

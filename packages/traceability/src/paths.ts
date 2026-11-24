@@ -101,6 +101,12 @@ const findOwningConfigDir = (manifestDir: string): string | undefined => {
  * `bdd-kit.config.*` name stops with a rename message instead of being passed
  * over (the config placed there would otherwise be ignored silently).
  *
+ * 親へたどる探索は、`.git` の項目（ディレクトリだけでなく、submodule や
+ * `git worktree` の `gitdir: ...` を書いたファイルも含む）がある段で止まる。
+ * その段の設定ファイル・manifest・旧名の検出までは見て、より上の段は見ない。
+ * マーカーが無ければ、その段の .git と作業ツリーを指定して Git に確かめる。
+ * チェックアウトの外に置かれた設定でルートを広げさせないため。
+ *
  * Unlike the original monorepo implementation this does NOT resolve relative to
  * the module location: the package is published and installed under an
  * arbitrary `node_modules` path, so only the consumer's cwd / git tree is
@@ -109,6 +115,7 @@ const findOwningConfigDir = (manifestDir: string): string | undefined => {
 export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
   const initialDir = path.resolve(startDir);
   let dir = initialDir;
+  let gitBoundary: string | undefined;
   for (;;) {
     if (CONFIG_FILENAMES.some((name) => existsSync(path.join(dir, name)))) {
       return dir;
@@ -118,6 +125,10 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
     }
     assertNoRemovedConfig(dir);
     const parent = path.dirname(dir);
+    if (isRepositoryTop(dir)) {
+      gitBoundary = dir;
+      break;
+    }
     if (parent === dir) {
       break;
     }
@@ -125,7 +136,13 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
   }
 
   try {
-    const top = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    // Git の自動探索は空の .git を飛ばし、受け継いだ GIT_DIR も優先する。
+    // 見つけた境界そのものを検証し、別のリポジトリへのフォールバックを防ぐ。
+    const location =
+      gitBoundary === undefined
+        ? []
+        : [`--git-dir=${path.join(gitBoundary, ".git")}`, `--work-tree=${gitBoundary}`];
+    const top = execFileSync("git", [...location, "rev-parse", "--show-toplevel"], {
       cwd: initialDir,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],

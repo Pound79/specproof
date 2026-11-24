@@ -37,6 +37,8 @@ export interface NotGroupedCounts {
   notSearched: number;
   /** 版は見つかったが、変えたコミットも、コミットしていない変更も特定できなかった。 */
   failed: number;
+  /** 一致する版はあったが、HTML コメントで節の境界が曖昧なので、どれが bless した版か特定できなかった。 */
+  unidentifiedBlessedVersion: number;
 }
 
 export interface ChangesSinceBless {
@@ -107,12 +109,33 @@ const versionReader = (git: GitRunner) => {
 };
 
 // 参照の単位の中身を表す値（比べるためだけに使う）。spec の見出しは、登録された段の節の hash を並べる。
-const versionKey = (hasher: Hasher | null, entry: DriftEntry, levels: number[]): string => {
+// withFile のときはファイル全体の hash も混ぜる（節の境界が曖昧な版との比較で使う）。
+const versionKey = (
+  hasher: Hasher | null,
+  entry: DriftEntry,
+  levels: number[],
+  withFile: boolean,
+): string => {
   if (hasher === null) return "missing";
-  return entry.side === "spec" && entry.heading !== undefined
-    ? levels.map((level) => hasher.section(entry.heading as string, level)).join(",")
-    : hasher.file();
+  if (entry.side !== "spec" || entry.heading === undefined) return hasher.file();
+  const sections = levels.map((level) => hasher.section(entry.heading as string, level)).join(",");
+  return withFile ? `${sections},${hasher.file()}` : sections;
 };
+
+// どちらかの版で、登録された段のどれかの節の境界が HTML コメントで曖昧か。曖昧な版の節の hash は
+// コメントの後ろの本文の変更を表さないので、そのときはファイルの単位でも比べ、多めに割り当てる側に倒す。
+const sectionAmbiguousIn = (
+  versions: (Hasher | null)[],
+  entry: DriftEntry,
+  levels: number[],
+): boolean =>
+  entry.side === "spec" &&
+  entry.heading !== undefined &&
+  versions.some(
+    (hasher) =>
+      hasher !== null &&
+      levels.some((level) => hasher.sectionAmbiguous(entry.heading as string, level)),
+  );
 
 // 範囲の中で、そのパスに触れた first-parent のコミット（新しい順）。
 const logRange = async (
@@ -239,7 +262,10 @@ export const groupChangesSinceBless = async (
       for (const index of range.indexes) {
         const entry = entries[index];
         const levels = levelsOf(index);
-        const changed = versionKey(current, entry, levels) !== versionKey(parent, entry, levels);
+        const withFile = sectionAmbiguousIn([current, parent], entry, levels);
+        const changed =
+          versionKey(current, entry, levels, withFile) !==
+          versionKey(parent, entry, levels, withFile);
         const bringsBlessed = current !== null && matchesVersion(current, entry, levels);
         if (!changed || bringsBlessed) continue;
         subjects.set(commit, subject);
@@ -278,6 +304,10 @@ export const groupChangesSinceBless = async (
   const notGrouped = history.commits.reduce<NotGroupedCounts>(
     (counts, blessed, index) => {
       if (traced.has(index)) return counts;
+      // 特定できなかった参照は null なので、「見つからない」より先に数える。
+      if (history.unidentified[index] !== undefined) {
+        return { ...counts, unidentifiedBlessedVersion: counts.unidentifiedBlessedVersion + 1 };
+      }
       if (blessed === null) return { ...counts, noBlessedVersion: counts.noBlessedVersion + 1 };
       // 上限で打ち切って手を付けなかった参照も「探していない」に数える。
       if (blessed === undefined || history.paths[index] === "." || !finished.has(index)) {
@@ -285,7 +315,7 @@ export const groupChangesSinceBless = async (
       }
       return { ...counts, failed: counts.failed + 1 };
     },
-    { noBlessedVersion: 0, notSearched: 0, failed: 0 },
+    { noBlessedVersion: 0, notSearched: 0, failed: 0, unidentifiedBlessedVersion: 0 },
   );
   return {
     commits: order.map((commit) => ({

@@ -118,6 +118,7 @@ const checkLink = async (
           resolveWithinRoot(repoRoot, ref.path),
           ref.heading,
           ref.headingLevel,
+          link.id,
         ),
       );
       if (isClean(ref.hash, currentHash)) {

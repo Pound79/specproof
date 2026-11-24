@@ -101,7 +101,12 @@ describe("groupChangesSinceBless（ライブラリ）", () => {
     expect(changes.uncommitted).toEqual([
       { side: "spec", path: "docs/spec.md", linkIds: ["perm"] },
     ]);
-    expect(changes.notGrouped).toEqual({ noBlessedVersion: 0, notSearched: 0, failed: 0 });
+    expect(changes.notGrouped).toEqual({
+      noBlessedVersion: 0,
+      notSearched: 0,
+      failed: 0,
+      unidentifiedBlessedVersion: 0,
+    });
     expect(changes.incomplete).toBe(false);
     const lines = describeChangesSinceBless(changes);
     expect(lines[0]).toMatch(/Changes since bless/);
