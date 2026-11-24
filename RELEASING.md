@@ -108,7 +108,7 @@ except for `CHANGELOG.md`, and the target tag does not already exist.
 
 The release commit includes only release files. Unrelated changes staged while checks or confirmation are pending stay in the index. A failed run preserves prior staging of release files and concurrent staging of unrelated files.
 
-There is no prepare-only flag. Declining confirmation restores the changes. Approval proceeds to commit, tag, atomic push and publication. If the final source commit changes, repeat version checks, validation, packing and empty-consumer verification against that exact commit.
+There is no prepare-only flag. Declining confirmation restores the changes. Approval proceeds to commit, tag, atomic push and publication. Accepting a same-version candidate does not substitute for approval to publish. If the final source commit changes, repeat version checks, validation, packing and empty-consumer verification against that exact commit.
 
 ## After releasing
 
