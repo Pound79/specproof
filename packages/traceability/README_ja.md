@@ -22,7 +22,7 @@ npx specproof-list
 npx specproof-stats
 ```
 
-- `check` は登録した参照のハッシュを比べ、リンクごとに drift を報告する。`--strict` は未査読のドラフト、空のリンク、不正なタグなども検査する。
+- `check` は登録した参照のハッシュを比べ、リンクごとに drift を報告する。drift したリンクが 1 つでもあれば終了コード 1 で終わるので、CI を drift で失敗させられる。`--strict` は未査読のドラフト、空のリンク、不正なタグなども検査する。
 - `list` は登録済みのドメインと未登録ページの候補を列挙する。
 - `update` はレビューした変更を新しい基準にする。例の login は対象リンクの ID に置き換える。ID を指定しない更新は全リンクに適用される。
 
@@ -288,7 +288,9 @@ id が 1 つでもあれば、manifest を書かずに失敗し、無い id を�
 （`specproof.config.yaml` / `.yml`）か `traceability.yaml` が最初に見つかった段をルートにする。
 `traceability.yaml` だけが見つかった段でも、その上の最も近い設定ファイルが `layout.manifest` で
 その manifest を指していれば、設定ファイルの段をルートにする（`e2e/traceability.yaml` のような
-構成で `e2e/` から流しても参照を取り違えない）。この探索は `.git` のある段より上を見ない。
+構成で `e2e/` から流しても参照を取り違えない）。cwd から親へたどる探索も、この設定ファイルの探索も、
+`.git`（worktree のようにファイルでもよい）のある段より上を見ない。その段までに見つからなければ
+`git rev-parse --show-toplevel` の結果をルートにする。
 manifest の段や途中の段に設定ファイルの項目（リンク切れや旧名を含む）があれば親へ移らない。
 manifest の参照がすべてファイルごと見つからないときは、drift ではなくルートや manifest の
 取り違えを疑う案内を出し、`bothSidesChanged` を空にする（`--json` の `allReferencesMissing`）。

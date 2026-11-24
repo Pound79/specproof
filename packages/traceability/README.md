@@ -37,11 +37,14 @@ npx specproof-update --link-id login
 ```
 
 - **`check`** compares the current spec/impl/feature hashes against the blessed
-  baseline and reports drift per link. `--strict` also fails on unreviewed draft
+  baseline and reports drift per link. It exits with status 1 when any link
+  has drifted, so CI can fail on drift. `--strict` also fails on unreviewed draft
   markers, all-empty links, `@out-of-scope` scenarios without a reason comment
   (or with `@out-of-scope` inherited from Feature / Rule / Examples), disallowed `@fixme` /
   `@skip` / `@fail` tags, and the structural warnings below
   according to the policy below.
+- **`list`** lists the registered domains and the bootstrap candidates (pages
+  that no link registers yet).
 - **`update`** re-blesses the manifest hashes after you've reconciled a change.
   Pass `--dry-run` to preview the change list without writing the manifest.
 - **`stats`** produces a scenario census and, with `--strict`, enforces the
@@ -372,7 +375,7 @@ methodology, config schema, and the adapter contract.
 
 ### Paths and history
 
-`--root <dir>` overrides root discovery. By default, walk up from cwd to the nearest config (`specproof.config.yaml` or `.yml`) or `traceability.yaml`. When a manifest alone is found, use the nearest ancestor config if its `layout.manifest` resolves to that manifest (e.g. running from `e2e/`). Do not search above a Git root. A config entry, including a broken link or legacy name, at the manifest or intervening level prevents passing it. If every reference file is missing, check reports `allReferencesMissing` and clears `bothSidesChanged`; verify the root and manifest.
+`--root <dir>` overrides root discovery. By default, walk up from cwd to the nearest config (`specproof.config.yaml` or `.yml`) or `traceability.yaml`. When a manifest alone is found, use the nearest ancestor config if its `layout.manifest` resolves to that manifest (e.g. running from `e2e/`). Neither the walk up from cwd nor this search for the owning config goes above the first directory that has a `.git` entry (a file, as in a worktree, counts too); if the walk finds nothing by then, the root falls back to `git rev-parse --show-toplevel`. A config entry, including a broken link or legacy name, at the manifest or intervening level prevents passing it. If every reference file is missing, check reports `allReferencesMissing` and clears `bothSidesChanged`; verify the root and manifest.
 
 Resolve `--manifest <file>` relative to cwd and keep it under the root. `--candidate-suffix` includes the extension (e.g. `Page.ts`, `_page.dart`). GitHub annotations are written to stderr.
 
