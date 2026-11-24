@@ -48,7 +48,7 @@ For `--since-bless`, manifest paths are PR-controlled. Git receives an argument 
 
 ### CLI
 
-- **Scaffolding.** `specproof init` and `specproof setup-agent` use the current directory as the root and confine `--dir` and write targets to it. They reject symlinks in write paths and existing files with multiple hard links. Replacing existing files requires `--force`. Existing files under `.github/workflows/` are preserved even with that flag.
+- **Scaffolding.** `specproof init` and `specproof setup-agent` use the current directory as the root and confine `--dir` and write targets to it. They reject symlinks in write paths and refuse to write to files with multiple hard links. Existing files skipped without a write do not trigger the hard-link check. Replacing existing files requires `--force`. Existing files under `.github/workflows/` are preserved even with that flag.
 - **Detection.** `specproof detect` and `init --adapter auto` read `package.json`, `pubspec.yaml` and variable names from `.env.example` in the current directory. They read only regular files up to 1 MiB. Detection follows symlinks without enforcing a root boundary, so run it only in trusted directories.
 - **Existing ignore rules.** When `init` keeps an existing `.gitignore`, it reads up to 1 MiB and warns if entries from the template for secrets or test output are missing, such as `.env` or `playwright/.auth`. It preserves the file and compares literal lines. Git's ignore evaluation can differ.
 - **Child processes.** The CLI starts no subprocesses and does not execute `commands.*`.
@@ -80,7 +80,7 @@ When a skill copies PR-controlled text into a report or PR description, the skil
 | AI skills | GitHub through `gh` or a GitHub connector | Push branches and create PRs during sync and other workflows | Credentials in the user's environment |
 | AI skills | Application under test at `env.baseUrl` | Execute `commands.smoke` | Test account from `.env` |
 
-For projects using credentials or a saved session, the Playwright scaffold rejects non-loopback `http://` base URLs unless the environment has `allowInsecureHttp: true`. The exception applies to the environment, is not host-specific, and does not validate redirect destinations. See `environments[].allowInsecureHttp` in the [config schema](config-schema.md).
+For projects using credentials or a saved session, the Playwright scaffold rejects non-loopback `http://` base URLs unless the environment has `allowInsecureHttp: true`. The exception applies to the environment, is not host-specific, and does not validate redirect destinations. See `environments[].allowInsecureHttp` in the [config schema](config-schema_en.md).
 
 npm uses its configured registries, scoped registries and proxy settings. It also reads `.npmrc` in the working directory and its ancestors. In PR CI, run `npx` outside the checked-out worktree and set `--registry` explicitly so a PR's npm configuration cannot redirect the download. By default, `actions/checkout` persists the `GITHUB_TOKEN` for later Git steps. Set `persist-credentials: false` if the same job runs code from a PR or npm package.
 
