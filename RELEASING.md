@@ -113,10 +113,12 @@ There is no prepare-only flag. Declining confirmation restores the changes. Appr
 ## After releasing
 
 ```bash
-gh run watch                                  # watch the Release workflow
-npm view @pound79/specproof version             # expect the new version
-npm view @pound79/specproof-traceability version
-gh release view v0.1.5                        # GitHub Release is created automatically
+# From the root of the checkout for the release being verified
+version=$(node -p "require('./cli/package.json').version")
+gh run watch
+npm view "@pound79/specproof@$version" version
+npm view "@pound79/specproof-traceability@$version" version
+gh release view "v$version"
 ```
 
 The workflow creates the GitHub Release itself once both packages publish (title

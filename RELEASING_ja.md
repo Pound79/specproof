@@ -40,10 +40,12 @@ scripts/release.sh <version> [--yes] [--skip-checks] [--allow-empty-changelog] [
 ## 公開の確認と再試行
 
 ```sh
+# 確認するリリースのチェックアウトで、リポジトリのルートから実行する
+version=$(node -p "require('./cli/package.json').version")
 gh run watch
-npm view @pound79/specproof version
-npm view @pound79/specproof-traceability version
-gh release view v0.1.5
+npm view "@pound79/specproof@$version" version
+npm view "@pound79/specproof-traceability@$version" version
+gh release view "v$version"
 ```
 
 npm の trusted publisher は両パッケージで、所有者 `Pound79`、リポジトリ `specproof`、ワークフロー `release.yml`、Environment なし、`Allow npm publish` を指定します。OIDC に失敗すると npm の代替トークンで E404 または E401 が出ることがあります。設定を確認し、`gh run rerun <run-id> --failed` でやり直します。既に公開した版は再公開しません。
