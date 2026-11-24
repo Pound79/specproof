@@ -1,5 +1,7 @@
 # specproof Flutter adapter (flutter_gherkin + 日本語 Gherkin)
 
+[English](README_en.md) | 日本語
+
 `flutter_gherkin` ベースの BDD 振る舞いテスト足場。**日本語 Gherkin（`# language: ja`・機能/シナリオ/前提/もし/ならば/かつ）がキーワードも step テキストも通る**唯一の実用構成。2026-06-06 の sample を Flutter 3.44.1 / Dart 3.12.1 で GREEN 実証した当時の構成。現在のアプリ・SDK・revision の GREEN は再実行で確認する（[現行入口と残件](https://github.com/Pound79/specproof/blob/main/docs/flutter-readiness.md)）。
 
 > なぜ flutter_gherkin か: `bdd_widget_test` はパーサが英語専用で、さらに step 名生成が `\w`（ASCII限定）で日本語を全 strip するため日本語不可。`flutter_gherkin` は `dart_gherkin` の `ja` dialect で日本語を完全サポート。代償は rc.17 で保守停滞（バージョン pin で対処）。詳細は kit の `docs/flutter-readiness.md`。
@@ -23,7 +25,7 @@
 
 3. 依存解決 → 生成 → 実行:
    ```bash
-   cd bdd_tests
+   # 前の手順と同じ bdd_tests/ ディレクトリで実行
    flutter pub get
    dart run build_runner build --delete-conflicting-outputs   # .feature -> *.g.dart（日本語を build 時パース）
    flutter test integration_test/gherkin_suite_test.dart -d macos
@@ -87,7 +89,7 @@ specproof-* skill は `{{config:layout.e2eReadme}}` としてこのファイル�
 `/specproof-bootstrap` は既存実装からドメインの feature を**一度だけ**起こす。既存 feature の
 再生成には使わない（実装のコピーになり、壊れたら赤くなるというテストの役目を失う）。
 実装変更を feature に追従させるときは `specproof-check`（drift 検知）→
-`/specproof-sync` → `specproof-update`（bless）の順で行う。振る舞いの変わらないリファクタは
+`/specproof-sync` → `specproof-update --link-id <id>`（確認したリンクを bless）の順で行う。振る舞いの変わらないリファクタは
 そのまま bless。観測可能な振る舞いが変わった場合、sync は停止して spec と照らした裁定を求める
 （実装を直す／spec を先に更新する／spec がすでに新挙動を求めていると確認する）。feature の期待値は
 常に spec から導出し、実装の diff からは作らない。既存シナリオは消さない。
