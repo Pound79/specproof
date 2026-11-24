@@ -282,10 +282,10 @@ jobs:
               : 'BDD drift check: drift detected';
             const remediation = advisoryOnly
               ? 'Advisory warnings are informational and do not fail the check. ' +
-                'To enforce them, opt in via `strictUnregisteredImpl` / ' +
-                '`strictUnregisteredSpecHeadings` in `specproof.config.yaml`.'
+                'For unregistered implementation files or spec headings, see `strictUnregisteredImpl` / ' +
+                '`strictUnregisteredSpecHeadings`. For feature lint, see `strictFeatureLint`. Some advisories always require human judgment.'
               : 'Run `/specproof-sync <link-id>` to bring the feature back in sync, then push again. ' +
-                'If the change is already reflected, run `specproof-update` locally and commit the refreshed `traceability.yaml`.';
+                'If the change is already reflected, review each affected link and run `specproof-update --link-id <id>` locally and commit the refreshed `traceability.yaml`.';
 
             // The checked commit goes before report-derived text, which an
             // unclosed HTML comment or Markdown in a path could otherwise hide.
