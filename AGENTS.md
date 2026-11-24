@@ -23,7 +23,8 @@ S1/S2 に追加しない。CLI で実行済み GREEN は判定せず、run は�
 
 ## 開発・検証
 
-Node.js 24+。`npm ci` 後、コード変更は `npm run typecheck`、`npm test`、`npm run build`。
+Node.js 24+。`npm ci` 後、コード変更は `npm run typecheck`、`npm run build`、`npm test` の順
+（ビルドした CLI を起動するテストがあるため、テストの前にビルドする）。
 文書変更は関連リンク/anchor・CLI/skill/prompt の参照を確認する。
 追跡 manifest の spec/hash へ影響する変更を過去 GREEN や凍結値の更新で隠さない。
 
@@ -32,7 +33,8 @@ Node.js 24+。`npm ci` 後、コード変更は `npm run typecheck`、`npm test`
 main の作業ツリー・既存 PR を保護し、新規 branch で小さい PR に分ける。
 機能変更は実際の RED 観測から始め、コードとセキュリティの独立レビュー後に commit する。
 会話・commit は日本語、絵文字無し。利用者・貢献者向けの現行文書は日英を同じ PR で更新し、
-正本と対訳を相互リンクする。実行用 skill は一つの正本を保つ。commit は Conventional Commits、全行72文字以内。
+正本と対訳を相互リンクする。ADR・履歴など内部向けの新規文書は日本語で書く。
+実行用 skill は一つの正本を保つ。commit は Conventional Commits、全行72文字以内。
 本文は heredoc から `git commit -F -` へ渡す。既存 PR 更新・merge・force push は別途指示が要る。
 `.env*`・`.npmrc`・鍵は読まず、資格情報は既存注入経路を使用する。不要資料は削除せず移動する。
 
