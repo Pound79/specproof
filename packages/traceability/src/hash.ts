@@ -395,7 +395,7 @@ const describeCommentBlock = (block: CommentBlock, original: SectionRange | unde
   const notes = [
     block.closed ? undefined : 'not closed: add "-->" where the comment should end',
     containsReference(block, original)
-      ?"contains the referenced heading: if the whole section is commented out, remove this reference from the manifest"
+      ? "contains the referenced heading: if the whole section is commented out, remove this reference from the manifest"
       : undefined,
   ].filter((note) => note !== undefined);
   return notes.length === 0
