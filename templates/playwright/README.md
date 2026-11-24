@@ -111,9 +111,11 @@ npm run test:smoke
 This generates glue code with `bddgen`, then runs the selected scenarios
 without the slow tag (default `@slow`). The run counts as smoke when
 `SPECPROOF_SMOKE=1` is set, and then excludes the configured `tags.slow` as a
-tag expression. When you call `bddgen` / `playwright` directly instead of the
-npm script, set `SPECPROOF_SMOKE=1` yourself. Whatever you select, `@draft` / `@human` /
-`@out-of-scope` scenarios never run. The template's own filters never exclude
+tag expression. When you run smoke by calling `bddgen` and `playwright`
+directly instead of the npm script, set `SPECPROOF_SMOKE=1` on both commands.
+Smoke generates into `.features-gen-smoke/`, so setting it on only one makes
+generation and the run use different generated files. Whatever you select,
+`@draft` / `@human` / `@out-of-scope` scenarios never run. The template's own filters never exclude
 `@red-contract`, so selected `@red-contract` scenarios run and stay RED until
 implemented. Positive selection still applies to them: a project's `tags`
 filter (such as `@admin`), a command-line `--grep`, or this command's
