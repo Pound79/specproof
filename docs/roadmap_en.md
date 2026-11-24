@@ -2,7 +2,7 @@
 
 [日本語](roadmap.md) | English
 
-S1 and S2 shipped in 0.3.0. Versions up to 0.2.2 do not include them. See the [project guide](../AGENTS.md) for development entry points and the [traceability README](../packages/traceability/README.md) for current CLI guarantees. Static counts alone cannot establish a successful test run.
+S1 and S2 shipped in 0.3.0. Versions up to 0.2.2 do not include them. See the [contributor guide](../CONTRIBUTING.md) for development instructions and the [traceability README](../packages/traceability/README.md) for current CLI guarantees. Static counts alone cannot establish a successful test run.
 
 ## Static counts and condition IDs
 
@@ -13,9 +13,9 @@ S1 and S2 shipped in 0.3.0. Versions up to 0.2.2 do not include them. See the [p
 
 For S1, `@draft` sets the draft phase, `@red-contract` sets pending, and the default phase is complete. Verification is human with `@human` and machine otherwise. “Complete” describes the tags on a condition. Proving GREEN requires a run. Tests cover state-tag inheritance from Feature and Rule, invalid tag combinations, and agreement between JSON and text output.
 
-The static done gate in `specproof-stats --strict` requires zero pending `@red-contract` conditions and zero conditions with disallowed `@fixme`, `@skip` or `@fail` tags. See [ADR 0009](adr/0009-retire-fixme-skip.md).
+The static done gate in `specproof-stats --strict` requires zero pending `@red-contract` conditions and zero conditions with disallowed `@fixme`, `@skip` or `@fail` tags. See [ADR 0009 (Japanese original)](adr/0009-retire-fixme-skip.md).
 
-For S2, omitting `criteria` or supplying an empty array is valid. Invalid types, empty strings, control characters and duplicate entries within a link are rejected. A condition ID can appear in multiple links. Loading, updating and saving preserve unknown keys, including updates to all links, single-link updates and dry runs. IDs are opaque, nonempty strings. Consumer-specific formats such as AC or TC are validated by the consumer. The [traceability README](../packages/traceability/README.md) defines validation and writer behavior. Adding `criteria` preserved the existing hash and strict-mode contracts.
+For S2, omitting `criteria` or supplying an empty array is valid. Invalid types, empty strings, control characters and duplicate entries within a link are rejected. A condition ID can appear in multiple links. Loading, updating and saving preserve unknown keys, including updates to all links, single-link updates and dry runs. IDs are opaque, nonempty strings. Consumer-specific formats such as AC or TC are validated by the consumer. The [manifest criteria reference](../packages/traceability/README.md#manifest-criteria) defines validation and writer behavior. Adding `criteria` preserved the existing hash and strict-mode contracts.
 
 ## Distribution
 
@@ -23,13 +23,13 @@ The [release guide](../RELEASING.md) describes how `scripts/release.sh` pushes t
 
 ## Accepted work awaiting implementation
 
-[ADR 0008](adr/0008-flow-layer-separation.md) defines a `scenarios` ID registry, `@id` interpretation and ID validation warnings. These remain unimplemented and outside S1 and S2. A separate tool owns run results, confirmation of GREEN, time series and the progress UI.
+[ADR 0008 (Japanese original)](adr/0008-flow-layer-separation.md) defines a `scenarios` ID registry, `@id` interpretation and ID validation warnings. These remain unimplemented and outside S1 and S2. A separate tool owns run results, confirmation of GREEN, time series and the progress UI.
 
 ## Open work and proposals
 
 - Still unimplemented: tracking the oldest `@red-contract` date and review cadence, and supporting `--adapter-dir`.
 - Still unconfirmed: completion of the planned trial on an external production Playwright suite.
-- The [Flutter status](flutter-readiness.md) lists current execution entry points and remaining work. The bundled template and skills do not read proposed extension keys for Patrol native operations or flavors.
+- The [Flutter status](flutter-readiness_en.md) lists current execution entry points and remaining work. The bundled template and skills do not read proposed extension keys for Patrol native operations or flavors.
 
 ## Decision records and history
 

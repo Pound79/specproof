@@ -4,7 +4,7 @@
 
 S1/S2 は 0.3.0 で実装した。0.2.2 以前には含まれない。
 実行の入口は [AGENTS.md](../AGENTS.md)、CLI の現行保証は
-[traceability README](../packages/traceability/README.md)。静的集計は実行済み GREEN を認定しない。
+[traceability README](../packages/traceability/README_ja.md)。静的集計は実行済み GREEN を認定しない。
 
 ## 静的集計と条件 ID の対応
 
@@ -25,12 +25,12 @@ S2 は省略・空配列を許容し、不正型・空文字・制御文字・�
 同じ条件 ID を複数 link に置ける多対多を維持し、未知キーも load/update/save と
 全件/単一 link 更新・dry-run で保持する。ID は不透明な非空文字列とし、AC / TC 等の形式を
 固定・正規化しない。consumer 固有の形式は consumer の設定が検査する。
-検証と writer の範囲は [traceability README](../packages/traceability/README.md#manifest-の-criteria) が正本。
+検証と writer の範囲は [traceability README](../packages/traceability/README_ja.md#manifest-の-criteria) が正本。
 既存 hash/strict の保証は変更しない。
 
 ## 配布
 
-公開は [RELEASING.md](../RELEASING.md) の手順で、`scripts/release.sh` から tag を push して
+公開は [リリース手順](../RELEASING_ja.md) の手順で、`scripts/release.sh` から tag を push して
 Release workflow で行う。release script は同じ版の未公開候補も扱え、全 workspace と
 lock の版を照合する。公開確認を拒否したときの復元と、main 以外・既存 tag・未コミット変更の
 拒否は fixture で検証する。
