@@ -1,5 +1,6 @@
 node_modules
 .features-gen
+.features-gen-smoke
 playwright-report
 test-results
 playwright/.auth

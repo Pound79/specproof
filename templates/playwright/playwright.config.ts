@@ -81,10 +81,11 @@ function mergeExcludeTags(
 }
 
 // smoke（`npm run test:smoke` が SPECPROOF_SMOKE=1 を渡す）では、設定の tags.slow も除外する。
-const excludedTags = runnerExclusions(cfg, activeEnv, isSmokeRun());
+const smoke = isSmokeRun();
+const excludedTags = runnerExclusions(cfg, activeEnv, smoke);
 
 // Per-config app projects.
-const appProjects = cfg.projects.flatMap((p) => {
+const appProjects = cfg.projects.flatMap((p, projectIndex) => {
   // Skip projects whose runtime condition is not met (e.g. no admin creds).
   if (!isConditionMet(p.conditional, cfg)) {
     return [];
@@ -96,6 +97,8 @@ const appProjects = cfg.projects.flatMap((p) => {
     {
       ...defineBddProject({
         name: p.name,
+        // 通常の生成物を残す。設定順の番号なら project 名にパス文字があっても衝突しない。
+        ...(smoke ? { outputDir: `.features-gen-smoke/${projectIndex}` } : {}),
         features: p.features,
         steps: STEPS,
         // Always a filter: @draft / @human / @out-of-scope never run, and the

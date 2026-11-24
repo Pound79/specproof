@@ -71,6 +71,17 @@ test("SPECPROOF_SMOKE=1 なら npm のスクリプト名が無くても設定の
   assert.doesNotMatch(guest.tags, /@slow/);
 });
 
+test("smoke と通常実行が project ごとに独立した生成先を使う", () => {
+  const cfg = templateConfig();
+  const full = buildProjects(cfg).filter((p) => p.features);
+  const smoke = buildProjects(cfg, { SPECPROOF_SMOKE: "1" }).filter((p) => p.features);
+  assert.deepEqual(smoke.map((p) => p.name), full.map((p) => p.name));
+  for (const project of full) assert.equal(project.outputDir, undefined);
+  const smokeDirs = smoke.map((p) => p.outputDir);
+  for (const dir of smokeDirs) assert.match(dir ?? "", /^\.features-gen-smoke\/[^/]+$/);
+  assert.equal(new Set(smokeDirs).size, smoke.length);
+});
+
 test("smoke かどうかは npm のスクリプト名でなく SPECPROOF_SMOKE で決める", () => {
   const guest = buildProjects(templateConfig(), { npm_lifecycle_event: "test:smoke" }).find(
     (p) => p.name === "guest",
