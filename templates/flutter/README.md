@@ -21,7 +21,7 @@
    ```bash
    cd bdd_tests && flutter create --platforms=macos --project-name bdd_tests .
    ```
-   （CI/実機なら `--platforms=ios,android` 等。macOS desktop が最も手軽な headless 先）
+   iOS または Android が対象なら `--platforms=ios,android` を指定する。実機を接続するかシミュレーター・エミュレーターを起動し、`flutter devices` で対象の ID を調べる。次の実行例とルート設定の `commands.smoke` の `-d macos` は `-d <対象のID>` に置き換え、`flutter.device` にも同じ ID を指定する。
 
 3. 依存解決 → 生成 → 実行:
    ```bash
@@ -40,7 +40,7 @@
    状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）に触れる `SPECPROOF_TAGS`（例: `not @red-contract`）と、
    括弧の対応が取れていない `SPECPROOF_TAGS` は suite が拒否する。実装待ちの条件を外して E2E を緑に見せないため。
 
-4. **アプリの実画面をテストする場合**: `pubspec.yaml` でアプリへ `path: ..` 依存を追加し、`dependency_overrides: { uuid: ">=4.0.0 <5.0.0" }` を有効化。`appMainFunction` で実アプリの `main()` を起動。
+4. **アプリの実画面をテストする場合**: テストパッケージの `pubspec.yaml` で、アプリのパッケージ名を `dependencies` に追加する。`path` はそのファイルからアプリの `pubspec.yaml` があるディレクトリまでの相対パス。アプリ直下の `bdd_tests/` なら `path: ..` を使う。アプリ側の依存が uuid 4 を必要とする場合は雛形の `dependency_overrides: { uuid: ">=4.0.0 <5.0.0" }` も有効化する。`flutter pub get` を再実行し、`appMainFunction` から実アプリの `main()` を起動する。
 
 ## 必ず守る規約（実機検証で確定した落とし穴）
 

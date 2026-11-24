@@ -16,7 +16,7 @@ Use Flutter 3.44+, Dart 3.12+ and Node.js 24+. The framework-independent traceab
    flutter create --platforms=macos --project-name bdd_tests .
    ```
 
-   Substitute `ios,android` when targeting those devices.
+   For iOS or Android, use `--platforms=ios,android`. Connect a device or start a simulator or emulator, then find its ID with `flutter devices`. Replace `-d macos` with `-d <device-id>` in the test below and in the root configuration’s `commands.smoke`. Set `flutter.device` to the same ID.
 3. In the same package directory, resolve dependencies, generate the suite and run it:
 
    ```sh
@@ -26,7 +26,7 @@ Use Flutter 3.44+, Dart 3.12+ and Node.js 24+. The framework-independent traceab
    ```
 
    The suite always excludes `@draft`, `@human` and `@out-of-scope`. An eligible `@red-contract` runs and stays red until implemented. `@red-contract @human` remains pending for human verification. To narrow the selection, pass a Gherkin expression such as `--dart-define=SPECPROOF_TAGS="not @slow"`. The suite combines it with the fixed exclusions in `FlutterTestConfiguration.tagExpression` and rejects expressions with unbalanced parentheses or state tags. The configured `commands.smoke` excludes the configured `tags.slow` (default `@slow`) and combines that exclusion with the `tags` of the first project before passing the expression to the suite.
-4. To test the real application, add a path dependency on the app (`path: ..`), enable `dependency_overrides: { uuid: ">=4.0.0 <5.0.0" }` as required, and call its `main()` in `appMainFunction` in place of the bundled counter widget.
+4. To test the real application, add the app’s package name to `dependencies` in the test package’s `pubspec.yaml`. Set its `path` relative to that file, pointing to the directory containing the app’s `pubspec.yaml`. Use `path: ..` when `bdd_tests/` is directly inside the app. If an app dependency requires uuid 4, enable the template’s `dependency_overrides: { uuid: ">=4.0.0 <5.0.0" }`. Run `flutter pub get` again and call the app’s `main()` from `appMainFunction` in place of the bundled counter widget.
 
 ## Runner conventions
 
