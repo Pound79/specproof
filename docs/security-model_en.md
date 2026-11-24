@@ -59,7 +59,7 @@ The tools do not lock paths against replacement by another process between valid
 
 ### AI skills
 
-The skills in `plugins/specproof/skills/` run inside the user's AI agent. They ask the agent to execute configured `commands.*` as verification gates. A PR can change the config and scripts invoked by those commands. Before first execution, the skills instruct the agent to compare relevant files, including the config, `.npmrc`, `package.json` and lockfiles, with the default branch. For changed files, the agent presents the changes and expanded commands and waits for human approval. See the pre-execution check in each `SKILL.md`. This is an instruction to the agent. Even with an unchanged command, the command executes the branch's code. Running a skill on someone else's branch requires the same trust as checking out their PR and running `npm test`.
+The skills in `plugins/specproof/skills/` run inside the user's AI agent. They ask the agent to execute configured `commands.*` as verification gates. A PR can change the config and scripts invoked by those commands. Before first execution, the skills instruct the agent to compare relevant files, including the config, `.npmrc`, `package.json` and lockfiles, with the default branch. For changed files, the agent presents the changes and expanded commands and waits for human approval. See the pre-execution check in each `SKILL.md`. This is an instruction to the agent and cannot be enforced. It also detects only replaced commands or config; even with no diff, the command executes the branch's code. Running a skill on someone else's branch requires the same trust as checking out their PR and running `npm test`.
 
 The upgrade procedure (setup §7) starts on a new branch from the default branch. It skips `commands.*` and uses `npx` with exact versions and explicit registries, including scoped registries. npm reads the repository's `.npmrc`, so changes to that file go through the same review. The agent treats the downloaded changelog and CLI output as data.
 
@@ -109,14 +109,18 @@ The packages do not manage keys or certificates, encrypt data, sign content or h
 
 Unbounded operations consume time and memory as the repository grows. Set a job-level `timeout-minutes`, for example 10 minutes, to keep unusually large inputs from consuming the default 360 minutes.
 
-## Protecting the drift gate
+<a id="protecting-the-drift-gate"></a>
 
-`specproof-check --strict` deterministically detects differences from a blessed baseline, unreviewed draft markers and disallowed tags. Its effectiveness depends on protecting the inputs and workflow that define the check.
+## What the drift gate does not guarantee
+
+`specproof-check --strict` deterministically detects differences from a blessed baseline, unreviewed draft markers and disallowed tags. However, a PR can change the following inputs, so the gate alone cannot stop such changes.
 
 - A PR can update manifest hashes by running `specproof-update`.
-- The config and its alternate filename control `layout.manifest`, `layout.featuresDir` and the `strict*` settings. A config pointing to an empty manifest and an empty feature directory can make the gate check no references without changing the conventional manifest file.
+- The config and its alternate filename control `layout.manifest`, `layout.featuresDir` and the `strict*` settings.
 - On `pull_request`, the drift-check workflow itself comes from the PR.
 - Running `npx` in the worktree allows the PR's `.npmrc` to redirect the engine download, compromising the check result.
+
+If any one of these is left unprotected, the check's scope can be bypassed. For example, an unprotected config can point `layout.manifest` to an empty manifest and `layout.featuresDir` to an empty directory, letting `--strict` pass without touching the default `traceability.yaml`.
 
 Use these controls together.
 
@@ -129,4 +133,4 @@ Use these controls together.
 - Fail CI if the root config is missing. The engine supports config-free usage and falls back to defaults. Without `layout.featuresDir`, it cannot discover unregistered features, so `--strict` alone can pass. The bundled workflow checks for a root config before running the engine.
 - Require human review of spec, implementation and feature changes in every PR that updates manifest hashes.
 
-The `unregistered-impl` audit also uses filenames. For names that look like tests or generated files, such as `*.test.*` and `*.spec.*`, text output and annotations normally summarize counts rather than listing files. JSON and the exit code still include the findings. Matches for `layout.implExcludeGlobs` are excluded from the audit itself. Such files cannot fail `--strict` even with `strictUnregisteredImpl: true`. When enabling that setting, review the exclusions written by `specproof init` and scrutinize renames and product code placed under test-like or generated names.
+The `unregistered-impl` audit can be bypassed by filename shape alone. For names that look like tests or generated files, such as `*.test.*` and `*.spec.*`, text output and annotations normally summarize counts rather than listing files. JSON and the exit code still include the findings. Matches for `layout.implExcludeGlobs` are excluded from the audit itself. Such files cannot fail `--strict` even with `strictUnregisteredImpl: true`. Placing product code under such names bypasses the registration check. When enabling `strictUnregisteredImpl`, review the `implExcludeGlobs` scope, including the globs written by `specproof init`, and review renames in the diff.
