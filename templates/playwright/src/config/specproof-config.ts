@@ -54,6 +54,7 @@ export interface SpecproofConfig {
     username?: string;
     adminUsername?: string;
   };
+  tags?: { slow?: string };
   projects: ProjectConfig[];
   environments: readonly EnvironmentProfile[];
   runner?: RunnerConfig;
@@ -204,6 +205,26 @@ function assertExcludeTags(profile: EnvironmentProfile): void {
       );
     }
   }
+}
+
+// smoke は Gherkin のタグ単位で絞る。正規表現でシナリオ名や似た名前まで除外しない。
+export function runnerExclusions(
+  cfg: SpecproofConfig,
+  env: EnvironmentProfile,
+  smoke: boolean,
+): readonly string[] {
+  const excluded = env.excludeTags ?? [];
+  if (!smoke) return excluded;
+  const slow = cfg.tags?.slow ?? "@slow";
+  if (
+    typeof slow !== "string" ||
+    !SINGLE_TAG.test(slow) ||
+    slow.includes("\\") ||
+    STATE_TAGS.includes(slow)
+  ) {
+    throw new Error("specproof: tags.slow must be a single non-state tag.");
+  }
+  return [...excluded, slow];
 }
 
 // projects[].tags is spliced into the same tag expression. A state tag there

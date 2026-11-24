@@ -17,6 +17,7 @@ dependencies:
   #   path: ..
 
 dev_dependencies:
+  yaml: ^3.1.0
   flutter_test:
     sdk: flutter
   integration_test:

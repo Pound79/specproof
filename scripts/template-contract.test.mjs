@@ -87,18 +87,14 @@ test("製品の変更を置く場所の省略は同じブランチに置く明�
   assert.match(skill, /`separateBranch`/);
 });
 
-test("Flutter の smoke は projects のタグ条件を runner へ実際に渡す", () => {
-  // 宣言だけでは flutter test の実行対象は変わらない。smoke の --dart-define が suite の入口で
-  // FlutterTestConfiguration.tagExpression に渡り、runner が実行時に絞り込む。
+test("Flutter の smoke はホストで設定を読み、runner にタグ条件を渡す", () => {
   const config = parse(read("templates/flutter/specproof.config.yaml"));
-  const suite = read("templates/flutter/integration_test/gherkin_suite_test.dart");
-  const declared = config.projects[0].tags;
-  assert.ok(declared.includes(config.tags.slow), "projects のタグ条件が @slow を除外していない");
-  const define = config.commands.smoke.match(/--dart-define=SPECPROOF_TAGS=("[^"]*"|'[^']*'|\S+)/);
-  assert.ok(define, "smoke が SPECPROOF_TAGS を渡していない");
-  assert.equal(define[1].replace(/^["']|["']$/g, ""), declared);
-  assert.match(suite, /String\.fromEnvironment\('SPECPROOF_TAGS'\)/);
-  assert.match(suite, /tagExpression:/);
+  assert.match(config.commands.smoke, /dart run tool\/smoke\.dart/);
+  assert.doesNotMatch(config.commands.smoke, /@slow/);
+  const launcher = read("templates/flutter/tool/smoke.dart");
+  assert.match(launcher, /config\['tags'\]\?\['slow'\]/);
+  assert.match(launcher, /--dart-define=SPECPROOF_TAGS=/);
+  assert.match(read("templates/flutter/integration_test/gherkin_suite_test.dart"), /String\.fromEnvironment\('SPECPROOF_TAGS'\)/);
 });
 
 test("implement スキルは E2E 側と製品側の検証を取り違えない", () => {

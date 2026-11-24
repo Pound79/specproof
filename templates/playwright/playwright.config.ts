@@ -4,6 +4,7 @@ import {
   loadSpecproofConfig,
   isConditionMet,
   resolveActiveEnvironment,
+  runnerExclusions,
 } from "./src/config/specproof-config";
 import {
   loadDotenv,
@@ -69,16 +70,20 @@ const NEVER_RUN_TAGS = ["@draft", "@human", "@out-of-scope"];
 
 function mergeExcludeTags(
   projectTags: string | undefined,
-  env: ReturnType<typeof resolveActiveEnvironment>,
+  excludedTags: readonly string[],
 ): string {
-  const exclusion = [...NEVER_RUN_TAGS, ...(env.excludeTags ?? [])]
-    .map((t) => `not ${t}`)
-    .join(" and ");
+  const exclusion = [...NEVER_RUN_TAGS, ...excludedTags].map((t) => `not ${t}`).join(" and ");
   if (!projectTags) {
     return exclusion;
   }
   return `(${projectTags}) and ${exclusion}`;
 }
+
+const excludedTags = runnerExclusions(
+  cfg,
+  activeEnv,
+  process.env.npm_lifecycle_event === "test:smoke",
+);
 
 // Per-config app projects.
 const appProjects = cfg.projects.flatMap((p) => {
@@ -87,7 +92,7 @@ const appProjects = cfg.projects.flatMap((p) => {
     return [];
   }
 
-  const effectiveTags = mergeExcludeTags(p.tags, activeEnv);
+  const effectiveTags = mergeExcludeTags(p.tags, excludedTags);
 
   return [
     {

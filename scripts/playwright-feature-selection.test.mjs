@@ -38,6 +38,20 @@ const buildProjects = (config) => {
   return new Function("imports", script)(imports).projects;
 };
 
+test("smoke の bddgen は設定タグだけを通常の Gherkin タグとして除外する", (t) => {
+  const original = process.env.npm_lifecycle_event;
+  t.after(() => {
+    if (original === undefined) delete process.env.npm_lifecycle_event;
+    else process.env.npm_lifecycle_event = original;
+  });
+  process.env.npm_lifecycle_event = "test:smoke";
+  const cfg = templateConfig();
+  const projects = buildProjects({ ...cfg, tags: { ...cfg.tags, slow: "@long-running" } });
+  const guest = projects.find((p) => p.name === "guest");
+  assert.match(guest.tags, / and not @long-running$/);
+  assert.doesNotMatch(guest.tags, /@slow/);
+});
+
 test("guest の生成条件はロール付きシナリオを除外し、認証状態を持たない", () => {
   const guest = buildProjects(templateConfig()).find((project) => project.name === "guest");
   assert.equal(guest.tags, "(not @admin and not @user) and not @draft and not @human and not @out-of-scope");
