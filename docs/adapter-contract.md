@@ -1,6 +1,7 @@
 # specproof アダプター契約
 
-**バージョン**: 0.2.x（`@pound79/specproof` / `@pound79/specproof-traceability` 0.2 系に対応）  
+日本語 | [English](./adapter-contract_en.md)
+
 **ステータス**: 現行（設定キーの正本は [config-schema](./config-schema.md)）。
 実値は同梱 template、実行手順は各 template README を参照する。
 
@@ -14,7 +15,7 @@ consumer リポジトリは `specproof.config.yaml` を 1 枚だけ配置する�
 
 - skill の SKILL.md 本体をリポごとに編集する必要がない（plugin として無改変配布できる）
 - フレームワーク固有の差異（playwright vs Flutter）は config の `adapter:` フィールドと `commands:` ブロックに局所化される
-- traceability エンジン（`@pound79/specproof-traceability`）は `layout:` から取得したパスだけを受け取るため playwright も Flutter も知らない
+- traceability エンジン（`@pound79/specproof-traceability`）は両 adapter で共通のハッシュを計算し、feature の解析時には adapter に合う Gherkin の規則を選ぶ
 
 ---
 
@@ -139,14 +140,13 @@ Patrol の native 操作・flavor・tag 伝播等のキーは未採択案。
 
 `adapter` は宣言的 capability の束だが、scaffold CLI（`specproof init` / `detect`）は現状 playwright /
 flutter の**閉じた union** を持つため、第 3 のアダプタ（Cypress / Maestro / Detox など）を足すには
-TypeScript ソースの変更が要る（"framework 非依存" は方法論・エンジン層の性質で、同梱 CLI は現状 2
-アダプタ）。追加に必要な変更点:
+TypeScript ソースの変更が要る（同梱 CLI は現状 2 アダプタ）。追加に必要な変更点:
 
 1. `cli/src/detect.ts` — `Adapter` union と検出シグナルに新アダプタを追加。
 2. `cli/src/init.ts` — `SUPPORTED` 配列・既定 dir・next-steps 分岐に新アダプタを追加。
 3. `templates/<adapter>/` — `specproof.config.yaml`（commands / layout / tags / environments）＋足場一式。
 4. 必要なら `specproof.config.yaml` に adapter 固有セクション（flutter 例の `flutter:`）を追加。
+5. `packages/traceability/src/config.ts` の adapter 検証に名前を追加し、runner が使う Gherkin 方言に合わせて parser を選ぶ。異なる構文を使うなら scanner とテストも追加する。
+6. 新しい設定キーは [config-schema](./config-schema.md) と `config-keys.ts` に登録し、関連 skill の分岐と実際の生成・実行手順を確認する。
 
-エンジン層（`@pound79/specproof-traceability`）と方法論 skill は `layout` のパスと config の値しか見ないため
-**無改変で新アダプタに対応する**。将来は `--adapter-dir <path>` でローカルのアダプタテンプレートを
-指す軽量拡張を検討（閉じた union の回避）。
+`--adapter-dir <path>` による外部テンプレート選択は検討段階。

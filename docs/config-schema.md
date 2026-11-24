@@ -1,5 +1,7 @@
 # specproof.config.yaml スキーマリファレンス
 
+日本語 | [English](./config-schema_en.md)
+
 consumer リポのルートに置く 1 枚の設定ファイル。specproof-* skill は実行時にこれを読み、
 プロンプト内の `{{placeholder}}` を実値へ解決する。これにより skill 本体（SKILL.md）は
 リポ非依存になり、Claude Code plugin として無改変配布できる。
@@ -11,8 +13,7 @@ consumer リポのルートに置く 1 枚の設定ファイル。specproof-* sk
 - adapter は「コードの interface」ではなく「config が供給する capability の束」。
   skill は Markdown プロンプトで `implements` できないため、宣言的設定で適合する。
 - framework 固有差（playwright vs flutter）は `adapter` と `commands` / `flutter` に局所化。
-- traceability エンジン（`@pound79/specproof-traceability`）は `layout` のパスのみを受け取り、
-  framework を一切知らない。
+- traceability エンジン（`@pound79/specproof-traceability`）は共通のハッシュ規則を使う。feature の解析規則は `adapter` に応じて選び、設定から走査範囲・strict 判定・仕様の取り込み元も読む。
 
 ## トップレベルフィールド
 
@@ -227,13 +228,14 @@ specSources:
 
 | 範囲 | 既知のキー |
 |---|---|
-| トップレベル | `adapter` / `bddRunner` / `bddGenTool` / `language` / `commands` / `layout` / `fixtures` / `tags` / `projects` / `env` / `environments` / `implement` / `git` / `agents` / `conventions` / `examples` / `runner` / `flutter` / `strictUnregisteredImpl` / `strictUnregisteredSpecHeadings` / `strictFeatureLint` |
+| トップレベル | `specSources` / `adapter` / `bddRunner` / `bddGenTool` / `language` / `commands` / `layout` / `fixtures` / `tags` / `projects` / `env` / `environments` / `implement` / `git` / `agents` / `conventions` / `examples` / `runner` / `flutter` / `strictUnregisteredImpl` / `strictUnregisteredSpecHeadings` / `strictFeatureLint` |
 | `commands` | `generate` / `typecheck` / `lint` / `productTypecheck` / `productLint` / `smoke` / `install` / `traceabilityUpdate` / `traceabilityCheck` / `traceabilityList` / `traceabilityStats` |
 | `layout` | `e2eRoot` / `featuresDir` / `stepsDir` / `stepFileSuffix` / `stepFileExt` / `pagesDir` / `candidateSuffix` / `textConstants` / `i18nSource` / `manifest` / `specDir` / `implGlobs` / `implExcludeGlobs` / `specHeadingIgnore` / `scratchDir` / `testRunnerConfig` / `idiomGuide` / `e2eReadme` |
 | `projects[]` の各要素 | `name` / `tags` / `features` / `storageState` / `setup` / `conditional` / `credentialsEnv` |
 | `projects[].credentialsEnv` | `username` / `password` / `newPassword` |
 | `environments[]` の各要素 | `name` / `default` / `dotenvFile` / `auth` / `excludeTags` / `envOverrides` / `allowInsecureHttp` |
 | `environments[].auth` | `provider` / `description` |
+| `specSources[]` の各要素 | `name` / `repo` / `ref` / `paths` / `specDir` / `importCommand` |
 | `implement` | `blastRadiusGlobs` / `productChanges` |
 | `git` | `commitScope` / `branchPrefix` |
 | `agents` | `codeReviewer` / `securityReviewer` |
