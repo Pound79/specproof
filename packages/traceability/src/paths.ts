@@ -118,7 +118,7 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
     }
     assertNoRemovedConfig(dir);
     const parent = path.dirname(dir);
-    if (parent === dir) {
+    if (parent === dir || isRepositoryTop(dir)) {
       break;
     }
     dir = parent;

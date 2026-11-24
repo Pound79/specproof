@@ -36,6 +36,20 @@ test("Git root より近い明示マーカーの優先順位は変えない", ()
     assert.equal(resolveRepoRoot(path.join(project, "src")), project);
   });
 });
+
+for (const marker of ["specproof.config.yaml", "traceability.yaml", "bdd-kit.config.yaml"]) {
+  test(`独立した子リポジトリの外にある ${marker} は探索しない`, () => {
+    withRepo((root) => {
+      writeFileSync(path.join(root, marker), "{}");
+      const nested = path.join(root, "service");
+      const result = spawnSync("git", ["init", "-q", nested], { encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr);
+      const src = path.join(nested, "src");
+      mkdirSync(src);
+      assert.equal(resolveRepoRoot(src), realpathSync(nested));
+    });
+  });
+}
 test("検出不能時は --manifest 単独を回避策として案内しない", () => {
   withRepo((root) => {
     assert.throws(
