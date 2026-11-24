@@ -20,6 +20,8 @@ A new requirement starts at new-feature, an uncovered existing behavior at boots
 
 ## 2. Why generation is asymmetric
 
+**Continuous `impl → feature` regeneration is tautological and is prohibited.** Apart from the one-time bootstrap, never regenerate a feature from the implementation. `feature → impl` implementation is legitimate TDD and is the only direction specproof-implement takes.
+
 A feature regenerated from implementation describes whatever the code currently does. A regression can then change both the behavior and its oracle together and ship GREEN. Repeated generation tends to omit the human-designed edges, error paths, role differences, rationale links and cases awaiting implementation or verification. CI can remain green as the contract shrinks.
 
 In TDD the direction is reversed: a feature remains fixed while the product changes to satisfy it. A human-reviewed contract can disagree with the product. Bootstrap is a one-time exception for capturing an existing system. After bootstrap, change the feature first for intended behavior changes, observe RED, then implement and confirm GREEN. Where existing code has already changed, detect drift and reconcile with the spec. Human judgment resolves changed observable behavior.
@@ -52,7 +54,7 @@ Pending cases still need step definitions: undefined phrases fail generation. Us
 
 A scenario depending on an unanswered question in the spec can carry `@question:<ID>`. The person recording the question assigns the ID and decides whether to add or remove the tag. If the missing answer prevents writing an expectation, also use `@draft`. A condition independent of the answer may remain runnable. Stats groups questions by ID with scenario counts and feature paths. The question tag changes neither execution nor done and does not replace sync's stop for unresolved permissions.
 
-The runners always exclude draft, human and out-of-scope scenarios. Ordinary project and command-line selections (e.g. `@admin`, `--grep`, or the exact configured `tags.slow` exclusion in smoke) still apply to pending cases. Environment exclusions take individual, non-state tags. Playwright rejects state tags or unbalanced parentheses in project tag expressions. Flutter applies the same restrictions to `SPECPROOF_TAGS`. Avoid `--grep-invert @red-contract`, which would manufacture a passing run by omitting pending conditions. A real OAuth consent screen or outgoing email may need `@google-auth` or another environment tag. Keep runtime environment, role/project and scenario attributes independent.
+The runners always exclude draft, human and out-of-scope scenarios. Ordinary project and command-line selections (e.g. `@admin`, `--grep`, or the exact configured `tags.slow` exclusion in smoke) still apply to pending cases. Environment exclusions take individual, non-state tags. Playwright rejects state tags or unbalanced parentheses in project tag expressions. Flutter applies the same restrictions to `SPECPROOF_TAGS`. Never use `--grep-invert @red-contract`; it would manufacture a passing run by omitting pending conditions. A real OAuth consent screen or outgoing email may need `@google-auth` or another environment tag. Keep runtime environment, role/project and scenario attributes independent.
 
 A broken or flaky test stays red until fixed. Runner tags that skip it or make a failure expected (`@skip`, `@fixme`, `@fail`) produce `disallowed-tag` and fail strict stats. See [ADR 0009](./adr/0009-retire-fixme-skip.md).
 
