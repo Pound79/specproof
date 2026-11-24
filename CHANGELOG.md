@@ -7,15 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Breaking
+### Changed
 
-- manifest v1 で HTML コメントブロックが登録節の開始や終端を曖昧にする入力は、`check` と
-  `update` がエラーにする。コメント内の見出しやコードフェンスを4スペース以上字下げするか書き直し、
-  仕様の差分を確認して対象リンクを更新する。ほかの節の hash と過去の v1 の照合規則は従来どおり。
-- With manifest v1, `check` and `update` reject a referenced section if an HTML comment block
-  makes its start or end ambiguous. Rewrite the heading or fence inside the comment, or indent
-  that line by at least four spaces. Review the spec diff before updating the link. Other section
-  hashes and historical v1 lookups keep their existing meaning.
+- 互換: manifest v1 で、HTML コメントブロックの中の見出しやコードフェンスが登録した節の開始や終端を変える
+  （従来の規則とコメントを考慮した規則で節の範囲が食い違う）とき、`check` と `update` はその節の hash を
+  計算せずエラーにする（`update` は manifest を書く前に止まる）。エラーには、ファイル名・節の見出し・参照を
+  登録したリンクの id と、同じファイルで見出しやフェンスを隠しているコメントの開始行（先頭の 10 件と参照の
+  見出しを含むもの。残りは件数）を出す。対処は
+  コメントごとに次のとおり。閉じ忘れたコメント（例: `<!-- todo` の後に `-->` が無い）は、終わるべき位置に
+  `-->` を補う。登録した節がまるごとコメントの中にあるなら、manifest からその参照（リンク）を外す。それ以外は、
+  コメント内の見出しやフェンスの行を 4 スペース以上字下げするか書き直す。どの場合も、仕様の差分を確かめてから
+  対象のリンクを更新する。境界が食い違わない節の hash の値は従来どおり。(#110)
+- コメントブロックの中の見出しは、`unregistered-spec-heading` と `duplicate-heading` の警告に数えなくなった。
+  コメントアウトした見出しについての、この 2 種類の警告は出なくなる。(#110)
+- 互換: `specproof-check --since-bless` は、bless した版と一致した最も新しい過去の版で、HTML コメントが節の
+  境界を曖昧にしているとき、bless した版を特定できないとして扱う。そうした版はコメントの後ろの本文が変わっても
+  同じ hash になり、これまでは bless の後に本文を変えた版を bless した版として示していた（差分からその変更が
+  抜けていた）。テキストは `blessed version: cannot be identified` と仕様の履歴を手で確かめる案内を出し、
+  コミットごとのまとめでは「特定できない」件数として出す。`--json` では `blessedCommit` を `null` にして
+  `blessedCommitUnidentified: "html-comment-boundary"` を足し、`sinceBless.notGrouped` に
+  `unidentifiedBlessedVersion` を足した。`notGrouped` のキーを列挙して読む利用者は、このキーを足す。
+  specproof-sync の skill は、この件数が 0 でなければ、ほかの `notGrouped` と同じく人に返す。
+  コミットごとのまとめは、比べる版のどちらかで節の境界がコメントで曖昧なら、ファイルの単位でも比べる
+  （これまでは、コメントの後ろの本文だけを変えたコミットが一覧から黙って漏れていた）。ライブラリの `computeHeadingSectionHash` には、省略できる第 4 引数（リンクの id。エラー文に使う）を
+  足した。(#110)
 
 ## [0.9.0] - 2026-11-24
 
