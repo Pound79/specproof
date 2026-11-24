@@ -82,7 +82,7 @@ test("状態を使い切るシナリオは、動詞でなく再び成り立つ�
   assert.match(item, /`--repeat-each`/);
   assert.match(item, /シナリオ名と、seed を流し直すことを出す/);
   assert.match(item, /印を消すのは seed の側（seed が成功した後）で、step では消さない/);
-  const readme = read("templates/playwright/README.md");
+  const readme = read("templates/playwright/README_ja.md");
   const from = readme.indexOf("### 状態を使い切るシナリオのガード");
   assert.ok(from >= 0, "雛形の README にガードの節が無い");
   const guide = readme.slice(from, readme.indexOf("\n---", from));

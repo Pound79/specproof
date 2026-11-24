@@ -7,7 +7,7 @@ const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf
 test("Playwright の README の feature の登録手順は、setup が変えた projects の構成でも成り立つ", () => {
   // README は生成した時点の固定の文で、setup が projects を変えても書き換わらない。
   // guest やロールごとの project がある前提で書くと、それらの無い構成で手順が合わなくなる。
-  const readme = read("templates/playwright/README.md");
+  const readme = read("templates/playwright/README_ja.md");
   const from = readme.indexOf("### 新しい feature を追加するとき");
   const to = readme.indexOf("\n### ", from + 1);
   assert.ok(from >= 0 && to > from, "feature の登録の節が無い");

@@ -1,5 +1,7 @@
 # specproof
 
+日本語 | [English](./CONTEXT_en.md)
+
 spec ↔ impl ↔ feature のトレーサビリティ駆動 BDD フローを、framework 非依存の 3 層
 （方法論 skill / traceability エンジン / 足場テンプレート）に分離した振る舞いテスト生成キット。
 
@@ -8,7 +10,7 @@ spec ↔ impl ↔ feature のトレーサビリティ駆動 BDD フローを、f
 ## Language
 
 **Spec（仕様 / spec doc）**:
-リポ内 markdown の `##` 見出しセクション。振る舞いの権威的記述で、drift はこの見出し単位の
+リポ内 Markdown の ATX 見出しセクション。既定は `##` で、`headingLevel` で 1〜6 を指定できる。振る舞いの権威的記述で、drift はこの見出し単位の
 ハッシュで検知する。Notion 等リポ外にあると drift が動かない。
 _Avoid_: ドキュメント, 設計書
 
@@ -50,7 +52,7 @@ _Avoid_: 仕様書（spec と紛らわしい）
 
 ## 導入モード
 
-specproof が対応すべき 2 つのユースケース。入口 skill と「完了」の意味が異なる。
+specproof が対応すべき 2 つのユースケース。どちらも入口は `/specproof` で、内部で使う skill と「完了」の意味が異なる。
 
 **Brownfield 導入（catch-up）**:
 既に稼働中のプロダクトへ後付けで E2E を導入する経路。入口は bootstrap（impl→feature ドラフト）
@@ -75,7 +77,7 @@ _Avoid_: 保留
 実装待ちの条件。`@human` が付いていなければ E2E で実行し、落ちるのを観測し続ける。`@human` と併記した場合は
 実装待ちのまま人が確かめ、E2E では実行しない。1 件でも残れば完了しない。緑になったら（`@human` 併記なら人が
 確かめたら）人がタグを外す。runner のテンプレートの絞り込みでは除外しないが、プロジェクトの `tags`・`--grep`・
-smoke の `--grep-invert @slow` などの絞り込みには従う。コマンドラインの `--grep-invert @red-contract` は使わない。
+smoke の `tags.slow` によるタグ単位の除外 などの絞り込みには従う。コマンドラインの `--grep-invert @red-contract` は使わない。
 _Avoid_: fixme, TODO
 
 **@human**:

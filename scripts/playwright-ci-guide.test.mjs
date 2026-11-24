@@ -41,7 +41,7 @@ test("Playwright の CI の手引きは、trace を成果物に上げない方�
   assert.match(guide, /HOST_UID/);
   assert.doesNotMatch(guide, /\$\{UID\}/);
   assert.match(guide, /::add-mask::/);
-  assert.match(read("templates/playwright/README.md"), /docs\/playwright-ci\.md/);
+  assert.match(read("templates/playwright/README.md"), /docs\/playwright-ci_en\.md/);
 });
 
 const sectionOf = (text, heading) => {
@@ -123,7 +123,7 @@ test("CI の手引きは、trace を上げる例外を条件付きで書き、�
   // 雛形の README と設定のコメントは、既定は上げないまま、例外の条件は手引きを見るよう案内する。
   const row = read("templates/playwright/README.md").split("\n").find((line) => line.startsWith("| Traces, screenshots and videos"));
   assert.match(row, /Do not upload them as CI artifacts/);
-  assert.match(row, /playwright-ci\.md#例外-落ちた-run-の-trace-を短く残す/);
+  assert.match(row, /playwright-ci_en\.md#limited-retention-for-ci-only-failures/);
   assert.match(read("templates/playwright/playwright.config.ts"), /do not upload them as CI artifacts \(the only exception[\s\S]*playwright-ci\.md/);
 });
 

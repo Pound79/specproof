@@ -1,5 +1,7 @@
 # specproof.config.yaml スキーマリファレンス
 
+日本語 | [English](./config-schema_en.md)
+
 consumer リポのルートに置く 1 枚の設定ファイル。specproof-* skill は実行時にこれを読み、
 プロンプト内の `{{placeholder}}` を実値へ解決する。これにより skill 本体（SKILL.md）は
 リポ非依存になり、Claude Code plugin として無改変配布できる。
@@ -11,8 +13,7 @@ consumer リポのルートに置く 1 枚の設定ファイル。specproof-* sk
 - adapter は「コードの interface」ではなく「config が供給する capability の束」。
   skill は Markdown プロンプトで `implements` できないため、宣言的設定で適合する。
 - framework 固有差（playwright vs flutter）は `adapter` と `commands` / `flutter` に局所化。
-- traceability エンジン（`@pound79/specproof-traceability`）は `layout` のパスのみを受け取り、
-  framework を一切知らない。
+- traceability エンジン（`@pound79/specproof-traceability`）は共通のハッシュ規則を使う。feature の解析規則は `adapter` に応じて選び、設定から走査範囲・strict 判定・仕様の取り込み元も読む。
 
 ## トップレベルフィールド
 
@@ -85,7 +86,7 @@ package.json に workspaces を注入しないため、`npm run <script>` を裸
 | `implExcludeGlobs` | optional | `implGlobs` に当たるファイルのうち、`unregistered-impl` から外すものの glob リスト（書き方と上限は `implGlobs` と同じ。例: `"**/__tests__/**"`）。外した件数は `specproof-check` の出力に 1 行で出し、`--json` では `excludedAdvisories.unregisteredImpl`。登録済みの参照の drift には影響しない。`specproof init` は、検出したフレームワークの典型（Playwright: `**/__tests__/**`・`**/__mocks__/**`・`**/*.test.*`・`**/*.spec.*`、Flutter: `**/*_test.dart`・`**/*.g.dart`・`**/*.freezed.dart`・`**/*.mocks.dart`）を書く。テストや生成物らしいファイル（`*.test.*`・`*.spec.*`・`__tests__/`・`__mocks__/`・`*_test.dart`・`*.g.dart`・`*.freezed.dart`・`*.mocks.dart`）の `unregistered-impl` は、このキーで外していなくても、`specproof-check` のテキスト出力と注釈の一覧には既定で出さず、件数とこのキーの案内を 1 行で出す（`--include-tests` で一覧に出す。`--json` と終了コード、`strictUnregisteredImpl: true` で `--strict` の失敗の理由になるときは変えない）。`--include-tests` を付け、このキーが未設定で、そうしたファイルが 5 件以上あれば、これまでどおりこのキーを 1 行案内する。このキーは名前の形だけで外すので、`strictUnregisteredImpl: true` で固めるときは範囲を見直す（`docs/security-model.md` の「drift のゲートが保証しないこと」）。 |
 | `specHeadingIgnore` | optional | `unregistered-spec-heading` から外す対象のリスト。`"<path>"` はそのファイルの見出しすべて、`"<path>#<見出し>"` は 1 つの見出し（最初の `#` で分ける）。役割の一覧・用語・改訂履歴など操作でない構成の見出しに使う。外した件数は出力に 1 行で出し、`--json` では `excludedAdvisories.unregisteredSpecHeading`。登録済みの見出しの drift と `duplicate-heading` には影響しない。 |
 | `scratchDir` / `testRunnerConfig` / `idiomGuide` | optional | 補助参照 |
-| `e2eReadme` | optional | E2E パッケージの README パス。specproof-bootstrap / specproof-implement skill が `{{config:layout.e2eReadme}}` として参照する。**同梱の playwright / flutter テンプレートはこのパスに実体の README.md を同梱済み**（変更起点別フロー・bootstrap 一度きりの規約・rationale doc 規約などの節を含む）。カスタムテンプレートを組む場合もこの節を持つ README を配置すること。 |
+| `e2eReadme` | optional | E2E パッケージの README パス。specproof-bootstrap / specproof-implement skill が `{{config:layout.e2eReadme}}` として参照する。**同梱の playwright / flutter テンプレートはこのパスに実体の README.md を同梱済み**（変更起点別フロー・bootstrap 一度きりの規約・rationale doc 規約などの節を含む。見出しは playwright が英語、flutter が日本語）。カスタムテンプレートを組む場合もこの節を持つ README を配置すること。 |
 
 ## fixtures<sup>+</sup>
 
@@ -102,7 +103,7 @@ page object を持たない構成（`fixtures: {}`、または world・認証な
 | ブロック | 要否 | 要点 |
 |---|---|---|
 | `runner` | optional | Playwright テンプレートの実行設定。`device`（既定 `Desktop Chrome`）/ `webServerCommand` / `globalTeardown` / `i18nLocaleStorageKey`。 |
-| `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、ここでは設定しない。実行を止めるタグに別名を付ける設定になるので、`tags.fixme` / `tags.skip` を書くと読み込みが失敗する（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。 |
+| `tags` | required（slow/generate/admin/user） | Gherkin タグ正準名。状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）は固定で、ここでは設定しない。実行を止めるタグに別名を付ける設定になるので、`tags.fixme` / `tags.skip` を書くと読み込みが失敗する（理由は [ADR 0009](./adr/0009-retire-fixme-skip.md)）。`tags.slow`（既定 `@slow`）は smoke が除外する単一のタグで、状態タグは指定できない。Playwright の `test:smoke` は環境変数 `SPECPROOF_SMOKE=1` で smoke と判定し、`tags.slow` をタグ式で除外する（npm スクリプトを介さず `bddgen` と `playwright` を直接起動して smoke として実行するなら、両方に `SPECPROOF_SMOKE=1` を付ける。除外は生成時にも効く）。使える値はアダプターで異なる。Flutter（`tool/smoke.dart` の検証 `^@\w[^@()&\s\\]*$`）は `@` の直後が ASCII の英数字か `_` で、`&`・括弧・空白・2 つ目の `@`・バックスラッシュを含まないタグだけを受け付ける。Playwright は空白・括弧・2 つ目の `@`・バックスラッシュを含むタグを拒否する。例えば `@長時間` は Playwright では使えるが Flutter では使えない。 |
 | `projects[]` | required | ランナープロファイル。`name` + `tags` + `features`<sup>+</sup>（feature 限定）+ `conditional`<sup>+</sup>。Playwright テンプレートは `storageState` / `setup` / `credentialsEnv`（`username` / `password` / `newPassword`）も読む。`tags` には状態タグに触れる式と括弧の対応が取れていない式を書けない（Playwright テンプレートの設定読み込みがエラーにする）。 |
 | `env` | required（baseUrl） | 環境変数の論理名。`adminUsername`<sup>+</sup> は authed-admin の条件判定。 |
 | `environments[]` | required（1エントリ以上） | 実行環境プロファイル。環境別の auth / dotenv / excludeTags を宣言。詳細は後述。 |
@@ -121,7 +122,7 @@ page object を持たない構成（`fixtures: {}`、または world・認証な
 
 ```yaml
 specSources:
-  - name: permissions                 # 必須。英数字と . _ -（manifest の記録の名前）
+  - name: permissions                 # 必須。128文字以内。先頭は半角英数字、以降は半角英数字と . _ -
     repo: ../backend                  # 必須。取り込み元のチェックアウト（ルート相対か絶対）
     ref: origin/develop               # 必須。比べる ref（リモートのブランチ・ブランチの名前、refs/ で始まる完全な名前、commit id）
     paths: [config/permissions]       # 任意。取り込み元の中で比べるパス（省略時はリポジトリ全体）
@@ -227,13 +228,14 @@ specSources:
 
 | 範囲 | 既知のキー |
 |---|---|
-| トップレベル | `adapter` / `bddRunner` / `bddGenTool` / `language` / `commands` / `layout` / `fixtures` / `tags` / `projects` / `env` / `environments` / `implement` / `git` / `agents` / `conventions` / `examples` / `runner` / `flutter` / `strictUnregisteredImpl` / `strictUnregisteredSpecHeadings` / `strictFeatureLint` |
+| トップレベル | `specSources` / `adapter` / `bddRunner` / `bddGenTool` / `language` / `commands` / `layout` / `fixtures` / `tags` / `projects` / `env` / `environments` / `implement` / `git` / `agents` / `conventions` / `examples` / `runner` / `flutter` / `strictUnregisteredImpl` / `strictUnregisteredSpecHeadings` / `strictFeatureLint` |
 | `commands` | `generate` / `typecheck` / `lint` / `productTypecheck` / `productLint` / `smoke` / `install` / `traceabilityUpdate` / `traceabilityCheck` / `traceabilityList` / `traceabilityStats` |
 | `layout` | `e2eRoot` / `featuresDir` / `stepsDir` / `stepFileSuffix` / `stepFileExt` / `pagesDir` / `candidateSuffix` / `textConstants` / `i18nSource` / `manifest` / `specDir` / `implGlobs` / `implExcludeGlobs` / `specHeadingIgnore` / `scratchDir` / `testRunnerConfig` / `idiomGuide` / `e2eReadme` |
 | `projects[]` の各要素 | `name` / `tags` / `features` / `storageState` / `setup` / `conditional` / `credentialsEnv` |
 | `projects[].credentialsEnv` | `username` / `password` / `newPassword` |
 | `environments[]` の各要素 | `name` / `default` / `dotenvFile` / `auth` / `excludeTags` / `envOverrides` / `allowInsecureHttp` |
 | `environments[].auth` | `provider` / `description` |
+| `specSources[]` の各要素 | `name` / `repo` / `ref` / `paths` / `specDir` / `importCommand` |
 | `implement` | `blastRadiusGlobs` / `productChanges` |
 | `git` | `commitScope` / `branchPrefix` |
 | `agents` | `codeReviewer` / `securityReviewer` |
@@ -357,7 +359,7 @@ tags            — シナリオ属性軸（@slow/@admin 等）  → ランナ�
 `excludeTags` は環境軸から tags 軸へのフィルタ。例: local 環境では `@google-auth` を除外。
 状態タグの扱いは環境によらず固定で、runner のテンプレートは `@draft` / `@human` / `@out-of-scope` を常に除外し、
 `@red-contract` はテンプレートの絞り込みでは除外しない。ただし `@red-contract` のシナリオも `projects[].tags`
-（`@admin` など）・コマンドラインの `--grep`・smoke コマンドの `--grep-invert @slow` といった絞り込みには従う。
+（`@admin` など）・コマンドラインの `--grep`・smoke コマンドの `tags.slow` によるタグ単位の除外 といった絞り込みには従う。
 `@human` と併記した `@red-contract` は実装待ちのまま人が確かめ、E2E では実行しない。
 `excludeTags` に状態タグやタグ式（`not @x`・`@a and @b` など）を書くと、
 Playwright テンプレートの設定読み込みが失敗する（`@red-contract` を外して E2E を緑に見せないため）。

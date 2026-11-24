@@ -1,5 +1,7 @@
 # specproof Flutter adapter (flutter_gherkin + 日本語 Gherkin)
 
+[English](README_en.md) | 日本語
+
 `flutter_gherkin` ベースの BDD 振る舞いテスト足場。**日本語 Gherkin（`# language: ja`・機能/シナリオ/前提/もし/ならば/かつ）がキーワードも step テキストも通る**唯一の実用構成。2026-06-06 の sample を Flutter 3.44.1 / Dart 3.12.1 で GREEN 実証した当時の構成。現在のアプリ・SDK・revision の GREEN は再実行で確認する（[現行入口と残件](https://github.com/Pound79/specproof/blob/main/docs/flutter-readiness.md)）。
 
 > なぜ flutter_gherkin か: `bdd_widget_test` はパーサが英語専用で、さらに step 名生成が `\w`（ASCII限定）で日本語を全 strip するため日本語不可。`flutter_gherkin` は `dart_gherkin` の `ja` dialect で日本語を完全サポート。代償は rc.17 で保守停滞（バージョン pin で対処）。詳細は kit の `docs/flutter-readiness.md`。
@@ -19,11 +21,11 @@
    ```bash
    cd bdd_tests && flutter create --platforms=macos --project-name bdd_tests .
    ```
-   （CI/実機なら `--platforms=ios,android` 等。macOS desktop が最も手軽な headless 先）
+   iOS または Android が対象なら `--platforms=ios,android` を指定する。実機を接続するかシミュレーター・エミュレーターを起動し、`flutter devices` で対象の ID を調べる。次の実行例とルート設定の `commands.smoke` の `-d macos` は `-d <対象のID>` に置き換え、`flutter.device` にも同じ ID を指定する。
 
 3. 依存解決 → 生成 → 実行:
    ```bash
-   cd bdd_tests
+   # 前の手順と同じ bdd_tests/ ディレクトリで実行
    flutter pub get
    dart run build_runner build --delete-conflicting-outputs   # .feature -> *.g.dart（日本語を build 時パース）
    flutter test integration_test/gherkin_suite_test.dart -d macos
@@ -38,7 +40,7 @@
    状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）に触れる `SPECPROOF_TAGS`（例: `not @red-contract`）と、
    括弧の対応が取れていない `SPECPROOF_TAGS` は suite が拒否する。実装待ちの条件を外して E2E を緑に見せないため。
 
-4. **アプリの実画面をテストする場合**: `pubspec.yaml` でアプリへ `path: ..` 依存を追加し、`dependency_overrides: { uuid: ">=4.0.0 <5.0.0" }` を有効化。`appMainFunction` で実アプリの `main()` を起動。
+4. **アプリの実画面をテストする場合**: テストパッケージの `pubspec.yaml` で、アプリのパッケージ名を `dependencies` に追加する。`path` はそのファイルからアプリの `pubspec.yaml` があるディレクトリまでの相対パス。アプリ直下の `bdd_tests/` なら `path: ..` を使う。アプリ側の依存が uuid 4 を必要とする場合は雛形の `dependency_overrides: { uuid: ">=4.0.0 <5.0.0" }` も有効化する。`flutter pub get` を再実行し、`appMainFunction` から実アプリの `main()` を起動する。
 
 ## 必ず守る規約（実機検証で確定した落とし穴）
 
@@ -87,7 +89,7 @@ specproof-* skill は `{{config:layout.e2eReadme}}` としてこのファイル�
 `/specproof-bootstrap` は既存実装からドメインの feature を**一度だけ**起こす。既存 feature の
 再生成には使わない（実装のコピーになり、壊れたら赤くなるというテストの役目を失う）。
 実装変更を feature に追従させるときは `specproof-check`（drift 検知）→
-`/specproof-sync` → `specproof-update`（bless）の順で行う。振る舞いの変わらないリファクタは
+`/specproof-sync` → `specproof-update --link-id <id>`（確認したリンクを bless）の順で行う。振る舞いの変わらないリファクタは
 そのまま bless。観測可能な振る舞いが変わった場合、sync は停止して spec と照らした裁定を求める
 （実装を直す／spec を先に更新する／spec がすでに新挙動を求めていると確認する）。feature の期待値は
 常に spec から導出し、実装の diff からは作らない。既存シナリオは消さない。

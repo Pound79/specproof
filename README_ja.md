@@ -124,10 +124,11 @@ spec・実装・feature ファイルが変わった？ トレーサビリティ�
 
 ```bash
 npx -y -p @pound79/specproof-traceability specproof-check   # drift 検知
-npx -y -p @pound79/specproof-traceability specproof-update  # ハッシュを bless
 npx -y -p @pound79/specproof-traceability specproof-list    # 登録済みドメインと未追跡ページの一覧
 npx -y -p @pound79/specproof-traceability specproof-stats   # シナリオ census
 ```
+
+変更を確認したリンクは、`npx -y -p @pound79/specproof-traceability specproof-update --link-id <id> --dry-run` で更新内容を確認します。確認後に `--dry-run` を外すと、そのリンクの基準値を保存します。
 
 devDependency にインストールすればコマンドが短くなります:
 
@@ -163,7 +164,7 @@ specproof は関心事を 3 層に分離しています:
 
 | 用語 | 意味 |
 |------|------|
-| **Spec** | リポ内 markdown の `##` 見出しセクション。振る舞いの権威的記述。 |
+| **Spec** | リポ内 Markdown の見出しセクション（既定はレベル2、`headingLevel` で1〜6を指定可能）。振る舞いの権威的記述。 |
 | **Feature** | ユーザーが*観測可能な振る舞い*だけを記述した黒箱の Gherkin `.feature`。 |
 | **Drift** | bless 済みベースラインと現在の状態の SHA-256 差分。決定論的・AI 不使用。 |
 | **Bless** | 現在の spec/impl/feature の状態を「既知の正」としてマークする行為。 |
@@ -177,7 +178,7 @@ specproof は関心事を 3 層に分離しています:
   [Claude Code](https://www.anthropic.com/claude-code)、
   [Codex](https://openai.com/index/introducing-codex/) 等。
 - Node.js **>= 24**（`.nvmrc` 参照）。
-- spec はリポ内 markdown の `##` 見出しに置く。外部ツール（Notion / Confluence）のみに
+- spec はリポ内 Markdown の見出しの下に置く。外部ツール（Notion / Confluence）のみに
   ある spec は drift 追跡できない。
 
 ## コントリビュート & ライセンス

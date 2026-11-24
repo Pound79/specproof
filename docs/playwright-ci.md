@@ -1,5 +1,7 @@
 # 別のバックエンドが要る Playwright の E2E を CI で流す
 
+[English](playwright-ci_en.md) | 日本語
+
 画面のリポジトリとは別のリポジトリにあるバックエンド（API・DB・キャッシュ）を立ち上げて、
 Playwright の雛形の E2E を GitHub Actions で流すときの手引き。specproof の CLI はテストを実行せず、
 結果も判定しない（実行と正式な GREEN は別のツールの責務。[roadmap](./roadmap.md)）。ここに書くのは、
@@ -140,6 +142,8 @@ PR の head を checkout して秘密と一緒に動かさない。`schedule` �
   checkout には `token:` で渡して `persist-credentials: false` を付け、`.git/config` に残さない
 - `uses:` はコミットの SHA に固定し、版をコメントに書く（同梱の `specproof-drift-check.yml` と同じ書き方）
 
+<a id="scheduled-workflow-example"></a>
+
 ```yaml
 # 骨組みの例。<...> は自分の値に、各 action はコミットの SHA に固定して使う。
 on:
@@ -266,6 +270,8 @@ ref にしか効かないので、これを防がない。
   `needs.fetch-backend.outputs.backend` から作り、`if:` に `inputs.backend-branch == ''` を足す（`mark` だけを
   `cache-mode: write-only` にするのは骨組みと同じ）
 
+<a id="backend-branch-workflow-example"></a>
+
 ```yaml
 # バックエンドのブランチを入力で選ぶ型。<...> は自分の値に、各 action はコミットの SHA に固定して使う。
 on:
@@ -387,7 +393,7 @@ jobs:
 - **画面のビルドの設定**: ビルドに埋め込む値（`NEXT_PUBLIC_*` など、API の URL）は、git の外のファイル（`.env` など）に
   頼らない。リポジトリにある雛形（`.env.example` など）をコピーし、CI で決まる値を上書きしてからビルドする。
   値が空のまま作ると、画面は API でなく自分自身に要求を送り、多くのシナリオが 404 で落ちる。手元で新しい
-  worktree を作ったときも同じことが起きる（雛形の README の「テストの前に環境を確かめる」で、テストの前に拾える）
+  worktree を作ったときも同じことが起きる（[テストの前に環境を確かめるコード例](../templates/playwright/README_ja.md#preflight-example)で、実行前に検知できる）
 - **Node の版**: 画面と E2E のパッケージで `engines` の要求が違うことがある。画面のビルドの後、E2E の前に、
   E2E のパッケージの `engines` に合う版を `actions/setup-node` で入れ直す（`package-manager-cache: false`。手順 2）
 
@@ -433,6 +439,8 @@ jobs:
 開発用のツールバーやプロファイラ、画面のサーバーの開発用のエラー表示（`next dev` など）も、応答に詳細を出す。
 切ったことは、例外になる要求・存在しない URL（404）・GraphQL のエラーの応答を一度ずつ見て確かめる。切れない
 （バックエンドのリポジトリを変えられない、など）なら、例外を使わない。
+
+<a id="trace-upload-example"></a>
 
 上げる前の確認（守れていればチェックする。1 つでも守れていなければ上げない）:
 
