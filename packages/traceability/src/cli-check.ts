@@ -115,6 +115,12 @@ const main = async (): Promise<void> => {
   const searchedPathByEntry = new Map(
     history?.available ? report.entries.map((entry, index) => [entry, history.paths[index]]) : [],
   );
+  // 一致する版はあったが bless した版を特定できなかった理由（blessedCommit は null）。
+  const unidentifiedByEntry = new Map(
+    history?.available
+      ? report.entries.map((entry, index) => [entry, history.unidentified[index]])
+      : [],
+  );
 
   if (flags.has("--github-annotations")) {
     // 全参照 missing のときは、参照ごとの注釈（同期と update を勧める）を出さず、ルートを確かめる
@@ -153,9 +159,15 @@ const main = async (): Promise<void> => {
         const commit = blessedByEntry.get(entry);
         if (commit === undefined) return entry;
         const searchedPath = searchedPathByEntry.get(entry);
+        const unidentified = unidentifiedByEntry.get(entry);
+        // 特定できなかった参照だけ、null の理由（blessedCommitUnidentified）を足す。
+        const blessed =
+          unidentified === undefined
+            ? { blessedCommit: commit }
+            : { blessedCommit: commit, blessedCommitUnidentified: unidentified };
         return searchedPath === undefined || searchedPath === entry.path
-          ? { ...entry, blessedCommit: commit }
-          : { ...entry, blessedCommit: commit, blessedPath: searchedPath };
+          ? { ...entry, ...blessed }
+          : { ...entry, ...blessed, blessedPath: searchedPath };
       }),
       ...(history === undefined
         ? {}
@@ -192,6 +204,7 @@ const main = async (): Promise<void> => {
           MAX_COMMITS,
           history?.prefix,
           searchedPathByEntry.get(entry),
+          unidentifiedByEntry.get(entry),
         );
         if (blessed !== undefined) {
           printText(`    ${blessed}`);

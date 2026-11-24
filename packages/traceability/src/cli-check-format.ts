@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { BlessUnidentifiedReason } from "./bless-history.js";
 import type { DriftEntry, DriftReport, DriftWarning } from "./check.js";
 import { printable } from "./display-text.js";
 import { PENDING_HASH } from "./hash.js";
@@ -286,8 +287,15 @@ export const describeBlessedCommit = (
   prefix = "",
   /** 履歴を辿ったパス（シンボリックリンクなら実体）。省略時は参照のパス。 */
   searchedPath: string = entry.path,
+  /** commit が null のとき、一致する版はあったが特定できなかった理由。 */
+  unidentified?: BlessUnidentifiedReason,
 ): string | undefined => {
   if (commit === undefined) return undefined;
+  if (commit === null && unidentified === "html-comment-boundary") {
+    return printable(
+      `blessed version: cannot be identified — in the matching commit(s), an HTML comment hides heading or fence lines, so section ${JSON.stringify(entry.heading ?? "")} hashes the same even where the text after the comment changed. Review the history of ${JSON.stringify(searchedPath)} by hand (for example with git log -p) to find what changed since bless.`,
+    );
+  }
   if (commit === null) {
     return printable(
       `blessed version: not found in the last ${maxCommits} commit(s) touching ${searchedPath} (the blessed content may never have been committed, the file may have been renamed, or the history may be shallow)`,
