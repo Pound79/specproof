@@ -101,6 +101,12 @@ const findOwningConfigDir = (manifestDir: string): string | undefined => {
  * `bdd-kit.config.*` name stops with a rename message instead of being passed
  * over (the config placed there would otherwise be ignored silently).
  *
+ * 親へたどる探索は、`.git` の項目（ディレクトリだけでなく、submodule や
+ * `git worktree` の `gitdir: ...` を書いたファイルも含む）がある段で止まる。
+ * その段の設定ファイル・manifest・旧名の検出までは見て、より上の段は見ない。
+ * マーカーが無ければ、`startDir` で `git rev-parse --show-toplevel` を試す。
+ * チェックアウトの外に置かれた設定でルートを広げさせないため。
+ *
  * Unlike the original monorepo implementation this does NOT resolve relative to
  * the module location: the package is published and installed under an
  * arbitrary `node_modules` path, so only the consumer's cwd / git tree is
