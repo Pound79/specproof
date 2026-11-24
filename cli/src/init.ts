@@ -1,4 +1,11 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectSnapshot, detectAdapter, selectAdapterCandidate } from "./detect.js";
@@ -175,8 +182,13 @@ export interface ScaffoldResult {
   gitignoreGap?: { file: string; missing: string[] };
 }
 
-// Dotfiles are shipped in templates without their leading dot (see the copy
-// loop below for why) and restored to their real name on scaffold.
+// 読み込み側と同じ優先順で既存設定を選ぶ。壊れた symlink も書き込み境界で拒否する。
+const scaffoldConfigName = (root: string): string =>
+  ["specproof.config.yaml", "specproof.config.yml"].find((name) =>
+    lstatSync(path.join(root, name), { throwIfNoEntry: false }),
+  ) ?? "specproof.config.yaml";
+
+// Dotfiles are restored to their real names on scaffold.
 const DOTFILE_RESTORE: Record<string, string> = {
   gitignore: ".gitignore",
   "env.example": ".env.example",
@@ -233,7 +245,7 @@ export function scaffoldTemplate(params: {
       // specproof.config.yaml belongs at the repo root; github-workflows/* belongs
       // in .github/workflows/; everything else lands in the e2e package.
       const dest = isConfig
-        ? path.join(repoRoot, "specproof.config.yaml")
+        ? path.join(repoRoot, scaffoldConfigName(repoRoot))
         : isWorkflow
           ? path.join(repoRoot, ".github", "workflows", ...relParts.slice(1))
           : path.join(e2eDir, mappedRel);
@@ -384,15 +396,16 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const nextSteps = buildNextSteps(agentType);
   console.log(nextSteps);
 
+  const configName = scaffoldConfigName(repoRoot);
   const manualSteps =
     adapter === "flutter"
-      ? `  a. Edit specproof.config.yaml at the repo root.
+      ? `  a. Edit ${configName} at the repo root.
   b. ${shellCdCommand(e2eRelative)} && flutter create --platforms=macos --project-name bdd_tests .
   c. flutter pub get && dart run build_runner build --delete-conflicting-outputs
   d. flutter test integration_test/gherkin_suite_test.dart -d macos
 
   See ${e2eLabel}/README.md for the verified Japanese-Gherkin recipe and gotchas.`
-      : `  a. Edit specproof.config.yaml at the repo root.
+      : `  a. Edit ${configName} at the repo root.
   b. ${shellCdCommand(e2eRelative)} && npm install && npm run install:browsers
   c. Copy .env.example to .env and fill in credentials.
   d. npm run test:smoke`;

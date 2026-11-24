@@ -37,6 +37,16 @@ describe("runInit", () => {
     await rm(root, { recursive: true, force: true });
   });
 
+  it.each([false, true])("既存の .yml に force=%s を適用し .yaml を追加しない", async (force) => {
+    const oldConfig = "strictFeatureLint: true\n";
+    await writeFile("specproof.config.yml", oldConfig);
+    await runInit({ adapter: "flutter", force });
+    expect(existsSync("specproof.config.yaml")).toBe(false);
+    const content = await readFile("specproof.config.yml", "utf8");
+    if (force) expect(content).toContain("adapter: flutter");
+    else expect(content).toBe(oldConfig);
+  });
+
   it("rejects target directories outside the current repo", async () => {
     await expect(runInit({ adapter: "playwright", dir: "../outside" })).rejects.toThrow(
       /--dir must stay within the current repo/,
