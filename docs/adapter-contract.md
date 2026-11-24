@@ -129,7 +129,7 @@ Patrol の native 操作・flavor・tag 伝播等のキーは未採択案。
    traceability CLI 自体の探索・fallback は `packages/traceability/src/config.ts` の契約。
 3. `flutter:` セクションは `adapter: flutter` の場合だけ読む。
 4. `commands.traceability*` の省略時は `npx -y -p @pound79/specproof-traceability specproof-*`
-   （`specproof-check` 等）を利用できる。必須引数・flags は [CLI README](../packages/traceability/README.md#cli)。
+   （`specproof-check` 等）を利用できる。必須引数・flags は [CLI リファレンス](../packages/traceability/README_ja.md#cli)。
 5. `{{config:auth.provider}}` / `{{config:auth.description}}` は
    [選択ルール](./config-schema.md#選択ルール) で選んだ `environments[]` の `auth` から解決する。
    トップレベル `auth` は持たず、1 エントリ以上の環境宣言を要する。

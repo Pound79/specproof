@@ -25,7 +25,7 @@ The orchestrator, setup, bootstrap, new-feature, sync and implement skills are M
 
 ## 3. Playwright and Flutter
 
-Use the [Playwright configuration](../templates/playwright/specproof.config.yaml) and [Flutter configuration](../templates/flutter/specproof.config.yaml) for command and layout values. The [Flutter README](../templates/flutter/README.md) covers SDK prerequisites, dependency pins, generation, execution and step definitions.
+Use the [Playwright configuration](../templates/playwright/specproof.config.yaml) and [Flutter configuration](../templates/flutter/specproof.config.yaml) for command and layout values. The [Flutter README](../templates/flutter/README_en.md) covers SDK prerequisites, dependency pins, generation, execution and step definitions.
 
 The Flutter-specific section contains six declarations for the skills:
 
