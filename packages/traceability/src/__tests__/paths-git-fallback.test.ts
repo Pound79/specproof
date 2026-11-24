@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test } from "vitest";
+import { test, vi } from "vitest";
 import { resolveRepoRoot } from "../paths.js";
 
 const withRepo = (run: (root: string) => void, git = true): void => {
@@ -78,4 +86,32 @@ test("検出不能時は --manifest 単独を回避策として案内しない",
       },
     );
   }, false);
+});
+
+for (const kind of ["empty-directory", "dangling-link"]) {
+  test(`git が無視する .git 項目（${kind}）を越えて親の manifest を採らない`, () => {
+    withRepo((root) => {
+      writeFileSync(path.join(root, "traceability.yaml"), "version: 1\nlinks: []\n");
+      const nested = path.join(root, "child");
+      mkdirSync(nested);
+      const marker = path.join(nested, ".git");
+      if (kind === "empty-directory") mkdirSync(marker);
+      else symlinkSync("missing-gitdir", marker, "dir");
+      assert.throws(() => resolveRepoRoot(nested), /Could not resolve a repo root/);
+    });
+  });
+}
+
+test("親の Git 環境変数を引き継いでも子の実リポジトリを選ぶ", () => {
+  withRepo((root) => {
+    const nested = path.join(root, "child");
+    assert.equal(spawnSync("git", ["init", "-q", nested]).status, 0);
+    vi.stubEnv("GIT_DIR", path.join(root, ".git"));
+    vi.stubEnv("GIT_WORK_TREE", root);
+    try {
+      assert.equal(resolveRepoRoot(nested), realpathSync(nested));
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

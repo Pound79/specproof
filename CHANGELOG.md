@@ -14,12 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   止める。`specproof init` は実行したディレクトリを使うので変わらない。その段の設定ファイルと manifest は読み、それより上は見ない。チェックアウトの外に置かれた設定で
   ルートを広げさせないため。当たるのは次のとき。
   - git の最上段より上にある `specproof.config.yaml`（`.yml`）・`traceability.yaml` は読まれなくなる。
-    git の最上段にマーカーが無ければ、`git rev-parse --show-toplevel` の段がルートになる。上の段の設定を
+    git の最上段にマーカーが無ければ、その段の `.git` と作業ツリーを明示して確認する。壊れた
+    `.git` の項目があればそこでエラーになり、親を選ばない。親の Git 環境変数も境界を変えない。上の段の設定を
     使っていたときは、設定を git の最上段に移すか `--root` を付ける。
   - submodule や `git worktree` の中（`.git` が `gitdir: ...` を書いたファイル）から実行すると、その段が
     ルートになる。これまでは上の段の設定ファイル・manifest まで探しに行っていた。
   - 上の段にある旧名の設定ファイル（`bdd-kit.config.yaml` / `.yml`）の改名のエラーが出なくなる。git の
     最上段とその中の旧名は、これまでどおりエラーにする。(#111)
+
+- Compatibility: when no `--root` (library option `root`) is supplied, root discovery for
+  `specproof-check`, `specproof-update`, `specproof-stats`, `specproof-list`, `resolveRepoRoot`
+  and `discoverConfig` stops at the first directory containing a `.git` entry. It still checks
+  that directory for a config or manifest. If neither exists, it asks Git to verify this checkout
+  using its own Git directory and worktree. A broken `.git` entry causes an error, and inherited
+  parent-repository Git settings cannot redirect this lookup. With no `.git` entry anywhere,
+  the usual `git rev-parse --show-toplevel` fallback still applies. `specproof init` continues
+  to use the invocation directory.
+  - If you relied on a config or manifest above the repository, move it to the repository root
+    or pass `--root` explicitly.
+  - A submodule or linked worktree uses the directory containing its `.git` file as the boundary.
+    Legacy `bdd-kit.config.yaml` / `.yml` files at or below that boundary still trigger the rename
+    error. Files above it no longer affect discovery. (#111)
 
 ## [0.9.0] - 2026-11-24
 
