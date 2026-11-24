@@ -1,5 +1,7 @@
 # specproof — 方法論リファレンス
 
+日本語 | [English](./methodology_en.md)
+
 > **適用範囲**: フレームワーク非依存・リポジトリ非依存の BDD 振る舞いテスト生成方法論。
 > フレームワーク固有の値（コマンド・パス・タグ名など）はすべて `specproof.config.yaml` で解決される
 > `{{placeholder}}` 表記で参照する。
@@ -180,7 +182,7 @@ ID ごとに条件の数と feature を出すので、答えが出たときに�
 
 runner のテンプレートは `@draft` / `@human` / `@out-of-scope` を常に実行から外し、`@red-contract` は
 テンプレートの絞り込みでは除外しない。ただし `@red-contract` のシナリオも、プロジェクトの `tags`（`@admin` など）・
-コマンドラインの `--grep`・smoke コマンドの `--grep-invert @slow` といった絞り込みには従うので、そこで選ばれなかった
+コマンドラインの `--grep`・smoke コマンドの `tags.slow` によるタグ単位の除外 といった絞り込みには従うので、そこで選ばれなかった
 ものは実行されない。`@human` と併記した `@red-contract` も実行しない。
 
 状態タグを実行の除外に流用することはできない。`environments[].excludeTags` には単一のタグ（`@` で始まり、
@@ -312,7 +314,7 @@ manifest を更新しない。sync が点検できるのは、権限の節を ma
 ### drift 検知の read-only 原則
 
 drift 検知（`specproof-check` CLI）はファイルを一切変更しない。
-SHA-256 ハッシュをマニフェスト YAML に刻み込んで決定論的に drift を検出するだけであり、
+マニフェスト YAML に保存した SHA-256 と現在の参照内容を比較して drift を検出し、
 AI による「内容の推測」は行わない。次アクションの選択は常にユーザーに委ねる。
 
 ---
@@ -517,8 +519,7 @@ spec 参照のある markdown ファイル内でどのリンクにも登録さ�
 ### マニフェストのスキーマ不変条件
 
 drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクトはフレームワーク・言語・プラットフォームを問わず共通である。
-チェックスクリプトの実装言語（TypeScript / Dart / Python など）が変わっても、
-出力 JSON の形式は次のスキーマに従う。
+同期判断に使う主なフィールドを以下に示す。警告種別と追加フィールドの正本は [CLI リファレンス](../packages/traceability/README_ja.md#json-レポート)。
 
 ```jsonc
 {
@@ -536,14 +537,14 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
       "status": "changed" | "missing"
     }
   ],
-  "warnings": [                  // 非 drift の構造警告。既定は表示のみ；--strict でどの kind が失敗扱いになるかは各 warning の failsUnderStrict を参照（一部 kind は opt-in、下記参照）
+  "warnings": [                  // 非 drift の構造警告。既定は表示のみ；--strict でどの kind が失敗扱いになるかは各 warning の failsUnderStrict を参照（一部 kind は opt-in）
     {
       "linkId": string,          // 警告がリンクに紐づく場合のみ存在（unregistered-* は該当リンクが無いため省略）
-      "kind": string,            // 下表参照
+      "kind": string,            // CLI リファレンスの警告一覧を参照
       "path": string,            // 対象ファイルパス（empty-link では省略）
       "message": string,
       "truncated": true,          // unknown-config-key の上限（100 件）で走査を止めたことを示す 1 件だけに付く
-      "failsUnderStrict": boolean // この warning が --strict で失敗扱いになるかの実効値（config の strictUnregisteredImpl / strictUnregisteredSpecHeadings を反映）。CLI（specproof-check --json）出力層で付与され、checkDrift 本体・DriftWarning 型には含まれない
+      "failsUnderStrict": boolean // この warning が --strict で失敗扱いになるかの実効値（config の strictUnregisteredImpl / strictUnregisteredSpecHeadings / strictFeatureLint を反映）。CLI（specproof-check --json）出力層で付与され、checkDrift 本体・DriftWarning 型には含まれない
     }
   ],
   "bothSidesChanged": string[],  // spec と impl の両方が同一実行で drift した linkId 一覧（表 4 の「両方 changed」行）。specproof-sync はこの配列が空でない限り自動追従してはならない。allReferencesMissing が true のときは空
@@ -551,42 +552,10 @@ drift 検知 CLI（`specproof-check`）が返す JSON 出力コントラクト�
 }
 ```
 
-`warnings[].kind` の一覧:
-
-| kind | linkId | 意味 |
-|---|---|---|
-| `empty-link` | あり | spec/impl/features が全空のリンク（追跡対象なし） |
-| `unreviewed-draft` | 登録済み feature ならあり | feature がまだ specproof のドラフトマーカーを含んでいる（査読前） |
-| `missing-reason` | 登録済み feature ならあり | `@out-of-scope` のシナリオに理由コメントが無い。または `@out-of-scope` を Feature・Rule・Examples から継承している（シナリオごとに付け直し、理由コメントを書く） |
-| `disallowed-tag` | 登録済み feature ならあり | runner がシナリオを止めたり失敗を想定扱いにしたりするタグ（`@skip` / `@fixme` / `@fail`）が付いている（Feature・Rule・Examples からの継承を含む） |
-| `unregistered-feature` | なし | `featuresDir` 配下に存在するが、どのリンクの `features[]` にも登録されていない `.feature` ファイル |
-| `features-dir-unset` | なし | 設定ファイルがあるのに `layout.featuresDir` が無い。登録していない `.feature` のドラフトマーカー・止めるタグ・lint を検査できない（設定ファイルが無ければ出さない） |
-| `features-dir-missing` | なし | `featuresDir` を書いているが、存在しない・ディレクトリでない。登録していない `.feature` を検査できない |
-| `unknown-config-key` | なし | 設定ファイルに、どの consumer（エンジン・skill・テンプレート）も読まないキーがある（綴りの誤りなど）。キーの経路だけを示し、値は出さない（規則は [config-schema](config-schema.md#未知のキー)） |
-| `unregistered-spec-heading` | なし | マニフェストに 1 件以上 spec 参照がある markdown ファイル内で、未登録の見出しが見つかった |
-| `unregistered-impl` | なし | `layout.implGlobs` にマッチするが、どのリンクの `impl[]` にも登録されていない実装ファイル（`implGlobs` 未設定時は検知自体を行わない） |
-| `duplicate-heading` | あり | 登録済み見出しが同一ファイル内に複数回出現し、セクションハッシュが一意に定まらない |
-| `missing-then` | 登録済み feature ならあり | 確認（Then / ならば）が 1 つも無いシナリオ。何も確かめずに通る |
-| `duplicate-scenario` | 登録済み feature ならあり | 背景が同じで、step の並び（表・docstring の引数を含む）も先のシナリオと同じ（名前・ファイルは問わない） |
-| `step-order` | 登録済み feature ならあり | 前提・操作・確認の順番が戻る step（かつ・しかしは直前の種類として読む） |
-| `duplicate-scenario-name` | 登録済み feature ならあり | 同じ feature ファイル・同じ Rule の中で名前が同じシナリオ |
-| `possible-contradiction` | 登録済み feature ならあり | 前提と操作が先のシナリオと同じで、確認だけが違う。矛盾の候補で、判断は人がする |
-
-`unregistered-impl` と `unregistered-spec-heading` は、`--strict` を付けても既定では失敗扱いに
-ならない。`specproof.config.yaml` の `strictUnregisteredImpl: true` / `strictUnregisteredSpecHeadings: true`
-をそれぞれ明示した場合のみ、他の warning と同様に `--strict` で失敗扱いになる。
-`unregistered-impl` は実装ツリーの命名慣行次第でノイズになりやすいための opt-in。
-`unregistered-spec-heading` は「登録済み spec ファイルに限定」しても、1 つの doc に複数ドメインの
-見出しと意図的にリンクしない見出し（改訂履歴・用語集・非 behavior 節）が同居する実運用では誤検知に
-なりうるための opt-in（ADR 0004: ハード強制は誤検知しない不変条件のみ）。
-
-`missing-then`・`step-order`・`duplicate-scenario-name`・`duplicate-scenario` も既定では `--strict` で失敗させず、`strictFeatureLint: true` で
-opt-in する（既存のスイートに該当シナリオがあっても、直すまで CI を止めないため）。
-`possible-contradiction` は、確認を意図して分けたシナリオでも出るので、`true` でも失敗させない。
-外部の Gherkin linter は同梱しない。利用者のプロジェクトに実行時の依存を増やさないよう、必要な検査は
-specproof-check に持つ。Scenario Outline は値が行ごとに変わるので重複と矛盾の比較から外す。
-`*` や「かつ」だけで書いたシナリオは step の種類が分からないので、確認の有無と順番を判定しない。
-`@out-of-scope` のシナリオは、確認が無くても `missing-then` にしない（`@human` / `@draft` は対象）。
+警告の kind、strict で失敗にする条件、表示上限は [CLI の警告一覧](../packages/traceability/README_ja.md#構造上の警告) を参照する。
+`--spec-sources` で取り込み元を確認する場合、`spec-source-unresolved` があれば、hash が clean でも同期を終えず人に返す。
+`spec-source-outdated` / `spec-source-unrecorded` では取得元と取り込み手順を確認する。
+明示した除外の件数は `excludedAdvisories`、履歴と取り込み元は該当オプションに応じて追加される。
 
 ---
 
@@ -599,6 +568,8 @@ specproof-check に持つ。Scenario Outline は値が行ごとに変わるの�
   │  (spec → feature)           (impl → feature, 一度のみ) │
   └────────────┬───────────────────────┬──────────────────┘
                │                       │
+               │                scratch のドラフトを人が査読
+               │                マーカーを外し feature を昇格
                ▼                       ▼
         feature + stub step + traceability エントリ（PENDING）
                │
