@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 互換: `specproof init` は、リポジトリのルートに `specproof.config.yaml` が無く `specproof.config.yml` があるとき、
+  `.yml` を書き込み先として扱う（下の項目）。そのため `.yml` が symbolic link だと、`--force` を付けなくても
+  書き込み境界の確認で失敗する（これまでは `.yml` を見ずに `.yaml` を作っていたので失敗しなかった）。
+  symlink をやめて実体のファイルに置き換えてから `init` する。(#97)
+
+### Fixed
+
+- `specproof init` は、既存の設定が `specproof.config.yml` だけのとき、`.yaml` を新しく作らず `.yml` を使う。
+  これまでは `.yml` の隣に雛形の `.yaml` を作り、読み込み側が `.yaml` を優先するため、利用者の `.yml` の
+  設定が黙って読まれなくなっていた。`--force` のときは `.yml` を雛形で上書きし、付けないときは残す。
+  `.yaml` と `.yml` が両方あるときは、これまでどおり `.yaml` だけを対象にし、`.yml` は変えない。
+  次の手順の案内（`Edit ... at the repo root.`）も、使ったファイルの名前を出す。(#97)
+
 ## [0.9.0] - 2026-11-24
 
 ### Security
