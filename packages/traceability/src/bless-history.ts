@@ -10,7 +10,7 @@
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import type { DriftEntry } from "./check.js";
-import { hashFileContent, hashHeadingSectionContent, normalizeSourceContent } from "./hash.js";
+import { hashFileContent, hashHistoricalV1Section, normalizeSourceContent } from "./hash.js";
 import type { TraceabilityManifest } from "./manifest.js";
 import { createGitRunner, type GitRunner, type GitRunnerOptions } from "./git-runner.js";
 import { physicalPathOf, resolveWithinRoot } from "./resolve.js";
@@ -83,7 +83,7 @@ export const versionHasher = (content: string) => {
       const key = `${level}\u0000${heading}`;
       const cached = sectionHashes.get(key);
       if (cached !== undefined) return cached;
-      const computed = hashHeadingSectionContent(content, heading, level);
+      const computed = hashHistoricalV1Section(content, heading, level);
       sectionHashes.set(key, computed);
       return computed;
     },

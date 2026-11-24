@@ -145,32 +145,33 @@ const parseHeading = (line: string): { level: number; text: string } | null => {
 
 const headingLevelOf = (line: string): number | null => parseHeading(line)?.level ?? null;
 
-// One entry per line for `lines`: true when that line sits inside (or is
-// itself a delimiter of) a CommonMark fenced code block, matched per the same
-// same-character/length-or-greater rule as computeHeadingSectionHash. Shared
-// by computeHeadingSectionHash and listHeadings so both treat a `#`-prefixed
-// line inside a fence identically (neither ends a section nor counts as a
-// heading).
-const fencedLineMask = (lines: string[]): boolean[] => {
+// フェンス付きコードブロックと HTML コメントブロック内の行は、見出しの候補にも
+// セクションの終端にも使わない。ブロック内の文字列は別のブロックを開始しない。
+const headingBlockMask = (lines: string[], skipHtmlComments: boolean): boolean[] => {
   const mask: boolean[] = [];
   let openFence: { char: string; len: number } | null = null;
+  let inComment = false;
   for (const line of lines) {
+    if (skipHtmlComments && (inComment || (openFence === null && /^ {0,3}<!--/.test(line)))) {
+      mask.push(true);
+      inComment = !line.includes("-->");
+      continue;
+    }
     const fence = parseFence(line);
     if (openFence !== null) {
       mask.push(true);
-      const closesFence =
-        fence !== null && fence.char === openFence.char && fence.len >= openFence.len && fence.bare;
-      if (closesFence) {
+      if (
+        fence !== null &&
+        fence.char === openFence.char &&
+        fence.len >= openFence.len &&
+        fence.bare
+      ) {
         openFence = null;
       }
       continue;
     }
-    if (fence !== null) {
-      openFence = { char: fence.char, len: fence.len };
-      mask.push(true);
-      continue;
-    }
-    mask.push(false);
+    openFence = fence;
+    mask.push(fence !== null);
   }
   return mask;
 };
@@ -194,7 +195,7 @@ export interface HeadingCandidate extends Heading {
 }
 
 // Every ATX heading of exactly `level` in `content`, in document order,
-// skipping fenced code blocks. Used by check.ts to enumerate a spec doc's
+// skipping fenced code blocks and HTML comment blocks. Used by check.ts to enumerate a spec doc's
 // headings for unregistered-heading and duplicate-heading detection — the
 // same "what heading does this line spell" logic computeHeadingSectionHash
 // uses to find its target section, generalized to every match instead of the
@@ -202,11 +203,11 @@ export interface HeadingCandidate extends Heading {
 const collectHeadingCandidates = (
   lines: string[],
   level: number,
-  fenced: boolean[],
+  ignored: boolean[],
 ): HeadingCandidate[] => {
   const headings: HeadingCandidate[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    if (fenced[index]) {
+    if (ignored[index]) {
       continue;
     }
     const line = lines[index];
@@ -224,7 +225,7 @@ const collectHeadingCandidates = (
 export const listHeadingCandidates = (content: string, level: number): HeadingCandidate[] => {
   assertValidLevel("listHeadings", level);
   const lines = content.split("\n");
-  return collectHeadingCandidates(lines, level, fencedLineMask(lines));
+  return collectHeadingCandidates(lines, level, headingBlockMask(lines, true));
 };
 
 export const listHeadings = (content: string, level: number): Heading[] =>
@@ -270,32 +271,60 @@ export const computeHeadingSectionHash = async (
   if (content === null) {
     return FILE_MISSING;
   }
-  return hashHeadingSectionContent(content, heading, level);
+  return hashHeadingSectionContent(content, heading, level, path.basename(absPath));
 };
 
-// computeHeadingSectionHash の本体。ファイル以外（git の過去の版など）の中身にも同じ規則で当てる。
-// 中身は normalizeSourceContent を通したものを渡す。
-export const hashHeadingSectionContent = (content: string, heading: string, level = 2): string => {
-  const lines = content.split("\n");
-  const fenced = fencedLineMask(lines);
+type SectionRange = { start: number; end: number };
 
-  const target = resolveHeadingReference(collectHeadingCandidates(lines, level, fenced), heading);
-  if (target === undefined) {
-    return SECTION_MISSING;
-  }
+const sectionRange = (
+  lines: string[],
+  heading: string,
+  level: number,
+  skipHtmlComments: boolean,
+): SectionRange | undefined => {
+  const ignored = headingBlockMask(lines, skipHtmlComments);
+  const target = resolveHeadingReference(collectHeadingCandidates(lines, level, ignored), heading);
+  if (target === undefined) return undefined;
   const start = target.line - 1;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (ignored[i]) continue;
+    const nextLevel = headingLevelOf(lines[i]);
+    if (nextLevel !== null && nextLevel <= level) return { start, end: i };
+  }
+  return { start, end: lines.length };
+};
 
-  for (let index = start + 1; index < lines.length; index += 1) {
-    if (fenced[index]) {
-      continue;
-    }
-    const line = lines[index];
+const hashRange = (lines: string[], range: SectionRange | undefined): string =>
+  range === undefined ? SECTION_MISSING : sha256(lines.slice(range.start, range.end).join("\n"));
 
-    const lineLevel = headingLevelOf(line);
-    if (lineLevel !== null && lineLevel <= level) {
-      return sha256(lines.slice(start, index).join("\n"));
+// 過去のコミットとの照合専用。保存済みの v1 の値は、その時点の v1 の規則で辿る。
+// 新規の bless や作業ツリーの clean 判定には使わない。
+export const hashHistoricalV1Section = (
+  content: string,
+  heading: string,
+  level: number,
+): string => {
+  const lines = content.split("\n");
+  return hashRange(lines, sectionRange(lines, heading, level, false));
+};
+
+// v1 の hash の意味を変えず、コメントを認識すると登録節の範囲が変わる入力だけを拒否する。
+export const hashHeadingSectionContent = (
+  content: string,
+  heading: string,
+  level = 2,
+  file?: string,
+): string => {
+  const lines = content.split("\n");
+  const original = sectionRange(lines, heading, level, false);
+  if (content.includes("<!--")) {
+    const visible = sectionRange(lines, heading, level, true);
+    if (original?.start !== visible?.start || original?.end !== visible?.end) {
+      const where = file === undefined ? "" : ` in ${JSON.stringify(file)}`;
+      throw new Error(
+        `Cannot hash section ${JSON.stringify(heading)}${where} with manifest version 1: an HTML comment changes its boundaries. Rewrite or indent heading or fence lines in the comment by at least four spaces, then review the section before updating its hash.`,
+      );
     }
   }
-
-  return sha256(lines.slice(start).join("\n"));
+  return hashRange(lines, original);
 };

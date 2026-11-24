@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- manifest v1 で HTML コメントブロックが登録節の開始や終端を曖昧にする入力は、`check` と
+  `update` がエラーにする。コメント内の見出しやコードフェンスを4スペース以上字下げするか書き直し、
+  仕様の差分を確認して対象リンクを更新する。ほかの節の hash と過去の v1 の照合規則は従来どおり。
+- With manifest v1, `check` and `update` reject a referenced section if an HTML comment block
+  makes its start or end ambiguous. Rewrite the heading or fence inside the comment, or indent
+  that line by at least four spaces. Review the spec diff before updating the link. Other section
+  hashes and historical v1 lookups keep their existing meaning.
+
 ## [0.9.0] - 2026-11-24
 
 ### Security
