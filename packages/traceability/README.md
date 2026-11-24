@@ -53,7 +53,9 @@ npx specproof-update --link-id login
   read (checked whether or not `featuresDir` is scanned), or a configured
   `featuresDir` that does not exist, is reported (listed in `--json` as
   `missingFeatures` / `missingFeaturesDir`) and also fails `--strict`, because
-  missing input cannot prove that no `@red-contract` remains. GREEN runs and
+  missing input cannot prove that no `@red-contract` remains. If the manifest
+  explicitly supplied with `--manifest` is missing, stats exits with status 2
+  even without `--strict`. GREEN runs and
   human confirmation of `@human` scenarios are outside this static gate.
   It also lists open spec questions: scenarios tagged `@question:<ID>`
   (directly or inherited from Feature / Rule) depend on a question the spec

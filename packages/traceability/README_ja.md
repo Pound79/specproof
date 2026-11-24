@@ -31,7 +31,7 @@ npx specproof-update --dry-run --link-id login
 npx specproof-update --link-id login
 ```
 
-- `stats` は静的なシナリオ集計を行う。`--strict` は実装待ち・禁止タグ・入力の欠落があれば失敗する。所在を確認できない登録 feature と設定した探索ディレクトリは JSON の `missingFeatures` / `missingFeaturesDir` に現れる。実行済みの GREEN はランナーの結果、人が確認した条件はチームの記録で確かめる。同梱の CI は `specproof-check --strict` を実行する。静的な完了条件をマージ条件にするには `specproof-stats --strict` を追加する。
+- `stats` は静的なシナリオ集計を行う。`--strict` は実装待ち・禁止タグ・入力の欠落があれば失敗する。所在を確認できない登録 feature と設定した探索ディレクトリは JSON の `missingFeatures` / `missingFeaturesDir` に現れる。`--manifest` で明示したファイルが存在しない場合、`--strict` の有無にかかわらず終了コード 2 になる。実行済みの GREEN はランナーの結果、人が確認した条件はチームの記録で確かめる。同梱の CI は `specproof-check --strict` を実行する。静的な完了条件をマージ条件にするには `specproof-stats --strict` を追加する。
 - 仕様に未決の問いがあるなら、その ID を `@question:<ID>` としてシナリオ、Feature または Rule に付ける。stats の `questions: [{ id, scenarios, features }]` で問いごとに件数（Outline は 1 条件）と feature を引ける。ID は空白を含めず、大文字小文字を区別する。実行や完了条件は変わらない。答えを反映したらタグを外す。
 
 状態タグの名前は固定。壊れたテストは修正まで RED のまま残す。`@skip` / `@fixme` / `@fail` は検証を飛ばしたり、失敗を期待値に変えたりするので、check は `disallowed-tag`、stats は strict 失敗にする。`tags.fixme` / `tags.skip` の別名設定も拒否する。
