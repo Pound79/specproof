@@ -15,7 +15,7 @@ Use a cache key of `e2e-<frontend SHA>-<backend SHA>`. Look it up with `actions/
 
 Markers save compute. Their presence cannot certify a passing run. A cache entry can be evicted, in which case the pair runs again. The pair cannot account for mutable image tags, unpinned dependencies or time-dependent data. Pin Compose images by digest.
 
-Do not use an artifact name as a skip marker. Artifacts belong to runs across branches and repositories of origin. A name or branch-name filter alone does not establish provenance; even a filter checking the head repository and non-null workflow run leaves trusted-branch jobs able to write artifacts. Branch-scoped caches avoid implementing these filters. When migrating, stop uploading and reading the old artifact marker, remove any Actions read permission granted solely for that lookup and let existing artifacts expire. The first cache-based run executes again.
+Do not use an artifact name as a skip marker. Artifacts belong to runs across branches and repositories of origin. A name or branch-name filter alone does not establish provenance; even a filter checking the head repository and non-null workflow run leaves trusted-branch jobs able to write artifacts. Branch-scoped caches avoid implementing these filters. When migrating, stop uploading and reading the old artifact marker, remove any Actions read permission granted solely for that lookup, and let existing artifacts expire or delete them by hand (in the UI or with `gh api`). Do not add `actions: write` to the workflow to delete them. The first cache-based run executes again.
 
 ## Limit cache writes
 
@@ -33,13 +33,13 @@ Keep the marking job free of checkout, dependency installs and workspace composi
 
 ## Read a separate private backend
 
-Use a dedicated GitHub App installed only on the backend repository, with Contents read permission. Keep its long-lived private key in an Environment limited to the default branch. Request a repository-specific, read-only installation token, allow its normal expiry (about an hour) and end-of-job revocation. Pass it as the checkout action’s `token` with `persist-credentials: false`. Retrieve the revision with the API. Keep tokens out of repository URLs. Pin actions by commit SHA with a version comment.
+Do not use a personal access token; it carries all of its owner's permissions and a long lifetime. Use a dedicated GitHub App installed only on the backend repository, with Contents read permission. Keep its long-lived private key in an Environment limited to the default branch. Request a repository-specific, read-only installation token, allow its normal expiry (about an hour) and end-of-job revocation. Pass it as the checkout action’s `token` with `persist-credentials: false`. Retrieve the revision with the API. Keep tokens out of repository URLs. Pin actions by commit SHA with a version comment.
 
 The [shared example workflow](playwright-ci.md#scheduled-workflow-example) shows lookup, checkout and the separate marking job. Replace placeholders and apply the cache-hit condition to **every** subsequent E2E step.
 
 ### Selecting a backend branch
 
-If the backend branch comes from an input, separate credentialed fetching from execution. The [two-job example](playwright-ci.md#backend-branch-workflow-example) resolves a validated branch through the branches endpoint, checks the returned name and SHA, archives the source without Git metadata, and passes the archive to an unprivileged test job. The trusted fetch job executes no backend code. Only the E2E job consumes the source artifact. Any markers must use the revision from the trusted fetch job and require an empty branch input.
+If the backend branch comes from an input, separate credentialed fetching from execution. The [two-job example](playwright-ci.md#backend-branch-workflow-example) resolves a validated branch through the branches endpoint, checks the returned name and SHA, archives the source without Git metadata, and passes the archive to an unprivileged test job. The trusted fetch job executes no backend code. `actions/checkout` fetches neither LFS objects nor submodules by default; do not change those defaults. Only the E2E job consumes the source artifact. Any markers must use the revision from the trusted fetch job and require an empty branch input.
 
 Use this variant only if every frontend repository reader (including Apps) may read the backend source and every person allowed to dispatch may select the backend branches exposed by the input. Anyone with artifact access can download it during retention. A public frontend is unsuitable for private backend source. Keep retention short. The test job needs neither Environment secrets nor write permissions. If private dependencies cannot be fetched without executing backend code in the fetch job, use another design. Credentialed jobs must not consume artifacts produced or replaceable by the E2E job.
 
