@@ -113,7 +113,7 @@ Patrol の native 操作・flavor・tag 伝播等のキーは未採択案。
 | `layout.manifest` | `manifestPath` |
 | `layout.pagesDir` | `pagesDir`（`buildDomainList` の `options.pagesDir`） |
 | `layout.candidateSuffix` | `candidateSuffix`（`specproof-list` が未追跡ページを検出するファイル名 suffix。既定 `Page.tsx`） |
-| `layout.featuresDir` | `featuresDir`（ドラフトマーカー残存・未登録 `.feature` の走査と、`specproof-stats` の集計対象） |
+| `layout.featuresDir` | `featuresDir`（ドラフトマーカー残存・未登録 `.feature` の走査。`specproof-stats` はこの配下に加えて manifest に登録した feature も集計する） |
 | `layout.implGlobs` | `implGlobs`（どのリンクの `impl` にも登録されていない実装ファイルの走査＝`unregistered-impl`。未設定なら走査しない） |
 
 `layout.specDir` はエンジンが読まない（skill 向けの参照値）。マニフェストのリンクが持つ `spec` / `impl` / `features` の
@@ -129,7 +129,7 @@ Patrol の native 操作・flavor・tag 伝播等のキーは未採択案。
    traceability CLI 自体の探索・fallback は `packages/traceability/src/config.ts` の契約。
 3. `flutter:` セクションは `adapter: flutter` の場合だけ読む。
 4. `commands.traceability*` の省略時は `npx -y -p @pound79/specproof-traceability specproof-*`
-   （`specproof-check` 等）を利用できる。必須引数・flags は [CLI README](../packages/traceability/README.md#cli)。
+   （`specproof-check` 等）を利用できる。必須引数・flags は [CLI リファレンス](../packages/traceability/README_ja.md#cli)。
 5. `{{config:auth.provider}}` / `{{config:auth.description}}` は
    [選択ルール](./config-schema.md#選択ルール) で選んだ `environments[]` の `auth` から解決する。
    トップレベル `auth` は持たず、1 エントリ以上の環境宣言を要する。

@@ -25,7 +25,7 @@ The orchestrator, setup, bootstrap, new-feature, sync and implement skills are M
 
 ## 3. Playwright and Flutter
 
-Use the [Playwright configuration](../templates/playwright/specproof.config.yaml) and [Flutter configuration](../templates/flutter/specproof.config.yaml) for command and layout values. The [Flutter README](../templates/flutter/README.md) covers SDK prerequisites, dependency pins, generation, execution and step definitions.
+Use the [Playwright configuration](../templates/playwright/specproof.config.yaml) and [Flutter configuration](../templates/flutter/specproof.config.yaml) for command and layout values. The [Flutter README](../templates/flutter/README_en.md) covers SDK prerequisites, dependency pins, generation, execution and step definitions.
 
 The Flutter-specific section contains six declarations for the skills:
 
@@ -49,7 +49,7 @@ The engine does not launch the Flutter runner. Native Patrol interaction, flavor
 | `layout.manifest` | `manifestPath` |
 | `layout.pagesDir` | `buildDomainList` candidate discovery |
 | `layout.candidateSuffix` | Suffix for untracked pages in `specproof-list`, default `Page.tsx` |
-| `layout.featuresDir` | Scan for drafts and unregistered features, and count scenarios with `specproof-stats` |
+| `layout.featuresDir` | Scan for drafts and unregistered features. `specproof-stats` counts the features under it plus those registered in the manifest. |
 | `layout.implGlobs` | Scan for files absent from all links' `impl` lists. Omitting the key disables this scan. |
 
 `layout.specDir` is a skill reference. Paths in a link's `spec`, `impl` and `features` are relative to the repository root. Other engine inputs include the syntax flavor and language, advisory exclusions, strict options and configured spec sources.
