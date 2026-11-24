@@ -1,3 +1,10 @@
+import {
+  hasLineTerminator,
+  parseFence,
+  scanBlocks,
+  type BlockScan,
+  type CommentBlock,
+} from "./markdown-blocks.js";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { readRegularFile } from "./bounded-read.js";
@@ -97,27 +104,6 @@ export const hasDraftMarker = async (absPath: string): Promise<boolean> => {
   return content !== null && containsDraftMarker(content);
 };
 
-// A markdown fenced-code delimiter per CommonMark §4.5: 0-3 leading spaces,
-// then a run of 3+ backticks or 3+ tildes. `char` is the fence character and
-// `len` its run length; `bare` is true when nothing but whitespace follows
-// (an info string is allowed on the opening fence but not the closing one).
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-
-// 行は LF で分けるので、単独の CR と U+2028・U+2029 は行に残りうる。正規表現の `.` はこの 3 文字に
-// 一致せず、含む行は下の正規表現に一致しない（区切りでも見出しでもない）。照合すると後戻りで二乗の
-// 時間がかかるので、照合の前に同じ結果を返す。
-const hasLineTerminator = (line: string): boolean => /[\r\u2028\u2029]/.test(line);
-
-const parseFence = (line: string): { char: string; len: number; bare: boolean } | null => {
-  if (hasLineTerminator(line)) return null;
-  const match = line.match(FENCE_RE);
-  if (match === null) {
-    return null;
-  }
-  const run = match[1];
-  return { char: run[0], len: run.length, bare: match[2].trim() === "" };
-};
-
 const isSpaceOrTab = (char: string | undefined): boolean => char === " " || char === "\t";
 
 // CommonMark の閉じの # の並び（前が空白か行頭で、後ろは空白だけ）を外す。正規表現で書くと
@@ -144,60 +130,6 @@ const parseHeading = (line: string): { level: number; text: string } | null => {
 };
 
 const headingLevelOf = (line: string): number | null => parseHeading(line)?.level ?? null;
-
-/** HTML コメントブロックの行の範囲（0 始まり、end は含まない）。閉じないまま末尾に達したら closed は false。 */
-interface CommentBlock {
-  start: number;
-  end: number;
-  closed: boolean;
-}
-
-interface BlockScan {
-  /** 行ごとに、見出しの候補にもセクションの終端にも使わない行なら true。 */
-  ignored: boolean[];
-  comments: CommentBlock[];
-}
-
-// フェンス付きコードブロックと HTML コメントブロック内の行は、見出しの候補にも
-// セクションの終端にも使わない。ブロック内の文字列は別のブロックを開始しない。
-const scanBlocks = (lines: string[], skipHtmlComments: boolean): BlockScan => {
-  const mask: boolean[] = [];
-  const comments: CommentBlock[] = [];
-  let openFence: { char: string; len: number } | null = null;
-  let commentStart: number | undefined;
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (
-      skipHtmlComments &&
-      (commentStart !== undefined || (openFence === null && /^ {0,3}<!--/.test(line)))
-    ) {
-      mask.push(true);
-      const start = commentStart ?? index;
-      commentStart = line.includes("-->") ? undefined : start;
-      if (commentStart === undefined) comments.push({ start, end: index + 1, closed: true });
-      continue;
-    }
-    const fence = parseFence(line);
-    if (openFence !== null) {
-      mask.push(true);
-      if (
-        fence !== null &&
-        fence.char === openFence.char &&
-        fence.len >= openFence.len &&
-        fence.bare
-      ) {
-        openFence = null;
-      }
-      continue;
-    }
-    openFence = fence;
-    mask.push(fence !== null);
-  }
-  if (commentStart !== undefined) {
-    comments.push({ start: commentStart, end: lines.length, closed: false });
-  }
-  return { ignored: mask, comments };
-};
 
 const assertValidLevel = (fn: string, level: number): void => {
   if (!Number.isInteger(level) || level < 1 || level > 6) {

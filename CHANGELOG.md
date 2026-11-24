@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   計算せずエラーにする（`update` は manifest を書く前に止まる）。エラーには、ファイル名・節の見出し・参照を
   登録したリンクの id と、同じファイルで見出しやフェンスを隠しているコメントの開始行（先頭の 10 件と参照の
   見出しを含むもの。残りは件数）を出す。対処は
-  コメントごとに次のとおり。閉じ忘れたコメント（例: `<!-- todo` の後に `-->` が無い）は、終わるべき位置に
+  コメントごとに次のとおり。箇条書き・番号付きリストの項目でも、本文の字下げに従って
+  コメントの範囲を確かめる。リスト内のコード例はコメントを開始しない。閉じ忘れたコメント（例: `<!-- todo` の後に `-->` が無い）は、終わるべき位置に
   `-->` を補う。登録した節がまるごとコメントの中にあるなら、manifest からその参照（リンク）を外す。それ以外は、
   コメント内の見出しやフェンスの行を 4 スペース以上字下げするか書き直す。どの場合も、仕様の差分を確かめてから
   対象のリンクを更新する。境界が食い違わない節の hash の値は従来どおり。(#110)
@@ -31,6 +32,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   コミットごとのまとめは、比べる版のどちらかで節の境界がコメントで曖昧なら、ファイルの単位でも比べる
   （これまでは、コメントの後ろの本文だけを変えたコミットが一覧から黙って漏れていた）。ライブラリの `computeHeadingSectionHash` には、省略できる第 4 引数（リンクの id。エラー文に使う）を
   足した。(#110)
+
+- Compatibility: with a v1 manifest, `check` and `update` stop before computing a section hash
+  when headings or code fences in an HTML comment change the start or end of the registered
+  section. This includes comments in bullet and ordered list items. The item’s content indentation
+  determines the comment's scope. Code examples inside items do not open comments. `update`
+  leaves the manifest untouched. Unaffected v1 hashes keep their meaning.
+- The diagnostic identifies the file, registered heading and link ID, and lists the opening lines
+  of comments that hide headings or fences (the first ten plus the one containing the referenced
+  heading, with a count for the remainder). Close an unterminated comment at its intended end.
+  Remove a manifest reference if its entire section is commented out. Otherwise rewrite or indent
+  the heading or fence inside the comment by at least four spaces. Review the spec diff before
+  updating the affected link. Headings inside comment blocks no longer trigger
+  `unregistered-spec-heading` or `duplicate-heading`. (#110)
+- With `--since-bless`, the most recent historical match cannot identify the blessed commit
+  when a comment makes its section boundary ambiguous. The text directs you to review history
+  manually. JSON returns `blessedCommit: null`, adds
+  `blessedCommitUnidentified: "html-comment-boundary"` to the reference, and counts it under
+  `sinceBless.notGrouped.unidentifiedBlessedVersion`. Update consumers that enumerate the
+  `notGrouped` keys. The sync skill requests human review when this count is nonzero.
+  Commit grouping also compares the full file if either side has an ambiguous section boundary.
+  The library’s `computeHeadingSectionHash` accepts an optional fourth argument, the link ID
+  to include in diagnostics. (#110)
 
 ## [0.9.0] - 2026-11-24
 
