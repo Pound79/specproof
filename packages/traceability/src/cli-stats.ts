@@ -13,10 +13,8 @@ import { printErrorText, printJson, printText } from "./output.js";
 import { buildStats, formatStats, type FeatureScenarios } from "./stats.js";
 
 interface FeatureSources {
-  /** 集計する repo 相対パス。featuresDir があればその配下、無ければ manifest の登録分。 */
+  /** 集計する repo 相対パス。探索結果を優先し、未集計の登録分を足す。 */
   paths: string[];
-  /** manifest に登録された feature。集計対象に入らないものも実在を確かめる。 */
-  registered: string[];
   /** 設定したのに存在しなかった featuresDir。--strict では失敗の理由になる。 */
   missingFeaturesDir?: string;
 }
@@ -65,8 +63,11 @@ const collectFeaturePaths = async (config: TraceabilityConfig): Promise<FeatureS
   const missingFeaturesDir =
     config.featuresDir && found === undefined ? config.featuresDir : undefined;
   return {
-    paths: uniqueFeatureTargets(config.repoRoot, found ?? registered, (relPath) => relPath),
-    registered,
+    paths: uniqueFeatureTargets(
+      config.repoRoot,
+      [...(found ?? []), ...registered],
+      (relPath) => relPath,
+    ),
     missingFeaturesDir,
   };
 };
@@ -74,7 +75,7 @@ const collectFeaturePaths = async (config: TraceabilityConfig): Promise<FeatureS
 const main = async (): Promise<void> => {
   const { flags, manifest, root } = parseCliArgs(process.argv.slice(2), "stats");
   const config = discoverConfig({ manifest, root });
-  const { paths, registered, missingFeaturesDir } = await collectFeaturePaths(config);
+  const { paths, missingFeaturesDir } = await collectFeaturePaths(config);
   const read = (relPath: string) => readFileOrNull(resolveWithinRoot(config.repoRoot, relPath));
 
   const features: FeatureScenarios[] = [];
@@ -91,18 +92,17 @@ const main = async (): Promise<void> => {
       features.push({ domain: relPath, scenarios });
     }
   }
-  // featuresDir の探索では、登録したのに消えた feature が見えない。登録分の実在も確かめる。
-  const scanned = new Set(paths);
-  for (const relPath of registered) {
-    if (!scanned.has(relPath) && (await read(relPath)) === null) missingFeatures.push(relPath);
-  }
   for (const relPath of missingFeatures) {
     printErrorText(
       `warn: registered feature ${printable(JSON.stringify(relPath))} not found — not counted`,
     );
   }
 
-  const report = buildStats(features);
+  const stats = buildStats(features);
+  const report = {
+    ...stats,
+    done: stats.done && missingFeatures.length === 0 && missingFeaturesDir === undefined,
+  };
 
   if (flags.has("--json")) {
     printJson({ ...report, missingFeatures, missingFeaturesDir });
@@ -113,8 +113,7 @@ const main = async (): Promise<void> => {
   // Read-only by default. Under --strict, an outstanding @red-contract or a
   // disallowed @fixme / @skip / @fail fails the run so a "done" gate can be wired into CI.
   // 検査対象が欠けた状態は、残件 0 件とは判断できないので同じく失敗させる。
-  const incomplete = missingFeatures.length > 0 || missingFeaturesDir !== undefined;
-  if (flags.has("--strict") && (!report.done || incomplete)) {
+  if (flags.has("--strict") && !report.done) {
     process.exitCode = 1;
   }
 };

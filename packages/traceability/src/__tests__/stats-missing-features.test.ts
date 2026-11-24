@@ -74,6 +74,8 @@ describe("登録済み feature の欠落", () => {
         assert.equal(result.status, 0, result.stderr);
         const report = JSON.parse(result.stdout);
         assert.deepEqual(report.missingFeatures, ["features/gone.feature"]);
+        assert.equal(report.done, false);
+        assert.doesNotMatch(stats(root).stdout, /the static half of "done" is met/);
         assert.equal(report.totals.total, 1);
       },
     ));
@@ -153,18 +155,22 @@ describe("featuresDir を設定したときの登録済み feature の欠落", (
       },
     ));
 
-  test("featuresDir の外に登録した実在する feature は欠落扱いしない", () =>
+  test("featuresDir の外に登録した feature も集計して未実装条件で止める", () =>
     withRepo(
       {
         "traceability.yaml": manifestFor("features/a.feature", "other/b.feature"),
         "features/a.feature": DONE,
-        "other/b.feature": DONE,
+        "other/b.feature": "Feature: 支払い\n  @red-contract\n  Scenario: 手数料を表示する\n",
       },
       WITH_DIR,
       (root) => {
         const result = stats(root, "--strict", "--json");
-        assert.equal(result.status, 0, result.stderr);
-        assert.deepEqual(JSON.parse(result.stdout).missingFeatures, []);
+        assert.equal(result.status, 1, result.stderr);
+        const report = JSON.parse(result.stdout);
+        assert.deepEqual(report.missingFeatures, []);
+        assert.equal(report.totals.total, 2);
+        assert.equal(report.totals.phase.pending, 1);
+        assert.equal(report.done, false);
       },
     ));
 
@@ -182,7 +188,10 @@ describe("欠落の報告", () => {
       { "traceability.yaml": manifestFor("features/a.feature"), "features/a.feature": DONE },
       "layout:\n  manifest: traceability.yaml\n  featuresDir: missing-dir\n",
       (root) => {
-        assert.equal(JSON.parse(stats(root, "--json").stdout).missingFeaturesDir, "missing-dir");
+        const report = JSON.parse(stats(root, "--json").stdout);
+        assert.equal(report.missingFeaturesDir, "missing-dir");
+        assert.equal(report.done, false);
+        assert.doesNotMatch(stats(root).stdout, /the static half of "done" is met/);
       },
     ));
 
