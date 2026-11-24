@@ -11,7 +11,7 @@ const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf
 test("Playwright の README は、テストの前に環境を確かめる例を設定の実態に合わせて示す", () => {
   // 古いビルドや別のブランチのバックエンドに気づかずに流すと、変えていないシナリオまで落ちる。
   // 雛形に globalSetup は無いので、README は playwright.config.ts に直接足す形で示す。
-  const readme = read("templates/playwright/README.md");
+  const readme = read("templates/playwright/README_ja.md");
   const from = readme.indexOf("### テストの前に環境を確かめる");
   const to = readme.indexOf("\n## ", from);
   assert.ok(from >= 0 && to > from, "環境の確認の節が無い");
@@ -37,7 +37,7 @@ test("Playwright の README は、テストの前に環境を確かめる例を�
 // 転送するとき（認証の要る URL を指している、など）に、転送先の 200 で通ってはいけない。
 
 const extractExample = () => {
-  const readme = read("templates/playwright/README.md");
+  const readme = read("templates/playwright/README_ja.md");
   const from = readme.indexOf("// src/setup/preflight.ts（例）");
   const to = readme.indexOf("```", from);
   assert.ok(from >= 0 && to > from, "README に preflight の例が無い");

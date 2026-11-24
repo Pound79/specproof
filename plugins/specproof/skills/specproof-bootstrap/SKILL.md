@@ -90,7 +90,8 @@ step の定義など）も実行し、`.npmrc` も読む。どれも PR で書�
 **bootstrap 後の変更は必ず feature-first**（人間が `.feature` を先に編集 → 赤 → 実装 → 緑）。
 実装変更の feature 追従は再生成ではなく `{{config:commands.traceabilityCheck}}`（検知・CLI）→ `/specproof-sync`（期待値は spec から導出・impl の
 振る舞い変化は人間ゲートで停止・既存シナリオ非削除）→ `{{config:commands.traceabilityUpdate}}`（bless）で行う。詳細は
-`{{config:layout.e2eReadme}}`「bootstrap は一度きり・実装変更後の追従経路」節。
+`{{config:layout.e2eReadme}}` の節（Playwright は「Following later implementation changes」、
+Flutter は「bootstrap は一度きり・実装変更後の追従経路」）。
 
 ## 前提（生成は「正しさ」を作らない）
 
@@ -144,7 +145,8 @@ impl から生成した feature は「**今こう動いている**」の読め�
      LLM 出力の言語品質。`coverageNotes` に「rationale 行き／理由」を残す。
      判断の核心は「**観測可能な振る舞いか**」であって「テストが簡単か」ではない。
      観測可能なら難しくても `.feature`（状態タグ可）に置く。観測不能なら rationale。
-     （`{{config:layout.e2eReadme}}`「仕様の置き場所」と「テストが難しい ≠ 観測不能」の落とし穴を参照）
+     （`{{config:layout.e2eReadme}}` の節を参照。Playwright は「Recording observable behavior」、
+     Flutter は「仕様の置き場所 と 「テストが難しい ≠ 観測不能」」）
 4. `../specproof-sync/prompts/system.md`（または `{{config:layout.idiomGuide}}` が指すガイド）の生成ガイドに従い、
    既存 `.feature` の文体に合わせてドラフトを書く。**既存 step 句を最大限再利用**し、新規が必要なものは
    別途列挙する。実 AI 生成等の重い処理を伴うシナリオには `{{config:tags.generate}} {{config:tags.slow}}`、
@@ -210,8 +212,8 @@ impl から生成した feature は「**今こう動いている**」の読め�
 **この skill で rationale doc を自動生成してはいけない。** 実装からの自動抽出は
 行番号の写し・根拠の捏造を生み、捨てたいはずの「仕様書の腐敗」を再生産する
 （specproof-bootstrap パイロットで実証済み）。AI が許されるのは「topic の骨子出し」までで、
-各項目の「なぜ」は人間が確定する。規約は `{{config:layout.e2eReadme}}` の
-「なぜ層ドキュメント（rationale doc）の規約」を参照。
+各項目の「なぜ」は人間が確定する。規約は `{{config:layout.e2eReadme}}` の節
+（Playwright は「Authoring rationale」、Flutter は「なぜ層ドキュメント（rationale doc）の規約」）を参照。
 
 ## Safety rules
 
