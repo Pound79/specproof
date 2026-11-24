@@ -30,7 +30,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README_ja.md"
   ],
   "bin": {
     "specproof-check": "dist/cli-check.js",
