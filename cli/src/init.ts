@@ -90,6 +90,7 @@ const SCAFFOLD_EXCLUDED_DIRS = new Set([
   "test-results",
   "playwright-report",
   ".features-gen",
+  ".features-gen-smoke",
   "build",
   "coverage",
 ]);

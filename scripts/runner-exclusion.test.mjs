@@ -15,7 +15,7 @@ test("Playwright テンプレートは草案・人の確認・対象外を常に
   for (const tag of NEVER_RUN) assert.ok(declared.includes(`"${tag}"`), tag);
   assert.ok(!declared.includes("@red-contract"));
   // 環境の excludeTags の有無にかかわらず、常に除外を組み立てる。
-  assert.match(config, /\[\.\.\.NEVER_RUN_TAGS, \.\.\.\(env\.excludeTags \?\? \[\]\)\]/);
+  assert.match(config, /\[\.\.\.NEVER_RUN_TAGS, \.\.\.excludedTags\]/);
 });
 
 test("Flutter テンプレートは草案・人の確認・対象外を常に実行しない", () => {
@@ -58,7 +58,7 @@ test("excludeTags に状態タグや式を書くと設定の読み込みで失�
 
 test("Flutter テンプレートは不正な SPECPROOF_TAGS で例外を投げる", () => {
   const suite = read("templates/flutter/integration_test/gherkin_suite_test.dart");
-  assert.match(suite, /_stateTags\.any\(_tagExpression\.contains\) \|\| !_balanced\(_tagExpression\)/);
+  assert.match(suite, /_stateTag\.hasMatch\(_tagExpression\) \|\| !_balanced\(_tagExpression\)/);
   assert.match(suite, /throw StateError/);
 });
 
@@ -91,9 +91,12 @@ test("projects[].tags に状態タグや釣り合わない括弧があると設�
 
 test("Flutter テンプレートは状態タグや釣り合わない括弧を含む SPECPROOF_TAGS を拒否する", () => {
   const suite = read("templates/flutter/integration_test/gherkin_suite_test.dart");
-  const declared = suite.match(/const _stateTags = \[([^\]]*)\]/)?.[1] ?? "";
+  const pattern = suite.match(/final _stateTag = RegExp\(r'([^']+)'\)/)?.[1];
+  assert.ok(pattern);
+  const state = new RegExp(pattern);
   for (const tag of ["@draft", "@red-contract", "@human", "@out-of-scope"]) {
-    assert.ok(declared.includes(`'${tag}'`), tag);
+    assert.ok(state.test(`not (${tag})`), tag);
+    assert.ok(!state.test(`not ${tag}-related`), tag);
   }
   assert.match(suite, /_balanced\(_tagExpression\)/);
 });

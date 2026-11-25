@@ -260,6 +260,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before writing the scaffold, including with `--force`. Use a regular file to retain an
   existing configuration. (#97)
 
+- 互換: Playwright の `test:smoke` は設定の `tags.slow`（既定 `@slow`）をタグ単位で除外する。
+  以前の `--grep-invert @slow` が除外していた、似た名前のタグやタイトルも実行対象になる。
+  `test:smoke` は `scripts/smoke.mjs` から bddgen と Playwright の両方に `SPECPROOF_SMOKE=1` を
+  渡す。直接起動するときは両方にこの変数を指定する。smoke 用の生成先は project ごとに
+  `.features-gen-smoke/` 以下へ分け、通常実行や IDE が使う `.features-gen/` を保つ。
+  snapshot は通常実行と同じ比較元を使い、project や全体に指定した `snapshotDir` も引き継ぐ。
+  既定の比較元が `.features-gen/` の外を指す project 名は smoke でエラーになる。
+  不正な `tags.slow` は通常実行でも設定読み込み時にエラーになる。(#109)
+- Compatibility: Playwright smoke runs exclude the configured `tags.slow` (default `@slow`) as
+  an exact Gherkin tag. Similar tags and scenario titles previously filtered by
+  `--grep-invert @slow` can now run. `test:smoke` uses `scripts/smoke.mjs` to pass
+  `SPECPROOF_SMOKE=1` to both bddgen and Playwright. Set the variable on both commands when
+  running them directly. Smoke files are generated per project under `.features-gen-smoke/`,
+  preserving `.features-gen/` for regular runs and IDEs. Each project shares its snapshot
+  baselines with regular runs, including project-level and global `snapshotDir` settings. Smoke
+  rejects project names that would put the default baseline outside `.features-gen/`. Invalid
+  slow-tag settings now fail configuration loading even outside smoke runs. (#109)
+- 互換: Flutter の `commands.smoke` は `dart run tool/smoke.dart` を使う。ホストで
+  `tags.slow` と先頭 project の `tags` を組み合わせ、Gherkin 式を `flutter test` へ渡す。
+  `projects[0].tags` の既定は空になり、追加で必要な条件だけを指定できる。(#109)
+- Compatibility: the Flutter smoke command now uses `dart run tool/smoke.dart` on the host. It
+  combines the slow-tag exclusion with the first project's tags and passes the Gherkin expression
+  to `flutter test`. The default `projects[0].tags` is now empty; use it for additional
+  filters. (#109)
+- 互換: 導入済みの Playwright 足場は、テンプレートから `package.json` の `test:smoke`、
+  `scripts/smoke.mjs`、`playwright.config.ts`、`src/config/specproof-config.ts` の変更を取り込み、
+  `.features-gen-smoke` を E2E パッケージの `.gitignore` と `tsconfig.json` の除外に追加する。
+  Flutter は `commands.smoke` と `tool/smoke.dart` を取り込む。
+  `integration_test/gherkin_suite_test.dart` の状態タグ判定も更新し、`@human-review` などの
+  独立したタグが `@human` と誤認されないようにする。`pubspec.yaml` の
+  `dev_dependencies` に `yaml` を追加する。元の `not @slow` が残ると、`tags.slow` を変更しても
+  `@slow` が追加で除外されるため、意図する project 条件だけを残す。(#109)
+- Compatibility: for existing Playwright scaffolds, port the template's `test:smoke` script,
+  `scripts/smoke.mjs`, `playwright.config.ts` and `src/config/specproof-config.ts`. Add
+  `.features-gen-smoke` to the E2E package's `.gitignore` and TypeScript exclusions. For Flutter,
+  update `commands.smoke`, add `tool/smoke.dart` and add `yaml` to `dev_dependencies`. Update the
+  state-tag check in `integration_test/gherkin_suite_test.dart` so tags such as `@human-review`
+  remain distinct from `@human`. Remove the
+  old `not @slow` project filter unless it should keep excluding `@slow` even after `tags.slow` is
+  renamed. (#109)
+
 ### Fixed
 
 - 既存の設定が `specproof.config.yml` だけなら、その隣に優先順位の高い `.yaml` を作らず、

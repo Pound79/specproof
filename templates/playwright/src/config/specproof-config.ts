@@ -1,5 +1,6 @@
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import type { PlaywrightTestConfig } from "@playwright/test";
 import { parse } from "yaml";
 
 // ---------------------------------------------------------------------------
@@ -54,6 +55,7 @@ export interface SpecproofConfig {
     username?: string;
     adminUsername?: string;
   };
+  tags?: { slow?: string };
   projects: ProjectConfig[];
   environments: readonly EnvironmentProfile[];
   runner?: RunnerConfig;
@@ -204,6 +206,58 @@ function assertExcludeTags(profile: EnvironmentProfile): void {
       );
     }
   }
+}
+
+// smoke は Gherkin のタグ単位で絞る。正規表現でシナリオ名や似た名前まで除外しない。
+// tags.slow は smoke 以外の実行でも確かめ、不正な値を smoke を走らせるまで残さない。
+export function runnerExclusions(
+  cfg: SpecproofConfig,
+  env: EnvironmentProfile,
+  smoke: boolean,
+): readonly string[] {
+  const slow: unknown = cfg.tags?.slow ?? "@slow";
+  if (
+    typeof slow !== "string" ||
+    !SINGLE_TAG.test(slow) ||
+    slow.includes("\\") ||
+    STATE_TAGS.includes(slow)
+  ) {
+    throw new Error(
+      `specproof: tags.slow must be a single non-state tag like "@slow" (got ${JSON.stringify(slow)}).`,
+    );
+  }
+  const excluded = env.excludeTags ?? [];
+  return smoke ? [...excluded, slow] : excluded;
+}
+
+// smoke の実行かどうか。npm のスクリプト名は起動の仕方（npx・node --run・名前の変更）で
+// 変わるため使わず、test:smoke が明示的に渡す SPECPROOF_SMOKE=1 だけで決める。
+export function isSmokeRun(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.SPECPROOF_SMOKE === "1";
+}
+
+// Playwright は snapshotDir が無指定のときだけ testDir に比較元を置く。
+// smoke の testDir は通常実行と異なるので、この既定値だけを通常の BDD project に合わせる。
+export function withRegularSnapshots(
+  config: PlaywrightTestConfig,
+  bddNames: ReadonlySet<string>,
+): PlaywrightTestConfig {
+  if (config.snapshotDir !== undefined) return config;
+  const root = ".features-gen";
+  const projects = config.projects?.map((project) => {
+    const { name, snapshotDir: explicitDir } = project;
+    if (explicitDir !== undefined || name === undefined || !bddNames.has(name)) {
+      return project;
+    }
+    // playwright-bdd が通常時に使う path.join(root, name) と同じ配置にする。
+    const snapshotDir = path.join(root, name);
+    const rel = path.relative(root, snapshotDir);
+    if (rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+      throw new Error(`specproof: project name must keep snapshots within ${root}.`);
+    }
+    return { ...project, snapshotDir };
+  });
+  return { ...config, projects };
 }
 
 // projects[].tags is spliced into the same tag expression. A state tag there
