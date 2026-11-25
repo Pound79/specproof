@@ -20,7 +20,8 @@
   "files": [
     "dist",
     "templates",
-    "skills"
+    "skills",
+    "README_ja.md"
   ],
   "engines": {
     "node": ">=24"
