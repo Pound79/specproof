@@ -251,6 +251,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exits with code 2, including without `--strict`. Correct the path or omit the option to count
   the feature directory alone when no manifest exists. (#112)
 
+- 互換: `specproof init` は、リポジトリのルートにある設定を `.yaml`、`.yml` の順に選ぶ。
+  選んだパスがシンボリックリンク・ディレクトリなどの通常ファイル以外なら、
+  `--force` の有無にかかわらず、足場を書き込む前に停止する。
+  既存の設定を引き継ぐにはルートに通常ファイルを置く。(#97)
+- Compatibility: `specproof init` now chooses the root configuration in `.yaml`, then `.yml`
+  order. If the selected path is a symlink, directory or other non-regular file, initialization stops
+  before writing the scaffold, including with `--force`. Use a regular file to retain an
+  existing configuration. (#97)
+
+### Fixed
+
+- 既存の設定が `specproof.config.yml` だけなら、その隣に優先順位の高い `.yaml` を作らず、
+  `.yml` を保持する。`--force` を付けた場合はその `.yml` を更新する。
+  両方あるときは `.yaml` を対象とし、初期化後の案内には選んだ名前を表示する。(#97)
+- When only `specproof.config.yml` exists, initialization preserves it and avoids creating a
+  higher-priority `.yaml` alongside it. With `--force`, it updates the existing `.yml`.
+  When both exist, it targets `.yaml`. The next-steps message names the selected file. (#97)
+
 ## [0.9.0] - 2026-11-24
 
 ### Security
