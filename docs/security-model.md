@@ -22,7 +22,11 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 
 - **ルートの決め方**: `--root` があればそれを使う。無ければ実行したディレクトリから親へたどり、
   `specproof.config.yaml` / `specproof.config.yml` / `traceability.yaml` のある最初のディレクトリ、
-  それも無ければ `git rev-parse --show-toplevel`。たどる途中で、目印が無く改名前の
+  それも無ければ Git に問い合わせる。`.git`（submodule や worktree の `.git` ファイルを含む）の
+  ある段まで来ても目印が無ければ、`git --git-dir=<その段>/.git --work-tree=<その段> rev-parse --show-toplevel`
+  でその段そのものを確かめる（この引数は受け継いだ `GIT_DIR` / `GIT_WORK_TREE` より優先する。`.git` が
+  空・壊れていればエラーで止まる）。どの段にも `.git` が無ければ引数なしの `git rev-parse --show-toplevel`
+  で、このときは `GIT_DIR` / `GIT_WORK_TREE` に従う。たどる途中で、目印が無く改名前の
   `bdd-kit.config.yaml` / `.yml` だけがあるディレクトリに来たら、名前の変更を案内してエラーで止まる。
   ルートは git のリポジトリのルートとは限らない（サブディレクトリに `traceability.yaml` があれば
   そこをルートにできる）。探索は `.git` のある段で止まり、その上にある別の設定や manifest は採らない。
@@ -39,8 +43,8 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   止まる。ルートの外の状態（存在・権限・ループ）は、エラー文から区別できないようにしている
 - **書く範囲**: `specproof-update` が書くのは manifest だけで、同じディレクトリの一時ファイルを
   完成させてから置き換える。欠けた参照（ファイルや見出しが無い）は hash を取り直さずにエラーで止まる
-- **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（固定の
-  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` と、`specproof-update --record-spec-source`・
+- **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（`.git` の
+  段で止まったときはその段のパスから作った `--git-dir` / `--work-tree` を付け、shell を通さず引数の配列で渡す）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` と、`specproof-update --record-spec-source`・
   `specproof-check --spec-sources` を付けたときの取り込み元のチェックアウトでの `git config --null --list`（部分 clone の
   判定）/ `git for-each-ref`（`ref` の完全な名前での引き当て）/ `git rev-parse` / `git ls-tree` だけ。
   `specSources[].importCommand` は実行しない。取り込み元の `repo` は設定の値でルートの外も指せるので、ルートの中に

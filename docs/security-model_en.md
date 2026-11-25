@@ -14,7 +14,7 @@ Neither package operates a server, maintains a database or authenticates users. 
 
 ### Traceability engine
 
-**Root discovery.** An explicit `--root` takes precedence. Otherwise the engine walks up from the current directory to find the first `specproof.config.yaml`, `specproof.config.yml` or `traceability.yaml`. The search stops at a directory containing `.git`. If no marker is found, the fallback is `git rev-parse --show-toplevel`. A directory containing only the old `bdd-kit.config.yaml` or `bdd-kit.config.yml` stops discovery with a message to rename the file.
+**Root discovery.** An explicit `--root` takes precedence. Otherwise the engine walks up from the current directory to find the first `specproof.config.yaml`, `specproof.config.yml` or `traceability.yaml`. The search stops at a directory containing a `.git` entry, including the `.git` file of a submodule or worktree. If that directory has no marker, the engine verifies the directory itself with `git --git-dir=<dir>/.git --work-tree=<dir> rev-parse --show-toplevel`. These arguments take precedence over inherited `GIT_DIR` and `GIT_WORK_TREE`, and an empty or broken `.git` stops discovery with an error. If no directory on the way up contains `.git`, the fallback is `git rev-parse --show-toplevel` without these arguments, which follows `GIT_DIR` and `GIT_WORK_TREE`. A directory containing only the old `bdd-kit.config.yaml` or `bdd-kit.config.yml` stops discovery with a message to rename the file.
 
 The engine root can be a subdirectory of the Git repository. If discovery finds only `traceability.yaml`, it checks whether the nearest config above it names this manifest in `layout.manifest`. A match makes the config directory the root. If the config cannot be read, the manifest directory remains the root. This search also stops at `.git`. A config entry in the manifest directory, including a dangling link or a legacy name, prevents the engine from going up and skipping local validation. An intervening config or legacy name likewise blocks selection of a more distant config. Set `--root` explicitly in CI.
 
@@ -26,7 +26,7 @@ The engine root can be a subdirectory of the Git repository. If discovery finds 
 
 | Operation | Git commands |
 |---|---|
-| Root discovery | `git rev-parse --show-toplevel` with fixed arguments |
+| Root discovery | `git rev-parse --show-toplevel`. When discovery stopped at a directory with `.git`, `--git-dir` and `--work-tree` built from that directory's path are added. Arguments are passed as an array without a shell |
 | `specproof-check --since-bless` | `git rev-parse`, `git log`, `git show`, `git rev-list`, `git ls-tree` |
 | `specproof-update --record-spec-source` and `specproof-check --spec-sources` | In the source checkout, `git config --null --list` to detect partial clones, `git for-each-ref` for exact ref names, `git rev-parse` and `git ls-tree` |
 
