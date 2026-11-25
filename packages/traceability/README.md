@@ -1,5 +1,7 @@
 # @pound79/specproof-traceability
 
+English | [日本語](https://github.com/Pound79/specproof/blob/main/packages/traceability/README_ja.md)
+
 [![npm](https://img.shields.io/npm/v/@pound79/specproof-traceability.svg)](https://www.npmjs.com/package/@pound79/specproof-traceability) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 Framework-agnostic **spec ↔ impl ↔ feature** traceability engine for BDD behavior
@@ -20,19 +22,29 @@ Requires Node.js **>= 24**.
 
 All commands auto-discover `specproof.config.yaml` / `traceability.yaml` from the repo root.
 
+
 ```bash
-npx specproof-check --json     # detect drift (exit non-zero on drift; --strict for lint gates)
-npx specproof-update           # bless current hashes (some links: --link-id <id> [--link-id <id> ...])
-npx specproof-list             # registered domains + bootstrap candidates
-npx specproof-stats            # scenario census (phase / verification / out-of-scope; --strict for done gate)
+npx specproof-check --json
+npx specproof-list
+npx specproof-stats
+```
+
+After reviewing every change to the selected link, preview and bless its hashes:
+
+```bash
+npx specproof-update --dry-run --link-id login
+npx specproof-update --link-id login
 ```
 
 - **`check`** compares the current spec/impl/feature hashes against the blessed
-  baseline and reports drift per link. `--strict` also fails on unreviewed draft
+  baseline and reports drift per link. It exits with status 1 when any link
+  has drifted, so CI can fail on drift. `--strict` also fails on unreviewed draft
   markers, all-empty links, `@out-of-scope` scenarios without a reason comment
   (or with `@out-of-scope` inherited from Feature / Rule / Examples), disallowed `@fixme` /
   `@skip` / `@fail` tags, and the structural warnings below
-  (`unregistered-impl` and `unregistered-spec-heading` excepted — see below).
+  according to the policy below.
+- **`list`** lists the registered domains and the bootstrap candidates (pages
+  that no link registers yet).
 - **`update`** re-blesses the manifest hashes after you've reconciled a change.
   Pass `--dry-run` to preview the change list without writing the manifest.
 - **`stats`** produces a scenario census and, with `--strict`, enforces the
@@ -41,7 +53,9 @@ npx specproof-stats            # scenario census (phase / verification / out-of-
   read (checked whether or not `featuresDir` is scanned), or a configured
   `featuresDir` that does not exist, is reported (listed in `--json` as
   `missingFeatures` / `missingFeaturesDir`) and also fails `--strict`, because
-  missing input cannot prove that no `@red-contract` remains. GREEN runs and
+  missing input cannot prove that no `@red-contract` remains. If the manifest
+  explicitly supplied with `--manifest` is missing, stats exits with status 2
+  even without `--strict`. GREEN runs and
   human confirmation of `@human` scenarios are outside this static gate.
   It also lists open spec questions: scenarios tagged `@question:<ID>`
   (directly or inherited from Feature / Rule) depend on a question the spec
@@ -77,8 +91,8 @@ scenario that carries both `@out-of-scope` and `@red-contract`.
 The runner templates always exclude `@draft` / `@human` / `@out-of-scope` and
 never exclude `@red-contract` through their own filters. Positive selection
 still applies to `@red-contract` scenarios: a project's `tags` filter (such as
-`@admin`), a command-line `--grep`, or the smoke command's
-`--grep-invert @slow` selects among them like any other scenario.
+`@admin`), a command-line `--grep`, or the smoke command's exclusion of the exact
+configured `tags.slow` tag selects among them like any other scenario.
 `@red-contract @human` (implementation pending, verified by a person) is valid
 and is not run by E2E, because `@human` never runs; it stays pending until a
 person confirms it and removes the tag.
@@ -91,55 +105,22 @@ mentions any state tag or has unbalanced parentheses. A command-line
 `--grep-invert @red-contract` cannot be blocked by the templates: do not use
 it, since it hides pending conditions and makes the run look green.
 
-### 静的な phase / verification とケース数
 
-`stats` の各 domain と totals は `total`（条件数）、`cases`、`phase: { draft, pending, complete }`、
-`verification: { machine, human }`、`outOfScope`、`disallowed` を返します。
-`disallowed` は使えないタグ（`@skip` / `@fixme` / `@fail`）が付いた条件の数です。
-レポート全体の `done` は `@red-contract`（pending）と使えないタグがともに 0 件のとき `true` です。
-Outline は条件として1件、ケースは複数 Examples の全データ行を合計します。通常 Scenario は1ケースです。
-Playwright の runner と同じく、Examples が無い Outline も1ケースと数えます。
-Examples が存在してデータ行が無い場合は0ケースです。Flutter の runner は Examples が無い Outline を拒否します。
+<a id="静的な-phase--verification-とケース数"></a>
+### Static phase, verification and case counts
 
-同じ実体の feature を複数の link や repo 内のシンボリックリンク経由で登録しても、
-lint と census は、それぞれ同じ実体を一度だけ読みます。表示する代表パスの選択規則は異なります。
-`check` の lint は manifest の登録順で最初のパスを選び、その登録の `linkId` を警告に残します。
-未登録の実体だけを `featuresDir` の探索結果から追加します。
-`stats` の census は `featuresDir` があれば探索順、無ければ manifest の登録順で選びます。
-たとえば `features/alias.feature` だけを登録し、探索が同じ実体の `features/a.feature` を先に
-見つける場合、lint の警告パスは `features/alias.feature`、census の domain は `features/a.feature` です。
-別名を未登録や重複シナリオとは判定しません。
-manifest の各参照に保存した hash は、それぞれ独立に検査します。
+Each domain and the totals return `total` conditions, `cases`, `phase: { draft, pending, complete }`, `verification: { machine, human }`, `outOfScope` and `disallowed`. The CLI sets `done` to false for pending conditions, prohibited tags or missing input (a configured feature directory or a registered feature). The static gate does not verify a real GREEN run or a human sign-off.
 
-- phase: `@draft` は draft、`@red-contract` は pending、状態タグなしは complete。
-- verification: `@human` は human、その他は machine。phase と別軸です。
-- phase/verification の状態タグだけを Feature/Rule から継承し、次の Rule には前の Rule の状態を持ち越しません。
-- 継承を含む `@draft` と `@red-contract` の併記、同じシナリオでの `@out-of-scope` と `@red-contract` の併記、
-  Examples の `@draft` / `@red-contract` / `@human` / `@out-of-scope` はエラーです。Examples 行の状態を条件全体へ投影できないためです。
+A Scenario counts as one case. A Scenario Outline counts as one condition and as many cases as there are data rows across its Examples. An empty set of Examples rows contributes zero. With no Examples, Playwright counts one case and Flutter rejects the outline.
 
-complete は状態タグなしという静的分類です。実行済み GREEN や正式な完了を示しません。
+Lint and census read each physical file once, including aliases through links within the repository. Check chooses the first registered path in manifest order and keeps that link ID on the warning, then adds unregistered files from discovery. Stats scans `featuresDir` first, then adds any registered physical files still unseen (including outside that directory) in manifest order. Without a feature directory it starts from the manifest. Thus a registered alias can label a lint warning while the first discovered physical path labels the census domain. Aliases do not create unregistered files or duplicate scenarios. Each manifest reference retains its own hash check.
 
-`outOfScope` と `disallowed` は runner と同じく Gherkin のタグ継承に従い、`effectiveTags`
-（Feature・Rule・Scenario 自身・Examples のタグ。空行を挟んだタグも含む）で数えます。
-Feature に付けた `@fixme` は配下の全シナリオを disallowed と数え、strict を満たしません。
-一部の Examples だけに付いた使えないタグも、残件を見落とさないよう条件全体に数えます。
-`@out-of-scope` の条件も `total` と phase/verification には含まれます。`done` の判定には影響しません。
+- `@draft` sets phase draft, `@red-contract` sets pending, otherwise phase is complete. `@human` selects human verification, otherwise machine.
+- Phase and verification inherit state tags from Feature and Rule. A later Rule starts a new Rule scope. Combining draft with pending, or out-of-scope with pending, is an error. Examples cannot carry state tags; a row's state cannot represent an entire condition.
+- `outOfScope` and `disallowed` use runner-effective tags from Feature, Rule, Scenario and Examples, including tags separated by blank lines. A prohibited tag on any Examples counts the condition once. Out-of-scope conditions still appear in the totals and both axes.
+- `tags` contains a scenario's own leading tags. Check the reason for excluding a scenario there: a `# ...` comment immediately preceding the scenario without a blank line. Phase and verification use `effectiveStateTags`.
 
-`tags` は Scenario 自身の直前タグを返し、`@out-of-scope` の理由コメントの検査はこの範囲だけで
-行います（理由コメントは、空行を挟まずシナリオの直前にある `# ...` 行）。
-phase/verification は `effectiveStateTags` を使用します。
-表示は domain ごとと TOTAL の 1 行ずつ（`N conditions / C cases; phase: ...; verification: ...;
-out-of-scope O`）で、続けて `@red-contract` の残数、使えないタグが残っていれば `tags that switch scenarios off (@fixme / @skip / @fail) remaining: N` で始まる行を表示します。scanner は同梱 adapter の英語・日本語に対応し、閉じていない docstring と、それ以外の言語を
-`# language:` で指定した feature は失敗させます。ファイルの言語は Feature 行のキーワードで決め、
-その言語のキーワードだけを要素と step として読みます（runner も自分の言語で Feature 行を読めた
-ときだけ解析するため）。`specproof.config.yaml` の `adapter` が `flutter` のときは、Flutter の runner
-（Dart の gherkin）と同じ規則で読みます（キーワードの大文字小文字を区別しない、Rule が無いなど）。
-宣言の無い feature は設定の `language` を既定の言語として読みます。runner が解析できない feature と、
-Dart の gherkin が 1 つのタグとして読む空白を含むタグ（`@out-of-scope # 理由` など）は、
-0 件や無効なタグとして通さず失敗させます。タグ行は Gherkin と同じく、空白に続く `#` 以降を
-除いて `@` で区切ります（`@smoke@human` は 2 つのタグ）。
-[ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md)
-で決めたシナリオ ID 台帳はまだ実装しておらず、この統計には含まれません。
+Text prints one row per domain and a total (`N conditions / C cases; phase: ...; verification: ...; out-of-scope O`), followed by pending and prohibited counts. English and Japanese features are supported. An unsupported language directive or unterminated docstring fails. The parser recognizes elements and steps in the dialect of the Feature keyword. Flutter uses the configured default language without a directive and the Dart runner's case-insensitive keywords and absence of Rule. Unparseable features and Dart whitespace-containing tags such as `@out-of-scope # reason` fail. In ordinary Gherkin a whitespace-delimited inline comment is removed and tags split at `@` (so `@smoke@human` is two tags). The scenario ID ledger in [ADR 0008](https://github.com/Pound79/specproof/blob/main/docs/adr/0008-flow-layer-separation.md) remains unimplemented.
 
 ### Structural warnings (`check`)
 
@@ -156,7 +137,7 @@ failing unless `--strict` is passed:
 | `unregistered-feature` | a `.feature` file under `featuresDir` that no link registers |
 | `features-dir-unset` | a config file exists but sets no `layout.featuresDir`, so `.feature` files that no link registers are not scanned (no warning when there is no config file) |
 | `features-dir-missing` | `featuresDir` is set but is not an existing directory, so `.feature` files that no link registers are not scanned |
-| `unknown-config-key` | `specproof.config.yaml` has a key that no consumer (this engine, the skills, the templates) reads, such as a misspelt `layout.featureDir`; the message names the key path, never its value (rule: [docs/config-schema.md](../../docs/config-schema.md#未知のキー)) |
+| `unknown-config-key` | `specproof.config.yaml` has a key that no consumer (this engine, the skills, the templates) reads, such as a misspelt `layout.featureDir`; the message names the key path, never its value (rule: [configuration reference](https://github.com/Pound79/specproof/blob/main/docs/config-schema_en.md#unknown-keys)) |
 | `unregistered-spec-heading` | a heading in an already-referenced spec file that no link registers |
 | `unregistered-impl` | a file matching `layout.implGlobs` that no link's `impl[]` registers |
 | `duplicate-heading` | a registered heading appears more than once in its spec file, making the section hash ambiguous |
@@ -165,6 +146,9 @@ failing unless `--strict` is passed:
 | `step-order` | a step goes back to Given/When after a later keyword (And/But read as the previous keyword) |
 | `duplicate-scenario-name` | two scenarios in the same feature file and the same `Rule` share a name |
 | `possible-contradiction` | a scenario has the same Given/When as an earlier one but different Then steps — a candidate for a human to judge |
+| `spec-source-outdated` | With `--spec-sources`, selected upstream paths changed since import or are absent at the current ref. |
+| `spec-source-unrecorded` | A configured import has no recorded commit. |
+| `spec-source-unresolved` | The configured source directory exists but its repository, ref, recorded commit or tree could not be checked. |
 
 `unregistered-impl` requires `layout.implGlobs` to be set (opt-in; unset means
 no scan at all), and it does **not** fail under `--strict` unless the config
@@ -225,11 +209,15 @@ display caps, after leaving out the test-like `unregistered-impl` above). `To fi
 resolved config, plus the feature authoring mistakes (`missing-then`,
 `step-order`, `duplicate-scenario-name`, `duplicate-scenario`) even when they
 are `[advisory]`; `For reference` holds `unregistered-impl`,
-`unregistered-spec-heading` (unless opted in) and `possible-contradiction`.
+`unregistered-spec-heading` (unless opted in) and `possible-contradiction`, plus advisory source warnings.
 Within `To fix`, the kinds that fail under `--strict` come first. A capped
 kind's `...and N more` line is printed at the end of its own group.
 `--github-annotations` uses the same order, so the group to fix is not pushed
 out of GitHub's per-step annotation limit. `--json` keeps the original order.
+
+### JSON report
+
+Check returns `clean`, `driftCount`, `driftLinkCount`, and `entries` (link ID, side, path, optional spec heading, stored hash, current hash, changed/missing status). Its warnings carry `kind`, message and optional link ID/path; the CLI adds `failsUnderStrict`. If all references are missing files, `allReferencesMissing` is true and `bothSidesChanged` is empty. Otherwise the latter lists links with drift on both spec and implementation. Configured exclusions can add `excludedAdvisories`. See the options below for the conditional history and source fields.
 
 ### `--dry-run` output example
 
@@ -255,40 +243,26 @@ Run `check` to see what changed, review it, then `specproof-update --link-id <id
 for each reviewed link to re-bless (plain `specproof-update` blesses every
 drifted link at once).
 
-### ATX 見出しの互換性
 
-見出し一覧は前後の空白と末尾の閉じ `#` を除いた CommonMark の見出し名を返す。
-旧版が返した `Account ##` のような表記も、既存 manifest の参照として読み取れる。
-文書内に旧表記の完全一致があればそれを優先し、なければ正規化した名前で照合する。
-たとえば `## Account ##` と `## Account ## ##` が共存するとき、旧参照 `Account ##`
-を後者へ黙って移動させない。重複見出しの検査は正規化した名前で行う。
-hash は文書中の実際のセクションから計算し、保存済みの基準を自動更新しない。
+<a id="atx-見出しの互換性"></a>
+### ATX headings
 
-### Manifest の保存と同時更新
+Heading discovery trims whitespace and closing hashes. Existing manifest spellings such as `Account ##` remain valid. An exact legacy match takes precedence over a normalized match, so adding `## Account ## ##` near `## Account ##` does not silently redirect the legacy reference. Duplicate detection uses normalized names. Headings inside code fences or HTML blocks, including comments, do not start or end a section. To preserve version 1 hashes, check and update stop if the legacy and current rules disagree on a registered section’s boundaries or the engine cannot establish them. For example, a lone carriage return or a line longer than 65,536 UTF-16 code units can prevent the engine from verifying that and later sections. Sections ending before the ambiguous line remain unaffected.
 
-`specproof-update` は変更した hash の値だけを原文へ反映し、コメント・空行・引用符・
-未知の拡張キーを保持する。変更ゼロと `--dry-run` では保存しない。
-更新は同じディレクトリの一時ファイルを完成させてから rename し、途中失敗で元ファイルを
-破断させない。hash 以外まで変わる YAML alias は、安全に保存できないため拒否する。
+Use the line and construct in the diagnostic to fix the specification. Close an unterminated comment, reword an apparent heading inside it, normalize a lone carriage return to LF, or split an overlong line, as applicable. If the intended section is entirely hidden, review its manifest reference. Check the spec diff and intended section before updating the affected link. Check leaves stored baselines unchanged.
 
-読込後の変更は保存前に検査するが、検査と rename は OS レベルの compare-and-swap
-ではない。同じ manifest への更新は順に実行する。異なる `--link-id` でも同時実行すると、
-両方が成功したまま一方の hash 更新が失われる可能性がある。
+### Manifest storage and concurrent updates
 
-### Manifest の版
+Update patches only changed hash values in the original YAML, preserving comments, blank lines, quoting and unknown fields. Dry runs and unchanged manifests perform no write. A completed temporary file in the same directory is renamed atomically; aliases that would change other values are refused. A pre-rename check detects intervening changes but cannot provide OS-level compare-and-swap. Serialize updates to one manifest, even when they select different links.
 
-manifest の `version` は、外部の読み手に向けた契約である。保存済みの hash の意味、既存のキーの
-意味・型、必須のキー、番兵の値のいずれかを変えるときに上げる。省略できるキーの追加でも、既存の
-キーの意味を変えるなら上げる。無視しても既存のキーの意味が変わらない追加では上げない。
-規則と理由は [ADR 0010](https://github.com/Pound79/specproof/blob/main/docs/adr/0010-manifest-version-policy.md)。
+### Manifest version
 
-この specproof が読み書きするのは version 1 だけ。知るより新しい version の manifest は、新しい
-specproof が書いたものとして、specproof の更新を促すエラーで止まる（旧い規則で hash を取り直さない）。
-旧い version からの移行の経路は、version を上げる変更と同じリリースで `specproof-update` に入れる。
+The version is a public contract. Changing the interpretation of stored hashes, existing key semantics/types, required keys or sentinels requires a version bump. This includes optional additions that alter existing meanings. Ignorable additive fields do not require a bump. The engine reads and writes version 1. A newer manifest requires a newer engine. A future version change must ship an update migration in the same release. See [ADR 0010](https://github.com/Pound79/specproof/blob/main/docs/adr/0010-manifest-version-policy.md).
 
-### Manifest の criteria
+<a id="manifest-の-criteria"></a>
+### Manifest criteria
 
-0.3.0 以降、version 1 の各 `links[]` に `criteria?: string[]` を指定できる。
+Since 0.3.0, version 1 accepts an optional `criteria?: string[]` on each link.
 
 ```yaml
 version: 1
@@ -301,22 +275,11 @@ links:
     features: []
 ```
 
-省略と空配列を許容し、両者を区別して保持する。各 ID は空でない不透明文字列で、
-AC / TC 等の形式を固定せず、空白除去・大文字小文字変換・Unicode 正規化も行わない。
-consumer 固有の ID 書式は consumer の設定が検査する。
-不正型、空文字、C0 / DEL / C1 制御文字、Unicode の行区切り・段落区切り、
-同じ link 内の ID 重複は拒否する。同じ ID を複数 link から参照する多対多は許容する。
+An absent list and an empty list are distinct and preserved. Each ID is an opaque nonempty string, without trimming, case folding or Unicode normalization. Consumers enforce any AC/TC naming convention. Invalid types, empty values, C0/DEL/C1 controls, Unicode line/paragraph separators and duplicates within a link are rejected. Several links can share an ID.
 
-`loadManifest` と、それを使う check/update は criteria を検査する。
-`saveManifest` も新しい criteria の契約だけを書込み前に検査し、不正なら既存ファイルを変えない。
-他の既存フィールドの形は従来どおり loader が検査する。
-load/update/save、全件更新、`--link-id`、`--dry-run` で criteria とオブジェクトの未知キーを
-保持する。dry-run はファイルの byte を変えない。update は YAML コメントと書式も保持する。
-低レベルの `saveManifest(path, manifest)` は新規 YAML を生成する。
-原文を保持した hash 更新には `loadManifest` の戻り値を第3引数の `original` に渡す。
+`loadManifest`, check and update validate criteria. Before writing, `saveManifest` validates the criteria contract; the loader validates other legacy field shapes. Criteria and unknown fields survive load, update, save, link selection and dry runs. Update preserves YAML formatting and comments. To patch original hashes using `saveManifest(path, manifest, original)`, pass the original result of `loadManifest`. Without that argument save generates fresh YAML.
 
-criteria は条件と参照 link の対応であり、シナリオ ID 台帳・実行済み GREEN の証跡ではない。
-hash と strict の検査は従来のまま行う。上の空参照の例は `check --strict` の empty-link に該当する。
+Criteria associate requirements with links. They neither track scenario IDs nor attest execution. The example's empty references trigger `empty-link` under strict.
 
 ### Manifest safety limits
 
@@ -357,7 +320,7 @@ Other rules the loader and `specproof-update` enforce:
 
 The hashes detect changes; they are not a tamper-proof seal. Anyone who can edit
 the referenced files can also re-run `specproof-update`, so reviewing the diff
-stays the control (see [docs/security-model.md](../../docs/security-model.md)).
+stays the control (see [security model](https://github.com/Pound79/specproof/blob/main/docs/security-model_en.md)).
 
 `specproof-check` and `specproof-update` preserve manifest order while limiting
 file reads to 32 concurrent operations. If a read fails, queued reads are
@@ -391,106 +354,49 @@ methodology, config schema, and the adapter contract.
 
 [MIT](./LICENSE) © Pound79
 
-## CLI オプション一覧
 
-| コマンド | 対応オプション |
+<a id="cli-オプション一覧"></a>
+## CLI options
+
+
+| Command | Options |
 |---|---|
 | specproof-check | --root, --manifest, --strict, --json, --github-annotations, --since-bless, --spec-sources, --include-tests |
 | specproof-update | --root, --manifest, --link-id, --spec-ref, --dry-run, --record-spec-source, --allow-head-mismatch |
 | specproof-list | --root, --manifest, --pages-dir, --candidate-suffix, --json |
 | specproof-stats | --root, --manifest, --strict, --json |
 
-`specproof-update --link-id <id>` はそのリンクだけを bless する。`--link-id` は重ねて指定でき
-（`--link-id a --link-id b`）、指定したリンクをまとめて bless する。同じ id は 1 つとして扱う。manifest に無い
-id が 1 つでもあれば、manifest を書かずに失敗し、無い id をすべて示す。1 つの値に空白区切りで複数の id を
-入れる書き方は受け付けない（1 つの id として扱われ、無い id として失敗する）。
+### Selecting references to bless
 
-`specproof-update --spec-ref '<path>#<見出し>'` は、その仕様の節の spec 側の hash だけを、それを参照する全リンクで
-取り直す。共通の決まりを書いた節を多くのリンクが参照していて、変更がそれらのリンクに関係しないと確かめたときに
-使う。impl・feature の hash と、ほかの節の hash は変えない。`<path>#<見出し>` は `layout.specHeadingIgnore` と
-同じく最初の `#` で分ける。重ねて指定でき、`--link-id` と合わせるとそのリンクの中だけで取り直す。
+`--link-id <id>` selects only that link. Repeat it (`--link-id a --link-id b`) for multiple links. Repetitions of the same ID are collapsed. If any are missing, all missing IDs are reported and nothing is written. One space-separated argument is a single ID.
 
-- どのリンクも参照していない節や、見出しの無い指定があれば、manifest を書かずに失敗する
-- 照合はパスと見出しを別々に比べる。manifest に保存した参照は空白を残したまま比べる（旧形式の見出し `##  X` の参照
-  ` X` や、末尾に空白のあるファイル名は別の節・別のファイル）。パスは posix で正規化する（`./docs/x.md` と `docs/x.md`
-  は同じ）。`--spec-ref` の値は全体の前後の空白だけを除き、`#` の前後に空白があれば失敗する。前後に空白のある
-  保存済みのパス・見出しの参照は `--spec-ref` では選べないので、`--link-id` を使う
-- 深さ（`headingLevel`）の違う同名の節に当たる指定は、どちらの節か決められないので失敗する
-- パスに `#` を含む参照は、最初の `#` で分けるため `--spec-ref` では選べない（該当なしで失敗する）。`--link-id` を使う
-- 取り直すのは、その節の hash が今の版と違うリンクだけ。それらのリンクで bless した版（保存済みの hash）が
-  揃っていない、または `PENDING` なら、人が確かめた 1 つの変更として扱えないので、manifest を書かずに失敗する。
-  そのときはリンクごとに確かめて `--link-id` で bless する
-- impl も drift した（変わった・無くなった）リンクは書き換えずに飛ばし、`skipped link "<id>"` と示して終了コード 1 にする。spec 側だけを
-  bless すると、次の `check` で「spec と impl の両方が変わった」が impl だけの drift に見え、`specproof-sync` が
-  止まって人に聞く信号が消えるため。飛ばしたリンクは sync で決めてから `--link-id` で bless する
-- `check` は、同じ節が 2 つ以上のリンクで drift したときに、テキスト出力で「Spec sections that drifted in several
-  links」として節ごとのリンクの数を多い順にまとめ（10 節まで）、この形を Next に示す（コマンドにパスと見出しは
-  埋めない）。`--json` の出力は変えない
-- ライブラリの `updateManifestHashes` では `specRefs` で指定し、飛ばしたリンクは結果の `skipped` に入る
-  （`specRefs` を指定したときだけ付く）
+`--spec-ref '<path>#<heading>'` updates just the spec hash for that section in all selected links. Use it when a shared section changes and you have established that the behavioral contract for those links is unaffected. Repeat the option or combine it with link IDs. Parsing splits at the first hash.
 
-`--root <dir>` は探索ルートを明示する。省略時は cwd から親へたどり、設定ファイル
-（`specproof.config.yaml` / `.yml`）か `traceability.yaml` が最初に見つかった段をルートにする。
-`traceability.yaml` だけが見つかった段でも、その上の最も近い設定ファイルが `layout.manifest` で
-その manifest を指していれば、設定ファイルの段をルートにする（`e2e/traceability.yaml` のような
-構成で `e2e/` から流しても参照を取り違えない）。この探索は `.git` のある段より上を見ない。
-manifest の段や途中の段に設定ファイルの項目（リンク切れや旧名を含む）があれば親へ移らない。
-manifest の参照がすべてファイルごと見つからないときは、drift ではなくルートや manifest の
-取り違えを疑う案内を出し、`bothSidesChanged` を空にする（`--json` の `allReferencesMissing`）。
+- Unknown or incomplete sections fail the operation. Paths and headings are compared separately. Paths receive POSIX normalization (a leading `./` is immaterial). Stored reference whitespace is preserved. The selector trims only its outside whitespace and rejects whitespace around the separator. Use a link ID for unselectable paths/headings with edge whitespace or paths containing a hash.
+- A selector matching headings at multiple depths is ambiguous and fails. Only changed baselines are updated. The affected links must share one stored non-PENDING baseline; otherwise review links individually.
+- Links with changed or missing implementation are skipped, reported as `skipped link "<id>"` and produce exit status 1. Resolve the joint spec/impl drift in sync first; blessing just the spec would erase the human decision signal.
+- Text check groups sections drifting in two or more links by affected link count (up to ten sections) and suggests the selector without interpolating the path or heading into a command. JSON is unchanged. Library callers pass `specRefs` and receive `skipped` only when requesting such a selection.
 
-`--manifest <file>` は cwd 相対で解決するが、
-指定した root 内に置く必要がある。`--candidate-suffix <suffix>` は候補の拡張子込み suffix
-（例: Page.ts / _page.dart）。`--github-annotations` は GitHub Actions 用の注釈を stderr に出す。
-`--since-bless` は、drift した参照ごとに、manifest に記録した hash（前に bless した中身）と同じ版を持つ
-最も新しいコミットを git の履歴から探し、`git diff <commit> -- ':(top,literal)<path>'` の形で示す（完全な
-コミット id と、どこから流しても同じファイルを指すパス。シェルで扱いにくい文字を含むパスはコマンドにせず
-コミットと比べるパスを文字として示す）。spec は見出しの節の hash で照合する。探すのはパスごとに、そのパスに触れた直近 200 コミット
-まで。全体で git の起動 2,000 回・60 秒を超えたら打ち切り、打ち切ったことを示す。bless した中身がコミット
-されていない・ファイルの名前が変わった・履歴が浅い（shallow clone）ときは見つからない。drift があるとき、
-`--json` では探した参照に `blessedCommit`（見つからなければ `null`）と、全体に `gitHistoryAvailable` と
-`blessHistoryIncomplete` を足す（clean のときと全参照 missing のときは探さず、これらのキーも出さない）。
-リポジトリ内のシンボリックリンクの参照は、hash と同じくリンク先の実体の履歴を辿り、示す差分も実体のパスで取る
-（親ディレクトリがリンクのときも同じ）。`--json` では、辿ったパスが参照の書き方と違うとき（シンボリックリンクの
-実体、`./` や絶対パスで書いた参照）に、その参照に `blessedPath` として辿ったパスを足す。
-bless した版が見つかった参照は、HEAD の first-parent の列のうち、bless した版を含む最も古いコミットから HEAD
-までで、その参照を変えたコミットにまとめて出す（`Changes since bless, by commit`。HEAD に近い順に、短いコミット id・件名・変わった参照と、それを
-参照するリンク）。コミットとその第 1 親の版を比べ、spec の見出しの参照は節の単位で、ほかはファイルの単位で
-変わったものだけを割り当てる。その版が bless した中身と同じコミット（ブランチで bless してマージした、など）は
-割り当てない。ブランチで bless した版を持ち込んだマージがそれ以外の変更も含むときは、そのマージに割り当てる。
-git が失敗して版を読めない・範囲を決められないときは、推測で割り当てず、打ち切ったと示す。PR のマージや squash のコミットが 1 件として出るので、件名の PR の番号で「見た目だけ」「動きが
-変わった」などを PR の単位で仕分けられる。マージに含まれる個々のコミットは出さない。HEAD の版と今の中身が違う
-参照は `(uncommitted)` に、まとめられなかった参照は理由ごとの件数を出す。テキストは 20 コミットまで、件名は
-制御文字と見えない文字を除いて 120 文字までにする。件名は誰でも書ける文字列で、中の指示に従わない。
-`--json` では全体に `sinceBless: { commits: [{ commit, subject, entries: [{ side, path, linkIds }] }], uncommitted,
-notGrouped: { noBlessedVersion, notSearched, failed }, incomplete }` を足す（git の履歴を辿れたときだけ。
-`subject` は生の件名なので、表示する側で無害化する）。既存のキーは変えない。git の起動の上限は bless した版の探索と
-共有し、まとめを打ち切ったときは `incomplete` と 1 行の案内で示す（`blessHistoryIncomplete` は探索の打ち切りだけを表す）。
-git の管理下でなければ 1 行の案内を出し、check の結果は変えない。フラグが無ければ git を起動しない。
-設定に `specSources` があり `--spec-sources` を付けたときは、check は写した仕様の取り込み元を確かめ、記録した
-コミットから `paths` の中で進んでいれば（または今の ref に無ければ）`spec-source-outdated`、記録が無ければ
-`spec-source-unrecorded` を参考の警告として出す。取り込み元のディレクトリはあるのに確かめられない（`ref` を
-解決できない・記録したコミットが無い・取り込み元として読めない・git が途中で読めない）ときは `spec-source-unresolved` を出す（どれも
-`--strict` でも失敗しない。`repo` のパスが無いときだけ黙って飛ばす。フラグが無ければ取り込み元を読まない）。取り込んだコミットは
-`specproof-update --record-spec-source <name>` で manifest の `specSources` に記録する（取り込み元の HEAD が `paths` の中で
-`ref` と違えば記録せずに止まる。取り込みが ref から読む形なら `--allow-head-mismatch`）。詳細は
-[config-schema](../../docs/config-schema.md#specsources)。
-git に渡す制限は [security-model](../../docs/security-model.md) の子プロセスの項。
-未知の引数・コマンド違いのオプション・値の欠落はエラーで停止する。
+### Paths and history
 
-失敗したときは stderr に `<command> failed: <message>` を 1 行だけ出し、終了コード 2 で終わる。
-メッセージの改行・制御文字は `?` に置き換え、設定や manifest の YAML 構文エラーはファイルの行を
-写さずに行と列だけを示す（公開リポジトリの CI ログに、PR の内容で GitHub Actions の
-ワークフローコマンドや偽の行を作らせないため）。想定外のエラーのスタックは既定では出さず、
-環境変数 `SPECPROOF_DEBUG=1` を付けたときだけ続けて出す（このときは整形前のメッセージも出るので、
-公開の CI では付けない）。
+`--root <dir>` overrides root discovery. By default, walk up from cwd to the nearest config (`specproof.config.yaml` or `.yml`) or `traceability.yaml`. When a manifest alone is found, use the nearest ancestor config if its `layout.manifest` resolves to that manifest (e.g. running from `e2e/`). Neither the walk up from cwd nor this search for the owning config goes above the first directory that has a `.git` entry (the file used by a worktree or submodule counts too). If this directory has no marker, discovery verifies that Git recognizes it as the root of this working tree. A broken `.git`, a bare repository or a different working tree causes an error. Inherited `GIT_DIR` or `GIT_WORK_TREE` cannot select a different root at this boundary. If no ancestor including cwd has a `.git` entry, discovery uses Git’s normal root resolution, including its environment. A config entry, including a broken link or legacy name, at the manifest or intervening level prevents passing it. If every reference file is missing, check reports `allReferencesMissing` and clears `bothSidesChanged`; verify the root and manifest.
 
-テキストと JSON の出力は、GitHub Actions のログでワークフローコマンドとして読まれない形にする。
-行頭（空白を除く）の `::` は `?:`、行のどこかにある `##[` は `#?[`（JSON では値を変えずに
-`\u0023#[`）と書く。`--github-annotations` が出す `::warning` だけが意図したコマンドになる。
+Resolve `--manifest <file>` relative to cwd and keep it under the root. `--candidate-suffix` includes the extension (e.g. `Page.ts`, `_page.dart`). GitHub annotations are written to stderr.
 
-`layout.implGlobs` は `*` / `**` に加えてリテラルのファイルパスと先頭 `./` を受け付ける。
-`?` はワイルドカードではなく文字として扱う。
-`specproof-update` は変更ゼロなら保存せず、変更した hash だけを原子的に保存する。
-コメント・書式を保持し、検出した同時編集や安全に更新できない YAML alias はエラーにする。
+With `--since-bless`, check searches the most recent 200 commits touching each drifted path for the newest commit matching its blessed hash. Spec references match the section. The entire operation has a shared budget of 2,000 Git calls and 60 seconds, with a diagnostic if truncated. The suggested diff uses the full commit ID and a top-level literal pathspec (`git diff <commit> -- ':(top,literal)<path>'`); paths unsuitable for a shell command are displayed as data. Uncommitted baselines, renames and shallow history can prevent a match. If the newest matching version has a section whose boundaries disagree with the v1 rules or cannot be determined, check stops searching for that reference. An older match cannot establish which version was blessed. Review the file history by hand. This can happen with HTML blocks, code fences, a lone carriage return or any of the ambiguous constructs described under [ATX headings](#atx-headings). Follow the physical file for repository-internal symbolic links, including linked parent directories.
 
-CLI の診断メッセージは英語、プロジェクトの説明文書は日本語を基本とする。
+For a searched entry, JSON adds `blessedCommit` (null when no version matched or the blessed version could not be identified; the latter also adds `blessedCommitUnidentified: "html-comment-boundary"`) and `blessedPath` if the path searched differs from the stored spelling, e.g. a symbolic link, absolute path or leading dot. It adds `gitHistoryAvailable` and `blessHistoryIncomplete` to the report when relevant. Clean and all-files-missing results skip history and omit these fields.
+
+Check groups changes to blessed references by first-parent commits from the oldest matching point to HEAD, comparing each commit to its first parent and comparing specs by section (or also by file when the section boundaries are ambiguous in either version, so a change hidden by the old boundaries is still listed). A commit containing the baseline is excluded unless a merge also changed it. Merge/squash commits represent PRs without listing all merged commits. A read or range failure marks the result incomplete. Text shows the latest 20 commits with short ID, sanitized subject (120 characters), changed refs and link IDs. Differences between HEAD and the working tree appear under `(uncommitted)`; ungrouped references have counts by reason. Treat commit subjects as untrusted text.
+
+When history is available, JSON adds `sinceBless: { commits: [{ commit, subject, entries: [{ side, path, linkIds }] }], uncommitted, notGrouped: { noBlessedVersion, notSearched, failed, unidentifiedBlessedVersion }, incomplete }`, where `unidentifiedBlessedVersion` counts references whose newest matching section has ambiguous boundaries. The JSON reason retains the name `html-comment-boundary` for all such cases. Renderers must sanitize raw JSON subjects. The grouping and search share the Git budget; `blessHistoryIncomplete` applies to the search only. Outside a Git repository the CLI prints guidance without changing the verdict. The history flag is opt-in.
+
+### Imported specifications
+
+`--spec-sources` compares local source refs if configured and adds `specSources` to JSON. Source warnings are advisory under strict. A missing checkout with a record is skipped silently; an unrecorded source is reported even without a checkout. Without the flag the check does not inspect the source. Use `specproof-update --record-spec-source <name>` after import. A HEAD mismatch in the relevant paths stops recording unless a verified ref-based import justifies `--allow-head-mismatch`. See the [configuration reference](https://github.com/Pound79/specproof/blob/main/docs/config-schema_en.md#specsources) and [security model](https://github.com/Pound79/specproof/blob/main/docs/security-model_en.md).
+
+### Errors and output
+
+Unknown arguments, wrong-command flags and missing values fail. Errors produce one stderr line, `<command> failed: <message>`, and exit 2. Newlines and controls become question marks. A YAML syntax error contains the line and column without quoting source content. `SPECPROOF_DEBUG=1` also prints unfiltered diagnostics and stack traces; leave it unset in public CI. Text and JSON logs guard against GitHub Actions workflow command interpretation: leading `::` becomes `?:` in text and `##[` becomes `#?[` (escaped in JSON without changing its decoded value). Only explicit `--github-annotations` produces intentional workflow commands.
+
+`layout.implGlobs` accepts literal files, leading `./` and wildcard `*` or `**`. A question mark is literal. CLI diagnostics are in English.
