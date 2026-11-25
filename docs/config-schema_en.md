@@ -59,7 +59,7 @@ Map fixture names to page-object files under `fixtures` when the skills generate
 | Block | Requirement and keys |
 |---|---|
 | `runner` | Optional Playwright settings: `device` (default `Desktop Chrome`), `webServerCommand`, `globalTeardown`, `i18nLocaleStorageKey`. |
-| `tags` | Declare canonical slow/generate/admin/user tags. Fixed state tags need no aliases. A config with `tags.fixme` or `tags.skip` is rejected. |
+| `tags` | Declare canonical slow/generate/admin/user tags. Fixed state tags need no aliases. A config with `tags.fixme` or `tags.skip` is rejected. `tags.slow` (default `@slow`) is the single tag smoke excludes; it cannot be a state tag. Playwright's `test:smoke` detects smoke through the environment variable `SPECPROOF_SMOKE=1` and excludes `tags.slow` in the tag expression; to get the smoke exclusion when launching `bddgen` and `playwright` directly rather than through the npm script, set `SPECPROOF_SMOKE=1` for both, because the exclusion also applies at generation time. Accepted values differ by adapter. Flutter (`tool/smoke.dart` validates `^@\w[^@()&\s\\]*$`) accepts only a tag whose first character after `@` is an ASCII letter, digit or `_`, with no `&`, parentheses, whitespace, second `@` or backslash. Playwright rejects a tag containing whitespace, parentheses, a second `@` or a backslash. For example, `@長時間` works with Playwright but not with Flutter. |
 | `projects[]` | Declare runner profiles with `name`, `tags`, optional `features` selection and `conditional`. Playwright also reads `storageState`, `setup` and `credentialsEnv` (`username`, `password`, `newPassword`). Tag expressions must have balanced parentheses and must leave state tags alone. |
 | `env` | Logical environment variable names. Declare `baseUrl`. `adminUsername` can control the authed-admin profile. |
 | `environments[]` | Declare at least one runtime environment. See [environments](#environments). |
@@ -169,7 +169,7 @@ environments:
     excludeTags: ["@destructive"]
 ```
 
-Runtime environment, authentication role and scenario attributes form three independent selections. Environment exclusions can omit a tag such as `@google-auth`, and project conditions can disable an admin role when a variable is absent. Every filter must allow a scenario for it to run. Runners always exclude `@draft`, `@human` and `@out-of-scope`. Ordinary selections (project tags such as `@admin`, CLI `--grep`, smoke's `--grep-invert @slow`) still apply to `@red-contract`. A pending human condition remains pending and outside E2E. State tags or unbalanced parentheses in Playwright project tags or Flutter's `SPECPROOF_TAGS` are rejected. Never pass `--grep-invert @red-contract`.
+Runtime environment, authentication role and scenario attributes form three independent selections. Environment exclusions can omit a tag such as `@google-auth`, and project conditions can disable an admin role when a variable is absent. Every filter must allow a scenario for it to run. Runners always exclude `@draft`, `@human` and `@out-of-scope`. Ordinary selections (project tags such as `@admin`, CLI `--grep`, smoke's exclusion of the configured `tags.slow` tag) still apply to `@red-contract`. A pending human condition remains pending and outside E2E. State tags or unbalanced parentheses in Playwright project tags or Flutter's `SPECPROOF_TAGS` are rejected. Never pass `--grep-invert @red-contract`.
 
 ## Why these fields exist
 
