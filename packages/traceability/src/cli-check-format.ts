@@ -293,7 +293,7 @@ export const describeBlessedCommit = (
   if (commit === undefined) return undefined;
   if (commit === null && unidentified === "html-comment-boundary") {
     return printable(
-      `blessed version: cannot be identified — in the matching commit(s), an HTML comment hides heading or fence lines, so section ${JSON.stringify(entry.heading ?? "")} hashes the same even where the text after the comment changed. Review the history of ${JSON.stringify(searchedPath)} by hand (for example with git log -p) to find what changed since bless.`,
+      `blessed version: cannot be identified — in the matching commit(s), an HTML comment or another construct that Markdown parsers may read differently (such as another HTML block, a code fence, a lone carriage return or a control character) makes its boundary ambiguous, so section ${JSON.stringify(entry.heading ?? "")} hashes the same even where the text after it changed. Review the history of ${JSON.stringify(searchedPath)} by hand (for example with git log -p) to find what changed since bless.`,
     );
   }
   if (commit === null) {
