@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
 import { test } from "node:test";
 import { parse } from "yaml";
 import * as baseUrlGuard from "../templates/playwright/src/config/base-url-guard.ts";
@@ -29,9 +30,10 @@ const withSmokeEnv = (values, run) => {
 
 // ライブラリへの引数を観測し、テンプレートが実際に選んだ feature・タグ・認証状態を確認する。
 // dotenv は読み込まず、ライブラリ境界以外は同梱の設定処理を使う。
-const buildProjects = (config, env = {}) => withSmokeEnv(env, () => buildProjectsInCurrentEnv(config));
-const buildProjectsInCurrentEnv = (config) => {
-  const source = stripTypeScriptTypes(read("templates/playwright/playwright.config.ts"));
+const buildProjects = (config, env = {}, edit = (source) => source) =>
+  withSmokeEnv(env, () => buildProjectsInCurrentEnv(config, edit));
+const buildProjectsInCurrentEnv = (config, edit) => {
+  const source = stripTypeScriptTypes(edit(read("templates/playwright/playwright.config.ts")));
   const script = source
     .replace(
       /import\s*\{([^}]+)\}\s*from\s*"([^"]+)";/g,
@@ -80,6 +82,44 @@ test("smoke と通常実行が project ごとに独立した生成先を使う",
   const smokeDirs = smoke.map((p) => p.outputDir);
   for (const dir of smokeDirs) assert.match(dir ?? "", /^\.features-gen-smoke\/[^/]+$/);
   assert.equal(new Set(smokeDirs).size, smoke.length);
+});
+
+test("smoke は各 project の通常実行と同じ既存 snapshot を照合する", () => {
+  const template = templateConfig();
+  const guest = template.projects.find((p) => p.name === "guest");
+  const cfg = { ...template, projects: [guest, { ...guest, name: "profiles/reader" }] };
+  const smoke = buildProjects(cfg, { SPECPROOF_SMOKE: "1" }).filter((p) => p.features);
+  const full = buildProjects(cfg).filter((p) => p.features);
+  for (const regular of full) {
+    const filtered = smoke.find((p) => p.name === regular.name);
+    // playwright-bdd の既定の生成先であり、Playwright が置いた既存の比較元がある。
+    const existing = path.join(".features-gen", regular.name);
+    assert.equal(regular.snapshotDir ?? regular.outputDir ?? existing, existing);
+    // snapshotDir が無指定なら Playwright は testDir（BDD の生成先）を使う。
+    assert.equal(filtered.snapshotDir ?? filtered.outputDir, existing);
+  }
+});
+
+test("smoke の snapshot は project 名を正規化して通常の生成先内に置く", () => {
+  const cfg = templateConfig();
+  const guest = cfg.projects.find((p) => p.name === "guest");
+  const project = (name) => buildProjects(
+    { ...cfg, projects: [{ ...guest, name }] },
+    { SPECPROOF_SMOKE: "1" },
+  )[0];
+  assert.equal(project("teams/mobile/../reader").snapshotDir, path.join(".features-gen", "teams", "reader"));
+  assert.equal(project("/teams/reader").snapshotDir, path.join(".features-gen", "teams", "reader"));
+  assert.throws(() => project("../other"), /project.*name.*\.features-gen/);
+});
+
+test("smoke は Playwright 設定の snapshotDir を project、全体の順で引き継ぐ", () => {
+  const configure = (source) => source
+    .replace("  globalTeardown:", '  snapshotDir: "shared-baselines",\n  globalTeardown:')
+    .replace("      use: {", '      ...(p.name === "guest" ? { snapshotDir: "guest-baselines" } : {}),\n      use: {');
+  const projects = buildProjects(templateConfig(), { SPECPROOF_SMOKE: "1" }, configure);
+  assert.equal(projects.find((p) => p.name === "guest").snapshotDir, "guest-baselines");
+  // project に独自値がなければ Playwright が全体の設定を採用する。
+  assert.equal(projects.find((p) => p.name === "authed").snapshotDir, undefined);
 });
 
 test("smoke かどうかは npm のスクリプト名でなく SPECPROOF_SMOKE で決める", () => {

@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/test";
 import { defineBddProject } from "playwright-bdd";
 import {
   loadSpecproofConfig,
@@ -6,6 +6,7 @@ import {
   resolveActiveEnvironment,
   runnerExclusions,
   isSmokeRun,
+  withRegularSnapshots,
 } from "./src/config/specproof-config";
 import {
   loadDotenv,
@@ -188,7 +189,7 @@ if (usesCredentials) assertSecureBaseUrl(resolveBaseUrl(cfg), activeEnv);
 // Export
 // ---------------------------------------------------------------------------
 
-export default defineConfig({
+const config: PlaywrightTestConfig = {
   globalTeardown: cfg.runner?.globalTeardown,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -212,4 +213,8 @@ export default defineConfig({
   },
   projects: [...setupProject, ...appProjects],
   webServer,
-});
+};
+
+export default defineConfig(
+  smoke ? withRegularSnapshots(config, new Set(appProjects.map((p) => p.name))) : config,
+);
