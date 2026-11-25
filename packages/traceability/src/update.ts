@@ -6,6 +6,7 @@ import {
   isSentinel,
   PENDING_HASH,
   SECTION_MISSING,
+  withSectionScanCache,
 } from "./hash.js";
 import {
   loadManifest,
@@ -49,7 +50,12 @@ const refreshSpecRef = async (
   runLimited: RunTaskLimited,
 ): Promise<RefreshResult<SpecRef>> => {
   const hash = await runLimited(() =>
-    computeHeadingSectionHash(resolveWithinRoot(repoRoot, ref.path), ref.heading, ref.headingLevel),
+    computeHeadingSectionHash(
+      resolveWithinRoot(repoRoot, ref.path),
+      ref.heading,
+      ref.headingLevel,
+      linkId,
+    ),
   );
   if (hash === FILE_MISSING || hash === SECTION_MISSING) {
     throw new Error(
@@ -323,10 +329,20 @@ export interface UpdateResult extends TraceabilityManifest {
   skipped?: UpdateSkip[];
 }
 
-export const updateManifestHashes = async (
+// 同じ spec を参照するリンクが多くても、中身ごとの走査は実行の間だけ使い回す。
+export const updateManifestHashes = (
   requestedManifestPath: string,
   repoRoot: string,
   options: UpdateOptions = {},
+): Promise<UpdateResult> =>
+  withSectionScanCache(() =>
+    updateManifestHashesUncached(requestedManifestPath, repoRoot, options),
+  );
+
+const updateManifestHashesUncached = async (
+  requestedManifestPath: string,
+  repoRoot: string,
+  options: UpdateOptions,
 ): Promise<UpdateResult> => {
   // saveManifest は最終要素のリンクを辿って書くため、公開 API の入口でも
   // manifest とそのリンク先が repo 内にあることを確かめる（相対パスは従来どおり cwd 基準）。

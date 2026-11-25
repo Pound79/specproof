@@ -1,6 +1,22 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { readRegularFile } from "./bounded-read.js";
+import { boundaryError, uncertaintyError, type HeadingSectionSource } from "./section-errors.js";
+import {
+  scansOf,
+  sectionBoundaries,
+  visibleHeadingCandidates,
+  type HeadingCandidate,
+  type SectionRange,
+} from "./section-scan.js";
+
+export {
+  resolveHeadingReference,
+  withSectionScanCache,
+  type Heading,
+  type HeadingCandidate,
+} from "./section-scan.js";
+export type { HeadingSectionSource } from "./section-errors.js";
 
 // Sentinel hash values. They can never collide with a hex sha256 digest,
 // so a stored sentinel vs computed digest (or vice versa) always reads as drift.
@@ -97,147 +113,23 @@ export const hasDraftMarker = async (absPath: string): Promise<boolean> => {
   return content !== null && containsDraftMarker(content);
 };
 
-// A markdown fenced-code delimiter per CommonMark §4.5: 0-3 leading spaces,
-// then a run of 3+ backticks or 3+ tildes. `char` is the fence character and
-// `len` its run length; `bare` is true when nothing but whitespace follows
-// (an info string is allowed on the opening fence but not the closing one).
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-
-// 行は LF で分けるので、単独の CR と U+2028・U+2029 は行に残りうる。正規表現の `.` はこの 3 文字に
-// 一致せず、含む行は下の正規表現に一致しない（区切りでも見出しでもない）。照合すると後戻りで二乗の
-// 時間がかかるので、照合の前に同じ結果を返す。
-const hasLineTerminator = (line: string): boolean => /[\r\u2028\u2029]/.test(line);
-
-const parseFence = (line: string): { char: string; len: number; bare: boolean } | null => {
-  if (hasLineTerminator(line)) return null;
-  const match = line.match(FENCE_RE);
-  if (match === null) {
-    return null;
-  }
-  const run = match[1];
-  return { char: run[0], len: run.length, bare: match[2].trim() === "" };
-};
-
-const isSpaceOrTab = (char: string | undefined): boolean => char === " " || char === "\t";
-
-// CommonMark の閉じの # の並び（前が空白か行頭で、後ろは空白だけ）を外す。正規表現で書くと
-// 空白の長い並びで二乗の時間がかかる（PR の作者が書ける見出しで CI を止められる）ので、
-// 末尾から 1 回だけ走査する。
-const stripClosingSequence = (text: string): string => {
-  let end = text.length;
-  while (end > 0 && isSpaceOrTab(text[end - 1])) end -= 1;
-  let start = end;
-  while (start > 0 && text[start - 1] === "#") start -= 1;
-  const isClosing = start < end && (start === 0 || isSpaceOrTab(text[start - 1]));
-  return text.slice(0, isClosing ? start : end);
-};
-
-// CommonMark ATX: 0-3 spaces, 1-6 #, whitespace or EOL, optional closing #.
-const parseHeading = (line: string): { level: number; text: string } | null => {
-  if (hasLineTerminator(line)) return null;
-  const match = line.match(/^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/);
-  if (!match) return null;
-  return {
-    level: match[1].length,
-    text: stripClosingSequence(match[2] ?? "").trim(),
-  };
-};
-
-const headingLevelOf = (line: string): number | null => parseHeading(line)?.level ?? null;
-
-// One entry per line for `lines`: true when that line sits inside (or is
-// itself a delimiter of) a CommonMark fenced code block, matched per the same
-// same-character/length-or-greater rule as computeHeadingSectionHash. Shared
-// by computeHeadingSectionHash and listHeadings so both treat a `#`-prefixed
-// line inside a fence identically (neither ends a section nor counts as a
-// heading).
-const fencedLineMask = (lines: string[]): boolean[] => {
-  const mask: boolean[] = [];
-  let openFence: { char: string; len: number } | null = null;
-  for (const line of lines) {
-    const fence = parseFence(line);
-    if (openFence !== null) {
-      mask.push(true);
-      const closesFence =
-        fence !== null && fence.char === openFence.char && fence.len >= openFence.len && fence.bare;
-      if (closesFence) {
-        openFence = null;
-      }
-      continue;
-    }
-    if (fence !== null) {
-      openFence = { char: fence.char, len: fence.len };
-      mask.push(true);
-      continue;
-    }
-    mask.push(false);
-  }
-  return mask;
-};
-
 const assertValidLevel = (fn: string, level: number): void => {
   if (!Number.isInteger(level) || level < 1 || level > 6) {
     throw new Error(`${fn}: level must be an integer in 1-6 (got ${level})`);
   }
 };
 
-export interface Heading {
-  /** 1-based line number of the heading line. */
-  line: number;
-  /** ATX の前後の空白と任意の閉じ # を除いた見出し本文。 */
-  text: string;
-}
-
-export interface HeadingCandidate extends Heading {
-  /** 旧 API が発見できた行だけ、その API が返した参照名を保持する。 */
-  legacyText?: string;
-}
-
-// Every ATX heading of exactly `level` in `content`, in document order,
-// skipping fenced code blocks. Used by check.ts to enumerate a spec doc's
-// headings for unregistered-heading and duplicate-heading detection — the
-// same "what heading does this line spell" logic computeHeadingSectionHash
-// uses to find its target section, generalized to every match instead of the
-// first.
-const collectHeadingCandidates = (
-  lines: string[],
-  level: number,
-  fenced: boolean[],
-): HeadingCandidate[] => {
-  const headings: HeadingCandidate[] = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    if (fenced[index]) {
-      continue;
-    }
-    const line = lines[index];
-    const parsed = parseHeading(line);
-    if (parsed?.level === level) {
-      const legacyText = line.startsWith(`${"#".repeat(level)} `)
-        ? line.trimEnd().slice(level + 1)
-        : undefined;
-      headings.push({ line: index + 1, text: parsed.text, legacyText });
-    }
-  }
-  return headings;
-};
-
+// Every ATX heading of exactly `level` in `content`, in document order, as CommonMark shows it:
+// headings in fenced code (including fences in list items) and in HTML blocks are skipped, and a
+// lone carriage return starts a new line. Used by check.ts to enumerate a spec doc's headings for
+// unregistered-heading and duplicate-heading detection.
 export const listHeadingCandidates = (content: string, level: number): HeadingCandidate[] => {
   assertValidLevel("listHeadings", level);
-  const lines = content.split("\n");
-  return collectHeadingCandidates(lines, level, fencedLineMask(lines));
+  return visibleHeadingCandidates(scansOf(content), level);
 };
 
-export const listHeadings = (content: string, level: number): Heading[] =>
+export const listHeadings = (content: string, level: number) =>
   listHeadingCandidates(content, level).map(({ line, text }) => ({ line, text }));
-
-// 旧 raw 名と別の canonical 名が衝突しても、保存済み参照を別の節へ移さない。
-// 文書全体の旧完全一致を優先し、無い場合だけ現在の正規化名を照合する。
-export const resolveHeadingReference = (
-  headings: HeadingCandidate[],
-  reference: string,
-): HeadingCandidate | undefined =>
-  headings.find((heading) => heading.legacyText === reference) ??
-  headings.find((heading) => heading.text === reference);
 
 // Extracts the markdown block from the `<level> <heading>` line (default level
 // 2 = `## `) up to (but not including) the next heading of level <= `level`,
@@ -262,6 +154,8 @@ export const computeHeadingSectionHash = async (
   absPath: string,
   heading: string,
   level = 2,
+  /** エラー文に添える、この参照を登録したリンクの id。 */
+  linkId?: string,
 ): Promise<string> => {
   if (!Number.isInteger(level) || level < 1 || level > 6) {
     throw new Error(`computeHeadingSectionHash: level must be an integer in 1-6 (got ${level})`);
@@ -270,32 +164,47 @@ export const computeHeadingSectionHash = async (
   if (content === null) {
     return FILE_MISSING;
   }
-  return hashHeadingSectionContent(content, heading, level);
+  return hashHeadingSectionContent(content, heading, level, {
+    file: path.basename(absPath),
+    linkId,
+  });
 };
 
-// computeHeadingSectionHash の本体。ファイル以外（git の過去の版など）の中身にも同じ規則で当てる。
-// 中身は normalizeSourceContent を通したものを渡す。
-export const hashHeadingSectionContent = (content: string, heading: string, level = 2): string => {
-  const lines = content.split("\n");
-  const fenced = fencedLineMask(lines);
+const hashRange = (lines: string[], range: SectionRange | undefined): string =>
+  range === undefined ? SECTION_MISSING : sha256(lines.slice(range.start, range.end).join("\n"));
 
-  const target = resolveHeadingReference(collectHeadingCandidates(lines, level, fenced), heading);
-  if (target === undefined) {
-    return SECTION_MISSING;
+/** 過去のコミットとの照合用。保存済みの v1 の値と比べる hash と、その版で節の境界が HTML ブロックなどで曖昧か。 */
+export interface HistoricalV1Section {
+  hash: string;
+  ambiguous: boolean;
+}
+
+// 過去のコミットとの照合専用。保存済みの v1 の値は、その時点の v1 の規則で辿る。境界が曖昧な版（表示上の
+// 規則で範囲が変わるか、読み方を決めきれない）は、ブロックの後ろの本文が変わっても同じ hash になりうる
+// ので、照合した側で起点に使わない。新規の bless や作業ツリーの clean 判定には使わない。
+export const inspectHistoricalV1Section = (
+  content: string,
+  heading: string,
+  level: number,
+): HistoricalV1Section => {
+  const scans = scansOf(content);
+  const { original, failure } = sectionBoundaries(scans, heading, level);
+  return { hash: hashRange(scans.lines, original), ambiguous: failure !== undefined };
+};
+
+// v1 の hash の意味を変えず、表示上の規則（CommonMark と、読み方の違う方言）で登録節の範囲が変わる入力と、
+// 範囲に掛かる行の読み方を決めきれない入力だけを拒否する。
+export const hashHeadingSectionContent = (
+  content: string,
+  heading: string,
+  level = 2,
+  source: HeadingSectionSource = {},
+): string => {
+  const scans = scansOf(content);
+  const { original, failure } = sectionBoundaries(scans, heading, level);
+  if (failure?.reason === "uncertain") throw uncertaintyError(heading, failure, source);
+  if (failure !== undefined) {
+    throw boundaryError(heading, level, scans, original, failure, source);
   }
-  const start = target.line - 1;
-
-  for (let index = start + 1; index < lines.length; index += 1) {
-    if (fenced[index]) {
-      continue;
-    }
-    const line = lines[index];
-
-    const lineLevel = headingLevelOf(line);
-    if (lineLevel !== null && lineLevel <= level) {
-      return sha256(lines.slice(start, index).join("\n"));
-    }
-  }
-
-  return sha256(lines.slice(start).join("\n"));
+  return hashRange(scans.lines, original);
 };
