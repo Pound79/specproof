@@ -6,6 +6,8 @@ Scaffolder CLI for [**specproof**](https://github.com/Pound79/specproof): drops 
 config-driven BDD behavior-test scaffold into your repository, wired to a single
 `specproof.config.yaml`.
 
+English | [日本語](https://github.com/Pound79/specproof/blob/main/cli/README_ja.md)
+
 ## Usage
 
 > **Recommended**: if you use an AI coding agent
@@ -32,31 +34,11 @@ npx @pound79/specproof detect --json
 
 Requires Node.js **>= 24**.
 
-配置先に空白や引用符を含める場合は、CLI に渡す `--dir` の値を shell で引用する。
-生成設定は YAML と shell の両方に合わせて引用し、ディレクトリ名をコマンドとして実行しない。
-制御文字を含む配置先は、ファイルを書き込む前に拒否する。
+Quote paths containing spaces or quotes in your shell, for example `--dir 'e2e tests'`. The CLI quotes generated YAML and shell commands and rejects control characters before writing.
 
-```bash
-npx @pound79/specproof init --adapter playwright --dir 'e2e tests'
-```
+Both `init` and `setup-agent` reject destination symlinks, including with `--force`. When overwriting, they reject multiply hard-linked files regardless of where the other links reside. Concurrent path replacement by another process is outside this guarantee. On a write failure, `init` removes the files it created and restores the contents and permissions of overwritten files. It removes only newly created empty directories, rechecks paths before rollback, and reports any file replaced by another process that it could not restore.
 
-`init` / `setup-agent` は、配置先の symlink を `--force` でも拒否する。複数の
-hardlink を持つ既存ファイルは、`--force` で上書きする時に拒否する（上書きしない
-ファイルは従来どおり skip する）。hardlink の共有先がリポジトリ内か外かは判別せず、
-共有ファイルを上書きしない。別プロセスによる検査後のパス差し替えには排他を保証しない。
-書き込みの途中で失敗した `init` は、その実行で作ったファイルを消し、`--force` で上書きしたファイルを
-元の内容と権限に戻してから止まる（作ったディレクトリは空になったものだけを消す）。取り消しの前に
-パスの安全の検査をやり直し、別のプロセスが置き換えたファイルには触らず、戻せなかったものとして示す。
-
-配置先に `.gitignore` が既にあると、`init` はそれを書き換えない（`--force` のときだけ雛形で上書きする）。
-その代わり、雛形の `.gitignore` にある秘密と実行結果の除外（playwright は `.env`・`.env.*`・`.npmrc`・
-`playwright/.auth`・`test-results`・`playwright-report`、flutter は `.env`・`.env.*`・`.npmrc`）のうち、
-既存のファイルで除外されていない行を警告として stderr に並べる。比べるのは行の文字列で、末尾の空白と
-先頭の `/` を無視し、後の行の否定（`!.env` など）は前の除外を打ち消すとみなす。末尾の `/` はディレクトリの
-項目（`test-results/` など）では同じとみなし、ファイルの項目（`.env/` など）では除外とみなさない。
-`.env*` のような同等のパターンや親ディレクトリの `.gitignore` での除外は判定しないので、
-警告に出た行は実際に追跡されうるかを確かめてから足す。既存の `.gitignore` が通常のファイルでない・1 MiB を超える・
-読めないときは、`init` を止めず、どの除外も無いものとして警告する。
+An existing `.gitignore` is preserved unless you use `--force`. The CLI warns on stderr about missing template exclusions for credentials and test output. Both adapters check `.env`, `.env.*` and `.npmrc`; Playwright also checks `playwright/.auth`, `test-results` and `playwright-report`. Comparison ignores trailing spaces and an initial slash. A later negation cancels an earlier exclusion. A trailing slash matches a directory entry, but `.env/` does not exclude a file. Equivalent globs and parent ignore files may already protect the path, so check before adding a rule. If the existing file is unreadable, is not regular or exceeds 1 MiB, initialization continues and reports all required exclusions as missing.
 
 ## Commands
 

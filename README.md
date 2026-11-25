@@ -131,10 +131,11 @@ it deterministically with SHA-256 hashes -- no AI involved:
 
 ```bash
 npx -y -p @pound79/specproof-traceability specproof-check   # detect drift
-npx -y -p @pound79/specproof-traceability specproof-update  # bless hashes
 npx -y -p @pound79/specproof-traceability specproof-list    # registered domains + untracked pages
 npx -y -p @pound79/specproof-traceability specproof-stats   # scenario census
 ```
+
+After reviewing a changed link, run `npx -y -p @pound79/specproof-traceability specproof-update --link-id <id> --dry-run` to inspect its hashes. Remove `--dry-run` to record the reviewed baseline.
 
 Install it as a dev dependency for shorter commands:
 
@@ -172,7 +173,7 @@ specproof separates concerns into three layers:
 
 | Term | Meaning |
 |------|---------|
-| **Spec** | An authoritative `##`-heading section in an in-repo markdown file. |
+| **Spec** | An authoritative heading section (levels 1–6 via `headingLevel`, default 2) in an in-repo markdown file. |
 | **Feature** | A black-box Gherkin `.feature` describing *observable* behavior only. |
 | **Drift** | A deterministic SHA-256 diff between the blessed baseline and the current state. |
 | **Bless** | Marking the current spec/impl/feature state as the known-good baseline. |
@@ -186,7 +187,7 @@ See [`CONTEXT.md`](./CONTEXT.md) for the full glossary.
   standard: [Claude Code](https://www.anthropic.com/claude-code),
   [Codex](https://openai.com/index/introducing-codex/), or others.
 - Node.js **>= 24** (see `.nvmrc`).
-- Specs live as in-repo markdown `##` headings. External tools (Notion,
+- Specs live under in-repo Markdown headings (default level 2). External tools (Notion,
   Confluence) are not supported for drift tracking.
 
 ## Contributing & license

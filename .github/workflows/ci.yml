@@ -121,11 +121,11 @@ jobs:
       # neither of which exist in this synthetic consumer repo.
       - name: Run commands.generate from the consumer repo root
         working-directory: ${{ runner.temp }}/scaffold-consumer
-        run: cd packages/e2e && npm run bddgen
+        run: node "$GITHUB_WORKSPACE/scripts/run-scaffold-ci-command.mjs" generate
 
       - name: Run commands.typecheck from the consumer repo root
         working-directory: ${{ runner.temp }}/scaffold-consumer
-        run: cd packages/e2e && npm run typecheck
+        run: node "$GITHUB_WORKSPACE/scripts/run-scaffold-ci-command.mjs" typecheck
 
       - name: Run scaffold linter
         working-directory: ${{ runner.temp }}/scaffold-consumer/packages/e2e
