@@ -80,6 +80,8 @@ git switch main && git pull --ff-only origin main
 - 各コミット / PR を Keep a Changelog 形式（`### Added/Changed/Fixed/Removed`）に整理し、
   `CHANGELOG.md` の `## [Unreleased]` 直下に bullet を書く。該当する PR 番号
   （例: `(#123)`）を各項目に添える。
+- 今後のリリースでは、互換性変更とその移行手順を、同じリリース節の中に日本語と英語の
+  両方で書く（`RELEASING.md` / `RELEASING_ja.md` の規則）。片方の言語だけ書いて済ませない。
 - publish 物に影響しない純内部変更（CI 設定変更など）は省略するか `Changed` に簡潔に。
 - **コミットは不要**。`scripts/release.sh` は CHANGELOG.md の未コミット編集だけは許容し、
   stamp 後にバージョン bump とまとめて 1 コミットにする（他の未コミット変更があると弾く）。

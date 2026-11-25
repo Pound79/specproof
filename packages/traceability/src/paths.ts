@@ -1,6 +1,7 @@
 import path from "node:path";
-import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { gitEnvironment } from "./git-runner.js";
 import { printable } from "./display-text.js";
 import {
   CONFIG_FILENAMES,
@@ -138,7 +139,9 @@ const describeGitFailure = (
  * `git rev-parse --show-toplevel`. A config file wins over a bare manifest:
  * when the first marker found is `traceability.yaml` and the nearest config
  * file above it names that file in `layout.manifest`, the config's directory
- * is the root. Throws when neither strategy resolves.
+ * is the root. A .git entry stops discovery. When no specproof marker exists
+ * there, Git performs its normal ownership and worktree checks, and its
+ * reported worktree must match that directory. Throws when neither strategy resolves.
  *
  * A directory on the way up that has no marker but holds a removed
  * `bdd-kit.config.*` name stops with a rename message instead of being passed
@@ -147,7 +150,8 @@ const describeGitFailure = (
  * 親へたどる探索は、`.git` の項目（ディレクトリだけでなく、submodule や
  * `git worktree` の `gitdir: ...` を書いたファイルも含む）がある段で止まる。
  * その段の設定ファイル・manifest・旧名の検出までは見て、より上の段は見ない。
- * マーカーが無ければ、その段の .git と作業ツリーを指定して Git に確かめる。
+ * マーカーが無ければ、その段から Git の通常の探索・所有者確認を行い、Git が示す
+ * 作業ツリーのルートがその段と同じ場合だけ採用する。bare や別の作業ツリーは拒否する。
  * チェックアウトの外に置かれた設定でルートを広げさせないため。Git がその .git を
  * 退けたときは .git のパスを示すエラーにする。取り除く案内は中身の無い .git
  * （空のディレクトリ・リンク切れ）のときだけで、それ以外は git の終了コードと
@@ -182,25 +186,32 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
     dir = parent;
   }
 
+  // Git は作業ディレクトリの実体から親をたどるので、探索の上限にも実体の親を使う。
+  const boundary = gitBoundary === undefined ? undefined : realpathSync(gitBoundary);
+  const parent = boundary === undefined ? undefined : path.dirname(boundary);
+  const env = boundary === undefined ? process.env : gitEnvironment({ inheritConfig: true });
+  // 親のパスに区切り文字があれば Git の探索上限一覧では表せない。
+  // その場合も下の --resolve-git-dir で、通常の探索に先立って .git 自体を検証する。
+  if (parent !== undefined && !parent.includes(path.delimiter)) {
+    env.GIT_CEILING_DIRECTORIES = parent;
+  }
+  const args =
+    boundary === undefined
+      ? ["rev-parse", "--show-toplevel"]
+      : ["rev-parse", "--resolve-git-dir", ".git", "--is-inside-work-tree", "--show-prefix"];
   // git が起動して終わったときの終了コードと stderr。未導入・時間切れ・signal では undefined のまま。
   let rejection: { status: number; stderr: string } | undefined;
+  let output: string | undefined;
   try {
-    // Git の自動探索は空の .git を飛ばし、受け継いだ GIT_DIR も優先する。
-    // 見つけた境界そのものを検証し、別のリポジトリへのフォールバックを防ぐ。
-    const location =
-      gitBoundary === undefined
-        ? []
-        : [`--git-dir=${path.join(gitBoundary, ".git")}`, `--work-tree=${gitBoundary}`];
-    const top = execFileSync("git", [...location, "rev-parse", "--show-toplevel"], {
-      cwd: initialDir,
+    // --git-dir を指定せず、Git 通常の所有者確認と作業ツリーの判定に従う。
+    output = execFileSync("git", args, {
+      cwd: boundary ?? initialDir,
+      env,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 5000,
-    }).trim();
-    if (top) {
-      return path.resolve(normalizeMsysPath(top));
-    }
-    rejection = { status: 0, stderr: "" };
+    });
+    if (!output) rejection = { status: 0, stderr: "" };
   } catch (error) {
     // fall through to the explicit error below
     const { status, signal, stderr } = error as {
@@ -213,6 +224,20 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
     }
   }
 
+  if (output) {
+    if (boundary === undefined) {
+      // 出力レコードの改行だけを外し、パスの末尾に含まれる空白などは保持する。
+      return path.resolve(
+        normalizeMsysPath(output.replace(process.platform === "win32" ? /\r?\n$/ : /\n$/, "")),
+      );
+    }
+    // 作業ツリー内で、かつそこからの prefix が空なら、cwd はその作業ツリーのルート。
+    // 空でない prefix の末尾は常に /。gitdir やパスに改行があっても先頭から行分割しない。
+    if (/\r?\ntrue\r?\n\r?\n$/.test(output)) return boundary;
+    throw new Error(
+      `Git did not identify "${boundary}" as its worktree root; check for a bare repository or a different worktree (core.worktree), or pass --root explicitly.`,
+    );
+  }
   const markers = ROOT_MARKERS.join(" / ");
   const manifestHint = "(and --manifest for a non-default manifest).";
   if (gitBoundary !== undefined) {

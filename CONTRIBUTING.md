@@ -1,98 +1,47 @@
 # Contributing to specproof
 
-Thanks for your interest in contributing! This document covers the essentials.
+English | [日本語](CONTRIBUTING_ja.md)
 
-## Development setup
+## Set up and verify
 
-```bash
-# Requires Node.js >= 24 (see .nvmrc)
-npm ci            # install all workspace dependencies
-npm run typecheck # tsc --noEmit across all workspaces
-npm test          # vitest across workspaces + node:test for scripts/
-npm run build     # build publishable packages
+Use Node.js 24 or later. From the repository root, run the following checks in order. Some tests launch the built CLI.
+
+```sh
+npm ci
+npm run typecheck
+npm run build
+npm run lint
+npm run format:check
+npm test
+npm run test:coverage
 ```
 
-This is an npm-workspaces monorepo:
+Use `npm run format` to format the sources. See the [quality gates](docs/quality-gates_en.md) for coverage and CI settings.
 
-- `packages/traceability/` — `@pound79/specproof-traceability`, the minimal-dependency
-  drift-detection engine.
-- `cli/` — `@pound79/specproof`, the `specproof init` scaffolder.
-- `plugins/specproof/` — the agent skills (Claude Code plugin / Codex / SKILL.md standard).
-- `templates/` — per-framework scaffolds (playwright / flutter).
-- `docs/` — methodology, ADRs, config schema, and the adapter contract.
+## Submit a change
 
-## Workflow
+1. Fork the repository and create a focused branch such as `fix/...`, `feat/...` or `docs/...`.
+2. For behavior changes, observe a failing test first. Run the checks above before submitting.
+3. Use Conventional Commits, e.g. `fix: …`. Describe the change in Japanese. Keep every line within 72 characters. CLI diagnostics are in English.
+4. Link the issue in your pull request and explain the change and how you verified it. For behavior and architecture decisions, reference or add an ADR under `docs/adr/`.
+5. Update both languages of user and contributor guides in the same PR. Keep the existing canonical filename; add `_ja.md` for a Japanese counterpart or `_en.md` for an English counterpart. Link both ways. Keep runnable skill instructions and shared code examples in one place.
 
-1. Fork the repo and create a branch (`feat/...`, `fix/...`, `docs/...`).
-2. Write tests first where it makes sense — the project ships with a substantial
-   test suite and aims to keep coverage high.
-3. Make sure `npm run typecheck`, `npm test`, and `npm run build` all pass.
-4. Open a pull request that links any related issue and describes the change.
+The npm workspaces are `packages/traceability/` (drift detection) and `cli/` (scaffolding). Agent skills live in `plugins/specproof/`, adapters in `templates/`, and methodology, schema and design decisions in `docs/`. See the [glossary](CONTEXT.md), [release procedure](RELEASING.md) and [code of conduct](CODE_OF_CONDUCT.md).
 
-## Commit messages
+## Check what you publish
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
+This repository is public OSS. Do not track private names, local verification records or machine-specific paths (see the policy in [AGENTS.md](./AGENTS.md#公開リポジトリとしての規則)).
 
-```
-<type>: <description>
-```
+CI checks tracked paths and contents for machine-specific paths, unexpected email addresses, local notes, `docs/evidence/`, and dotenv files other than examples. Configure the hooks in each clone to check private names against a list kept outside the repository.
 
-Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`.
-
-## Releasing
-
-Maintainers cut releases with `npm run release -- <version>` (e.g.
-`npm run release -- 0.1.5`). See [`RELEASING.md`](./RELEASING.md) for the full
-process and how npm publishing is wired up.
-
-## Design docs
-
-Substantive changes to behavior or architecture should reference (and, when
-appropriate, add) an ADR under `docs/adr/`. Domain terminology lives in
-[`CONTEXT.md`](./CONTEXT.md).
-
-## Code of Conduct
-
-By participating, you agree to abide by our
-[Code of Conduct](./CODE_OF_CONDUCT.md).
-
-## 品質チェック
-
-`npm ci` の後、`npm run typecheck`、`npm run build`、`npm run lint`、
-`npm run format:check`、`npm test`、`npm run test:coverage` を実行する。
-整形は `npm run format`。CLI診断は英語、会話・新規説明文書は日本語とする。
-カバレッジ対象・閾値は [品質基準](docs/quality-gates.md) を参照。
-Playwright scaffold の lint も no-op ではなく Biome を実行する。
-
-## 公開内容の検査
-
-このリポジトリは公開 OSS なので、私的な名前・手元の検証記録・マシン固有のパスを
-追跡しない（方針は [AGENTS.md](./AGENTS.md#公開リポジトリとしての規則)）。
-
-- `npm test` の `scripts/public-content.test.mjs` が、マシン固有のパス、許可していない
-  メールアドレス、`docs/evidence/`・`*.local.md`・見本以外の dotenv を検出する。CI でも走る。
-- 私的な名前はリポジトリに書くと公開されるため、clone ごとに次のフックを有効にし、
-  語彙をリポジトリの外に置く。
-
-```bash
+```sh
 git config core.hooksPath scripts/githooks
 mkdir -p ~/.config/git
-$EDITOR ~/.config/git/private-terms.txt   # 1 行 1 語。空行と # で始まる行は無視
+$EDITOR ~/.config/git/private-terms.txt
 ```
 
-語彙の置き場所は環境変数 `SPECPROOF_PRIVATE_TERMS` でも指定できる。pre-commit は
-ステージした各ファイルの内容・パス・名義、commit-msg はメッセージの全文を検査する。
-pre-push は送り先の ref 名、送る全コミット、多段の注釈付きタグとその参照先を検査する。
-commit を介さず tree や blob を指すタグも対象にし、ref の削除は妨げない。
-語彙ファイルが無いときは、省略した旨を表示して通す。
+Use one term per line. Blank lines and lines beginning with `#` are ignored. Set `SPECPROOF_PRIVATE_TERMS` for a different path. With no list, the hooks report that they skipped this check.
 
-commit-msg は、実効の cleanup を設定値だけでは確定できないため、コメント行や scissors
-以降も安全側で検査する。削除予定のコメントや `git commit -v` の差分で拒否された場合は、
-私的な語を含めないメッセージファイルを用意して `git commit -F <file>` でコミットする。
+Pre-commit checks staged paths, contents and identity. Commit-msg checks the entire message, including comments and text below scissors. If a comment or verbose diff triggers it, use a clean message file with `git commit -F <file>`. Pre-push checks destination ref names, outgoing commits, annotated tag chains and targets including trees and blobs. Ref deletions are allowed.
 
-語彙の照合は大文字小文字を区別せず、Unicode を NFC に揃えて行う。CI とフックの内容検査は
-共通で UTF-8 か BOM 付きの UTF-16 として読み、NUL を理由にファイルを除外しない。
-BOM の無い UTF-16 や Shift_JIS のファイルにある語は検出できない。
-
-フックはチェックアウト中のブランチにある `scripts/githooks` を実行する。`npm test` と同じく、
-信頼できないブランチでは中身を確認してから commit や push をする。
+Matching ignores case and uses NFC normalization. CI and hooks read UTF-8 and BOM-marked UTF-16, including content containing NUL. Terms in BOM-less UTF-16 or Shift_JIS files are not detected. Review hooks on unfamiliar branches before committing or pushing because the checkout supplies the code they execute.

@@ -194,8 +194,59 @@ test("親の Git 環境変数を引き継いでも子の実リポジトリを選
     assert.equal(spawnSync("git", ["init", "-q", nested]).status, 0);
     vi.stubEnv("GIT_DIR", path.join(root, ".git"));
     vi.stubEnv("GIT_WORK_TREE", root);
+    vi.stubEnv("GIT_COMMON_DIR", path.join(root, ".git"));
     try {
       assert.equal(resolveRepoRoot(nested), realpathSync(nested));
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+test.skipIf(process.platform === "win32")("作業ツリー名の末尾の空白をそのまま返す", () => {
+  withRepo((root) => {
+    const nested = path.join(root, "service ");
+    assert.equal(spawnSync("git", ["init", "-q", nested]).status, 0);
+    assert.equal(resolveRepoRoot(nested), realpathSync(nested));
+  });
+});
+
+test("作業ツリーを持たない bare な .git ではルートを決めない", () => {
+  withRepo((root) => {
+    assert.equal(spawnSync("git", ["init", "-q", "--bare", path.join(root, ".git")]).status, 0);
+    assert.throws(() => resolveRepoRoot(root), /bare repository.*pass --root explicitly/);
+  }, false);
+});
+
+test("Git の設定が作業ツリーを別のディレクトリに置くときは境界をルートにしない", () => {
+  withRepo((root) => {
+    const other = path.join(root, "actual-worktree");
+    mkdirSync(other);
+    assert.equal(spawnSync("git", ["-C", root, "config", "core.worktree", other]).status, 0);
+    assert.throws(() => resolveRepoRoot(root), /different worktree.*pass --root explicitly/);
+  });
+});
+
+test("探索上限のリスト区切りを含むディレクトリの下でも、その場の作業ツリーを検証する", () => {
+  withRepo((root) => {
+    const parent = path.join(root, `jobs${path.delimiter}local`);
+    const nested = path.join(parent, "service");
+    mkdirSync(parent);
+    assert.equal(spawnSync("git", ["init", "-q", nested]).status, 0);
+    assert.equal(resolveRepoRoot(nested), realpathSync(nested));
+    const hollow = path.join(parent, "empty");
+    mkdirSync(path.join(hollow, ".git"), { recursive: true });
+    assert.throws(() => resolveRepoRoot(hollow), /empty or a broken link/);
+  });
+});
+
+test("Git を起動する利用者が渡した設定も作業ツリーの検証に適用する", () => {
+  withRepo((root) => {
+    vi.stubEnv("GIT_CONFIG_COUNT", "1");
+    vi.stubEnv("GIT_CONFIG_KEY_0", "core.bare");
+    vi.stubEnv("GIT_CONFIG_VALUE_0", "invalid-boolean");
+    try {
+      assert.throws(() => resolveRepoRoot(root), /bad boolean.*core.bare.*pass --root explicitly/);
     } finally {
       vi.unstubAllEnvs();
     }
