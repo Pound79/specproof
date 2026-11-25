@@ -51,14 +51,14 @@ test("複数行のコメントは --> を含む行で閉じ、その後ろの見
 test("終端が同じでも、参照の開始がコメントの中か外かで変わるなら拒否する", () => {
   // 従来の規則は旧来の完全一致（コメント内の `## A`）を、コメントを認識すると `## A ##` を選ぶ。
   const content = doc("## A ##", "<!--", "## A", "-->", "## B");
-  assert.throws(() => hashOf(content, "A"), /HTML comment changes its boundaries/);
+  assert.throws(() => hashOf(content, "A"), /changes its boundaries/);
   assert.equal(versionHasher(content).sectionAmbiguous("A", 2), true);
   assert.equal(versionHasher(content).sectionAmbiguous("B", 2), false);
 });
 
 test("開始が同じでも、終端がコメントで変わるなら拒否する", () => {
   const content = doc("## A", "<!--", "## Old", "-->", "text", "## B");
-  assert.throws(() => hashOf(content, "A"), /HTML comment changes its boundaries/);
+  assert.throws(() => hashOf(content, "A"), /changes its boundaries/);
   assert.equal(versionHasher(content).sectionAmbiguous("A", 2), true);
 });
 

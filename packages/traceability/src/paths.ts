@@ -1,6 +1,7 @@
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { printable } from "./display-text.js";
 import {
   CONFIG_FILENAMES,
   entryExists,
@@ -88,6 +89,48 @@ const findOwningConfigDir = (manifestDir: string): string | undefined => {
   return undefined;
 };
 
+/** 中身の無い .git（空のディレクトリ、リンク切れの symlink）か。取り除いても履歴を失わない場合だけ true。 */
+const isHollowGitEntry = (gitDir: string): boolean => {
+  try {
+    const entry = lstatSync(gitDir);
+    if (entry.isSymbolicLink() && !existsSync(gitDir)) return true;
+    return statSync(gitDir).isDirectory() && readdirSync(gitDir).length === 0;
+  } catch {
+    return false;
+  }
+};
+
+// git の stderr から理由に添える長さの上限。
+const GIT_REASON_MAX = 200;
+
+/**
+ * 境界の .git を Git で確かめられなかった理由と対処を組み立てる。`rejection` は git が起動して
+ * 終わったときの終了コードと stderr。中身の無い .git のときだけ取り除く案内をする（中身がある .git は
+ * 設定や Git の版の違いでも退けられ、取り除くと履歴を失いうるため原因を決めつけない）。
+ */
+const describeGitFailure = (
+  gitDir: string,
+  rejection: { status: number; stderr: string } | undefined,
+): string => {
+  const quoted = `"${gitDir}"`;
+  if (rejection === undefined) {
+    return `could not get an answer from git to verify ${quoted}; pass --root`;
+  }
+  if (isHollowGitEntry(gitDir)) {
+    return `${quoted} is empty or a broken link, so Git cannot use it; fix or remove it, or pass --root`;
+  }
+  const firstLine = rejection.stderr
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .find((line) => line !== "");
+  const detail =
+    firstLine === undefined ? "" : `: ${printable(firstLine.slice(0, GIT_REASON_MAX))}`;
+  return (
+    `git rejected ${quoted} (exit ${rejection.status})${detail}; ` +
+    "check the repository and your Git config, or pass --root"
+  );
+};
+
 /**
  * Resolves the repo root by walking up from `startDir` (default
  * `process.cwd()`) looking for a specproof config or a traceability
@@ -105,7 +148,11 @@ const findOwningConfigDir = (manifestDir: string): string | undefined => {
  * `git worktree` の `gitdir: ...` を書いたファイルも含む）がある段で止まる。
  * その段の設定ファイル・manifest・旧名の検出までは見て、より上の段は見ない。
  * マーカーが無ければ、その段の .git と作業ツリーを指定して Git に確かめる。
- * チェックアウトの外に置かれた設定でルートを広げさせないため。
+ * チェックアウトの外に置かれた設定でルートを広げさせないため。Git がその .git を
+ * 退けたときは .git のパスを示すエラーにする。取り除く案内は中身の無い .git
+ * （空のディレクトリ・リンク切れ）のときだけで、それ以外は git の終了コードと
+ * stderr の 1 行目を添え、リポジトリと Git の設定を確かめるか --root を渡すよう
+ * 案内する。git を起動できない・応答が無いときは --root を渡すよう案内する。
  *
  * Unlike the original monorepo implementation this does NOT resolve relative to
  * the module location: the package is published and installed under an
@@ -135,6 +182,8 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
     dir = parent;
   }
 
+  // git が起動して終わったときの終了コードと stderr。未導入・時間切れ・signal では undefined のまま。
+  let rejection: { status: number; stderr: string } | undefined;
   try {
     // Git の自動探索は空の .git を飛ばし、受け継いだ GIT_DIR も優先する。
     // 見つけた境界そのものを検証し、別のリポジトリへのフォールバックを防ぐ。
@@ -145,21 +194,41 @@ export const resolveRepoRoot = (startDir: string = process.cwd()): string => {
     const top = execFileSync("git", [...location, "rev-parse", "--show-toplevel"], {
       cwd: initialDir,
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
+      stdio: ["ignore", "pipe", "pipe"],
       timeout: 5000,
     }).trim();
     if (top) {
       return path.resolve(normalizeMsysPath(top));
     }
-  } catch {
+    rejection = { status: 0, stderr: "" };
+  } catch (error) {
     // fall through to the explicit error below
+    const { status, signal, stderr } = error as {
+      status?: unknown;
+      signal?: unknown;
+      stderr?: unknown;
+    };
+    if (typeof status === "number" && signal == null) {
+      rejection = { status, stderr: typeof stderr === "string" ? stderr : "" };
+    }
   }
 
+  const markers = ROOT_MARKERS.join(" / ");
+  const manifestHint = "(and --manifest for a non-default manifest).";
+  if (gitBoundary !== undefined) {
+    // 探索は境界で止めている。全ての親を見たとは書かず、原因の .git を示す。
+    const gitDir = path.join(gitBoundary, ".git");
+    throw new Error(
+      `Could not resolve a repo root from "${startDir}": found no ${markers} ` +
+        `up to the Git boundary, and ${describeGitFailure(gitDir, rejection)} ` +
+        `explicitly ${manifestHint}`,
+    );
+  }
   throw new Error(
     `Could not resolve a repo root from "${startDir}": found no ` +
-      `${ROOT_MARKERS.join(" / ")} in any ancestor directory, and ` +
+      `${markers} in any ancestor directory, and ` +
       "git rev-parse did not return a repository root. Pass --root explicitly " +
-      "(and --manifest for a non-default manifest).",
+      manifestHint,
   );
 };
 
