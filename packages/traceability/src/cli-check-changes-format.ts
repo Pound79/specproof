@@ -32,7 +32,7 @@ const describeNotGrouped = ({
     notSearched > 0 ? `${notSearched} not searched` : undefined,
     failed > 0 ? `${failed} whose changes could not be traced` : undefined,
     unidentifiedBlessedVersion > 0
-      ? `${unidentifiedBlessedVersion} whose blessed version cannot be identified because of an HTML comment (review the spec diff by hand)`
+      ? `${unidentifiedBlessedVersion} whose blessed version cannot be identified because of an HTML comment or another construct that Markdown parsers may read differently (review the spec diff by hand)`
       : undefined,
   ].filter((reason) => reason !== undefined);
   return [`  (${total} reference(s) not grouped: ${reasons.join(", ")})`];

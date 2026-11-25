@@ -14,30 +14,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   計算せずエラーにする（`update` は manifest を書く前に止まる）。エラーには、ファイル名・節の見出し・参照を
   登録したリンクの id と、同じファイルで見出しやフェンスを隠しているコメントの開始行（先頭の 10 件と参照の
   見出しを含むもの。残りは件数）を出す。対処は
-  コメントごとに次のとおり。箇条書き・番号付きリストの項目でも、本文の字下げに従って
-  コメントの範囲を確かめる。リスト内のコード例はコメントを開始しない。閉じ忘れたコメント（例: `<!-- todo` の後に `-->` が無い）は、終わるべき位置に
+  コメントごとに次のとおり（リスト項目の中のコメントは、下の hazard として拒否する。リスト内のコード例は
+  コメントを開始しない）。閉じ忘れたコメント（例: `<!-- todo` の後に `-->` が無い）は、終わるべき位置に
   `-->` を補う。登録した節がまるごとコメントの中にあるなら、manifest からその参照（リンク）を外す。それ以外は、
   コメント内の見出しやフェンスの行を 4 スペース以上字下げするか書き直す。どの場合も、仕様の差分を確かめてから
   対象のリンクを更新する。境界が食い違わない節の hash の値は従来どおり。(#110)
-- コメントブロックの中の見出しは、`unregistered-spec-heading` と `duplicate-heading` の警告に数えなくなった。
-  コメントアウトした見出しについての、この 2 種類の警告は出なくなる。(#110)
+- 互換: 同じ判定で、コメント以外の空行で終わらない HTML ブロック（`<script>`・`<pre>`・`<style>`・`<textarea>`、
+  `<?`、`<!` と英字で始まる宣言、`<![CDATA[`）と、コードフェンスも表示上の規則（CommonMark の近似）で読み、
+  節の範囲が従来の規則と食い違えば拒否する。HTML を含まない文書も拒否されうる。例えば、番号付きの項目
+  `1. ```bash` で開いて 3 スペース字下げした ```` ``` ```` で閉じるフェンスの中の `# comment` の行を、従来の
+  規則は見出しと読むので、その項目を含む節は拒否になる。フェンスは CommonMark に合わせて読む: リスト項目の中の
+  フェンスは項目の字下げに従い、バッククォートのフェンスの情報文字列にバッククォートがあればフェンスでなく、
+  閉じのフェンスの後ろに続いてよいのはスペースとタブだけ（全角スペースなどが続けば閉じない）。単独の CR・
+  U+2028・U+2029 は下の hazard として拒否する。リスト項目も CommonMark に合わせて読む: 区切り線
+  （`* * *`・`- - -`）、段落の直後の `-`（setext 見出しの下線）と、段落の直後の記号だけの項目はリストを始めず、
+  記号だけの項目の後に空行が続くとその項目は終わり、字下げの無い段落の続きの行は項目を終わらせない。引用の
+  段落の後の `>` の無い行も、新しいブロックを始めなければ段落の続きとして読む。リスト項目の中のフェンスの閉じ
+  （例: `- ` の後に開いたフェンスを 2 スペース字下げした ```` ``` ```` で閉じる）を従来の規則はフェンスの開始と
+  読むので、そうした文書では後ろの節も拒否になり、従来 `SECTION_MISSING` だった参照がエラーになることがある。
+  エラーには、従来の規則と読み方が違う行（見出しかフェンスの開始・閉じ）を含むブロックだけを開始行で並べ、
+  閉じていないブロックには閉じの記号（例: `</script>`・`?>`・```` ``` ````。長いフェンスは記号の数）を示す。
+  空行で終わる HTML ブロック（`<div>`・`<details>` などと、完全なタグだけの行）も、空行まで見出しを隠す
+  ブロックとして読む。従来の規則だけがフェンスと読む行も、原因の行としてエラーに並べる。
+  (#110)
+- 互換: 表示上の規則が読み方を決めきれない構文が登録した節に掛かると、範囲を推測せずに拒否する。エラーは
+  `cannot determine how this section renders near line N (構文)` で、その行から文書の末尾までに掛かる節が
+  対象になる。対象の構文: 引用の中の段落以外のブロック（フェンス・HTML・インデントコード・入れ子の項目・
+  `>` の後のタブなど）、GFM の表の後の段落を中断しうる行とリスト項目の中の表、空白や方言で読み方が分かれる
+  HTML の行、実装で読み方が分かれるリスト項目（インデントコードの直後や、段落を中断する項目の中の記号だけの
+  項目・1 以外の番号の項目）、リンク参照定義になりうる行（`[label]: url`）の後の段落の有無で読み方が変わる行、
+  段落の後の 4 列以上字下げしたブロックの開始や `>`（markdown-it は項目・引用の続きや新しいブロックと読む）、
+  GFM の脚注の定義になりうる行（`[^label]:`）。
+  リスト項目の外の表・引用・HTML の行とリンク参照定義になりうる行は、空行まで（HTML の行のほかは、見出し
+  など段落を中断するブロックの行まで）見出しやフェンスになりうる行が無ければ拒否しない。脚注の定義になり
+  うる行は、空行を挟んでも、次の見出しの行までそうした行が無ければ拒否しない。HTML ブロックは CommonMark
+  0.31、GitHub の cmark-gfm 0.29、markdown-it の 3 つの読み方（`<textarea>`、`<!` と小文字で始まる宣言、
+  `<search>`・`<source>` の扱いが違う）でそれぞれ範囲を比べ、どれかが従来の規則と食い違えば拒否する。
+  setext 見出しは節の境界にせず、数式などの拡張構文は追跡しない。読み方を決めきれない構文が節の後ろに
+  あっても、節の範囲に掛からなければ hash は従来どおり。(#110)
+- 互換: 実装ごとの読み方の癖を個別に追わず、実装で読み方が分かれうる次の形（hazard）が出たら、その行から
+  文書の末尾までに掛かる節を拒否する（Markdown は前から順に読むので、それより前で終わる節は拒否しない）。
+  エラーは `cannot determine how this section renders from line N (種類)` で、種類は固定の語句。
+  対象: タブ以外の C0 制御文字（NUL・垂直タブ `\v`・改ページ `\f`・バックスペースなど）・DEL・U+0085・
+  U+2028・U+2029 か単独の CR を含む行（実装ごとの扱いを個別に確かめず、すべて対象にする。cmark-gfm は
+  `\v`・`\f` を空白として読み、表の区切りの行や HTML のタグの読み方が変わる。単独の CR は CommonMark では
+  改行で、従来の規則と行の数え方が変わる。CRLF は読み込みで LF にするので対象外）、記号だけのリスト項目の
+  後の空白だけの（空でない）行
+  （cmark-gfm 0.29 は項目の続きと読み、後ろの字下げした行を項目の中のブロックにする）、リスト項目の中の
+  HTML ブロックの開始（コメントを含む。markdown-it は空行で終える）、65536 文字（UTF-16 の単位）を超える行
+  （後戻りでスタックを使い切りうる HTML のタグの正規表現を照合しない）。`--since-bless` でも、hazard が掛かる
+  過去の版は bless した版を特定できないとして扱う。リスト項目の中のコメントで見出しを隠していた節や、従来は
+  hash を返していたリスト項目の中の HTML ブロックの後ろの節もエラーになる。対処は、文字を消すか空白に
+  置き換える（単独の CR は消すか LF にする）、空白だけの行を空にする、HTML ブロックをリスト項目の外へ出す、長い行を分けることで、どの場合も
+  仕様の差分を確かめてから対象のリンクを更新する。範囲が食い違うのに原因の行を並べられないエラーは、従来の
+  規則と表示上の範囲（行番号）と、閉じの記号の前に終わるブロックの開始行を示す。保証の範囲: 生成した文書で、
+  受け入れた節の範囲を手元の cmark-gfm 0.29.0.gfm.13（表・取り消し線・自動リンク・tagfilter・タスクリスト・
+  脚注の拡張を有効）と約 270 万件（受け入れたのは約 63 万件）、markdown-it（CommonMark・既定と HTML）と
+  micromark（GFM 拡張の有無とも）と約 80 万件（同 26 万件）照合し、表示上の範囲が従来の範囲より後ろへ延びるか
+  開始が変わる食い違いは 0 件。github.com の描画そのものとは照合していない。規則は過大に拾う側に倒してあり、
+  実装が同じに読む形も拒否しうる（例: フェンスの行に ```` ```\b ```` のようなバックスペースを含む README、
+  中身のある項目の中の `<details>`）。(#110)
+- コメントブロック、上記の HTML ブロック、コードフェンスの中の見出しは、`unregistered-spec-heading` と
+  `duplicate-heading` の警告に数えなくなった。コメントアウトした見出しについての、この 2 種類の警告は
+  出なくなる。逆に、従来の規則がフェンスと読んでいた行（リスト項目の中のフェンスの閉じ、情報文字列に
+  バッククォートを含む行など）の後ろの見出しや、単独の CR の後の見出しが数えられるようになり、未登録の警告が
+  増えることがある。(#110)
 - 互換: `specproof-check --since-bless` は、bless した版と一致した最も新しい過去の版で、HTML コメントが節の
-  境界を曖昧にしているとき、bless した版を特定できないとして扱う。そうした版はコメントの後ろの本文が変わっても
-  同じ hash になり、これまでは bless の後に本文を変えた版を bless した版として示していた（差分からその変更が
-  抜けていた）。テキストは `blessed version: cannot be identified` と仕様の履歴を手で確かめる案内を出し、
-  コミットごとのまとめでは「特定できない」件数として出す。`--json` では `blessedCommit` を `null` にして
-  `blessedCommitUnidentified: "html-comment-boundary"` を足し、`sinceBless.notGrouped` に
-  `unidentifiedBlessedVersion` を足した。`notGrouped` のキーを列挙して読む利用者は、このキーを足す。
-  specproof-sync の skill は、この件数が 0 でなければ、ほかの `notGrouped` と同じく人に返す。
-  コミットごとのまとめは、比べる版のどちらかで節の境界がコメントで曖昧なら、ファイルの単位でも比べる
-  （これまでは、コメントの後ろの本文だけを変えたコミットが一覧から黙って漏れていた）。ライブラリの `computeHeadingSectionHash` には、省略できる第 4 引数（リンクの id。エラー文に使う）を
+  境界を曖昧にしているとき（上記の HTML ブロック・コードフェンス・単独の CR などで曖昧なときも同じ）、bless
+  した版を特定できないとして扱う。そうした版はコメントの後ろの本文が変わっても同じ hash になり、これまでは
+  bless の後に本文を変えた版を bless した版として示していた（差分からその変更が抜けていた）。テキストは
+  `blessed version: cannot be identified` と仕様の履歴を手で確かめる案内を出し、コミットごとのまとめでは
+  「特定できない」件数として出す。`--json` では `blessedCommit` を `null` にして
+  `blessedCommitUnidentified: "html-comment-boundary"` を足し（コメント以外が原因でも、互換のため値の名前は
+  このまま）、`sinceBless.notGrouped` に `unidentifiedBlessedVersion` を足した。`notGrouped` のキーを
+  列挙して読む利用者は、このキーを足す。specproof-sync の skill は、この件数が 0 でなければ、ほかの
+  `notGrouped` と同じく人に返す。コミットごとのまとめは、比べる版のどちらかで節の境界が曖昧なら、ファイルの
+  単位でも比べる（これまでは、コメントの後ろの本文だけを変えたコミットが一覧から黙って漏れていた）。
+  ライブラリの `computeHeadingSectionHash` には、省略できる第 4 引数（リンクの id。エラー文に使う）を
   足した。(#110)
 
 - Compatibility: with a v1 manifest, `check` and `update` stop before computing a section hash
   when headings or code fences in an HTML comment change the start or end of the registered
-  section. This includes comments in bullet and ordered list items. The item’s content indentation
-  determines the comment's scope. Code examples inside items do not open comments. `update`
-  leaves the manifest untouched. Unaffected v1 hashes keep their meaning.
+  section. A comment inside a list item is a hazard (below): sections reaching it are rejected.
+  Code examples inside items do not open comments. `update` leaves the manifest untouched. Unaffected v1 hashes keep their meaning.
 - The diagnostic identifies the file, registered heading and link ID, and lists the opening lines
   of comments that hide headings or fences (the first ten plus the one containing the referenced
   heading, with a count for the remainder). Close an unterminated comment at its intended end.
@@ -45,10 +104,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the heading or fence inside the comment by at least four spaces. Review the spec diff before
   updating the affected link. Headings inside comment blocks no longer trigger
   `unregistered-spec-heading` or `duplicate-heading`. (#110)
-- With `--since-bless`, the most recent historical match cannot identify the blessed commit
-  when a comment makes its section boundary ambiguous. The text directs you to review history
+- Compatibility: the same check reads other HTML blocks that do not end at a blank line
+  (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, declarations starting with `<!` and a
+  letter, and `<![CDATA[`) and code fences with a visible rule that approximates CommonMark, and
+  rejects a section whose range differs from the v1 rule. Documents without any HTML can be
+  rejected too: in a fence opened by the ordered item `1. ```bash` and closed by a fence
+  indented three spaces, the v1 rule reads a `# comment` line as a heading, so the section that
+  holds the item is rejected. Fences follow CommonMark: a fence in a list item follows the item's
+  indentation, a backtick fence whose info string contains a backtick is not a fence, and only
+  spaces or tabs may follow a closing fence (a full-width space, for example, keeps it open). A
+  lone carriage return, U+2028 and U+2029 are hazards (below). List
+  items follow CommonMark too: thematic breaks (`* * *`, `- - -`), a setext underline `-` after a
+  paragraph and a marker-only item after a paragraph do not start a list, a marker-only item
+  followed by a blank line ends, and an unindented paragraph continuation line does not end the
+  item. A line without `>` after a block quote paragraph continues the paragraph unless it starts
+  a new block. The v1 rule reads the closing fence of a list item (a fence opened after `- ` and
+  closed by a fence indented two spaces) as an opening fence, so later sections in such documents
+  are rejected as well, and a reference that used to hash to `SECTION_MISSING` can become an
+  error. The diagnostic lists, by opening line, only the blocks that contain a line the two rules
+  read differently (a heading, or a fence that opens or closes), and names the closing marker of
+  an unclosed block (such as `</script>`, `?>` or ```` ``` ````; a long fence is given as a
+  count). HTML blocks that end at a blank line (such as `<div>`, `<details>` or a line holding a
+  single complete tag) are read as blocks that hide headings until that blank line. Lines that
+  only the v1 rule reads as a fence are listed too. (#110)
+- Compatibility: when the visible rule cannot determine how a construct renders and that
+  construct reaches the registered section, the section is rejected instead of guessed. The error
+  reads `cannot determine how this section renders near line N (construct)` and applies to every
+  section that reaches from that line to the end of the file. Such constructs are blocks other
+  than plain paragraphs in a block quote (fences, HTML, indented code, nested list items, a tab
+  after `>`), a GFM table followed by a line that could interrupt a paragraph or a table inside a
+  list item, HTML lines that parsers read differently because of whitespace or dialect, and list
+  items that implementations read differently (an empty or non-1 numbered item right after
+  indented code or nested in an item that interrupts a paragraph), lines whose reading depends
+  on whether a possible link reference definition (`[label]: url`) opened a paragraph, and a
+  block start or `>` indented four or more columns after a paragraph (markdown-it reads it as
+  continuing the item or quote, or as a new block), and a possible GFM footnote definition
+  (`[^label]:`). Outside list items, a table, block quote,
+  HTML line or possible link reference definition does not cause a rejection when no line that
+  could be a heading or a fence follows before the next blank line (except after an HTML line,
+  before a line that starts a block interrupting a paragraph, such as a heading). After a
+  possible footnote definition, the same holds up to the next heading, across blank lines.
+  HTML blocks are compared under three readings: CommonMark 0.31, GitHub's cmark-gfm 0.29 and
+  markdown-it, which differ for `<textarea>`, declarations starting with `<!` and a lowercase
+  letter, and `<search>` or `<source>`. A disagreement with the v1 rule under any of them
+  rejects the section. Setext headings never end a section, and other extensions such as math
+  are not tracked. Constructs that do not reach the registered section leave its hash
+  unchanged. (#110)
+- Compatibility: instead of modelling each parser's quirks, a set of simple hazards rejects every
+  section that reaches from the hazard's line to the end of the file (Markdown is read forward,
+  so sections that end earlier are not affected). The error reads
+  `cannot determine how this section renders from line N (kind)` with a fixed kind. Hazards: a
+  line with a C0 control character other than tab (NUL, a vertical tab `\v`, a form feed `\f`,
+  a backspace and so on), DEL, U+0085, U+2028, U+2029 or a lone carriage return (all of them,
+  without checking each parser: cmark-gfm reads `\v` and `\f` as whitespace in table delimiter
+  rows and HTML tags, and a lone carriage return is a line break in CommonMark that the v1 rule
+  does not count; CRLF is read as LF and is not a hazard); a
+  non-empty line of only spaces or tabs after a marker-only list item (cmark-gfm 0.29 continues
+  the item and puts later indented lines inside it); the start of an HTML block, including a
+  comment, inside a list item (markdown-it ends it at a blank line); and a line longer than 65536
+  UTF-16 code units (the HTML tag pattern, whose backtracking can exhaust the stack, is not
+  matched against it). `--since-bless` also treats a past version that a hazard reaches as one
+  whose blessed version cannot be identified. Sections hidden by a comment in a list item, and
+  sections after an HTML block in a list item that used to hash, now fail too. Remove the
+  character or replace it with a space (remove a lone carriage return or make it LF), empty the
+  whitespace-only line, move the HTML block out of the list item, or split the long line, and
+  review the spec diff before updating the link. When the ranges differ but no causing line can
+  be listed, the error gives both ranges by line number and the opening lines of blocks that end
+  before their closing marker. Coverage: on generated documents, the accepted section ranges
+  were compared with a local cmark-gfm 0.29.0.gfm.13 (table, strikethrough, autolink, tagfilter,
+  tasklist and footnotes enabled) on about 2.7 million documents (about 630,000 accepted), and
+  with markdown-it (CommonMark, default with HTML) and micromark (with and without GFM
+  extensions) on about 800,000 (about 260,000 accepted), with no case where the rendered range
+  extends past the v1 range or starts elsewhere. Rendering on github.com itself was not
+  compared. The rules err on the side of rejecting, so they can reject what every parser reads
+  the same way (for example, a README with a backspace in a fence line such as ```` ```\b ````,
+  or `<details>` inside a list item with content). (#110)
+- Headings inside comment blocks, the HTML blocks above and code fences no longer count for the
+  two warnings. Conversely, headings after a line the v1 rule read as a fence (the closing fence
+  of a list item, a line whose info string contains a backtick) and headings after a lone
+  carriage return now count and can raise new `unregistered-spec-heading` warnings. (#110)
+- Compatibility: with `--since-bless`, the most recent historical match cannot identify the
+  blessed commit when a comment makes its section boundary ambiguous (likewise for the HTML
+  blocks, code fences and lone carriage returns above). The text directs you to review history
   manually. JSON returns `blessedCommit: null`, adds
-  `blessedCommitUnidentified: "html-comment-boundary"` to the reference, and counts it under
+  `blessedCommitUnidentified: "html-comment-boundary"` to the reference (the value keeps this
+  name for compatibility even when the cause is not a comment), and counts it under
   `sinceBless.notGrouped.unidentifiedBlessedVersion`. Update consumers that enumerate the
   `notGrouped` keys. The sync skill requests human review when this count is nonzero.
   Commit grouping also compares the full file if either side has an ambiguous section boundary.
