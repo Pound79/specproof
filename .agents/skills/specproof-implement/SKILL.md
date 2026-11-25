@@ -225,7 +225,8 @@ feature のうち**シナリオ**（`機能:`・`シナリオ:` などのキー�
       - 作れないときは、step の本体が操作の前に前提の状態を確かめ、満たさなければ理由（「前提の状態が無い。
         前の試行か前の run で使い切った可能性がある。最初の試行の失敗を先に見る」）を出してすぐに止めるか。
         前提の状態を画面で確かめられない（確かめると、2 回目は時間切れまで待つ）ときは、シナリオごとの印で止める
-        （テストの実行環境の外に書く印。例は Playwright の雛形の README の「状態を使い切るシナリオのガード」）。
+        （テストの実行環境の外に書く印。例は Playwright の雛形の README.md の「Protecting single-use seed data」と、
+        コード例を載せた README_ja.md の「状態を使い切るシナリオのガード」）。
         印を使うときは次を守る。
         - 印を残すのは、取り返しのつかない要求を出す確定の操作（確認のダイアログの「削除する」など）の直前。
           ダイアログを開く前などに残すと、待つ間に落ちた試行が、何も使っていないのに印を残し、通るはずの再試行を
@@ -363,13 +364,14 @@ feature のうち**シナリオ**（`機能:`・`シナリオ:` などのキー�
 - step framework pattern: `{{config:conventions.stepFrameworkPattern}}`（`{{config:layout.stepsDir}}` 内の step ファイルは
   `*{{config:layout.stepFileSuffix}}` の命名規約に従う）。
 
-## フロー上の位置（`{{config:layout.e2eReadme}}`「変更起点別フロー」）
+## フロー上の位置（`{{config:layout.e2eReadme}}` の「Choosing a workflow」/「変更起点別フロー」）
 
 - **① spec-first**: `/specproof-new-feature` or `/specproof-sync` で feature+stub → **`/specproof-implement`** で緑化 → bless
 - **② feature-first**: 人が feature 編集 → **`/specproof-implement`** で緑化 → bless
 
 `specproof-sync`（drift → feature。期待値は spec から導出し、impl を生成元にしない）とは**反対方向**。混同しないこと。詳細は
-`{{config:layout.e2eReadme}}`「変更起点別フロー」「bootstrap は一度きり・実装変更後の追従経路」節。
+`{{config:layout.e2eReadme}}` の節（Playwright は「Choosing a workflow」「Following later implementation changes」、
+Flutter は「変更起点別フロー」「bootstrap は一度きり・実装変更後の追従経路」）。
 
 ## 設定解決の境界
 
