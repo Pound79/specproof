@@ -1,5 +1,7 @@
 # Releasing
 
+English | [日本語](RELEASING_ja.md)
+
 This repo publishes two npm packages from an npm-workspaces monorepo:
 
 - `@pound79/specproof` — `cli/`
@@ -11,13 +13,15 @@ outside the npm workspaces:
 - `.claude-plugin/marketplace.json` (`metadata.version`)
 - `plugins/specproof/.claude-plugin/plugin.json` (`version`)
 
-All four version sources are released in lockstep (same version). The npm
+The package versions, both plugin manifests and the version pins in both adapters’ configuration and drift workflows are released in lockstep (same version). The npm
 packages are published by
 [`.github/workflows/release.yml`](.github/workflows/release.yml); the plugin is
 served straight from the repo, so its manifests must be bumped too or the
 plugin stays pinned to the old version even though the code is current. CI runs
 `npm run check:versions` on every PR, and the Release workflow runs it again as
 a pre-publish gate, so a drifted version can neither merge nor publish.
+
+For future releases, write compatibility changes and migration instructions in both English and Japanese in the same release section of CHANGELOG.md.
 
 ## TL;DR
 
@@ -76,10 +80,7 @@ never leaves a half-bumped tree.)
     through a reviewed commit, not from the build job. The check uses the
     pacote of the `npm` on PATH and the same npm cache (`npm_config_cache`)
     as the publish step.
-- `npm version --workspaces --allow-same-version` は既に対象版へ揃えた未公開候補も
-  受け付ける。同版なら `package-lock.json` の差分がなくてもよいが、全 workspace の
-  `package.json` と対応する lock entry が対象版と一致しなければ commit 前に拒否し、
-  release ファイルを復元する。対象版への更新時にも同じ照合を行う。
+- A candidate already at the requested version can be released. A lockfile diff is optional in that case. Every workspace and corresponding lockfile entry must match the target before committing; a mismatch rolls back the release files.
 - **The plugin is a separate channel.** `npm version --workspaces` only touches
   npm workspaces, so it cannot bump `.claude-plugin/marketplace.json` or
   `plugins/specproof/.claude-plugin/plugin.json`. `scripts/release.sh` bumps those
@@ -105,23 +106,19 @@ scripts/release.sh <version> [--yes] [--skip-checks] [--allow-empty-changelog] [
 The script refuses to run unless you are on `main`, the working tree is clean
 except for `CHANGELOG.md`, and the target tag does not already exist.
 
-リリース commit は版・CHANGELOG・同梱テンプレートなどの公開対象ファイルだけを含む。
-検証や確認待ちの間に別のファイルが stage されても、それを commit に含めず index に残す。
-失敗時も、公開対象の既存 stage と対象外の並行 stage を保持して復元する。
+The release commit includes only release files. Unrelated changes staged while checks or confirmation are pending stay in the index. A failed run preserves prior staging of release files and concurrent staging of unrelated files.
 
-差分・commit だけを準備して止める flag はない。`--dry-run` は計画表示のみで、
-公開確認を拒否すると差分を復元する。承諾後は commit → tag → atomic push と進み、
-公開 workflow を起動する。同版候補の受理は公開許可を代替しない。
-CHANGELOG の確定などで source SHA が変わる場合、旧候補の pack 証拠を最終公開 SHA の
-証拠へ流用せず、最終 exact SHA の version・検査・pack・空 consumer を再検証する。
+There is no prepare-only flag. Declining confirmation restores the changes. Approval proceeds to commit, tag, atomic push and publication. Accepting a same-version candidate does not substitute for approval to publish. If the final source commit changes, repeat version checks, validation, packing and empty-consumer verification against that exact commit.
 
 ## After releasing
 
 ```bash
-gh run watch                                  # watch the Release workflow
-npm view @pound79/specproof version             # expect the new version
-npm view @pound79/specproof-traceability version
-gh release view v0.1.5                        # GitHub Release is created automatically
+# From the root of the checkout for the release being verified
+version=$(node -p "require('./cli/package.json').version")
+gh run watch
+npm view "@pound79/specproof@$version" version
+npm view "@pound79/specproof-traceability@$version" version
+gh release view "v$version"
 ```
 
 The workflow creates the GitHub Release itself once both packages publish (title
