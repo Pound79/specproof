@@ -200,7 +200,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   止める。`specproof init` は実行したディレクトリを使うので変わらない。その段の設定ファイルと manifest は読み、それより上は見ない。チェックアウトの外に置かれた設定で
   ルートを広げさせないため。当たるのは次のとき。
   - git の最上段より上にある `specproof.config.yaml`（`.yml`）・`traceability.yaml` は読まれなくなる。
-    git の最上段にマーカーが無ければ、その段の `.git` と作業ツリーを明示して確認する。Git が
+    git の最上段にマーカーが無ければ、その段を越えない範囲で Git の通常の探索と所有者確認を行う。
+    Git が返す作業ツリーのルートがその段と一致する場合だけ、そのパスを末尾の空白も含めて使う。
+    bare リポジトリや、`core.worktree` が別の作業ツリーを指す場合は、必要なルートを `--root` で指定する。Git が
     `.git` を退けるとそのパスを示すエラーになり、親を選ばない。取り除く案内は中身の無い `.git`
     （空のディレクトリ・リンク切れ）のときだけで、それ以外は git の終了コードと理由を添え、
     リポジトリと Git の設定を確かめるか `--root` を付けるよう案内する。git を起動できない・応答が
@@ -215,8 +217,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compatibility: when no `--root` (library option `root`) is supplied, root discovery for
   `specproof-check`, `specproof-update`, `specproof-stats`, `specproof-list`, `resolveRepoRoot`
   and `discoverConfig` stops at the first directory containing a `.git` entry. It still checks
-  that directory for a config or manifest. If neither exists, it asks Git to verify this checkout
-  using its own Git directory and worktree. If Git rejects that `.git` entry, the error names it.
+  that directory for a config or manifest. If neither exists, Git performs its normal repository
+  discovery and ownership check within that boundary. The worktree root reported by Git must
+  match the boundary, and trailing spaces in its name are preserved. For a bare repository or a
+  different worktree selected by `core.worktree`, specify the intended root with `--root`.
+  If Git rejects the `.git` entry, the error names it.
   Only an empty `.git` directory or a broken `.git` link is reported as safe to remove; otherwise
   the error adds Git's exit status and reason and asks you to check the repository and your Git
   config, or pass `--root`. If Git cannot be run or does not answer, pass `--root`. Inherited

@@ -68,24 +68,26 @@ const INHERITED_GIT_VARIABLES = [
   "GIT_DIR",
   "GIT_WORK_TREE",
   "GIT_COMMON_DIR",
+  "GIT_IMPLICIT_WORK_TREE",
   "GIT_INDEX_FILE",
   "GIT_OBJECT_DIRECTORY",
   "GIT_ALTERNATE_OBJECT_DIRECTORIES",
   "GIT_CEILING_DIRECTORIES",
   "GIT_NAMESPACE",
-  "GIT_CONFIG",
-  "GIT_CONFIG_PARAMETERS",
-  "GIT_CONFIG_COUNT",
   "GIT_REPLACE_REF_BASE",
   "GIT_SHALLOW_FILE",
   "GIT_QUARANTINE_PATH",
 ];
 
-const gitEnvironment = (): NodeJS.ProcessEnv => ({
+// 履歴の読み取りは呼び出し元の設定上書きを外す。ルート検証では safe.directory など
+// 利用者自身が渡した Git の保護設定も尊重する。どちらも、別のリポジトリの場所は継承しない。
+const CONFIG_OVERRIDE = /^GIT_CONFIG(?:_PARAMETERS|_COUNT|_(?:KEY|VALUE)_\d+)?$/i;
+export const gitEnvironment = ({ inheritConfig = false } = {}): NodeJS.ProcessEnv => ({
   ...Object.fromEntries(
     Object.entries(process.env).filter(
       ([key]) =>
-        !INHERITED_GIT_VARIABLES.includes(key) && !/^GIT_CONFIG_(?:KEY|VALUE)_\d+$/.test(key),
+        !INHERITED_GIT_VARIABLES.includes(key.toUpperCase()) &&
+        (inheritConfig || !CONFIG_OVERRIDE.test(key)),
     ),
   ),
   ...GIT_ENV,
