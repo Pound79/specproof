@@ -226,6 +226,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     Legacy `bdd-kit.config.yaml` / `.yml` files at or below that boundary still trigger the rename
     error. Files above it no longer affect discovery. (#111)
 
+- 互換: `specproof-stats` は、manifest に登録した feature のファイルが見つからないとき、または設定した
+  `layout.featuresDir` が無いとき、`--json` の `done` を `false` にする。これまでは `--strict` の終了コード
+  だけが 1 になり、`done` は残った feature だけで `true` になりえた。テキスト出力も、そのときは
+  `the static half of "done" is met` と言わなくなる（`@red-contract` と禁止タグが 0 件なら、代わりに
+  `Feature input is missing` の 1 行を出す）。`done` だけを見て完了を判定していた利用者は、欠落を直すまで
+  完了にならない。(#112)
+
+- 互換: `specproof-stats` は、`layout.featuresDir` を設定しているとき、その外に置いて manifest に登録した
+  feature も集計する。これまではその外の feature を実在の確認にだけ使い、数えていなかった。そのため
+  `totals`・`questions`・`done` と `--strict` の終了コードが変わる。例えば、`featuresDir` の外に
+  `@red-contract` を含む feature を登録していると、`--strict` がこれまでの 0 でなく 1 で失敗するように
+  なる。(#112)
+
+- 互換: `specproof-stats` は、`--manifest` で指定したファイルが見つからないとき、`--strict` の
+  有無にかかわらず終了コード 2 で停止する。指定パスを修正するか、探索ディレクトリだけを集計するなら
+  `--manifest` を省略する。(#112)
+
+- Compatibility: `specproof-stats` now counts registered features outside `layout.featuresDir`.
+  This can change `totals`, `questions`, and `done`. A pending condition in one of those features now makes
+  `--strict` exit with code 1. A missing registered feature or configured directory sets `done` to
+  `false` in JSON and prevents the text report from declaring completion. Restore the missing
+  input before relying on the completion result. An explicit `--manifest` that cannot be found
+  exits with code 2, including without `--strict`. Correct the path or omit the option to count
+  the feature directory alone when no manifest exists. (#112)
+
 ## [0.9.0] - 2026-11-24
 
 ### Security
