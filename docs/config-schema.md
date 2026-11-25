@@ -122,7 +122,7 @@ page object を持たない構成（`fixtures: {}`、または world・認証な
 
 ```yaml
 specSources:
-  - name: permissions                 # 必須。英数字と . _ -（manifest の記録の名前）
+  - name: permissions                 # 必須。128文字以内。先頭は半角英数字、以降は半角英数字と . _ -
     repo: ../backend                  # 必須。取り込み元のチェックアウト（ルート相対か絶対）
     ref: origin/develop               # 必須。比べる ref（リモートのブランチ・ブランチの名前、refs/ で始まる完全な名前、commit id）
     paths: [config/permissions]       # 任意。取り込み元の中で比べるパス（省略時はリポジトリ全体）
