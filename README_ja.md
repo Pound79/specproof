@@ -7,7 +7,7 @@
 **AI が書いたテストは、AI が書いたコードの写しになりがちだ。
 specproof はそれを構造的に防ぐ。**
 
-[English](./README.md) | 日本語
+[English](./README.md) | 日本語 · [文書索引](docs/README_ja.md)
 
 </div>
 
@@ -183,7 +183,7 @@ specproof は関心事を 3 層に分離しています:
 
 ## コントリビュート & ライセンス
 
-- コントリビュート歓迎 -- [CONTRIBUTING.md](./CONTRIBUTING.md) /
-  [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) を参照。
-- セキュリティポリシー: [SECURITY.md](./SECURITY.md)。
+- コントリビュート歓迎 -- [貢献手順](./CONTRIBUTING_ja.md) /
+  [行動規範](./CODE_OF_CONDUCT_ja.md) を参照。
+- [セキュリティポリシー](./SECURITY_ja.md)。
 - ライセンス: [MIT License](./LICENSE)。

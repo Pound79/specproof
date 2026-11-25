@@ -7,7 +7,7 @@
 **AI-written tests tend to become copies of AI-written code.
 specproof keeps them honest.**
 
-English | [日本語](./README_ja.md)
+English | [日本語](./README_ja.md) · [Documentation](docs/README.md)
 
 </div>
 
@@ -179,7 +179,7 @@ specproof separates concerns into three layers:
 | **Bless** | Marking the current spec/impl/feature state as the known-good baseline. |
 | **Draft marker** | `# specproof: draft` in a `.feature` -- means "not yet human-reviewed". Implementation is blocked until you remove it. The legacy `# bdd-kit: draft` marker is still detected for backward compatibility. |
 
-See [`CONTEXT.md`](./CONTEXT.md) for the full glossary.
+See the [glossary](./CONTEXT_en.md) for definitions.
 
 ## Prerequisites
 
