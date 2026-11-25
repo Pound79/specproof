@@ -1,5 +1,7 @@
 # Security Policy
 
+English | [日本語](SECURITY_ja.md)
+
 ## Supported versions
 
 specproof is pre-1.0. Security fixes are applied to the latest released version
@@ -80,6 +82,6 @@ How dependencies are watched:
 
 What specproof trusts, which files it reads and writes, where it connects, its
 use of cryptography, and what the drift gate does not guarantee are described in
-[docs/security-model.md](docs/security-model.md) (Japanese).
+[the security model](docs/security-model_en.md).
 
 Thank you for helping keep specproof and its users safe.

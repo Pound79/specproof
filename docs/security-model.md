@@ -1,7 +1,9 @@
 # セキュリティモデル
 
+日本語 | [English](security-model_en.md)
+
 specproof が何を信頼し、どこまでを読み書きし、どこへ通信し、何を保証しないかをまとめる。
-脆弱性の報告窓口と依存の修正期限は [SECURITY.md](../SECURITY.md) を参照する。
+脆弱性の報告窓口と依存の修正期限は [セキュリティポリシー](../SECURITY_ja.md) を参照する。
 
 ## 前提
 
@@ -20,10 +22,18 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
 
 - **ルートの決め方**: `--root` があればそれを使う。無ければ実行したディレクトリから親へたどり、
   `specproof.config.yaml` / `specproof.config.yml` / `traceability.yaml` のある最初のディレクトリ、
-  それも無ければ `git rev-parse --show-toplevel`。たどる途中で、目印が無く改名前の
+  それも無ければ Git に問い合わせる。`.git`（submodule や worktree の `.git` ファイルを含む）の
+  ある段まで来ても目印が無ければ、そのディレクトリが Git の認識する作業ツリーのルートかを
+  確認する。受け継いだ `GIT_DIR` / `GIT_WORK_TREE` を外し、その段の `.git` が有効で、
+  Git の作業ツリー内にいてルートからの相対パスが空であることを確かめる。所有者については
+  Git の通常の判定に従う。空・壊れた
+  `.git`、bare リポジトリ、実際の作業ツリーが別の場所を指す場合はエラーで止まる。
+  どの段にも `.git` が無ければ通常の Git 探索を使い、`GIT_DIR` / `GIT_WORK_TREE` に従う。
+  たどる途中で、目印が無く改名前の
   `bdd-kit.config.yaml` / `.yml` だけがあるディレクトリに来たら、名前の変更を案内してエラーで止まる。
   ルートは git のリポジトリのルートとは限らない（サブディレクトリに `traceability.yaml` があれば
-  そこが、リポジトリより上に目印のファイルがあればそこがルートになる）。ただし `traceability.yaml`
+  そこをルートにできる）。探索は `.git` のある段で止まり、その上にある別の設定や manifest は採らない。
+  ただし `traceability.yaml`
   だけの段では、その上の最も近い設定ファイルを読み、`layout.manifest` がその manifest を指していれば
   設定ファイルの段をルートにする（読めない設定ファイルは無視して従来どおり）。この探索は `.git` の
   ある段より上を見ない（チェックアウトの外の設定ファイルでルートを広げさせない）。manifest の段に
@@ -36,8 +46,8 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   止まる。ルートの外の状態（存在・権限・ループ）は、エラー文から区別できないようにしている
 - **書く範囲**: `specproof-update` が書くのは manifest だけで、同じディレクトリの一時ファイルを
   完成させてから置き換える。欠けた参照（ファイルや見出しが無い）は hash を取り直さずにエラーで止まる
-- **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse --show-toplevel`（固定の
-  引数）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` と、`specproof-update --record-spec-source`・
+- **子プロセス**: エンジンが起動するのは、ルートを決める `git rev-parse`（境界では
+  `--resolve-git-dir .git --is-inside-work-tree --show-prefix`、境界が無ければ `--show-toplevel`）と、`specproof-check --since-bless` を付けたときの `git rev-parse` / `git log` / `git show` / `git rev-list` / `git ls-tree` と、`specproof-update --record-spec-source`・
   `specproof-check --spec-sources` を付けたときの取り込み元のチェックアウトでの `git config --null --list`（部分 clone の
   判定）/ `git for-each-ref`（`ref` の完全な名前での引き当て）/ `git rev-parse` / `git ls-tree` だけ。
   `specSources[].importCommand` は実行しない。取り込み元の `repo` は設定の値でルートの外も指せるので、ルートの中に
@@ -55,7 +65,8 @@ manifest（`traceability.yaml`）・spec・実装・feature のパスと中身�
   上書きしうる。これは git の ref の保存の制約で、CLI では防げない（取り込み元を大文字小文字を区別するボリュームに
   置くか、reftable backend にする）。`--record-spec-source` は
   固定の `HEAD` も同じ形で解決し、HEAD と `ref` で `paths` の中身が違えば記録しない（HEAD のコミットの id と違った
-  `paths` を出力に出す）。それでも、その
+  `paths` を出力に出す）。取り込みが ref を直接読んだ場合は、明示的な `--allow-head-mismatch` で記録できる。
+  この照合が対象とするのはコミットした中身で、未コミットの変更や実際のコピー結果は検証しない。それでも、その
   リポジトリの存在とコミットの id は出力に出る。`repo` のパスがあって取り込み元として読めないときは
   `spec-source-unresolved` の警告を出し、パスが無いときは黙るので、git のリポジトリでなくても `repo` に書いた
   パスがあるかどうかが、テキスト・注釈・`--json` の出力から分かる（読めない理由は 1 つにまとめ、持ち主・worktree・
