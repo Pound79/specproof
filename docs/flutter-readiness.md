@@ -1,6 +1,8 @@
 # Flutter adapter の現行入口
 
-**現行（0.2.2）**: 同梱 adapter は `flutter_gherkin: 3.0.0-rc.17` と
+[English](flutter-readiness_en.md) | 日本語
+
+同梱 adapter は `flutter_gherkin: 3.0.0-rc.17` と
 `build_runner: ">=2.4.0 <2.5.0"` を使用する。日本語 Gherkin 対応を理由に採用し、
 `bdd_widget_test` は不採用。2026-06-06 の Flutter 3.44.1 / Dart 3.12.1 での
 sample GREEN は当時の観測であり、現在のアプリ・SDK・revision の GREEN を保証しない。
