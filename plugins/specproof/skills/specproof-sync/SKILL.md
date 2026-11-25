@@ -170,9 +170,9 @@ feature / steps / page objects / manifest を変更しない。
      要求・許容している」となった場合にだけここへ来る）
    - 前に bless した中身からの差分は `{{config:commands.traceabilityCheck}} --since-bless` が示す
      `compare with:` の行のコマンドをそのまま使って見る（どこから流しても同じファイルを指す形で示される。
-     bless した中身がコミットされていなければ見つからない）。HTML コメントなどのブロック（ほかの HTML ブロック・
-     コードフェンス・単独の CR、読み方を決めきれない構文、実装で読み方が分かれうる文字や行を含む）で節の境界が
-     曖昧な版しか一致しなければ、`blessed version: cannot be identified` と出て比べるコミットは示されない
+     bless した中身がコミットされていなければ見つからない）。保存した hash に一致する最も新しい版で、
+     HTML ブロック・コードフェンス・単独の CR などにより登録節の範囲が食い違うか確定できなければ、
+     その時点で探索を止める。さらに古い一致へ戻らず、`blessed version: cannot be identified` と表示する
      （JSON では `blessedCommit` が `null` で `blessedCommitUnidentified` が付く）。そのときは推測で起点を選ばず、
      仕様のファイルの履歴を手で見て bless の後の変更を確かめ、確かめ切れなければ人に返す。
      impl の drift は、Step 2 で取った `sinceBless.commits` をコミットごとに見る。
@@ -258,7 +258,7 @@ feature / steps / page objects / manifest を変更しない。
   当たるものとして扱う。
   - `uncommitted` に bless するリンクの impl の参照がある（コミットしていない変更で、コミットの単位で見られない）
   - `notGrouped` のどれかの件数が 0 でない（bless した版が見つからない・探していない・変えたコミットを特定できない・
-    HTML コメントなどのブロックのため bless した版を特定できない参照がある）
+    最も新しい一致で登録節の範囲が曖昧なため bless した版を特定できない参照がある）
   - `incomplete` が `true`（git の起動・時間・コミット数の上限で打ち切った。並んだコミットが全部とは限らない）
   - `sinceBless` が無い、または `gitHistoryAvailable` が `false`（git の履歴を辿れない）。コマンドが失敗した・
     JSON を読めない・人に渡して結果が戻っていないときも、`sinceBless` が無いものとして扱う

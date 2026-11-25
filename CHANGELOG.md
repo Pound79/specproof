@@ -67,11 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hash を返していたリスト項目の中の HTML ブロックの後ろの節もエラーになる。対処は、文字を消すか空白に
   置き換える（単独の CR は消すか LF にする）、空白だけの行を空にする、HTML ブロックをリスト項目の外へ出す、長い行を分けることで、どの場合も
   仕様の差分を確かめてから対象のリンクを更新する。範囲が食い違うのに原因の行を並べられないエラーは、従来の
-  規則と表示上の範囲（行番号）と、閉じの記号の前に終わるブロックの開始行を示す。保証の範囲: 生成した文書で、
-  受け入れた節の範囲を手元の cmark-gfm 0.29.0.gfm.13（表・取り消し線・自動リンク・tagfilter・タスクリスト・
-  脚注の拡張を有効）と約 270 万件（受け入れたのは約 63 万件）、markdown-it（CommonMark・既定と HTML）と
-  micromark（GFM 拡張の有無とも）と約 80 万件（同 26 万件）照合し、表示上の範囲が従来の範囲より後ろへ延びるか
-  開始が変わる食い違いは 0 件。github.com の描画そのものとは照合していない。規則は過大に拾う側に倒してあり、
+  規則と表示上の範囲（行番号）と、閉じの記号の前に終わるブロックの開始行を示す。表示を予測する規則には限界があり、
+  GitHub 上での表示との完全な一致は保証しない。規則は過大に拾う側に倒してあり、
   実装が同じに読む形も拒否しうる（例: フェンスの行に ```` ```\b ```` のようなバックスペースを含む README、
   中身のある項目の中の `<details>`）。(#110)
 - コメントブロック、上記の HTML ブロック、コードフェンスの中の見出しは、`unregistered-spec-heading` と
@@ -170,13 +167,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whitespace-only line, move the HTML block out of the list item, or split the long line, and
   review the spec diff before updating the link. When the ranges differ but no causing line can
   be listed, the error gives both ranges by line number and the opening lines of blocks that end
-  before their closing marker. Coverage: on generated documents, the accepted section ranges
-  were compared with a local cmark-gfm 0.29.0.gfm.13 (table, strikethrough, autolink, tagfilter,
-  tasklist and footnotes enabled) on about 2.7 million documents (about 630,000 accepted), and
-  with markdown-it (CommonMark, default with HTML) and micromark (with and without GFM
-  extensions) on about 800,000 (about 260,000 accepted), with no case where the rendered range
-  extends past the v1 range or starts elsewhere. Rendering on github.com itself was not
-  compared. The rules err on the side of rejecting, so they can reject what every parser reads
+  before their closing marker. These checks cannot guarantee an exact match to rendering on github.com.
+  The rules err on the side of rejecting, so they can reject what every parser reads
   the same way (for example, a README with a backspace in a fence line such as ```` ```\b ````,
   or `<details>` inside a list item with content). (#110)
 - Headings inside comment blocks, the HTML blocks above and code fences no longer count for the
