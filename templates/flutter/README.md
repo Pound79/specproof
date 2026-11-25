@@ -36,7 +36,7 @@
    `SPECPROOF_TAGS` による絞り込み（`not @slow` など）には従う。`@red-contract @human` は `@human` なので実行せず、
    人が確かめてタグを外すまで実装待ちとして残る。`--dart-define=SPECPROOF_TAGS="not @slow"` のように
    Gherkin のタグ式を渡すと、suite がそれを上の除外と組み合わせて `FlutterTestConfiguration.tagExpression` に渡し、
-   runner が実行時に絞り込む。`commands.smoke` はこの形で `projects[].tags` と同じ式を渡す。
+   runner が実行時に絞り込む。`commands.smoke` は設定の `tags.slow`（既定 `@slow`）を除外し、先頭 project の `tags` と組み合わせて渡す。
    状態タグ（`@draft` / `@red-contract` / `@human` / `@out-of-scope`）に触れる `SPECPROOF_TAGS`（例: `not @red-contract`）と、
    括弧の対応が取れていない `SPECPROOF_TAGS` は suite が拒否する。実装待ちの条件を外して E2E を緑に見せないため。
 

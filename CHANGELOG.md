@@ -7,6 +7,309 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 互換: manifest v1 で、HTML コメントブロックの中の見出しやコードフェンスが登録した節の開始や終端を変える
+  （従来の規則とコメントを考慮した規則で節の範囲が食い違う）とき、`check` と `update` はその節の hash を
+  計算せずエラーにする（`update` は manifest を書く前に止まる）。エラーには、ファイル名・節の見出し・参照を
+  登録したリンクの id と、同じファイルで見出しやフェンスを隠しているコメントの開始行（先頭の 10 件と参照の
+  見出しを含むもの。残りは件数）を出す。対処は
+  コメントごとに次のとおり（リスト項目の中のコメントは、下の hazard として拒否する。リスト内のコード例は
+  コメントを開始しない）。閉じ忘れたコメント（例: `<!-- todo` の後に `-->` が無い）は、終わるべき位置に
+  `-->` を補う。登録した節がまるごとコメントの中にあるなら、manifest からその参照（リンク）を外す。それ以外は、
+  コメント内の見出しやフェンスの行を 4 スペース以上字下げするか書き直す。どの場合も、仕様の差分を確かめてから
+  対象のリンクを更新する。境界が食い違わない節の hash の値は従来どおり。(#110)
+- 互換: 同じ判定で、コメント以外の空行で終わらない HTML ブロック（`<script>`・`<pre>`・`<style>`・`<textarea>`、
+  `<?`、`<!` と英字で始まる宣言、`<![CDATA[`）と、コードフェンスも表示上の規則（CommonMark の近似）で読み、
+  節の範囲が従来の規則と食い違えば拒否する。HTML を含まない文書も拒否されうる。例えば、番号付きの項目
+  `1. ```bash` で開いて 3 スペース字下げした ```` ``` ```` で閉じるフェンスの中の `# comment` の行を、従来の
+  規則は見出しと読むので、その項目を含む節は拒否になる。フェンスは CommonMark に合わせて読む: リスト項目の中の
+  フェンスは項目の字下げに従い、バッククォートのフェンスの情報文字列にバッククォートがあればフェンスでなく、
+  閉じのフェンスの後ろに続いてよいのはスペースとタブだけ（全角スペースなどが続けば閉じない）。単独の CR・
+  U+2028・U+2029 は下の hazard として拒否する。リスト項目も CommonMark に合わせて読む: 区切り線
+  （`* * *`・`- - -`）、段落の直後の `-`（setext 見出しの下線）と、段落の直後の記号だけの項目はリストを始めず、
+  記号だけの項目の後に空行が続くとその項目は終わり、字下げの無い段落の続きの行は項目を終わらせない。引用の
+  段落の後の `>` の無い行も、新しいブロックを始めなければ段落の続きとして読む。リスト項目の中のフェンスの閉じ
+  （例: `- ` の後に開いたフェンスを 2 スペース字下げした ```` ``` ```` で閉じる）を従来の規則はフェンスの開始と
+  読むので、そうした文書では後ろの節も拒否になり、従来 `SECTION_MISSING` だった参照がエラーになることがある。
+  エラーには、従来の規則と読み方が違う行（見出しかフェンスの開始・閉じ）を含むブロックだけを開始行で並べ、
+  閉じていないブロックには閉じの記号（例: `</script>`・`?>`・```` ``` ````。長いフェンスは記号の数）を示す。
+  空行で終わる HTML ブロック（`<div>`・`<details>` などと、完全なタグだけの行）も、空行まで見出しを隠す
+  ブロックとして読む。従来の規則だけがフェンスと読む行も、原因の行としてエラーに並べる。
+  (#110)
+- 互換: 表示上の規則が読み方を決めきれない構文が登録した節に掛かると、範囲を推測せずに拒否する。エラーは
+  `cannot determine how this section renders near line N (構文)` で、その行から文書の末尾までに掛かる節が
+  対象になる。対象の構文: 引用の中の段落以外のブロック（フェンス・HTML・インデントコード・入れ子の項目・
+  `>` の後のタブなど）、GFM の表の後の段落を中断しうる行とリスト項目の中の表、空白や方言で読み方が分かれる
+  HTML の行、実装で読み方が分かれるリスト項目（インデントコードの直後や、段落を中断する項目の中の記号だけの
+  項目・1 以外の番号の項目）、リンク参照定義になりうる行（`[label]: url`）の後の段落の有無で読み方が変わる行、
+  段落の後の 4 列以上字下げしたブロックの開始や `>`（markdown-it は項目・引用の続きや新しいブロックと読む）、
+  GFM の脚注の定義になりうる行（`[^label]:`）。
+  リスト項目の外の表・引用・HTML の行とリンク参照定義になりうる行は、空行まで（HTML の行のほかは、見出し
+  など段落を中断するブロックの行まで）見出しやフェンスになりうる行が無ければ拒否しない。脚注の定義になり
+  うる行は、空行を挟んでも、次の見出しの行までそうした行が無ければ拒否しない。HTML ブロックは CommonMark
+  0.31、GitHub の cmark-gfm 0.29、markdown-it の 3 つの読み方（`<textarea>`、`<!` と小文字で始まる宣言、
+  `<search>`・`<source>` の扱いが違う）でそれぞれ範囲を比べ、どれかが従来の規則と食い違えば拒否する。
+  setext 見出しは節の境界にせず、数式などの拡張構文は追跡しない。読み方を決めきれない構文が節の後ろに
+  あっても、節の範囲に掛からなければ hash は従来どおり。(#110)
+- 互換: 実装ごとの読み方の癖を個別に追わず、実装で読み方が分かれうる次の形（hazard）が出たら、その行から
+  文書の末尾までに掛かる節を拒否する（Markdown は前から順に読むので、それより前で終わる節は拒否しない）。
+  エラーは `cannot determine how this section renders from line N (種類)` で、種類は固定の語句。
+  対象: タブ以外の C0 制御文字（NUL・垂直タブ `\v`・改ページ `\f`・バックスペースなど）・DEL・U+0085・
+  U+2028・U+2029 か単独の CR を含む行（実装ごとの扱いを個別に確かめず、すべて対象にする。cmark-gfm は
+  `\v`・`\f` を空白として読み、表の区切りの行や HTML のタグの読み方が変わる。単独の CR は CommonMark では
+  改行で、従来の規則と行の数え方が変わる。CRLF は読み込みで LF にするので対象外）、記号だけのリスト項目の
+  後の空白だけの（空でない）行
+  （cmark-gfm 0.29 は項目の続きと読み、後ろの字下げした行を項目の中のブロックにする）、リスト項目の中の
+  HTML ブロックの開始（コメントを含む。markdown-it は空行で終える）、65536 文字（UTF-16 の単位）を超える行
+  （後戻りでスタックを使い切りうる HTML のタグの正規表現を照合しない）。`--since-bless` でも、hazard が掛かる
+  過去の版は bless した版を特定できないとして扱う。リスト項目の中のコメントで見出しを隠していた節や、従来は
+  hash を返していたリスト項目の中の HTML ブロックの後ろの節もエラーになる。対処は、文字を消すか空白に
+  置き換える（単独の CR は消すか LF にする）、空白だけの行を空にする、HTML ブロックをリスト項目の外へ出す、長い行を分けることで、どの場合も
+  仕様の差分を確かめてから対象のリンクを更新する。範囲が食い違うのに原因の行を並べられないエラーは、従来の
+  規則と表示上の範囲（行番号）と、閉じの記号の前に終わるブロックの開始行を示す。表示を予測する規則には限界があり、
+  GitHub 上での表示との完全な一致は保証しない。規則は過大に拾う側に倒してあり、
+  実装が同じに読む形も拒否しうる（例: フェンスの行に ```` ```\b ```` のようなバックスペースを含む README、
+  中身のある項目の中の `<details>`）。(#110)
+- コメントブロック、上記の HTML ブロック、コードフェンスの中の見出しは、`unregistered-spec-heading` と
+  `duplicate-heading` の警告に数えなくなった。コメントアウトした見出しについての、この 2 種類の警告は
+  出なくなる。逆に、従来の規則がフェンスと読んでいた行（リスト項目の中のフェンスの閉じ、情報文字列に
+  バッククォートを含む行など）の後ろの見出しや、単独の CR の後の見出しが数えられるようになり、未登録の警告が
+  増えることがある。(#110)
+- 互換: `specproof-check --since-bless` は、bless した版と一致した最も新しい過去の版で、HTML コメントが節の
+  境界を曖昧にしているとき（上記の HTML ブロック・コードフェンス・単独の CR などで曖昧なときも同じ）、bless
+  した版を特定できないとして扱う。そうした版はコメントの後ろの本文が変わっても同じ hash になり、これまでは
+  bless の後に本文を変えた版を bless した版として示していた（差分からその変更が抜けていた）。テキストは
+  `blessed version: cannot be identified` と仕様の履歴を手で確かめる案内を出し、コミットごとのまとめでは
+  「特定できない」件数として出す。`--json` では `blessedCommit` を `null` にして
+  `blessedCommitUnidentified: "html-comment-boundary"` を足し（コメント以外が原因でも、互換のため値の名前は
+  このまま）、`sinceBless.notGrouped` に `unidentifiedBlessedVersion` を足した。`notGrouped` のキーを
+  列挙して読む利用者は、このキーを足す。specproof-sync の skill は、この件数が 0 でなければ、ほかの
+  `notGrouped` と同じく人に返す。コミットごとのまとめは、比べる版のどちらかで節の境界が曖昧なら、ファイルの
+  単位でも比べる（これまでは、コメントの後ろの本文だけを変えたコミットが一覧から黙って漏れていた）。
+  ライブラリの `computeHeadingSectionHash` には、省略できる第 4 引数（リンクの id。エラー文に使う）を
+  足した。(#110)
+
+- Compatibility: with a v1 manifest, `check` and `update` stop before computing a section hash
+  when headings or code fences in an HTML comment change the start or end of the registered
+  section. A comment inside a list item is a hazard (below): sections reaching it are rejected.
+  Code examples inside items do not open comments. `update` leaves the manifest untouched. Unaffected v1 hashes keep their meaning.
+- The diagnostic identifies the file, registered heading and link ID, and lists the opening lines
+  of comments that hide headings or fences (the first ten plus the one containing the referenced
+  heading, with a count for the remainder). Close an unterminated comment at its intended end.
+  Remove a manifest reference if its entire section is commented out. Otherwise rewrite or indent
+  the heading or fence inside the comment by at least four spaces. Review the spec diff before
+  updating the affected link. Headings inside comment blocks no longer trigger
+  `unregistered-spec-heading` or `duplicate-heading`. (#110)
+- Compatibility: the same check reads other HTML blocks that do not end at a blank line
+  (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, declarations starting with `<!` and a
+  letter, and `<![CDATA[`) and code fences with a visible rule that approximates CommonMark, and
+  rejects a section whose range differs from the v1 rule. Documents without any HTML can be
+  rejected too: in a fence opened by the ordered item `1. ```bash` and closed by a fence
+  indented three spaces, the v1 rule reads a `# comment` line as a heading, so the section that
+  holds the item is rejected. Fences follow CommonMark: a fence in a list item follows the item's
+  indentation, a backtick fence whose info string contains a backtick is not a fence, and only
+  spaces or tabs may follow a closing fence (a full-width space, for example, keeps it open). A
+  lone carriage return, U+2028 and U+2029 are hazards (below). List
+  items follow CommonMark too: thematic breaks (`* * *`, `- - -`), a setext underline `-` after a
+  paragraph and a marker-only item after a paragraph do not start a list, a marker-only item
+  followed by a blank line ends, and an unindented paragraph continuation line does not end the
+  item. A line without `>` after a block quote paragraph continues the paragraph unless it starts
+  a new block. The v1 rule reads the closing fence of a list item (a fence opened after `- ` and
+  closed by a fence indented two spaces) as an opening fence, so later sections in such documents
+  are rejected as well, and a reference that used to hash to `SECTION_MISSING` can become an
+  error. The diagnostic lists, by opening line, only the blocks that contain a line the two rules
+  read differently (a heading, or a fence that opens or closes), and names the closing marker of
+  an unclosed block (such as `</script>`, `?>` or ```` ``` ````; a long fence is given as a
+  count). HTML blocks that end at a blank line (such as `<div>`, `<details>` or a line holding a
+  single complete tag) are read as blocks that hide headings until that blank line. Lines that
+  only the v1 rule reads as a fence are listed too. (#110)
+- Compatibility: when the visible rule cannot determine how a construct renders and that
+  construct reaches the registered section, the section is rejected instead of guessed. The error
+  reads `cannot determine how this section renders near line N (construct)` and applies to every
+  section that reaches from that line to the end of the file. Such constructs are blocks other
+  than plain paragraphs in a block quote (fences, HTML, indented code, nested list items, a tab
+  after `>`), a GFM table followed by a line that could interrupt a paragraph or a table inside a
+  list item, HTML lines that parsers read differently because of whitespace or dialect, and list
+  items that implementations read differently (an empty or non-1 numbered item right after
+  indented code or nested in an item that interrupts a paragraph), lines whose reading depends
+  on whether a possible link reference definition (`[label]: url`) opened a paragraph, and a
+  block start or `>` indented four or more columns after a paragraph (markdown-it reads it as
+  continuing the item or quote, or as a new block), and a possible GFM footnote definition
+  (`[^label]:`). Outside list items, a table, block quote,
+  HTML line or possible link reference definition does not cause a rejection when no line that
+  could be a heading or a fence follows before the next blank line (except after an HTML line,
+  before a line that starts a block interrupting a paragraph, such as a heading). After a
+  possible footnote definition, the same holds up to the next heading, across blank lines.
+  HTML blocks are compared under three readings: CommonMark 0.31, GitHub's cmark-gfm 0.29 and
+  markdown-it, which differ for `<textarea>`, declarations starting with `<!` and a lowercase
+  letter, and `<search>` or `<source>`. A disagreement with the v1 rule under any of them
+  rejects the section. Setext headings never end a section, and other extensions such as math
+  are not tracked. Constructs that do not reach the registered section leave its hash
+  unchanged. (#110)
+- Compatibility: instead of modelling each parser's quirks, a set of simple hazards rejects every
+  section that reaches from the hazard's line to the end of the file (Markdown is read forward,
+  so sections that end earlier are not affected). The error reads
+  `cannot determine how this section renders from line N (kind)` with a fixed kind. Hazards: a
+  line with a C0 control character other than tab (NUL, a vertical tab `\v`, a form feed `\f`,
+  a backspace and so on), DEL, U+0085, U+2028, U+2029 or a lone carriage return (all of them,
+  without checking each parser: cmark-gfm reads `\v` and `\f` as whitespace in table delimiter
+  rows and HTML tags, and a lone carriage return is a line break in CommonMark that the v1 rule
+  does not count; CRLF is read as LF and is not a hazard); a
+  non-empty line of only spaces or tabs after a marker-only list item (cmark-gfm 0.29 continues
+  the item and puts later indented lines inside it); the start of an HTML block, including a
+  comment, inside a list item (markdown-it ends it at a blank line); and a line longer than 65536
+  UTF-16 code units (the HTML tag pattern, whose backtracking can exhaust the stack, is not
+  matched against it). `--since-bless` also treats a past version that a hazard reaches as one
+  whose blessed version cannot be identified. Sections hidden by a comment in a list item, and
+  sections after an HTML block in a list item that used to hash, now fail too. Remove the
+  character or replace it with a space (remove a lone carriage return or make it LF), empty the
+  whitespace-only line, move the HTML block out of the list item, or split the long line, and
+  review the spec diff before updating the link. When the ranges differ but no causing line can
+  be listed, the error gives both ranges by line number and the opening lines of blocks that end
+  before their closing marker. These checks cannot guarantee an exact match to rendering on github.com.
+  The rules err on the side of rejecting, so they can reject what every parser reads
+  the same way (for example, a README with a backspace in a fence line such as ```` ```\b ````,
+  or `<details>` inside a list item with content). (#110)
+- Headings inside comment blocks, the HTML blocks above and code fences no longer count for the
+  two warnings. Conversely, headings after a line the v1 rule read as a fence (the closing fence
+  of a list item, a line whose info string contains a backtick) and headings after a lone
+  carriage return now count and can raise new `unregistered-spec-heading` warnings. (#110)
+- Compatibility: with `--since-bless`, the most recent historical match cannot identify the
+  blessed commit when a comment makes its section boundary ambiguous (likewise for the HTML
+  blocks, code fences and lone carriage returns above). The text directs you to review history
+  manually. JSON returns `blessedCommit: null`, adds
+  `blessedCommitUnidentified: "html-comment-boundary"` to the reference (the value keeps this
+  name for compatibility even when the cause is not a comment), and counts it under
+  `sinceBless.notGrouped.unidentifiedBlessedVersion`. Update consumers that enumerate the
+  `notGrouped` keys. The sync skill requests human review when this count is nonzero.
+  Commit grouping also compares the full file if either side has an ambiguous section boundary.
+  The library’s `computeHeadingSectionHash` accepts an optional fourth argument, the link ID
+  to include in diagnostics. (#110)
+
+- 互換: `specproof-check` / `-update` / `-stats` / `-list` とライブラリの `resolveRepoRoot` / `discoverConfig` が
+  リポジトリのルートを探すとき（`--root`（`root`）を渡さないとき）、親へたどる探索を `.git` の項目がある段で
+  止める。`specproof init` は実行したディレクトリを使うので変わらない。その段の設定ファイルと manifest は読み、それより上は見ない。チェックアウトの外に置かれた設定で
+  ルートを広げさせないため。当たるのは次のとき。
+  - git の最上段より上にある `specproof.config.yaml`（`.yml`）・`traceability.yaml` は読まれなくなる。
+    git の最上段にマーカーが無ければ、その段を越えない範囲で Git の通常の探索と所有者確認を行う。
+    Git が返す作業ツリーのルートがその段と一致する場合だけ、そのパスを末尾の空白も含めて使う。
+    bare リポジトリや、`core.worktree` が別の作業ツリーを指す場合は、必要なルートを `--root` で指定する。Git が
+    `.git` を退けるとそのパスを示すエラーになり、親を選ばない。取り除く案内は中身の無い `.git`
+    （空のディレクトリ・リンク切れ）のときだけで、それ以外は git の終了コードと理由を添え、
+    リポジトリと Git の設定を確かめるか `--root` を付けるよう案内する。git を起動できない・応答が
+    無いときも `--root` を付けるよう案内する。
+    親の Git 環境変数も境界を変えない。上の段の設定を使っていたときは、
+    設定を git の最上段に移すか `--root` を付ける。
+  - submodule や `git worktree` の中（`.git` が `gitdir: ...` を書いたファイル）から実行すると、その段が
+    ルートになる。これまでは上の段の設定ファイル・manifest まで探しに行っていた。
+  - 上の段にある旧名の設定ファイル（`bdd-kit.config.yaml` / `.yml`）の改名のエラーが出なくなる。git の
+    最上段とその中の旧名は、これまでどおりエラーにする。(#111)
+
+- Compatibility: when no `--root` (library option `root`) is supplied, root discovery for
+  `specproof-check`, `specproof-update`, `specproof-stats`, `specproof-list`, `resolveRepoRoot`
+  and `discoverConfig` stops at the first directory containing a `.git` entry. It still checks
+  that directory for a config or manifest. If neither exists, Git performs its normal repository
+  discovery and ownership check within that boundary. The worktree root reported by Git must
+  match the boundary, and trailing spaces in its name are preserved. For a bare repository or a
+  different worktree selected by `core.worktree`, specify the intended root with `--root`.
+  If Git rejects the `.git` entry, the error names it.
+  Only an empty `.git` directory or a broken `.git` link is reported as safe to remove; otherwise
+  the error adds Git's exit status and reason and asks you to check the repository and your Git
+  config, or pass `--root`. If Git cannot be run or does not answer, pass `--root`. Inherited
+  parent-repository Git settings cannot redirect this lookup. With no `.git` entry anywhere, the usual
+  `git rev-parse --show-toplevel` fallback still applies. `specproof init` continues
+  to use the invocation directory.
+  - If you relied on a config or manifest above the repository, move it to the repository root
+    or pass `--root` explicitly.
+  - A submodule or linked worktree uses the directory containing its `.git` file as the boundary.
+    Legacy `bdd-kit.config.yaml` / `.yml` files at or below that boundary still trigger the rename
+    error. Files above it no longer affect discovery. (#111)
+
+- 互換: `specproof-stats` は、manifest に登録した feature のファイルが見つからないとき、または設定した
+  `layout.featuresDir` が無いとき、`--json` の `done` を `false` にする。これまでは `--strict` の終了コード
+  だけが 1 になり、`done` は残った feature だけで `true` になりえた。テキスト出力も、そのときは
+  `the static half of "done" is met` と言わなくなる（`@red-contract` と禁止タグが 0 件なら、代わりに
+  `Feature input is missing` の 1 行を出す）。`done` だけを見て完了を判定していた利用者は、欠落を直すまで
+  完了にならない。(#112)
+
+- 互換: `specproof-stats` は、`layout.featuresDir` を設定しているとき、その外に置いて manifest に登録した
+  feature も集計する。これまではその外の feature を実在の確認にだけ使い、数えていなかった。そのため
+  `totals`・`questions`・`done` と `--strict` の終了コードが変わる。例えば、`featuresDir` の外に
+  `@red-contract` を含む feature を登録していると、`--strict` がこれまでの 0 でなく 1 で失敗するように
+  なる。(#112)
+
+- 互換: `specproof-stats` は、`--manifest` で指定したファイルが見つからないとき、`--strict` の
+  有無にかかわらず終了コード 2 で停止する。指定パスを修正するか、探索ディレクトリだけを集計するなら
+  `--manifest` を省略する。(#112)
+
+- Compatibility: `specproof-stats` now counts registered features outside `layout.featuresDir`.
+  This can change `totals`, `questions`, and `done`. A pending condition in one of those features now makes
+  `--strict` exit with code 1. A missing registered feature or configured directory sets `done` to
+  `false` in JSON and prevents the text report from declaring completion. Restore the missing
+  input before relying on the completion result. An explicit `--manifest` that cannot be found
+  exits with code 2, including without `--strict`. Correct the path or omit the option to count
+  the feature directory alone when no manifest exists. (#112)
+
+- 互換: `specproof init` は、リポジトリのルートにある設定を `.yaml`、`.yml` の順に選ぶ。
+  選んだパスがシンボリックリンク・ディレクトリなどの通常ファイル以外なら、
+  `--force` の有無にかかわらず、足場を書き込む前に停止する。
+  既存の設定を引き継ぐにはルートに通常ファイルを置く。(#97)
+- Compatibility: `specproof init` now chooses the root configuration in `.yaml`, then `.yml`
+  order. If the selected path is a symlink, directory or other non-regular file, initialization stops
+  before writing the scaffold, including with `--force`. Use a regular file to retain an
+  existing configuration. (#97)
+
+- 互換: Playwright の `test:smoke` は設定の `tags.slow`（既定 `@slow`）をタグ単位で除外する。
+  以前の `--grep-invert @slow` が除外していた、似た名前のタグやタイトルも実行対象になる。
+  `test:smoke` は `scripts/smoke.mjs` から bddgen と Playwright の両方に `SPECPROOF_SMOKE=1` を
+  渡す。直接起動するときは両方にこの変数を指定する。smoke 用の生成先は project ごとに
+  `.features-gen-smoke/` 以下へ分け、通常実行や IDE が使う `.features-gen/` を保つ。
+  snapshot は通常実行と同じ比較元を使い、project や全体に指定した `snapshotDir` も引き継ぐ。
+  既定の比較元が `.features-gen/` の外を指す project 名は smoke でエラーになる。
+  不正な `tags.slow` は通常実行でも設定読み込み時にエラーになる。(#109)
+- Compatibility: Playwright smoke runs exclude the configured `tags.slow` (default `@slow`) as
+  an exact Gherkin tag. Similar tags and scenario titles previously filtered by
+  `--grep-invert @slow` can now run. `test:smoke` uses `scripts/smoke.mjs` to pass
+  `SPECPROOF_SMOKE=1` to both bddgen and Playwright. Set the variable on both commands when
+  running them directly. Smoke files are generated per project under `.features-gen-smoke/`,
+  preserving `.features-gen/` for regular runs and IDEs. Each project shares its snapshot
+  baselines with regular runs, including project-level and global `snapshotDir` settings. Smoke
+  rejects project names that would put the default baseline outside `.features-gen/`. Invalid
+  slow-tag settings now fail configuration loading even outside smoke runs. (#109)
+- 互換: Flutter の `commands.smoke` は `dart run tool/smoke.dart` を使う。ホストで
+  `tags.slow` と先頭 project の `tags` を組み合わせ、Gherkin 式を `flutter test` へ渡す。
+  `projects[0].tags` の既定は空になり、追加で必要な条件だけを指定できる。(#109)
+- Compatibility: the Flutter smoke command now uses `dart run tool/smoke.dart` on the host. It
+  combines the slow-tag exclusion with the first project's tags and passes the Gherkin expression
+  to `flutter test`. The default `projects[0].tags` is now empty; use it for additional
+  filters. (#109)
+- 互換: 導入済みの Playwright 足場は、テンプレートから `package.json` の `test:smoke`、
+  `scripts/smoke.mjs`、`playwright.config.ts`、`src/config/specproof-config.ts` の変更を取り込み、
+  `.features-gen-smoke` を E2E パッケージの `.gitignore` と `tsconfig.json` の除外に追加する。
+  Flutter は `commands.smoke` と `tool/smoke.dart` を取り込む。
+  `integration_test/gherkin_suite_test.dart` の状態タグ判定も更新し、`@human-review` などの
+  独立したタグが `@human` と誤認されないようにする。`pubspec.yaml` の
+  `dev_dependencies` に `yaml` を追加する。元の `not @slow` が残ると、`tags.slow` を変更しても
+  `@slow` が追加で除外されるため、意図する project 条件だけを残す。(#109)
+- Compatibility: for existing Playwright scaffolds, port the template's `test:smoke` script,
+  `scripts/smoke.mjs`, `playwright.config.ts` and `src/config/specproof-config.ts`. Add
+  `.features-gen-smoke` to the E2E package's `.gitignore` and TypeScript exclusions. For Flutter,
+  update `commands.smoke`, add `tool/smoke.dart` and add `yaml` to `dev_dependencies`. Update the
+  state-tag check in `integration_test/gherkin_suite_test.dart` so tags such as `@human-review`
+  remain distinct from `@human`. Remove the
+  old `not @slow` project filter unless it should keep excluding `@slow` even after `tags.slow` is
+  renamed. (#109)
+
+### Fixed
+
+- 既存の設定が `specproof.config.yml` だけなら、その隣に優先順位の高い `.yaml` を作らず、
+  `.yml` を保持する。`--force` を付けた場合はその `.yml` を更新する。
+  両方あるときは `.yaml` を対象とし、初期化後の案内には選んだ名前を表示する。(#97)
+- When only `specproof.config.yml` exists, initialization preserves it and avoids creating a
+  higher-priority `.yaml` alongside it. With `--force`, it updates the existing `.yml`.
+  When both exist, it targets `.yaml`. The next-steps message names the selected file. (#97)
+
 ## [0.9.0] - 2026-11-24
 
 ### Security

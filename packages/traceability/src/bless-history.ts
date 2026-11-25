@@ -10,7 +10,13 @@
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import type { DriftEntry } from "./check.js";
-import { hashFileContent, hashHeadingSectionContent, normalizeSourceContent } from "./hash.js";
+import {
+  type HistoricalV1Section,
+  hashFileContent,
+  inspectHistoricalV1Section,
+  normalizeSourceContent,
+  withSectionScanCache,
+} from "./hash.js";
 import type { TraceabilityManifest } from "./manifest.js";
 import { createGitRunner, type GitRunner, type GitRunnerOptions } from "./git-runner.js";
 import { physicalPathOf, resolveWithinRoot } from "./resolve.js";
@@ -32,13 +38,23 @@ export interface BlessHistory {
   /** 設定のルートの、git の最上位からの相対パス（末尾に `/`。最上位なら空）。 */
   prefix: string;
   /**
-   * entries と同じ順。見つかったコミット（完全な id）、見つからなければ null。
+   * entries と同じ順。見つかったコミット（完全な id）、見つからない・特定できない（unidentified）なら null。
    * 探していない（hash が仮の値・履歴を辿れない・打ち切った）ときは undefined。
    */
   commits: (string | null | undefined)[];
   /** entries と同じ順。履歴を辿る（辿った）パス（ルート相対。シンボリックリンクなら実体）。hash が仮の値なら undefined。 */
   paths: (string | undefined)[];
+  /**
+   * entries と同じ順。commits が null のうち、一致する版はあったが bless した版を特定できなかった理由。
+   * `html-comment-boundary`: 一致した版で、HTML コメントなど実装で読み方が分かれうる構文（ほかの HTML
+   * ブロック・コードフェンス・単独の CR・制御文字・hazard を含む。値の名前は互換のため変えない）が節の境界を
+   * 曖昧にしていた
+   * （ブロックの後ろの本文が変わった版も同じ hash になるので、どれが bless した版か決められない）。
+   */
+  unidentified: (BlessUnidentifiedReason | undefined)[];
 }
+
+export type BlessUnidentifiedReason = "html-comment-boundary";
 
 // 参照のパスをルート相対の POSIX 形にする（絶対パスで書かれた参照も、git に渡せる形にそろえる）。
 const toPosixRelative = (from: string, to: string): string =>
@@ -73,20 +89,24 @@ export const headingLevelsOf = (manifest: TraceabilityManifest, entry: DriftEntr
 // 1 つの版について、ファイルの hash と見出しの節の hash を、同じ組み合わせでは 1 回だけ計算する。
 export const versionHasher = (content: string) => {
   let fileHash: string | undefined;
-  const sectionHashes = new Map<string, string>();
+  const sections = new Map<string, HistoricalV1Section>();
+  const inspect = (heading: string, level: number): HistoricalV1Section => {
+    const key = `${level}\u0000${heading}`;
+    const cached = sections.get(key);
+    if (cached !== undefined) return cached;
+    const computed = inspectHistoricalV1Section(content, heading, level);
+    sections.set(key, computed);
+    return computed;
+  };
   return {
     file: (): string => {
       fileHash ??= hashFileContent(content);
       return fileHash;
     },
-    section: (heading: string, level: number): string => {
-      const key = `${level}\u0000${heading}`;
-      const cached = sectionHashes.get(key);
-      if (cached !== undefined) return cached;
-      const computed = hashHeadingSectionContent(content, heading, level);
-      sectionHashes.set(key, computed);
-      return computed;
-    },
+    section: (heading: string, level: number): string => inspect(heading, level).hash,
+    /** この版で、節の境界が HTML コメントなどのブロックで曖昧か（従来の規則と表示上の規則で範囲が違う）。 */
+    sectionAmbiguous: (heading: string, level: number): boolean =>
+      inspect(heading, level).ambiguous,
   };
 };
 
@@ -99,6 +119,21 @@ export const matchesVersion = (
     ? levels.some((level) => hasher.section(entry.heading as string, level) === entry.storedHash)
     : hasher.file() === entry.storedHash;
 
+// 一致した段のどれかで、その版の節の境界がブロックで曖昧か。曖昧な版はブロックの後ろの本文が
+// 変わっても同じ hash になるので、どの版を bless したかを決められない。
+const matchesAmbiguously = (
+  hasher: ReturnType<typeof versionHasher>,
+  entry: DriftEntry,
+  levels: number[],
+): boolean =>
+  entry.side === "spec" &&
+  entry.heading !== undefined &&
+  levels.some(
+    (level) =>
+      hasher.section(entry.heading as string, level) === entry.storedHash &&
+      hasher.sectionAmbiguous(entry.heading as string, level),
+  );
+
 interface PathSearch {
   relPath: string;
   indexes: number[];
@@ -110,6 +145,7 @@ const searchPath = async (
   entries: DriftEntry[],
   manifest: TraceabilityManifest,
   results: (string | null | undefined)[],
+  unidentified: (BlessUnidentifiedReason | undefined)[],
 ): Promise<void> => {
   const target = `./${search.relPath}`;
   const log = await git.run(["log", "--format=%H", `--max-count=${MAX_COMMITS}`, "--", target]);
@@ -131,7 +167,16 @@ const searchPath = async (
       if (git.overDeadline()) return;
       if (matchesVersion(hasher, entries[index], levels.get(index) ?? [2])) matched.push(index);
     }
-    for (const index of matched) results[index] = commit;
+    // 最も新しい一致で止める。境界が曖昧なら、これより古い版も探さずに「特定できない」とする
+    // （古い版を起点にすると、その後に本文を変えた版を見落とす）。
+    for (const index of matched) {
+      if (matchesAmbiguously(hasher, entries[index], levels.get(index) ?? [2])) {
+        results[index] = null;
+        unidentified[index] = "html-comment-boundary";
+      } else {
+        results[index] = commit;
+      }
+    }
     const matchedSet = new Set(matched);
     pending = pending.filter((index) => !matchedSet.has(index));
     if (pending.length === 0) return;
@@ -140,14 +185,24 @@ const searchPath = async (
 };
 
 /** drift した各参照について、bless した中身と同じ版を持つ最も新しいコミットを探す。 */
-export const findBlessedCommits = async (
+export const findBlessedCommits = (
   repoRoot: string,
   entries: DriftEntry[],
   manifest: TraceabilityManifest,
   options: BlessSearchOptions = {},
+): Promise<BlessHistory> =>
+  // 1 つの版の中身を、参照の見出しごとに走査し直さない。
+  withSectionScanCache(() => findBlessedCommitsUncached(repoRoot, entries, manifest, options));
+
+const findBlessedCommitsUncached = async (
+  repoRoot: string,
+  entries: DriftEntry[],
+  manifest: TraceabilityManifest,
+  options: BlessSearchOptions,
 ): Promise<BlessHistory> => {
   const git = options.runner ?? createGitRunner(repoRoot, options);
   const results: (string | null | undefined)[] = entries.map(() => undefined);
+  const unidentified: (BlessUnidentifiedReason | undefined)[] = entries.map(() => undefined);
   const inside = await git.run(["rev-parse", "--is-inside-work-tree", "--show-prefix"]);
   const [isInside, prefix = ""] = inside.ok ? inside.stdout.split("\n") : [];
   if (isInside !== "true") {
@@ -157,6 +212,7 @@ export const findBlessedCommits = async (
       prefix: "",
       commits: results,
       paths: entries.map(() => undefined),
+      unidentified,
     };
   }
 
@@ -172,8 +228,15 @@ export const findBlessedCommits = async (
   });
   // パスごとに順に辿る（git の起動を並べて増やさない）。
   for (const search of byPath.values()) {
-    await searchPath(git, search, entries, manifest, results);
+    await searchPath(git, search, entries, manifest, results, unidentified);
     if (git.exhausted) break;
   }
-  return { available: true, incomplete: git.exhausted, prefix, commits: results, paths };
+  return {
+    available: true,
+    incomplete: git.exhausted,
+    prefix,
+    commits: results,
+    paths,
+    unidentified,
+  };
 };

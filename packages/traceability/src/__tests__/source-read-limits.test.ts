@@ -58,29 +58,47 @@ test("見出しの閉じの # を外す処理は、空白の長い並びでも�
 
 // 改行の正規化は CRLF だけなので、単独の CR は行の中に残る。CR を含む行で見出しやコードの
 // 区切りの正規表現が後戻りし、二乗の時間がかかっていた（見出しでない扱いは従来どおり）。
-for (const [label, line] of [
-  ["単独の CR を含む見出し", `## ${" ".repeat(200_000)}\rx`],
-  ["単独の CR を含むコードの区切り", `${"`".repeat(200_000)}\r`],
+// 表示上の規則（CommonMark）では単独の CR は改行で、従来の規則と行の数え方が変わるので、U+2028・U+2029
+// （実装によって読み方が分かれうる）と同じく、その行から末尾までを決めきれない行（hazard）として拒否する。
+// 行は照合する長さの上限（64 Ki）より短くする。
+for (const [label, line, rejects] of [
+  ["単独の CR を含む見出し", `## ${" ".repeat(60_000)}\rx`, /from line 3 \(carriage return\)/],
+  // 行末の CR は後ろの LF と CRLF になり、読み込みで LF に正規化されるので CR は残らない。
+  ["CRLF で終わるコードの区切り", `${"`".repeat(60_000)}\r`, undefined],
   // `.` は CR のほか U+2028・U+2029 にも一致しない。
-  ["U+2028 を含む見出し", `## ${" ".repeat(200_000)}\u2028x`],
-  ["U+2029 を含むコードの区切り", `${"~".repeat(200_000)}\u2029`],
+  [
+    "U+2028 を含む見出し",
+    `## ${" ".repeat(60_000)}\u2028x`,
+    /from line 3 \(control or separator character U\+2028\)/,
+  ],
+  [
+    "U+2029 を含むコードの区切り",
+    `${"~".repeat(60_000)}\u2029`,
+    /from line 3 \(control or separator character U\+2029\)/,
+  ],
 ] as const) {
   test(`${label}の行も線形の時間で終わる`, () =>
     withDir(async (dir) => {
       const file = path.join(dir, "spec.md");
       writeFileSync(file, `## Title\n\n${line}\nbody\n`);
       const started = performance.now();
-      await computeHeadingSectionHash(file, "Title");
+      const result = computeHeadingSectionHash(file, "Title");
+      if (rejects !== undefined) await assert.rejects(result, rejects);
+      else assert.match(await result, /^[0-9a-f]{64}$/);
       assert.ok(performance.now() - started < 1_000, `${label} parsing must stay linear`);
     }));
 }
 
-test("CR を含む行は従来どおり見出しとして扱わない", () =>
+test("CR を含む行は v1 では見出しとして扱わず、CR の前の見出しを参照すれば拒否する", () =>
   withDir(async (dir) => {
     const file = path.join(dir, "spec.md");
     writeFileSync(file, "## Title\n\nbody\n## Other\rx\nmore\n");
     assert.equal(await computeHeadingSectionHash(file, "Other\rx"), "SECTION_MISSING");
-    assert.equal(await computeHeadingSectionHash(file, "Other"), "SECTION_MISSING");
+    // CommonMark では単独の CR は改行で `## Other` は見出しになりうるので、hazard として拒否する。
+    await assert.rejects(
+      computeHeadingSectionHash(file, "Other"),
+      /from line 4 \(carriage return\)/,
+    );
   }));
 
 test("閉じの # の扱いは従来どおり", () =>

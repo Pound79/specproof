@@ -25,7 +25,15 @@ const withTemp = (run: (dir: string) => void): void => {
   }
 };
 const files = [".env", ".env.dev", ".env.production.local", ".env.example", ".npmrc"];
-const dirs = [".auth", "test-results", "playwright-report", ".features-gen", "build", "coverage"];
+const dirs = [
+  ".auth",
+  "test-results",
+  "playwright-report",
+  ".features-gen",
+  ".features-gen-smoke",
+  "build",
+  "coverage",
+];
 
 for (const [names, isDirectory] of [
   [files, false],

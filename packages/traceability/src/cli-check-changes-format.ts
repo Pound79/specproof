@@ -23,13 +23,17 @@ const describeNotGrouped = ({
   noBlessedVersion,
   notSearched,
   failed,
+  unidentifiedBlessedVersion,
 }: ChangesSinceBless["notGrouped"]): string[] => {
-  const total = noBlessedVersion + notSearched + failed;
+  const total = noBlessedVersion + notSearched + failed + unidentifiedBlessedVersion;
   if (total === 0) return [];
   const reasons = [
     noBlessedVersion > 0 ? `${noBlessedVersion} without a blessed version` : undefined,
     notSearched > 0 ? `${notSearched} not searched` : undefined,
     failed > 0 ? `${failed} whose changes could not be traced` : undefined,
+    unidentifiedBlessedVersion > 0
+      ? `${unidentifiedBlessedVersion} whose blessed version cannot be identified because of an HTML comment or another construct that Markdown parsers may read differently (review the spec diff by hand)`
+      : undefined,
   ].filter((reason) => reason !== undefined);
   return [`  (${total} reference(s) not grouped: ${reasons.join(", ")})`];
 };

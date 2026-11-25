@@ -40,7 +40,7 @@ commands:
   # side as "not verified" instead of guessing a command.
   # productTypecheck: "npm run typecheck"
   # productLint: "npm run lint"
-  smoke: "cd packages/e2e && npm run test:smoke" # [required] fast subset — excludes @slow, used in CI
+  smoke: "cd packages/e2e && npm run test:smoke" # [required] fast subset — excludes tags.slow (SPECPROOF_SMOKE=1), used in CI
   # [optional] traceability engine (framework-agnostic Node CLI): check / update /
   # list / stats. Works for any repo because it hashes file/section text. After
   # installing @pound79/specproof-traceability you can drop `-y -p` and call the

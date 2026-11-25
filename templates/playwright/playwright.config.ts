@@ -1,9 +1,12 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/test";
 import { defineBddProject } from "playwright-bdd";
 import {
   loadSpecproofConfig,
   isConditionMet,
   resolveActiveEnvironment,
+  runnerExclusions,
+  isSmokeRun,
+  withRegularSnapshots,
 } from "./src/config/specproof-config";
 import {
   loadDotenv,
@@ -69,30 +72,34 @@ const NEVER_RUN_TAGS = ["@draft", "@human", "@out-of-scope"];
 
 function mergeExcludeTags(
   projectTags: string | undefined,
-  env: ReturnType<typeof resolveActiveEnvironment>,
+  excludedTags: readonly string[],
 ): string {
-  const exclusion = [...NEVER_RUN_TAGS, ...(env.excludeTags ?? [])]
-    .map((t) => `not ${t}`)
-    .join(" and ");
+  const exclusion = [...NEVER_RUN_TAGS, ...excludedTags].map((t) => `not ${t}`).join(" and ");
   if (!projectTags) {
     return exclusion;
   }
   return `(${projectTags}) and ${exclusion}`;
 }
 
+// smoke（`npm run test:smoke` が SPECPROOF_SMOKE=1 を渡す）では、設定の tags.slow も除外する。
+const smoke = isSmokeRun();
+const excludedTags = runnerExclusions(cfg, activeEnv, smoke);
+
 // Per-config app projects.
-const appProjects = cfg.projects.flatMap((p) => {
+const appProjects = cfg.projects.flatMap((p, projectIndex) => {
   // Skip projects whose runtime condition is not met (e.g. no admin creds).
   if (!isConditionMet(p.conditional, cfg)) {
     return [];
   }
 
-  const effectiveTags = mergeExcludeTags(p.tags, activeEnv);
+  const effectiveTags = mergeExcludeTags(p.tags, excludedTags);
 
   return [
     {
       ...defineBddProject({
         name: p.name,
+        // 通常の生成物を残す。設定順の番号なら project 名にパス文字があっても衝突しない。
+        ...(smoke ? { outputDir: `.features-gen-smoke/${projectIndex}` } : {}),
         features: p.features,
         steps: STEPS,
         // Always a filter: @draft / @human / @out-of-scope never run, and the
@@ -182,7 +189,7 @@ if (usesCredentials) assertSecureBaseUrl(resolveBaseUrl(cfg), activeEnv);
 // Export
 // ---------------------------------------------------------------------------
 
-export default defineConfig({
+const config: PlaywrightTestConfig = {
   globalTeardown: cfg.runner?.globalTeardown,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -206,4 +213,8 @@ export default defineConfig({
   },
   projects: [...setupProject, ...appProjects],
   webServer,
-});
+};
+
+export default defineConfig(
+  smoke ? withRegularSnapshots(config, new Set(appProjects.map((p) => p.name))) : config,
+);

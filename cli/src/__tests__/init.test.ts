@@ -37,6 +37,45 @@ describe("runInit", () => {
     await rm(root, { recursive: true, force: true });
   });
 
+  it.each([false, true])("既存の .yml に force=%s を適用し .yaml を追加しない", async (force) => {
+    const oldConfig = "strictFeatureLint: true\n";
+    await writeFile("specproof.config.yml", oldConfig);
+    await runInit({ adapter: "flutter", force });
+    expect(existsSync("specproof.config.yaml")).toBe(false);
+    const content = await readFile("specproof.config.yml", "utf8");
+    if (force) expect(content).toContain("adapter: flutter");
+    else expect(content).toBe(oldConfig);
+  });
+
+  it.each(["specproof.config.yaml", "specproof.config.yml"])(
+    "設定名 %s がディレクトリなら force の有無によらず足場を作る前に止める",
+    async (name) => {
+      await mkdir(name);
+      for (const force of [false, true]) {
+        await expect(runInit({ adapter: "flutter", force })).rejects.toThrow(
+          `${name} must be a regular file`,
+        );
+        expect(await readdir(".")).toEqual([name]);
+      }
+    },
+  );
+
+  it("リンク切れの .yml があるときは足場を作る前に止める", async () => {
+    await symlink("missing", "specproof.config.yml");
+    await expect(runInit({ adapter: "flutter" })).rejects.toThrow(/symbolic link/i);
+    expect(await readdir(".")).toEqual(["specproof.config.yml"]);
+  });
+
+  it(".yaml と .yml が両方あるとき force でも .yaml だけを上書きし .yml は変えない", async () => {
+    const oldYaml = "strictFeatureLint: true\n";
+    const oldYml = Buffer.from("# 残す設定\r\nstrictFeatureLint: false\n", "utf8");
+    await writeFile("specproof.config.yaml", oldYaml);
+    await writeFile("specproof.config.yml", oldYml);
+    await runInit({ adapter: "flutter", force: true });
+    expect(await readFile("specproof.config.yaml", "utf8")).toContain("adapter: flutter");
+    expect((await readFile("specproof.config.yml")).equals(oldYml)).toBe(true);
+  });
+
   it("rejects target directories outside the current repo", async () => {
     await expect(runInit({ adapter: "playwright", dir: "../outside" })).rejects.toThrow(
       /--dir must stay within the current repo/,

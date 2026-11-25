@@ -87,18 +87,99 @@ test("製品の変更を置く場所の省略は同じブランチに置く明�
   assert.match(skill, /`separateBranch`/);
 });
 
-test("Flutter の smoke は projects のタグ条件を runner へ実際に渡す", () => {
-  // 宣言だけでは flutter test の実行対象は変わらない。smoke の --dart-define が suite の入口で
-  // FlutterTestConfiguration.tagExpression に渡り、runner が実行時に絞り込む。
-  const config = parse(read("templates/flutter/specproof.config.yaml"));
+// この環境では Dart を実行できないため、tool/smoke.dart と suite からタグ式の組み立て部分
+// （既定値・検証の正規表現・文字列の補間）を取り出して JS で評価し、テンプレートの設定から
+// runner に届くタグ式を求める。組み立ての形が変わったら取り出しが失敗して気づける。
+const dartTemplate = (template, values) =>
+  template.replace(/\$(\w+)/g, (_, name) => {
+    assert.ok(name in values, `未知の補間 $${name}`);
+    return values[name];
+  });
+
+const flutterSmokeTags = (config) => {
+  const launcher = read("templates/flutter/tool/smoke.dart");
+  const fallback = launcher.match(/final slow = config\['tags'\]\?\['slow'\] \?\? '([^']+)';/)?.[1];
+  // 判定の分岐は JS で書き直して評価するので、Dart 側の条件式そのものも固定する。
+  const pattern = launcher.match(
+    /\n {2}if \(slow is! String \|\|\n {6}!RegExp\(r'([^']+)'\)\.hasMatch\(slow\) \|\|\n {6}stateTags\.contains\(slow\)\) \{\n {4}throw FormatException\('tags\.slow /,
+  )?.[1];
+  const states = launcher.match(/const stateTags = \{([^}]*)\};/)?.[1];
+  const extraSource = launcher.match(/final extra = projects\.first\['tags'\] \?\? '([^']*)';/);
+  const compose = launcher.match(/final tags = extra\.trim\(\)\.isEmpty \? '([^']*)' : '([^']*)';/);
+  assert.ok(fallback && pattern && states && extraSource && compose, "smoke.dart の組み立てを読めない");
+  assert.match(launcher, /'--dart-define=SPECPROOF_TAGS=\$tags'/);
+  const stateTags = [...states.matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  const slow = config.tags?.slow ?? fallback;
+  if (typeof slow !== "string" || !new RegExp(pattern).test(slow) || stateTags.includes(slow)) {
+    throw new Error("tags.slow must be a single non-state tag");
+  }
+  const extra = config.projects[0].tags ?? extraSource[1];
+  return dartTemplate(extra.trim() === "" ? compose[1] : compose[2], { slow, extra });
+};
+
+const flutterRunnerTags = (define) => {
   const suite = read("templates/flutter/integration_test/gherkin_suite_test.dart");
-  const declared = config.projects[0].tags;
-  assert.ok(declared.includes(config.tags.slow), "projects のタグ条件が @slow を除外していない");
-  const define = config.commands.smoke.match(/--dart-define=SPECPROOF_TAGS=("[^"]*"|'[^']*'|\S+)/);
-  assert.ok(define, "smoke が SPECPROOF_TAGS を渡していない");
-  assert.equal(define[1].replace(/^["']|["']$/g, ""), declared);
-  assert.match(suite, /String\.fromEnvironment\('SPECPROOF_TAGS'\)/);
-  assert.match(suite, /tagExpression:/);
+  assert.match(suite, /const _tagExpression = String\.fromEnvironment\('SPECPROOF_TAGS'\);/);
+  const neverRun = suite.match(/const _neverRun = '([^']+)';/)?.[1];
+  const state = suite.match(/final _stateTag = RegExp\(r'([^']+)'\)/)?.[1];
+  const compose = suite.match(/tagExpression:\s*_tagExpression\.isEmpty \? _neverRun : '([^']*)'/)?.[1];
+  assert.ok(neverRun && state && compose, "suite の組み立てを読めない");
+  // 下の JS は suite の拒否条件と _balanced をなぞるので、Dart 側の本体も一致で固定する。
+  assert.ok(
+    suite.includes(
+      [
+        "bool _balanced(String expression) {",
+        "  var depth = 0;",
+        "  for (final char in expression.split('')) {",
+        "    if (char == '(') depth++;",
+        "    if (char == ')') depth--;",
+        "    if (depth < 0) return false;",
+        "  }",
+        "  return depth == 0;",
+        "}",
+      ].join("\n"),
+    ),
+    "suite の _balanced が想定と違う",
+  );
+  assert.match(
+    suite,
+    /\n {2}if \(_stateTag\.hasMatch\(_tagExpression\) \|\| !_balanced\(_tagExpression\)\) \{\n {4}throw StateError\(/,
+  );
+  let depth = 0;
+  for (const char of define) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (depth < 0) break;
+  }
+  if (new RegExp(state).test(define) || depth !== 0) throw new Error("suite rejects SPECPROOF_TAGS");
+  return define === "" ? neverRun : dartTemplate(compose, { _tagExpression: define, _neverRun: neverRun });
+};
+
+test("Flutter の smoke は設定の tags.slow と projects[0].tags から runner のタグ式を作る", () => {
+  const config = parse(read("templates/flutter/specproof.config.yaml"));
+  assert.match(config.commands.smoke, /dart run tool\/smoke\.dart integration_test\/gherkin_suite_test\.dart/);
+  assert.doesNotMatch(config.commands.smoke, /@slow|SPECPROOF_TAGS/);
+  assert.match(read("templates/flutter/pubspec.yaml"), /^dev_dependencies:\n(?: .*\n)*? {2}yaml: /m);
+
+  // 既定の設定は、以前の smoke の define（"not @slow"）と同じ式を渡す。
+  assert.equal(flutterSmokeTags(config), "not @slow");
+  assert.equal(
+    flutterRunnerTags(flutterSmokeTags(config)),
+    "(not @slow) and not @draft and not @human and not @out-of-scope",
+  );
+
+  const withProject = (tags) => ({ ...config, projects: [{ ...config.projects[0], tags }, ...config.projects.slice(1)] });
+  const withSlow = (slow) => ({ ...config, tags: { ...config.tags, slow } });
+  assert.equal(flutterSmokeTags(withProject("@admin or @user")), "(@admin or @user) and not @slow");
+  assert.equal(flutterSmokeTags(withSlow("@long-running")), "not @long-running");
+  assert.equal(flutterSmokeTags({ ...config, tags: {} }), "not @slow");
+  for (const slow of ["@red-contract", "@draft", "@first or @second", "not @slow", "@slow\\", "slow", 1]) {
+    assert.throws(() => flutterSmokeTags(withSlow(slow)), /tags\.slow/, String(slow));
+  }
+  // projects[0].tags の状態タグや括弧の崩れは、smoke が組み立てた後に suite が拒否する。
+  for (const tags of ["not @red-contract", "@admin)"]) {
+    assert.throws(() => flutterRunnerTags(flutterSmokeTags(withProject(tags))), /suite rejects/, tags);
+  }
 });
 
 test("implement スキルは E2E 側と製品側の検証を取り違えない", () => {

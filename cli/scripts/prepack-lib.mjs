@@ -9,7 +9,7 @@ import path from "node:path";
 
 const EXCLUDED_DIRS = new Set([
   ".dart_tool", "node_modules", ".git", ".auth", "test-results",
-  "playwright-report", ".features-gen", "build", "coverage",
+  "playwright-report", ".features-gen", ".features-gen-smoke", "build", "coverage",
 ]);
 const EXCLUDED_FILES = new Set([
   ".flutter-plugins",

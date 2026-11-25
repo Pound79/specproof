@@ -16,15 +16,16 @@ part 'gherkin_suite_test.g.dart';
 // runner, which trips "Can't call group() once tests have begun running" under
 // `flutter test`. We instead await the generated runner directly from an async
 // main so the declaration phase stays open until all group()s are declared.
-// Gherkin tag expression passed with --dart-define=SPECPROOF_TAGS=... (e.g. the
-// smoke command passes "not @slow"). @draft (not decided yet), @human (a person
+// Gherkin tag expression passed with --dart-define=SPECPROOF_TAGS=... (e.g.
+// tool/smoke.dart passes "not <tags.slow>", combined with projects[0].tags when
+// set, such as "not @slow"). @draft (not decided yet), @human (a person
 // checks it) and @out-of-scope (excluded) never run; @red-contract runs and stays
 // red until implemented. There is deliberately no tag to switch a test off.
 const _tagExpression = String.fromEnvironment('SPECPROOF_TAGS');
 const _neverRun = 'not @draft and not @human and not @out-of-scope';
 // State tags decide whether a scenario runs; SPECPROOF_TAGS may not mention them
 // (it could silence @red-contract or select @draft / @human / @out-of-scope).
-const _stateTags = ['@draft', '@red-contract', '@human', '@out-of-scope'];
+final _stateTag = RegExp(r'@(draft|red-contract|human|out-of-scope)(?=$|[\s)&])');
 
 bool _balanced(String expression) {
   var depth = 0;
@@ -38,7 +39,7 @@ bool _balanced(String expression) {
 
 Future<void> main() async {
   // An unbalanced parenthesis could escape the "(...) and not @draft ..." wrapper.
-  if (_stateTags.any(_tagExpression.contains) || !_balanced(_tagExpression)) {
+  if (_stateTag.hasMatch(_tagExpression) || !_balanced(_tagExpression)) {
     throw StateError(
       'SPECPROOF_TAGS must not mention a state tag and must have balanced parentheses.',
     );
