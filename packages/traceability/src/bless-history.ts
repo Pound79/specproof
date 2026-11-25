@@ -15,6 +15,7 @@ import {
   hashFileContent,
   inspectHistoricalV1Section,
   normalizeSourceContent,
+  withSectionScanCache,
 } from "./hash.js";
 import type { TraceabilityManifest } from "./manifest.js";
 import { createGitRunner, type GitRunner, type GitRunnerOptions } from "./git-runner.js";
@@ -45,8 +46,10 @@ export interface BlessHistory {
   paths: (string | undefined)[];
   /**
    * entries と同じ順。commits が null のうち、一致する版はあったが bless した版を特定できなかった理由。
-   * `html-comment-boundary`: 一致した版で、HTML コメントの中の見出しやフェンスが節の境界を曖昧にしていた
-   * （コメントの後ろの本文が変わった版も同じ hash になるので、どれが bless した版か決められない）。
+   * `html-comment-boundary`: 一致した版で、HTML コメントなど実装で読み方が分かれうる構文（ほかの HTML
+   * ブロック・コードフェンス・単独の CR・制御文字・hazard を含む。値の名前は互換のため変えない）が節の境界を
+   * 曖昧にしていた
+   * （ブロックの後ろの本文が変わった版も同じ hash になるので、どれが bless した版か決められない）。
    */
   unidentified: (BlessUnidentifiedReason | undefined)[];
 }
@@ -101,7 +104,7 @@ export const versionHasher = (content: string) => {
       return fileHash;
     },
     section: (heading: string, level: number): string => inspect(heading, level).hash,
-    /** この版で、節の境界が HTML コメントで曖昧か（従来の規則とコメントを認識した規則で範囲が違う）。 */
+    /** この版で、節の境界が HTML コメントなどのブロックで曖昧か（従来の規則と表示上の規則で範囲が違う）。 */
     sectionAmbiguous: (heading: string, level: number): boolean =>
       inspect(heading, level).ambiguous,
   };
@@ -116,7 +119,7 @@ export const matchesVersion = (
     ? levels.some((level) => hasher.section(entry.heading as string, level) === entry.storedHash)
     : hasher.file() === entry.storedHash;
 
-// 一致した段のどれかで、その版の節の境界がコメントで曖昧か。曖昧な版はコメントの後ろの本文が
+// 一致した段のどれかで、その版の節の境界がブロックで曖昧か。曖昧な版はブロックの後ろの本文が
 // 変わっても同じ hash になるので、どの版を bless したかを決められない。
 const matchesAmbiguously = (
   hasher: ReturnType<typeof versionHasher>,
@@ -182,11 +185,20 @@ const searchPath = async (
 };
 
 /** drift した各参照について、bless した中身と同じ版を持つ最も新しいコミットを探す。 */
-export const findBlessedCommits = async (
+export const findBlessedCommits = (
   repoRoot: string,
   entries: DriftEntry[],
   manifest: TraceabilityManifest,
   options: BlessSearchOptions = {},
+): Promise<BlessHistory> =>
+  // 1 つの版の中身を、参照の見出しごとに走査し直さない。
+  withSectionScanCache(() => findBlessedCommitsUncached(repoRoot, entries, manifest, options));
+
+const findBlessedCommitsUncached = async (
+  repoRoot: string,
+  entries: DriftEntry[],
+  manifest: TraceabilityManifest,
+  options: BlessSearchOptions,
 ): Promise<BlessHistory> => {
   const git = options.runner ?? createGitRunner(repoRoot, options);
   const results: (string | null | undefined)[] = entries.map(() => undefined);
