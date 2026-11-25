@@ -11,6 +11,7 @@ import {
   isSentinel,
   readFileOrNull,
   SECTION_MISSING,
+  withSectionScanCache,
 } from "./hash.js";
 import {
   type GherkinFlavor,
@@ -392,10 +393,18 @@ export interface CheckDriftOptions {
   unknownConfigKeys?: readonly string[];
 }
 
-export const checkDrift = async (
+// 同じ spec を参照するリンクが多くても、中身ごとの走査は実行の間だけ使い回す。
+export const checkDrift = (
   manifestPath: string,
   repoRoot: string,
   options: CheckDriftOptions = {},
+): Promise<DriftReport> =>
+  withSectionScanCache(() => checkDriftUncached(manifestPath, repoRoot, options));
+
+const checkDriftUncached = async (
+  manifestPath: string,
+  repoRoot: string,
+  options: CheckDriftOptions,
 ): Promise<DriftReport> => {
   const manifest = await loadManifest(manifestPath);
   const runLimited = createTaskLimiter(MAX_CONCURRENT_FILE_READS);

@@ -11,7 +11,7 @@ import type { BlessHistory } from "./bless-history.js";
 import { headingLevelsOf, MAX_COMMITS, matchesVersion, versionHasher } from "./bless-history.js";
 import type { DriftEntry } from "./check.js";
 import type { GitRunner } from "./git-runner.js";
-import { FILE_MISSING, normalizeSourceContent } from "./hash.js";
+import { FILE_MISSING, normalizeSourceContent, withSectionScanCache } from "./hash.js";
 import type { TraceabilityManifest } from "./manifest.js";
 
 const COMMIT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
@@ -37,7 +37,7 @@ export interface NotGroupedCounts {
   notSearched: number;
   /** 版は見つかったが、変えたコミットも、コミットしていない変更も特定できなかった。 */
   failed: number;
-  /** 一致する版はあったが、HTML コメントで節の境界が曖昧なので、どれが bless した版か特定できなかった。 */
+  /** 一致する版はあったが、HTML コメントなどのブロックで節の境界が曖昧なので、どれが bless した版か特定できなかった。 */
   unidentifiedBlessedVersion: number;
 }
 
@@ -122,8 +122,8 @@ const versionKey = (
   return withFile ? `${sections},${hasher.file()}` : sections;
 };
 
-// どちらかの版で、登録された段のどれかの節の境界が HTML コメントで曖昧か。曖昧な版の節の hash は
-// コメントの後ろの本文の変更を表さないので、そのときはファイルの単位でも比べ、多めに割り当てる側に倒す。
+// どちらかの版で、登録された段のどれかの節の境界が HTML コメントなどのブロックで曖昧か。曖昧な版の節の hash は
+// ブロックの後ろの本文の変更を表さないので、そのときはファイルの単位でも比べ、多めに割り当てる側に倒す。
 const sectionAmbiguousIn = (
   versions: (Hasher | null)[],
   entry: DriftEntry,
@@ -213,7 +213,16 @@ const rangesOf = (history: BlessHistory): Range[] => {
 };
 
 /** drift した参照を、bless の後にそれを変えたコミットごとにまとめる。history は findBlessedCommits の結果。 */
-export const groupChangesSinceBless = async (
+export const groupChangesSinceBless = (
+  git: GitRunner,
+  entries: DriftEntry[],
+  history: BlessHistory,
+  manifest: TraceabilityManifest,
+): Promise<ChangesSinceBless> =>
+  // 1 つの版の中身を、参照の見出しごとに走査し直さない。
+  withSectionScanCache(() => groupChangesUncached(git, entries, history, manifest));
+
+const groupChangesUncached = async (
   git: GitRunner,
   entries: DriftEntry[],
   history: BlessHistory,
