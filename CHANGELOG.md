@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-26
+
+### Added
+
+- 利用者・貢献者向けの文書を日英の両方で提供し、各文書の冒頭から対訳へリンクした。npm に同梱する
+  `cli/README_ja.md` と `packages/traceability/README_ja.md`、`specproof init` が書き出す
+  Playwright の `README_ja.md` と Flutter の `README_en.md` を追加した。新しく `specproof init` した
+  足場には対訳の README が入る。既存の利用者のファイルは変わらない。(#96, #102, #103, #106)
+- GitHub 上の文書に英語版を追加した: 用語集・設定スキーマ・アダプター契約（#95）、セキュリティモデル
+  （#101）、方法論（#108）、別リポジトリのバックエンドを使う Playwright CI の手引き（#104）、
+  ロードマップ・設計判断と履歴の索引（#107）。貢献手順・リリース手順・セキュリティ窓口・行動規範・
+  Issue テンプレートには日本語版を追加した（#99, #100, #101）。`docs/README.md` と
+  `docs/README_ja.md` を文書の入口とし、対訳リンクの欠落をテストで検出する。(#107, #113)
+- English and Japanese versions of the user and contributor documentation, each linking to its
+  counterpart. The npm packages now include `cli/README_ja.md` and
+  `packages/traceability/README_ja.md`, and `specproof init` writes the Playwright `README_ja.md`
+  and the Flutter `README_en.md`. New scaffolds receive both READMEs; existing files are not
+  changed. (#96, #102, #103, #106)
+- English versions of the glossary, configuration schema and adapter contract (#95), the security
+  model (#101), the methodology (#108), the Playwright CI guide for a backend in another repository
+  (#104), and the roadmap, ADR and history indexes (#107). Japanese versions of the contributing,
+  release and security policies, the code of conduct and the issue templates (#99, #100, #101).
+  `docs/README.md` and `docs/README_ja.md` are the documentation entry points, and a test detects
+  missing translation links. (#107, #113)
+
 ### Changed
 
 - 互換: manifest v1 で、HTML コメントブロックの中の見出しやコードフェンスが登録した節の開始や終端を変える
@@ -301,6 +326,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   old `not @slow` project filter unless it should keep excluding `@slow` even after `tags.slow` is
   renamed. (#109)
 
+- 互換: `cli/README.md`・`packages/traceability/README.md`・Playwright の雛形の `README.md` に混在して
+  いた日本語の記述を同じ場所の `README_ja.md` へ移し、`README.md` を英語に統一した。skill は
+  `layout.e2eReadme` の節を、Playwright では英語の見出し（例: 「Choosing a workflow」）、Flutter では
+  従来の日本語の見出しで示し、両方を併記する。既存の Playwright 足場の README は従来の日本語の見出しの
+  ままで、skill が併記する日本語の見出しと同じ名前の節が対応する。英語の見出しに揃えるには、雛形の
+  `README.md` と `README_ja.md` を取り込む。(#96, #102, #106)
+- Compatibility: the Japanese text that was mixed into `cli/README.md`,
+  `packages/traceability/README.md` and the Playwright scaffold's `README.md` moved to `README_ja.md`
+  beside each, leaving `README.md` in English. Skills name `layout.e2eReadme` sections by English
+  headings for Playwright (for example "Choosing a workflow") and by the existing Japanese headings
+  for Flutter, listing both. An existing Playwright scaffold's README keeps the earlier Japanese
+  headings, which match the Japanese headings the skills list. To use the English headings, port
+  the template's `README.md` and `README_ja.md`. (#96, #102, #106)
+- `specproof init` が書き出す drift-check ワークフローの PR コメントは、drift の対処として、影響する
+  リンクを確かめてから `specproof-update --link-id <id>` で更新するよう案内する。助言だけの警告には
+  `strictFeatureLint` と、人の判断が要る警告もあることを示す。既存の利用者のワークフローは変わらない。
+  (#105)
+- The drift-check workflow written by `specproof init` now tells PR authors to review each affected
+  link and run `specproof-update --link-id <id>`. Its advisory message also mentions
+  `strictFeatureLint` and that some advisories always need human judgment. Existing workflows are not
+  changed. (#105)
+
 ### Fixed
 
 - 既存の設定が `specproof.config.yml` だけなら、その隣に優先順位の高い `.yaml` を作らず、
@@ -309,7 +356,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When only `specproof.config.yml` exists, initialization preserves it and avoids creating a
   higher-priority `.yaml` alongside it. With `--force`, it updates the existing `.yml`.
   When both exist, it targets `.yaml`. The next-steps message names the selected file. (#97)
-
 ## [0.9.0] - 2026-11-24
 
 ### Security
@@ -1391,7 +1437,8 @@ Initial public release.
 - Community health files (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY), issue/PR
   templates, Dependabot, and CODEOWNERS.
 
-[Unreleased]: https://github.com/Pound79/specproof/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/Pound79/specproof/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/Pound79/specproof/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Pound79/specproof/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Pound79/specproof/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Pound79/specproof/compare/v0.6.0...v0.7.0
